@@ -61,6 +61,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "openworkPromotions": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "OpenWork promotions: Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces. Renders DEN_FEATURE_OPENWORK_PROMOTIONS."
+            },
             "comexWorkspace": {
               "enum": [
                 "",

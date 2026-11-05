@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useShellConfig } from "@/react-app/shell/shell-config";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -80,6 +81,7 @@ function SettingsCard(props: {
 }
 
 export function GeneralSettingsView(props: GeneralSettingsViewProps) {
+  const { config } = useShellConfig();
   return (
     <div className="w-full max-w-3xl space-y-8">
       {/* Workspace settings */}
@@ -106,7 +108,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
           Global
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {globalCards.map((card) => (
+          {globalCards.filter(card => card.tab !== "cloud-account" || config.cloudSignin).map((card) => (
             <SettingsCard
               key={card.tab}
               icon={card.icon}
@@ -119,7 +121,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       </div>
 
       {/* Feedback */}
-      <div className="space-y-3">
+      {config.feedbackButton ? <div className="space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-dls-secondary">
           Help
         </div>
@@ -161,7 +163,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
             </div>
           </div>
         </div>
-      </div>
+      </div> : null}
     </div>
   );
 }

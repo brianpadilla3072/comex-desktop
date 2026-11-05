@@ -113,6 +113,8 @@ function parseEngineActivity(value: unknown): EngineActivity {
 }
 
 export interface EngineV2PreviewStatus {
+  connectionSource?: "installed";
+  lastWarning?: string;
   enabled: boolean;
   running: boolean;
   chatRouting: boolean;
@@ -204,6 +206,8 @@ function parseEngineV2PreviewStatus(value: unknown): EngineV2PreviewStatus {
     ...("v2Only" in value && typeof value.v2Only === "boolean" ? { v2Only: value.v2Only } : {}),
     ...("v1UnavailableReason" in value && typeof value.v1UnavailableReason === "string"
       ? { v1UnavailableReason: value.v1UnavailableReason } : {}),
+    ...("connectionSource" in value && value.connectionSource === "installed" ? { connectionSource: value.connectionSource } : {}),
+    ...("lastWarning" in value && typeof value.lastWarning === "string" ? { lastWarning: value.lastWarning } : {}),
     enabled: value.enabled,
     running: value.running,
     chatRouting: "chatRouting" in value && typeof value.chatRouting === "boolean" ? value.chatRouting : false,
@@ -2399,7 +2403,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         { token, hostToken, timeoutMs: timeouts.binary },
       ),
 
-    getComexFeatures: () => requestJson<{ enabled: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; openworkPromotions?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */
     readWorkspaceFile: (workspaceId: string, path: string, options?: { sessionId?: string; fileScope?: "workspace" | "conversation" }) =>

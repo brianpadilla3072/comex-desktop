@@ -753,11 +753,13 @@ export function AdvancedEngineV2PreviewSection(props: { client: OpenworkServerCl
             </ToggleGroup>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
+        {engine.status?.connectionSource === "installed" ? <p role="status" className="text-xs text-muted-foreground">Usando tu OpenCode instalado · cuentas y modelos de tu instalación.</p> : null}
         {engineNote ? <p className="text-xs text-muted-foreground">{engineNote}</p> : null}
         {engine.status?.enabled && !engine.status.running && !engine.status.lastError ? <p role="status" className="text-xs text-muted-foreground">OpenCode v2 is starting…</p> : null}
         {engine.error || runtimeError ? <p role="alert" className="text-xs text-destructive">{engine.error ?? runtimeError}</p> : null}
       </LayoutSectionItem>
       <details className="text-xs text-muted-foreground"><summary>Engine details</summary>
+        {engine.status?.lastWarning ? <p>{engine.status.lastWarning}</p> : null}
         {engine.status?.running ? <p>OpenCode {engine.status.version} · {engine.status.mirroredProviderIds.length} providers · {engine.status.catalogModelIds.length} models</p> : null}
       </details>
     </LayoutSection>

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
-import { createContext, useCallback, use, useMemo, useState, type ReactNode } from "react";
+import { getOpenworkPromotionsEnabled, subscribeOpenworkPromotions } from "../domains/cloud/openwork-promotions-flag";
+import { createContext, useCallback, use, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -92,6 +93,7 @@ const ShellConfigContext = createContext<ShellConfigContextValue | undefined>(un
 
 export function ShellConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<ShellConfig>(readShellConfig);
+  const promotions = useSyncExternalStore(subscribeOpenworkPromotions, getOpenworkPromotionsEnabled, () => false);
 
   const update = useCallback((patch: Partial<ShellConfig>) => {
     setConfig((prev) => {
@@ -107,8 +109,17 @@ export function ShellConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<ShellConfigContextValue>(
-    () => ({ config, update, reset }),
-    [config, update, reset],
+    () => ({
+      config: {
+        ...config,
+        cloudSignin: config.cloudSignin && promotions,
+        docsButton: config.docsButton && promotions,
+        feedbackButton: config.feedbackButton && promotions,
+      },
+      update,
+      reset,
+    }),
+    [config, update, reset, promotions],
   );
 
   return (

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+import { getOpenworkPromotionsEnabled, subscribeOpenworkPromotions } from "./openwork-promotions-flag";
 
 import { Button } from "@/components/ui/button";
 import { t } from "../../../i18n";
@@ -16,6 +17,8 @@ export function CloudSignInBanner(props: {
   onSignIn?: () => void;
   testId?: string;
 }) {
+  const enabled = useSyncExternalStore(subscribeOpenworkPromotions, getOpenworkPromotionsEnabled, () => false);
+  if (!enabled) return null;
   return (
     <div data-testid={props.testId} className="flex items-center gap-4 rounded-xl border border-dls-border bg-dls-surface px-4 py-3">
       <div className="flex shrink-0 -space-x-1.5" aria-hidden>{props.media}</div>

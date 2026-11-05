@@ -104,6 +104,17 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  openworkPromotions: {
+    label: "OpenWork promotions",
+    description: "Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.",
+    category: "experience",
+    added: "2026-11-05",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/openwork-promotions/README.md",
+    deployments: ["self_hosted"],
+    default: false,
+  },
   comexWorkspace: {
     label: "Comex workspace",
     description: "Local Word previews, project memory and the Comex research pack.",

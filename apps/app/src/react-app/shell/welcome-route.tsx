@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useShellConfig } from "./shell-config";
 import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
 
@@ -121,6 +122,7 @@ function welcomeReducer(state: WelcomeState, action: WelcomeAction): WelcomeStat
  * hasCompletedOnboarding is set and the user is redirected to /session.
  */
 export function WelcomeRoute() {
+  const { config: shellConfig } = useShellConfig();
   const navigate = useNavigate();
   const local = useLocal();
   const platform = usePlatform();
@@ -284,6 +286,10 @@ export function WelcomeRoute() {
     if (state.pendingSessionId) focusPromptSoon();
   }, [markOnboardingComplete, navigate, state.pendingRoute, state.pendingSessionId]);
 
+  useEffect(() => {
+    if (state.attributionStep && !shellConfig.cloudSignin) finishOnboarding();
+  }, [state.attributionStep, shellConfig.cloudSignin, finishOnboarding]);
+
   const handleAttributionSubmit = useCallback(
     (source: AttributionSource, aiPrompt?: string) => {
       const prompt = aiPrompt?.trim().slice(0, 500) ?? "";
@@ -317,8 +323,8 @@ export function WelcomeRoute() {
         onManualFolderChange={setManualFolder}
         onUseManualFolder={handleUseManualFolder}
         showManualFolder={import.meta.env.DEV && isDesktopRuntime()}
-        onTeamSignIn={handleTeamSignIn}
-        onJoinOrganization={() => setJoinOrganizationOpen(true)}
+        onTeamSignIn={shellConfig.cloudSignin ? handleTeamSignIn : undefined}
+        onJoinOrganization={shellConfig.cloudSignin ? () => setJoinOrganizationOpen(true) : undefined}
       />
       <JoinOrganizationDialog
         open={joinOrganizationOpen}
@@ -375,7 +381,7 @@ export function WelcomeRoute() {
           }}
         />
       ) : null}
-      {state.attributionStep ? (
+      {state.attributionStep && shellConfig.cloudSignin ? (
         <AttributionStep
           onSubmit={handleAttributionSubmit}
           onSkip={handleAttributionSkip}

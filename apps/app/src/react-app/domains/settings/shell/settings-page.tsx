@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useShellConfig } from "@/react-app/shell/shell-config";
 import type * as React from "react";
 import {
   ArrowLeft,
@@ -275,6 +276,7 @@ export type SettingsNavGroups = {
  */
 export function useSettingsNavGroups(developerMode: boolean): SettingsNavGroups {
   const platform = usePlatform();
+  const { config } = useShellConfig();
   const checkRestriction = useCheckDesktopRestriction();
   // Computer use runs in the desktop app; the web app has no local computer.
   const computerUse = useDesktopFeature("computerUse") && isElectronRuntime();
@@ -284,7 +286,7 @@ export function useSettingsNavGroups(developerMode: boolean): SettingsNavGroups 
     hub: allowed(["general"]),
     workspace: allowed(getWorkspaceSettingsTabs()),
     global: allowed(getGlobalSettingsTabs(developerMode, platform.capabilities, { computerUse })),
-    cloud: allowed(CLOUD_SETTINGS_TABS),
+    cloud: config.cloudSignin ? allowed(CLOUD_SETTINGS_TABS) : [],
   };
 }
 

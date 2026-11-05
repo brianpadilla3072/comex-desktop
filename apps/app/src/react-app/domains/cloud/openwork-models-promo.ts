@@ -1,3 +1,4 @@
+import { getOpenworkPromotionsEnabled, subscribeOpenworkPromotions } from "./openwork-promotions-flag";
 
 import {
   buildDenAuthUrl,
@@ -15,10 +16,12 @@ export const OPENWORK_MODELS_PROVIDER_ID = "openwork";
 export const OPENWORK_MODELS_PROMO_HIDDEN_KEY = "openwork.openworkModelsPromo.hidden";
 export const OPENWORK_MODELS_PROMO_LAST_SHOWN_KEY = "openwork.openworkModelsPromo.lastShownAt";
 export const OPENWORK_MODELS_STARTUP_PROMO_SHOWN_KEY = "openwork.openworkModelsPromo.startupShown";
-export const openWorkModelsPromoChangedEvent = "openwork-openwork-models-promo-changed";
+export { openWorkModelsPromoChangedEvent } from "./openwork-promotions-flag";
+import { openWorkModelsPromoChangedEvent } from "./openwork-promotions-flag";
 export const OPENWORK_MODELS_PROMO_REPEAT_MS = 6 * 60 * 60 * 1000;
 
 export function areOpenWorkModelsPromosDisabled() {
+  if (!getOpenworkPromotionsEnabled()) return true;
   if (/^(1|true|yes|on)$/i.test(String(import.meta.env.VITE_DISABLE_OPENWORK_MODELS ?? "").trim())) {
     return true;
   }
@@ -40,7 +43,8 @@ export function useOpenWorkModelsPromoEligibility() {
     (notify) => {
       if (typeof window === "undefined") return () => undefined;
       window.addEventListener(denSettingsChangedEvent, notify);
-      return () => window.removeEventListener(denSettingsChangedEvent, notify);
+      const unsubscribe = subscribeOpenworkPromotions(notify);
+      return () => { window.removeEventListener(denSettingsChangedEvent, notify); unsubscribe(); };
     },
     isOpenWorkModelsPromoEligible,
     isOpenWorkModelsPromoEligible,

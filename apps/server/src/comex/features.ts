@@ -7,3 +7,10 @@ export function comexWorkspaceEnabled(env: NodeJS.ProcessEnv = process.env): boo
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("comexWorkspace", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Operator-controlled boolean, off by default in the Comex distribution. */
+export function openworkPromotionsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("openworkPromotions", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { setOpenworkPromotionsEnabled } from "./openwork-promotions-flag";
 import {
   createContext,
   useCallback,
@@ -276,12 +277,15 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) setComexWorkspace(false);
+          if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
-        if (active) setComexWorkspace(feature.enabled);
-      } catch { if (active) setComexWorkspace(false); }
+        if (active) {
+          setComexWorkspace(feature.enabled);
+          setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
+        }
+      } catch { if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);

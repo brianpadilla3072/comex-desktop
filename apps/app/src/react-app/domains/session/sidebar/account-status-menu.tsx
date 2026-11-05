@@ -298,12 +298,12 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
     : formatControlPlaneHost(denBaseUrl);
   const accountLabel = signedIn
     ? user.name?.trim() || user.email
-    : restoringSession ? serverLabel : "Sign in";
+    : !shellConfig.cloudSignin ? "Comex" : restoringSession ? serverLabel : "Sign in";
   // The sidebar row shows the name only; the email stays inside the account
   // menu so it is not permanently on screen (matches Claude Code and Codex).
   const accountDetail = signedIn
     ? serverLabel
-    : restoringSession ? "Restoring your session" : "Sync with OpenWork Cloud";
+    : !shellConfig.cloudSignin ? "Espacio local" : restoringSession ? "Restoring your session" : "Sync with OpenWork Cloud";
 
   const runtimeStatus = props.showConnectionStatus
     ? resolveRuntimeStatus({
@@ -514,7 +514,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             <LogOut className="size-3.5" />
             Log out
           </DropdownMenuItem>
-        ) : restoringSession ? null : (
+        ) : restoringSession || !shellConfig.cloudSignin ? null : (
           <div
             className="flex flex-col gap-2 px-2 py-2"
             onPointerDown={(event) => event.stopPropagation()}

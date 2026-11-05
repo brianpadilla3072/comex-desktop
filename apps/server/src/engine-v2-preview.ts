@@ -1,3 +1,5 @@
+import { comexWorkspaceEnabled } from "./comex/features.js";
+import { createInstalledOpencodeEngine } from "./comex/installed-opencode.js";
 import { startupPhase } from "./startup-phase.js";
 import { withEngineSwitchFence } from "./engine-switch-fence.js";
 import { engineAutoUpgradeRetry, waitForEngineIdle, type EngineAutoUpgradeRetry } from "./engine-auto-upgrade.js";
@@ -109,6 +111,7 @@ async function joinBounded(promise: Promise<unknown>, ms: number): Promise<void>
 export type EngineOrigin = "fresh" | "manual" | "forced" | "reverted";
 
 export interface EngineV2PreviewStatus {
+  connectionSource?: "installed";
   engineOrigin: EngineOrigin;
   engineChangedAt?: string;
   engineForced: boolean;
@@ -739,6 +742,10 @@ export function createEngineV2Preview(options: {
   autoUpgradeError?: (error: string) => void;
 }): EngineV2Preview {
   const { config } = options;
+  const installedService = process.env.OPENWORK_COMEX_OPENCODE_SERVICE_FILE;
+  if (comexWorkspaceEnabled() && installedService && process.env.OPENWORK_COMEX_OPENCODE_MODE !== "managed") {
+    return createInstalledOpencodeEngine(installedService, options.deferStart);
+  }
   const waits = { ...ENGINE_V2_UPKEEP_WAITS, ...options.waits };
   const rootDir = join(runtimeStorageDir(config), "opencode-v2", "state");
   const workspaceDir = join(rootDir, "workspace");

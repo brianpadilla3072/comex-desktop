@@ -1642,6 +1642,14 @@ export function createRuntimeManager({
     if (pathEnv) {
       env[pathKey] = pathEnv;
     }
+    // Resolve the user's service before development HOME/XDG isolation. Only
+    // the path crosses into the server; the service password stays server-side.
+    const originalHome = inheritedProcessEnv.HOME || inheritedProcessEnv.USERPROFILE || os.homedir();
+    const originalState = inheritedProcessEnv.XDG_STATE_HOME || path.join(originalHome, ".local", "state");
+    const installedService = path.join(originalState, "opencode", "service.json");
+    if (!env.OPENWORK_COMEX_OPENCODE_SERVICE_FILE && existsSync(installedService)) {
+      env.OPENWORK_COMEX_OPENCODE_SERVICE_FILE = installedService;
+    }
     if (!devPaths) return env;
     return mergeEnv([env, {
       OPENWORK_DEV_MODE: "1",

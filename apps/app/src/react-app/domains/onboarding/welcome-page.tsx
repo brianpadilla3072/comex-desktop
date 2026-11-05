@@ -23,7 +23,7 @@ type WelcomePageProps = {
   onUseManualFolder?: () => void;
   showManualFolder?: boolean;
   onTeamSignIn?: () => void;
-  onJoinOrganization: () => void;
+  onJoinOrganization?: () => void;
 };
 
 export function WelcomePage({
@@ -115,7 +115,7 @@ export function WelcomePage({
                     : (getStartedLabel || t("welcome.use_without_cloud"))}
                 </Button>
 
-                <div className="pt-2">
+                {onJoinOrganization ? <div className="pt-2">
                   <button
                     type="button"
                     className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
@@ -129,7 +129,7 @@ export function WelcomePage({
                       {t("welcome.join_org_subtitle")}
                     </span>
                   </button>
-                </div>
+                </div> : null}
 
                 {error ? (
                   <p className="text-center text-xs text-destructive">{error}</p>

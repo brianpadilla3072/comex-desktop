@@ -13,8 +13,40 @@ Esta distribución local de Comex activa la integración por defecto, sin exigir
 - En cada turno de OpenCode v2 se incorporan hasta 12.000 caracteres de memoria del proyecto y 6.000 de la sesión actual, como datos no confiables. Los archivos de más de 128 KiB se omiten del contexto automático. Se instruye al asistente principal a actualizar resúmenes trazables al cerrar un tramo significativo; esto depende del comportamiento del modelo. La memoria no equivale a todo el historial de otros chats. Los auditores mantienen sus permisos de solo lectura.
 - El inicio ofrece tres pedidos en castellano: TP de investigación, cotización y revisión de informe/fuentes.
 - La conexión de proveedores en OpenCode v2 usa `/api/integration` para descubrir métodos y los endpoints nativos `connect/key` y `connect/oauth`. OpenCode Console permite iniciar sesión con la cuenta; Go conserva su conexión por clave. Comex habilita Console al estar activa la feature y permitidos los proveedores propios; la restricción de modelos de la organización sigue prevaleciendo. La capa nunca consulta el listado de credenciales, que devolvería secretos. Referencia: [API oficial de OpenCode v2](https://dev.opencode.ai/v2/docs/api).
-- El navegador nativo de Electron conserva sus controles y herramientas existentes. El botón Abrir navegador utiliza ese mismo panel. La versión web no ofrece el navegador nativo.
+- En el motor administrado, el navegador nativo de Electron conserva sus controles y herramientas existentes. El botón Abrir navegador utiliza ese mismo panel. La versión web no ofrece el navegador nativo.
 - El empaquetado incluye `pack/` como recurso externo y comunica su ubicación al servidor.
+
+## OpenCode instalado
+
+En escritorio, Comex detecta el recibo `opencode/service.json` del directorio
+XDG de estado del usuario antes de aislar el perfil de desarrollo. Si existe,
+se conecta directamente al servicio OpenCode v2; usa sus cuentas y modelos.
+No copia claves de proveedores ni modifica su configuración global, migra su
+historial o detiene su proceso al cerrar Comex. Los nuevos chats de este modo
+pertenecen al historial del servicio instalado; los del motor administrado se
+conservan en su propio perfil y no se trasladan automáticamente.
+
+Solo acepta HTTP en `127.0.0.1` o `::1`, un recibo regular del usuario y una
+respuesta de OpenCode v2 con el PID esperado. Relee el recibo y comprueba la
+salud cada 15 segundos, para recuperar cambios de puerto/contraseña tras un
+reinicio. Ante un fallo avisa y mantiene seleccionado ese servicio.
+No cambia silenciosamente al motor administrado.
+
+- Para iniciar el servicio: `opencode service start`.
+- Ruta explícita del recibo: `OPENWORK_COMEX_OPENCODE_SERVICE_FILE`.
+- Para usar el motor administrado: `OPENWORK_COMEX_OPENCODE_MODE=managed`.
+- La detección se desactiva con `DEN_FEATURE_COMEX_WORKSPACE=false`.
+
+El modo instalado mantiene las herramientas que ese OpenCode ya tiene. No
+inyecta los plugins privados de Comex ni sincroniza desde Comex las conexiones
+MCP; hay que administrarlas en OpenCode. El panel de navegador sigue pudiendo
+abrirse manualmente; su control por el agente requiere el motor administrado.
+El panel Proyecto, Word, Excel y la inyección de memoria del servidor siguen
+funcionando. La compatibilidad del servicio instalado se verificó en Linux.
+
+![Servicio OpenCode instalado](opencode-instalado.png)
+
+Las promociones tienen su propio [flag booleano, desactivado por defecto](../openwork-promotions/README.md).
 
 ## Desactivación
 
@@ -56,7 +88,7 @@ Capturas de la aplicación real con documentos de ejemplo explícitos; no repres
 
 Resultado global: **Incomplete**. La integración local tiene pruebas verdes; falta la validación académica con modelo, campo real y una instalación Windows limpia.
 
-Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 67 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4). Ninguna omitida.
+Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 73 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2). Ninguna omitida.
 
 Mejoras verificadas en los generadores: códigos HS/país como texto, decimales en ambos formatos, rechazo de valores no finitos, respuestas multilínea intactas y fórmulas importadas tratadas como datos literales. La cotización rechaza costos negativos o no finitos.
 
@@ -71,7 +103,7 @@ Verificado en Linux:
 - El motor enumera los 4 agentes y las 12 skills instalados (además de las skills globales existentes).
 - Navegación nativa de Electron a INDEC con título y URL reales.
 
-La prueba de UI adicional confirmó comparación/resolución de conflictos con archivos reales; la desactivación en UI se comprobó simulando la respuesta del endpoint de feature, además de las pruebas del resolvedor del servidor. El catálogo de autenticación se consultó en Chromium contra el motor real: Console devuelve clave y cuenta OAuth, Go devuelve clave. Prueba real posterior: se reutilizó la conexión Go ya guardada en el equipo dentro del perfil local de Comex y se envió un único mensaje de prueba con `opencode-go/gpt-6-luna`. El proveedor respondió HTTP 401 con `api_key_expired`; no se obtuvo una respuesta de inferencia. La clave debe reemplazarse desde la consola de OpenCode. Reautenticarse no renueva una clave vencida. No se registraron claves en el repositorio ni en capturas.
+La prueba de UI adicional confirmó comparación/resolución de conflictos con archivos reales; la desactivación en UI se comprobó simulando la respuesta del endpoint de feature, además de las pruebas del resolvedor del servidor. El catálogo de autenticación se consultó en Chromium contra el motor real: Console devuelve clave y cuenta OAuth, Go devuelve clave. La conexión inicial del perfil administrado falló con una clave vencida. Se incorporó el modo de servicio instalado y se verificó una respuesta real `OK` desde Comex con `opencode-go/gpt-6-luna`, usando la cuenta que el servicio local ya tenía. No se registraron claves en el repositorio ni en capturas. Se envió además un mensaje desde el compositor de la aplicación y recibió `LISTO`, con un modelo disponible y sin invitaciones publicitarias. Esto verifica conexión e inferencia, no el trabajo académico completo.
 
 La presentación v2 ahora conserva `response.body`, identifica `api_key_expired` y explica la renovación en castellano. Una conexión que el motor ya marca `needs_auth` no se anuncia como conectada después de guardar. Go aparece junto a Console en la lista de proveedores y tiene el enlace Obtener una clave nueva.
 
