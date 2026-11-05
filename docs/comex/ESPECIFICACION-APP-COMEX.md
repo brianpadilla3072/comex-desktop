@@ -27,7 +27,7 @@
 
 **Criterio de listo:** una persona no técnica, en una Windows limpia, instala y hace su primera cotización en menos de 10 minutos, sin abrir una terminal y sin que nadie le explique nada.
 
-**Brechas del pack que el producto deja visibles** (no son cambios de OpenWork, son contenido que falta): las dos críticas son investigación primaria (encuestas y entrevistas) y trabajo con fuentes en inglés (leer, citar y redactar correos); después vienen operativa aduanera, presentaciones, logística y negociación intercultural. Se detallan en 5.4.
+**Brechas del pack que el producto deja visibles**: investigación primaria, logística y guion de defensa ya tienen instrucciones, pendientes de validación integral. Siguen faltando trabajo con fuentes en inglés, operativa aduanera, generación de presentaciones y negociación intercultural. Se detallan en 5.4.
 
 ---
 
@@ -60,7 +60,7 @@
 | 6 | Defensa del trabajo | "Armame las slides para defender" | Presentación con estructura de defensa y notas | 1–2 por año | No (fase 2) |
 | 7 | Duda conceptual | "Explicame la diferencia entre FOB y CIF con un ejemplo" | Explicación corta, con ejemplo numérico | Semanal | Sí |
 | 8 | Crear su propia herramienta | "Quiero una plantilla para mis fichas de mercado" | Skill nueva, probada, disponible en la próxima conversación | Cuando aparece una materia nueva | Sí |
-| 9 | Investigación primaria | "Armame una encuesta para importadores de vino en Brasil" | Cuestionario, muestra, plan de análisis y tabla de respuestas | 1–2 por estudio | **No: falta en el pack** |
+| 9 | Investigación primaria | "Armame una encuesta para importadores de vino en Brasil" | Cuestionario, muestra, plan de análisis y tabla de respuestas | 1–2 por estudio | Instrucciones incorporadas; pendiente validación completa con campo real |
 | 10 | Fuentes y correos en inglés | "Traducime este informe de la UE y armame el mail al comprador" | Resumen con citas + borrador de correo comercial | Semanal | Lee y traduce: sí. Redactar: después |
 
 **Nota:** el trabajo 8 es el seguro de vida del producto. Si la app solo hace lo que trae, envejece; si ella puede pedir "armame una herramienta para X" y queda guardada, el pack crece con ella.
@@ -273,7 +273,7 @@ Reglas: (a) todo dato baja con su consulta y su fecha; (b) si se usa una fuente 
 | # | Qué falta | Por qué ella lo nota | Dónde se resuelve | Aceptación |
 |---|---|---|---|---|
 | 1 | **Marca e identidad** | "OpenWork" no le dice nada; el icono genérico no genera confianza | `electron-builder.base.yml`, iconos, `shell-config.tsx`, `package.json` | El instalador, la ventana y el menú dicen el nombre nuevo; el icono aparece en taskbar y escritorio |
-| 2 | **Pack sembrado** | Sin esto tiene que copiar carpetas a mano | `comex-seed.mjs` + hook en `workspace-init.ts` | En una máquina limpia, las 9 skills y 4 agentes están disponibles en el primer workspace |
+| 2 | **Pack sembrado** | Sin esto tiene que copiar carpetas a mano | `comex-seed.mjs` + hook en `workspace-init.ts` | En una máquina limpia, las 12 skills y 4 agentes están disponibles en el primer workspace |
 | 3 | **Seed que no pisa** | Si actualiza y le borra una skill editada, pierde su trabajo | marcador de versión + política de conflicto | Una skill modificada sobrevive a dos actualizaciones; la nueva queda como `.nuevo` |
 | 4 | **Primera vez en castellano** | La pared del onboarding en inglés es la principal causa de abandono | `welcome-route.tsx`, `welcome-page.tsx` | Elegir modelo + carpeta + ejemplo en menos de 5 minutos, sin cuenta |
 | 5 | **Sin cuenta obligatoria** | Si le pide registrarse, no empieza | flujo de bienvenida sin `sign-in` | Todo el MVP funciona sin abrir Settings › Account |
@@ -320,14 +320,16 @@ Estas no se resuelven tocando OpenWork: son contenido que hay que escribir y pro
 
 | # | Falta en el pack | Qué trabajo deja sin cubrir | Prioridad | Qué habría que agregar |
 |---|---|---|---|---|
-| A | **Investigación primaria** | Encuestas, entrevistas, focus group de un estudio real | Alta | Skill `encuestas-y-entrevistas`: cuestionario, muestra, guía de entrevista, plan de análisis y tabla de respuestas |
+| A | **Investigación primaria** | Encuestas y entrevistas de un estudio real | Alta | Skill `encuestas-y-entrevistas` incorporada: diseño y análisis; falta probar el flujo con respuestas reales. No cubre focus groups. |
 | B | **Inglés comercial** | Leer informes de la UE/EE.UU. y escribir correos a compradores | Alta | Skill `ingles-comercial`: resumen con citas, glosario, plantillas de correo y no inventar traducciones |
 | C | **Operativa y documentación** | Certificado de origen, packing list, factura comercial, VUCE | Media | Skill `operativa-aduanera` con checklists por destino |
-| D | **Presentaciones** | Defensa del TFI | Media | Skill `presentacion-defensa` + generación `.pptx` (hoy la app no produce slides) |
-| E | **Logística y transporte** | Elección de modo, flete, seguros, incoterms operativos | Media | Skill `logistica-transporte` |
+| D | **Presentaciones** | Defensa del TFI | Media | Skill `presentacion-defensa` incorporada para guion y práctica; generación `.pptx` pendiente. |
+| E | **Logística y transporte** | Elección de modo, flete, seguros, incoterms operativos | Media | Skill `logistica-transporte` incorporada para prefactibilidad; falta validar con un caso completo. |
 | F | **Negociación intercultural** | Contacto con compradores, ferias, cultura de negocios | Baja | Skill `negociacion-intercultural` |
 
 Regla de producto: no se anuncia una de estas capacidades hasta que la skill exista, esté probada con un caso real y pase el validador. Es mejor un MVP honesto con los trabajos que de verdad cubre que un catálogo de 14 a medio hacer.
+
+**Caso de aceptación aportado por el usuario:** TP 1 de 2026 de Investigación de Mercados Externos. El flujo debe cubrir dos productos nacionales con destinos diferentes, perfiles técnicos y arancelarios, estadísticas de selección, barreras, encuesta realizada, competidores, canales, logística, Incoterm, informe académico y defensa. La guía de Word añade desarrollo PESTEL, demanda, 4 Ps, FODA y anexos. La matriz mantenida vive en `comex-pack/skills/estudio-mercado-internacional/references/tp1-2026.md`; el protocolo de aceptación en `pruebas/casos/tp1-2026/criterios.md`. Instrucciones incorporadas no equivalen a validación integral ni a integración del pack en la app.
 
 ---
 
@@ -355,7 +357,7 @@ Estos son los tests que definen "esto se puede entregar". Se corren en una máqu
 |---|---|---|
 | 1 | Instalación | Instala sin admin y abre en <2 min; SmartScreen resuelto con la guía |
 | 2 | Primer arranque | Modelo + carpeta + primer mensaje en <10 min, sin terminal |
-| 3 | Pack disponible | Las 9 skills y 4 agentes aparecen; el validador da OK |
+| 3 | Pack disponible | Las 12 skills y 4 agentes aparecen; el validador da OK |
 | 4 | Cotización | "1.000 cajas de peras a Brasil" → Excel con FOB/CIF/landed, unidad declarada, supuestos y sensibilidad |
 | 5 | Estudio | "Estudio de arándanos a la UE" → informe con PESTEL, matriz y cada cifra con fuente/fecha |
 | 6 | TFI | "Capítulo 3 de mi TFI" → `.docx` con portada, índice, tablas numeradas y APA |

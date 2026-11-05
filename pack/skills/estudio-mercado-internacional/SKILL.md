@@ -7,6 +7,12 @@ description: Metodología completa para hacer estudios de mercado internacionale
 
 Guía el flujo completo de un estudio de mercado internacional. El trabajo tiene 6 fases; no las saltees: un estudio que salta directo al análisis sin definir objetivos pierde coherencia, y los profesores lo notan. Cada fase termina con un entregable concreto que se suma a la carpeta del estudio.
 
+## Consigna y alcance
+
+La consigna específica determina cantidad de productos y destinos, secciones y entregables. No fuerces un caso de varios productos dentro de un único perfil: creá un expediente de datos y análisis por pareja producto–destino y un informe integrador. Extraé los requisitos en `consigna.md` y registrá evidencia y pendientes en `cumplimiento.md`. Separá requisitos del docente de ampliaciones sugeridas por una plantilla.
+
+Para el **Trabajo Práctico 1 de 2026 de Investigación de Mercados Externos**, leé [references/tp1-2026.md](references/tp1-2026.md): traduce la consigna y la guía de Word aportadas por el usuario en entregables verificables.
+
 ## Estructura de la carpeta del estudio
 
 Cada estudio vive en su propia carpeta. Esto hace el trabajo reproducible y fácil de corregir:
@@ -53,13 +59,13 @@ Regla de calidad: preferir datos oficiales y recientes a datos agregados por ter
 
 ## Fase 4 — Investigación primaria (si aplica)
 
-La mayoría de los trabajos de la carrera se resuelven con secundaria + instrumentos diseñados. Si hace falta campo:
+Revisá la consigna: cuando exige realizar una encuesta, el campo es obligatorio y no puede sustituirse por un cuestionario diseñado. Usá `encuestas-y-entrevistas`. Cuando se permite un estudio exclusivamente secundario, dejá documentado ese alcance. Si hace falta campo:
 
 - **Encuesta** (cuantitativa): diseñar el cuestionario, definir la muestra (población, tamaño, criterios de selección) y cómo se va a aplicar.
 - **Entrevista en profundidad** (cualitativa): guía de preguntas abiertas para compradores, importadores o agentes comerciales.
 - **Observación de competencia**: precios publicados, catálogos, ferias, marketplaces (Alibaba, directorios de cámaras).
 
-El agente diseña los instrumentos y analiza los resultados cargados; la recolección real la hace la persona. Nunca inventar respuestas de encuestas: si no se hizo el campo, el informe declara que el estudio se basa en fuentes secundarias.
+El agente diseña los instrumentos y analiza los resultados cargados; la recolección real la hace la persona. Nunca inventar respuestas de encuestas. Si no se hizo campo obligatorio, declará esa sección pendiente y el trabajo como borrador incompleto; decir que solo hay fuentes secundarias no satisface la consigna.
 
 ## Fase 5 — Análisis
 
@@ -94,3 +100,4 @@ Cada tabla y figura lleva debajo: `Fuente: <base> (consulta: <mes-año>)`. Toda 
 - [ ] Las conclusiones se sostienen con el análisis mostrado (nada "aparece" solo al final).
 - [ ] La bibliografía sigue un solo formato consistente.
 - [ ] El trabajo se puede defender oralmente: cada tabla se puede explicar de dónde salió.
+- [ ] `cumplimiento.md` cubre cada requisito y cada pareja producto–destino con evidencia real; campo obligatorio y defensa no se dan por realizados por tener una plantilla.

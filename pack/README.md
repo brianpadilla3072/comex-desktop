@@ -41,6 +41,17 @@ Lo que te devuelve vive en carpetas (brief, fuentes, datos, análisis, informe):
 | Skill `documento-docx` | Genera los documentos de Word: tapa, índice, tablas y figuras numeradas. |
 | Skill `planilla-xlsx` | Genera planillas de Excel: datos, matrices, tablas con gráficos. |
 | Skill `taller-de-agentes` | Cómo crear nuevas skills y agentes (la base para que el pack crezca solo). |
+| Skill `encuestas-y-entrevistas` | Cuestionario, muestra, plan de campo y análisis de respuestas reales; distingue diseño de encuesta realizada. |
+| Skill `logistica-transporte` | Cadena logística, operadores y elección de modo e Incoterm por producto y destino. |
+| Skill `presentacion-defensa` | Guion de exposición, apoyo visual y práctica de preguntas con evidencias del informe. No genera PowerPoint por sí sola. |
+
+## Consigna del profesor como caso de aceptación
+
+El TP 1 de 2026 de Investigación de Mercados Externos es la referencia concreta del pack: dos productos nacionales, destinos diferentes, perfiles técnicos y arancelarios, selección con estadísticas, barreras, encuesta realizada, competencia, canales, logística, Incoterm, informe y defensa. El agente usa la [matriz de requisitos](skills/estudio-mercado-internacional/references/tp1-2026.md) y registra la evidencia por requisito en `cumplimiento.md` del estudio.
+
+La guía `ESTUDIO DE MERCADO INTERNACIONAL.docx` aporta el esquema de desarrollo (PESTEL, demanda, 4 Ps, FODA y anexos). El agente distingue esa guía de los requisitos explícitos del PDF y no inventa extensión, muestra mínima ni datos para llenar capítulos.
+
+La aplicación real de la encuesta corresponde a la persona. El agente prepara el instrumento y analiza las respuestas recibidas. Si el campo obligatorio está pendiente, entrega un borrador incompleto con esa limitación visible. Las nuevas instrucciones deben evaluarse con el [caso de aceptación](../docs/comex/aceptacion-tp1-2026.md) antes de anunciar el flujo completo como probado.
 
 El instalador también prepara un entorno de Python con las librerías que usan los scripts (`python-docx` y `openpyxl`). No hace falta instalar nada más a mano.
 
@@ -61,4 +72,5 @@ El instalador también prepara un entorno de Python con las librerías que usan 
 2. ✅ Entregables: `documento-docx` (Word) y `planilla-xlsx` (Excel).
 3. ✅ Lote "ya": `analisis-mercados`, `cotizacion-exportacion`, `informe-academico`, `revisor-exigente`, `verificador-de-fuentes`.
 4. ✅ Capa meta: `taller-de-agentes` + `arquitecto-de-agentes` — con esto ella puede crear sus propias skills cuando aparezcan materias nuevas.
-5. ⬜ Opcionales según el uso real: `presentacion-defensa` (slides para defender el TFI), `operativa-aduanera` (documentación de exportación), agentes `analista-datos-comex` / `explorador-fuentes` separados, `logistica-transporte`, `ingles-comercial`.
+5. Instrucciones agregadas para encuesta, logística y defensa; pendiente la prueba completa contra el TP del profesor con respuestas reales y entregables revisados.
+6. ⬜ Opcionales según el uso real: generación de slides, `operativa-aduanera` (documentación de exportación), agentes `analista-datos-comex` / `explorador-fuentes` separados, `ingles-comercial`.
