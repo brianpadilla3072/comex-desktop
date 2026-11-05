@@ -23,6 +23,7 @@ import { setWebNotificationHandler } from "./react-app/shell/desktop-notificatio
 import { startDeepLinkBridge } from "./react-app/shell/startup-deep-links";
 import { StartupApp, StartupScreen } from "./react-app/shell/startup-screen";
 import "./app/index.css";
+import "./styles/comex-shell.css";
 
 const root = document.getElementById("root");
 

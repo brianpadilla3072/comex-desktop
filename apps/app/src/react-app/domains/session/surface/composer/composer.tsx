@@ -1418,6 +1418,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
         {/* Main composer panel */}
         <div
           ref={panelRef}
+          data-comex-composer
           className="@container/composer relative overflow-visible rounded-[18px] border border-dls-border bg-dls-surface transition-all"
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}

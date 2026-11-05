@@ -3845,7 +3845,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         >
           {/* Chat column: tighter than the composer (800px) so messages
                keep a comfortable reading width and don't feel "too big". */}
-          <div ref={contentRef} className="mx-auto w-full max-w-[720px]">
+          <div ref={contentRef} data-comex-transcript className="mx-auto w-full max-w-[720px]">
             {/* Clearance so the find bar never covers the first message (short
                  transcripts cannot scroll it clear). It lives in the content
                  flow rather than as scroller padding: a padding change on the

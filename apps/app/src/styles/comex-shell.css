@@ -1,0 +1,113 @@
+/* Comex's desktop finish. Keep this separate from upstream's design system.
+   Presentation only: existing light/system preferences and pane controls stay
+   in charge. The dark palette follows the supplied reference. */
+:root {
+  --comex-reading-width: 48rem;
+  --comex-composer-radius: 1.25rem;
+  --comex-pane-radius: 1rem;
+}
+
+:root[data-theme="dark"] {
+  --dls-app-bg: var(--gray-1);
+  --dls-background: var(--gray-2);
+  --dls-surface: var(--gray-2);
+  --dls-sidebar: color-mix(in srgb, var(--gray-1), var(--gray-2) 65%);
+  --dls-canvas: var(--gray-2);
+  --dls-surface-muted: var(--gray-3);
+  --dls-border: var(--gray-4);
+  --dls-text-primary: var(--gray-12);
+  --dls-text-secondary: var(--gray-11);
+  --dls-hover: var(--gray-3);
+  --dls-active: var(--gray-4);
+  --dls-shell-shadow: none;
+  --dls-card-shadow: none;
+  --background: var(--gray-2);
+  --foreground: var(--gray-12);
+  --card: var(--gray-3);
+  --card-foreground: var(--gray-12);
+  --popover: var(--gray-3);
+  --popover-foreground: var(--gray-12);
+  --popover-border: var(--gray-5);
+  --secondary: var(--gray-4);
+  --secondary-foreground: var(--gray-12);
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-4);
+  --accent-foreground: var(--gray-12);
+  --border: var(--gray-4);
+  --input: var(--gray-6);
+  --ring: var(--gray-9);
+  --sidebar: var(--dls-sidebar);
+  --sidebar-foreground: var(--gray-12);
+  --sidebar-accent: var(--gray-4);
+  --sidebar-accent-foreground: var(--gray-12);
+  --sidebar-border: var(--gray-4);
+  --sidebar-ring: var(--gray-9);
+}
+
+/* Preserve an organization's explicit accent when one is configured. */
+:root[data-theme="dark"]:not([data-brand-accent]) {
+  --dls-accent: var(--gray-12);
+  --dls-accent-hover: var(--gray-11);
+  --dls-accent-fg: var(--gray-1);
+}
+
+[data-theme="dark"] [data-chat-viewport] {
+  background: var(--dls-app-bg);
+}
+
+[data-theme="dark"] [data-chat-viewport] [data-slot="sidebar-inner"] {
+  background: var(--dls-sidebar);
+  border-inline-end: 1px solid var(--border);
+}
+
+[data-theme="dark"] [data-session-header],
+[data-theme="dark"] [data-session-pane] {
+  background: var(--dls-surface);
+  box-shadow: none;
+}
+
+[data-theme="dark"] [data-sidebar-brand] {
+  letter-spacing: -0.025em;
+}
+
+/* Message and draft columns share a reading rhythm on wide windows. Narrow
+   windows retain the upstream padding, touch targets, and pane switcher. */
+@media (min-width: 64rem) {
+  [data-comex-transcript] {
+    max-width: var(--comex-reading-width);
+  }
+}
+
+[data-theme="dark"] [data-comex-user-bubble] {
+  background: var(--gray-4);
+  border-radius: var(--comex-composer-radius);
+}
+
+[data-theme="dark"] [data-comex-composer] {
+  background: var(--gray-5);
+  border-color: var(--gray-6);
+  border-radius: var(--comex-composer-radius);
+  box-shadow: none;
+  transition-property: border-color, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+[data-theme="dark"] [data-comex-composer]:focus-within {
+  border-color: var(--gray-8);
+}
+
+[data-theme="dark"] [data-comex-side-panel] {
+  background: var(--dls-surface);
+  border-color: var(--border);
+  border-radius: var(--comex-pane-radius);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-comex-composer] {
+    transition-duration: 0ms;
+  }
+}

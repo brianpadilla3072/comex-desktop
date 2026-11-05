@@ -1032,6 +1032,7 @@ const UserMessage = React.memo(
               >
                 {hasContent ? (
                   <MessageContent
+                    data-comex-user-bubble
                     className="bg-muted text-foreground max-w-[85%] rounded-3xl px-4 py-2.5 leading-6 sm:max-w-[75%] !select-text not-prose"
                     style={{ userSelect: "text" }}
                     onClick={openLink}
