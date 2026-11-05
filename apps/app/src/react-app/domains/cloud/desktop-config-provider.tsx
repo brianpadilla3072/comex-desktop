@@ -54,6 +54,7 @@ import {
 } from "./workspace-branding-restart";
 
 export type DesktopConfigStore = {
+  comexWorkspace?: boolean;
   config: DenDesktopConfig;
   loading: boolean;
   freshConfigStatus: "pending" | "ready" | "failed";
@@ -647,6 +648,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
   const value = useMemo<DesktopConfigStore>(() => {
     return {
       config,
+      comexWorkspace,
       freshConfigStatus,
       loading,
       refresh,
@@ -654,7 +656,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       checkRestriction,
       connectPolicySync,
     };
-  }, [checkRestriction, config, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
+  }, [checkRestriction, config, comexWorkspace, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
 
   return (
     <DesktopConfigContext.Provider value={value}>
@@ -698,4 +700,9 @@ export function useDesktopRestriction(
   restriction: Parameters<DesktopAppRestrictionChecker>[0]["restriction"],
 ): boolean {
   return useDesktopConfig().checkRestriction({ restriction });
+}
+
+/** Local Comex behavior uses the authenticated host's registry decision. */
+export function useComexWorkspaceEnabled(): boolean {
+  return use(DesktopConfigContext)?.comexWorkspace === true;
 }

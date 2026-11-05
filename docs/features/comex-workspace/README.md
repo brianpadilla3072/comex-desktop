@@ -11,10 +11,15 @@ Esta distribución local de Comex activa la integración por defecto, sin exigir
 - Los DOCX se muestran en un visor de lectura con ajuste de ancho. No edita Word; la paginación puede diferir de Microsoft Word. Utiliza [docx-preview](https://github.com/VolodymyrBaydalka/docxjs), cargado bajo demanda. Valida el ZIP y sus tamaños descomprimidos; desactiva fragmentos HTML, elimina vínculos activos y sanitiza el contenido. El iframe tiene sandbox sin permisos y CSP sin conexiones externas.
 - La memoria del proyecto se guarda en `comex/estado.md`. Cada chat conserva notas propias en `comex/sesiones/<id>.md`. Se pueden revisar y guardar desde Proyecto. Los borradores sin guardar se conservan localmente y las escrituras verifican la versión del archivo. Si otra sesión cambió la memoria, muestra ambas versiones antes de permitir guardar; se pueden recuperar las notas descartadas durante esa comparación.
 - En cada turno de OpenCode v2 se incorporan hasta 12.000 caracteres de memoria del proyecto y 6.000 de la sesión actual, como datos no confiables. Los archivos de más de 128 KiB se omiten del contexto automático. Se instruye al asistente principal a actualizar resúmenes trazables al cerrar un tramo significativo; esto depende del comportamiento del modelo. La memoria no equivale a todo el historial de otros chats. Los auditores mantienen sus permisos de solo lectura.
+- El selector muestra primero el grupo Gratis, con etiquetas visibles, mientras `comexWorkspace` está activo. La clasificación v2 exige precios explícitos en cero en todos los tramos informados, incluidos cargos de caché; precios ausentes o desconocidos no se anuncian como gratuitos.
 - El inicio ofrece tres pedidos en castellano: TP de investigación, cotización y revisión de informe/fuentes.
 - La conexión de proveedores en OpenCode v2 usa `/api/integration` para descubrir métodos y los endpoints nativos `connect/key` y `connect/oauth`. OpenCode Console permite iniciar sesión con la cuenta; Go conserva su conexión por clave. Comex habilita Console al estar activa la feature y permitidos los proveedores propios; la restricción de modelos de la organización sigue prevaleciendo. La capa nunca consulta el listado de credenciales, que devolvería secretos. Referencia: [API oficial de OpenCode v2](https://dev.opencode.ai/v2/docs/api).
 - En el motor administrado, el navegador nativo de Electron conserva sus controles y herramientas existentes. El botón Abrir navegador utiliza ese mismo panel. La versión web no ofrece el navegador nativo.
 - El empaquetado incluye `pack/` como recurso externo y comunica su ubicación al servidor.
+
+### Modelos gratuitos primero
+
+![Modelos gratuitos de la instalación](modelos-gratis.png)
 
 ## OpenCode instalado
 
@@ -88,7 +93,7 @@ Capturas de la aplicación real con documentos de ejemplo explícitos; no repres
 
 Resultado global: **Incomplete**. La integración local tiene pruebas verdes; falta la validación académica con modelo, campo real y una instalación Windows limpia.
 
-Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 73 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2). Ninguna omitida.
+Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 76 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2) y prioridad/precios de modelos gratuitos (3). Ninguna omitida.
 
 Mejoras verificadas en los generadores: códigos HS/país como texto, decimales en ambos formatos, rechazo de valores no finitos, respuestas multilínea intactas y fórmulas importadas tratadas como datos literales. La cotización rechaza costos negativos o no finitos.
 

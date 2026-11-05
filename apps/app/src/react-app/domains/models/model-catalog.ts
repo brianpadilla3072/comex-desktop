@@ -236,7 +236,7 @@ export function nextModelSource(options: readonly ModelOption[], pins: readonly 
 }
 
 export type ModelGroup = { value: string; items: ModelOption[] };
-export function modelGroups(options: readonly ModelOption[], personal: readonly ModelRef[], recent: readonly ModelRef[], query = ""): ModelGroup[] {
+export function modelGroups(options: readonly ModelOption[], personal: readonly ModelRef[], recent: readonly ModelRef[], query = "", freeFirst = false): ModelGroup[] {
   const groups: ModelGroup[] = [];
   const shown = new Set<string>();
   const search = query.trim().toLowerCase();
@@ -251,6 +251,10 @@ export function modelGroups(options: readonly ModelOption[], personal: readonly 
     });
     if (items.length) groups.push({ value, items });
   };
+  // Comex starts with the models explicitly reported at no cost. Claim them
+  // once, including favorites/recent entries, so provider groups stay unique.
+  if (freeFirst) add("Gratis", available.filter(option => option.isFree)
+    .sort((a, b) => modelTitle(a).localeCompare(modelTitle(b)) || a.providerID.localeCompare(b.providerID)));
   // Smart Routers stand alone at the top, by name, wherever else they would be listed.
   add(AUTO_ROUTER_GROUP, available.filter(isAutoRouterModel)
     .sort((a, b) => modelTitle(a).localeCompare(modelTitle(b)) || a.modelID.localeCompare(b.modelID)));

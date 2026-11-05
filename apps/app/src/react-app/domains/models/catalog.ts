@@ -16,9 +16,9 @@ import { freeAutoCoveredByOpenWorkModels, isAutoModel, isFreeAutoModel, withAuto
 
 type ProviderList = Parameters<typeof getConnectedProviderItems>[0];
 
-/** A model the engine reports at no cost. Only the built-in Zen fallback rule reads this. */
-function costsNothing(model: { cost?: { input?: number; output?: number } }) {
-  return model.cost?.input === 0 && model.cost?.output === 0;
+/** Native v2 verifies every price tier; missing prices never become free via SDK defaults. */
+function costsNothing(model: { nativeFree?: boolean; cost?: { input?: number; output?: number } }) {
+  return model.nativeFree ?? (model.cost?.input === 0 && model.cost?.output === 0);
 }
 
 /** The one place a connected provider's models become picker options. */

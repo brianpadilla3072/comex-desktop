@@ -1,3 +1,4 @@
+import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Building, Check, Cloud, Laptop, Lock, Pin, PinOff, Sparkles } from "lucide-react";
 import type { ModelOption, ModelRef } from "@/app/types";
@@ -38,7 +39,7 @@ const SEARCH_GROUP = "Search results";
 /** Groups shown without a label: search results, and Smart Routers, which name themselves. */
 const UNLABELED_GROUPS = new Set([SEARCH_GROUP, AUTO_ROUTER_GROUP]);
 /** Groups that list several providers' models together; rows there name their provider. */
-const MIXED_GROUPS = new Set(["Pinned", "Recent", "OpenWork Models", SEARCH_GROUP]);
+const MIXED_GROUPS = new Set(["Pinned", "Recent", "OpenWork Models", "Gratis", SEARCH_GROUP]);
 
 function ModelLoadingRows({ rows = 3, label = "Loading models", still = false }: { rows?: number; label?: string; still?: boolean }) {
   // `still`: the rest of the list did not load; placeholders hold its place without suggesting it is loading.
@@ -101,6 +102,7 @@ function menuChord(label: string, chord: string) {
 function ModelPickerRows({ options, current, query, onQueryChange, onSelect, focusAlternative = false, footer, leading, searchInputRef, autoFocusSearch = true,
   catalogState, retainedSelection, onConnectProvider, onOpenProviderSettings, onSetWorkspaceDefault, currentBehaviorValue, openWorkModelsSyncing, onReloadWorkspace, onRetryAuto, autoRow, plainFreeModel = false,
 }: ModelPickerListProps & { autoRow?: AutoRowState; plainFreeModel?: boolean }) {
+  const freeFirst = useComexWorkspaceEnabled();
   const display = { plainFreeModel };
   const favorites = useModelCollectionsStore((state) => state.favorites);
   const recent = useModelCollectionsStore((state) => state.recent);
@@ -115,7 +117,7 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
   const search = useMemo(() => searching ? searchModels(options, query) : null, [searching, options, query]);
   const groups: ModelGroup[] = search
     ? search.matches.length ? [{ value: SEARCH_GROUP, items: search.matches.map((match) => match.option) }] : []
-    : modelGroups(options, favorites, recent, query);
+    : modelGroups(options, favorites, recent, query, freeFirst);
   const providerMiss = search?.provider && !search.provider.found ? search.provider : undefined;
   const pins = orderedModelPins(options, favorites);
   const pinned = new Set(pins.map(modelRefKey));
@@ -242,6 +244,7 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
                   <span className={`block truncate${active ? " font-medium" : ""}`} title={name}>{name}</span>
                   {meta ? <span className="block truncate text-xs text-muted-foreground" title={meta}>{meta}</span> : null}
                 </span>
+                {freeFirst && option.isFree ? <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">Gratis</span> : null}
                 {applies ? <span data-testid="model-search-applies" className="shrink-0 text-xs text-muted-foreground">{applies}</span> : null}
                 {shortcutLabels.get(key) ? <kbd data-testid="model-shortcut-key" className="shrink-0 rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground">{shortcutLabels.get(key)}</kbd> : null}
                 {/* Fixed trailing slots keep checks aligned; pin shows on pointer or focus (keyboard: ⇧P). */}

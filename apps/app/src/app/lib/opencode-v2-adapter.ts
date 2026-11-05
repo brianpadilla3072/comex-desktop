@@ -1036,7 +1036,7 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-function mapV2Model(value: unknown): Model | null {
+function mapV2Model(value: unknown): (Model & { nativeFree: boolean }) | null {
   if (!isRecord(value)) return null;
   const id = readString(value, "id");
   const providerID = readString(value, "providerID");
@@ -1051,6 +1051,12 @@ function mapV2Model(value: unknown): Model | null {
     : isRecord(rawCosts)
       ? rawCosts
       : null;
+  const prices = Array.isArray(rawCosts) ? rawCosts : isRecord(rawCosts) ? [rawCosts] : [];
+  const nativeFree = prices.length > 0 && prices.every(price => {
+    if (!isRecord(price) || price.input !== 0 || price.output !== 0) return false;
+    const cache = readRecord(price, "cache");
+    return cache === null || cache === undefined || (cache.read === 0 && cache.write === 0);
+  });
   const rawCacheCost = readRecord(firstCost, "cache");
   const inputCapabilities = stringArray(rawCapabilities?.input);
   const outputCapabilities = stringArray(rawCapabilities?.output);
@@ -1065,6 +1071,7 @@ function mapV2Model(value: unknown): Model | null {
   return {
     id,
     providerID,
+    nativeFree,
     api: {
       id: readString(rawApi, "id") ?? id,
       url: readString(rawApi, "url") ?? "",
