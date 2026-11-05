@@ -1,3 +1,4 @@
+import { comexWorkspaceEnabled } from "../comex/features.js";
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -146,6 +147,8 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
       uptimeMs: Date.now() - config.startedAt,
     }, ok ? 200 : 503);
   };
+
+  addRoute(routes, "GET", "/comex/features", "client", async () => jsonResponse({ enabled: comexWorkspaceEnabled() }));
 
   addRoute(routes, "GET", "/health", "none", async () => healthResponse());
 

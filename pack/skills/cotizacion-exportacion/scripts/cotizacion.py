@@ -26,6 +26,7 @@ Mostrá los supuestos en el informe: este script no adivina costos, los suma.
 
 import argparse
 import csv
+import math
 import sys
 
 
@@ -60,6 +61,18 @@ def main():
     ap.add_argument("--decimales", type=int, default=2, help="decimales en pantalla (default 2; usar 4 para 'al centavo')")
     ap.add_argument("--csv", metavar="ARCHIVO", help="exportar la escalera completa a CSV (para tabla_xlsx.py)")
     args = ap.parse_args()
+
+    for name, value in vars(args).items():
+        if isinstance(value, float) and not math.isfinite(value):
+            ap.error(f"--{name.replace('_', '-')} debe ser un número finito")
+    nonnegative = ("exw", "embalaje", "flete_interno", "aduana", "portuarios",
+                   "flete_internacional", "flete_internacional_lote", "seguro", "seguro_pct",
+                   "otros_origen", "retencion_pct", "arancel_pct", "tasostad_pct", "iva_pct",
+                   "flete_destino", "despacho_destino")
+    for name in nonnegative:
+        value = getattr(args, name)
+        if value is not None and value < 0:
+            ap.error(f"--{name.replace('_', '-')} no puede ser negativo")
 
     if args.unidades < 1:
         ap.error("--unidades debe ser 1 o más (es la cantidad de unidades del lote)")

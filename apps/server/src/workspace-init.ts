@@ -1,3 +1,4 @@
+import { ensureComexWorkspace } from "./comex/seed.js";
 import { basename } from "node:path";
 import { readFile } from "node:fs/promises";
 
@@ -96,6 +97,7 @@ export async function ensureWorkspaceFiles(workspaceRoot: string, presetInput: s
   }
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
+  if (await ensureComexWorkspace(workspaceRoot)) reloadReasons.add("config");
   // openwork config is seeded into the runtime DB by the caller, not written
   // as a file here.
   void preset;

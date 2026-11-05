@@ -57,7 +57,8 @@ type ProviderOAuthSession = ProviderOAuthStartResult & {
 
 export const PROVIDER_LABELS: Record<string, string> = {
   openwork: "OpenWork",
-  opencode: "OpenCode Zen",
+  opencode: "OpenCode Console",
+  "opencode-go": "OpenCode Go",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
@@ -675,7 +676,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     }
     if (method.type === "cloud") return "Managed by your organization.";
     if (isOpencodeZenProvider(entry.id)) {
-      return "Sign in to OpenCode Zen with an API key to unlock paid models alongside the free tier.";
+      return "Conectá tu cuenta de OpenCode Console o una API key de OpenCode.";
     }
     return "Paste a secret key that OpenWork stores locally on this device.";
   };
@@ -739,7 +740,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         <DialogHeader className="pr-8">
           <DialogTitle ref={titleRef} tabIndex={-1}>Connect a provider</DialogTitle>
           <DialogDescription className="text-pretty">
-            Adds a key to this device only.{props.organizationName ? ` Providers from ${props.organizationName} are already included and managed in Den.` : ""}
+            Conectá una cuenta o guardá una clave en este dispositivo.{props.organizationName ? ` Los proveedores de ${props.organizationName} se administran en Den.` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -868,7 +869,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   </div>
                   <div className="text-xs text-gray-10">
                     {isOpencodeZenProvider(selectedEntry.id)
-                      ? "Sign in to OpenCode Zen with an API key from opencode.ai/auth."
+                      ? "Conectá OpenCode Console con tu cuenta o una API key de opencode.ai/auth."
                       : "Paste your API key to connect."}
                   </div>
                   {isOpencodeZenProvider(selectedEntry.id) ? (

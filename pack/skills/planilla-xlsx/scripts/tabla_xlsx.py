@@ -28,6 +28,8 @@ Requiere: openpyxl (se instala con: bash instalar.sh)
 import argparse
 import csv
 import json
+import io
+import math
 import os
 import sys
 from pathlib import Path
@@ -75,13 +77,20 @@ def coerce(value, header=""):
     s = str(value).strip()
     if s in ("", "-", "—", "n/a", "N/A", "s/d", "SD"):
         return s if s else None, None
+    # Product/country identifiers are evidence: 080450 must not become 80450.
+    code_header = header.lower().replace("_", "").replace(" ", "")
+    if code_header in ("cmdcode", "reportercode", "partnercode", "hs", "ncm", "codigo", "código", "id") or (s.isdigit() and len(s) > 1 and s.startswith("0")):
+        return s, "@"
     pct = s.endswith("%")
     core = s[:-1].strip() if pct else s
     core = core.replace("$", "").replace(" ", "")
     num = None
     try:
         if "," in core and "." in core:
-            num = float(core.replace(".", "").replace(",", "."))
+            if core.rfind(",") > core.rfind("."):
+                num = float(core.replace(".", "").replace(",", "."))
+            else:
+                num = float(core.replace(",", ""))
         elif "," in core:
             num = float(core.replace(",", "."))
         elif core.count(".") > 1:
@@ -91,6 +100,8 @@ def coerce(value, header=""):
     except ValueError:
         return s, None
     if num is None:
+        return s, None
+    if not math.isfinite(num):
         return s, None
     if pct:
         return num / 100.0, "0.0%"
@@ -117,7 +128,7 @@ def load_rows(path, sep=None):
     text = p.read_text(encoding="utf-8-sig")
     if sep is None:
         sep = detect_sep("\n".join(text.splitlines()[:5]))
-    reader = csv.reader(text.splitlines(), delimiter=sep)
+    reader = csv.reader(io.StringIO(text), delimiter=sep)
     rows = [r for r in reader if any(c.strip() for c in r)]
     if not rows:
         sys.exit("El CSV está vacío.")
@@ -136,6 +147,7 @@ def build(path, out, title, fuente, sheet, chart_kind, chart_x, chart_cols, sep,
     if title:
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(headers), 2))
         c = ws.cell(row=1, column=1, value=title)
+        c.data_type = "s"
         c.font = Font(bold=True, size=14)
         c.alignment = Alignment(horizontal="left")
         row = 2 + 1  # deja un blanco
@@ -143,6 +155,7 @@ def build(path, out, title, fuente, sheet, chart_kind, chart_x, chart_cols, sep,
 
     for j, h in enumerate(headers, start=1):
         c = ws.cell(row=header_row, column=j, value=h)
+        c.data_type = "s"
         c.fill, c.font, c.border = HEADER_FILL, HEADER_FONT, BORDER
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
@@ -151,6 +164,9 @@ def build(path, out, title, fuente, sheet, chart_kind, chart_x, chart_cols, sep,
         for j, (val, h) in enumerate(zip(r, headers), start=1):
             num, fmt = coerce(val, h)
             c = ws.cell(row=i, column=j, value=num)
+            # Imported datasets and survey answers are literal data, not formulas.
+            if isinstance(num, str):
+                c.data_type = "s"
             c.border = BORDER
             if fmt:
                 c.number_format = fmt

@@ -61,6 +61,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "comexWorkspace": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Comex workspace: Local Word previews, project memory and the Comex research pack. Renders DEN_FEATURE_COMEX_WORKSPACE."
+            },
             "googleCalendarRecurrence": {
               "enum": [
                 "",

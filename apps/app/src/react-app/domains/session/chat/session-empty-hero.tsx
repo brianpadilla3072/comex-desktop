@@ -28,12 +28,31 @@ import {
 } from "./new-task-composer";
 import { consumePendingChatSeed, pendingChatSeedEvent } from "./pending-chat-seed";
 import { hideEmptyHeroIntroduction } from "./empty-hero-introduction";
+import { useComexFeature } from "../comex/use-comex-feature";
 
 type HeroSuggestion = {
   title: string;
   description: string;
   prompt: string;
 };
+
+const COMEX_SUGGESTIONS: HeroSuggestion[] = [
+  {
+    title: "Preparar el TP de investigación",
+    description: "Dos productos, destinos distintos y fuentes verificables.",
+    prompt: "Quiero preparar el TP 1 de 2026 de Investigación de Mercados. Leé la consigna y armemos el brief para dos productos nacionales con destinos diferentes. Preguntame las decisiones que falten, registrá los requisitos y las fuentes. La encuesta sigue pendiente hasta contar con respuestas reales.",
+  },
+  {
+    title: "Armar una cotización de exportación",
+    description: "Costos, supuestos y una planilla que pueda explicar.",
+    prompt: "Ayudame a armar una cotización de exportación en Excel. Primero confirmemos producto, destino, unidades, moneda, costos y el Incoterm adecuado al transporte. Dejá los cálculos y supuestos visibles; no inventes costos ni aranceles.",
+  },
+  {
+    title: "Revisar mi informe y sus fuentes",
+    description: "Detectar faltantes antes de entregar y practicar la defensa.",
+    prompt: "Quiero revisar mi informe de Comercio Exterior. Contrastá la consigna y cada cifra con su evidencia, usando revisor-exigente y verificador-de-fuentes. Indicá qué falta y qué no se pudo verificar; después preparemos la defensa con preguntas de práctica.",
+  },
+];
 
 const DEFAULT_SUGGESTIONS: HeroSuggestion[] = [
   {
@@ -80,6 +99,7 @@ export type SessionEmptyHeroProps = {
  * built-in defaults otherwise.
  */
 export function SessionEmptyHero(props: SessionEmptyHeroProps) {
+  const comexEnabled = useComexFeature(props.composer?.client ?? null);
   // The session is created on submit, so until then the prompt has no
   // conversation to live in. Persist it under the workspace's reserved slot so
   // opening another session (or restarting) does not lose it; the sidebar
@@ -173,7 +193,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
       });
       return { title: card.title, description: card.description, prompt: card.selectionPrompt };
     })
-    : DEFAULT_SUGGESTIONS;
+    : comexEnabled ? COMEX_SUGGESTIONS : DEFAULT_SUGGESTIONS;
 
   const submit = async (
     resolvedPrompt: string,
@@ -209,7 +229,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
     <div data-chat-empty-hero className="mx-auto flex w-full max-w-[640px] flex-col gap-6 px-4 max-lg:h-full max-lg:min-h-0 max-lg:gap-4 max-lg:overflow-y-auto max-lg:px-3 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6">
       <div data-empty-greeting hidden={hideIntroduction} className="text-center max-lg:pt-6">
         <h2 className="text-lg font-medium tracking-tight text-foreground">
-          What do you need done?
+          {comexEnabled ? "¿Qué querés investigar?" : "What do you need done?"}
         </h2>
       </div>
 

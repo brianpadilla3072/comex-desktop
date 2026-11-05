@@ -10,6 +10,12 @@ describe("OpenCode Zen retirement", () => {
   const blocked = (input: Parameters<typeof checkDesktopAppRestriction>[0]) =>
     isDesktopProviderBlocked({ providerId: "opencode", checkRestriction: ({ restriction }) => checkDesktopAppRestriction({ ...input, restriction }) });
 
+  test("Comex allows the native Console account while preserving the organization's provider restriction", () => {
+    expect(blocked({ config: {}, restriction: "allowZenModel", comexWorkspace: true })).toBe(false);
+    expect(blocked({ config: {}, restriction: "allowZenModel", comexWorkspace: false })).toBe(true);
+    expect(blocked({ config: { allowCustomProviders: false }, restriction: "allowZenModel", comexWorkspace: true })).toBe(true);
+  });
+
   test("Zen is unavailable without organization policy or a network request", () => {
     for (const config of [null, undefined, {}]) {
       expect(checkDesktopAppRestriction({ config, restriction: "allowZenModel" })).toBe(true);

@@ -40,6 +40,8 @@ describe("legacy browser plugin cleanup", () => {
   test("leaves a version-pinned entry someone added on purpose", async () => {
     const content = `{ "plugin": ["opencode-chrome-devtools@1.0.4"] }\n`;
     const root = await workspaceWith(content);
+    // The local Comex distribution may seed its pack on the first open.
+    await ensureWorkspaceFiles(root, "starter");
     expect(await ensureWorkspaceFiles(root, "starter")).toEqual({ changed: false, reloadReasons: [] });
     expect(await readFile(join(root, "opencode.jsonc"), "utf8")).toBe(content);
   });

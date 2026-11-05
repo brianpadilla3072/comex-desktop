@@ -1,3 +1,5 @@
+import { ComexProjectPanel } from "../comex/project-panel";
+import { useComexFeature } from "../comex/use-comex-feature";
 import { BuiltMcpAppPanel } from "../../apps/built-mcp-app-panel";
 /** @jsxImportSource react */
 import * as React from "react";
@@ -617,6 +619,7 @@ export function SidePanel({
   browserPresentation,
   browserShownElsewhere = false,
 }: SidePanelProps) {
+  const comexEnabled = useComexFeature(client);
   const { tabs } = useSessionPanelState(sessionId);
   const activeTab = useActivePanelTab(sessionId);
   const isBrowserAvailable = Boolean(getElectronBrowser());
@@ -812,6 +815,7 @@ export function SidePanel({
       >
         {!(tabs.length === 1 && activeTab?.type === "mcp-app") ? <div className="shrink-0 border-b border-border bg-background mac:bg-background/80 mac:backdrop-blur-2xl mac:backdrop-saturate-150">
           <div className="flex h-10 items-center gap-1 border-b border-border/60 px-2">
+            {comexEnabled && <Button variant="ghost" size="sm" aria-label="Resultados y memoria del proyecto" onClick={() => usePanelTabStore.getState().selectTab(sessionId, null)}>Proyecto</Button>}
             <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto">
               <PanelTabList
                 values={tabs.map((tab) => tab.id)}
@@ -857,7 +861,11 @@ export function SidePanel({
             ) : null}
           </div>
         </div> : null}
-        {!activeTab ? (
+        {!activeTab && comexEnabled && client && workspaceId ? (
+          <ComexProjectPanel key={`${client.baseUrl}:${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId}
+            onOpenBrowser={isBrowserAvailable ? () => { void createTab(); } : undefined}
+            onOpenTarget={target => usePanelTabStore.getState().openTab(sessionId, { id: target.id, type: "artifact", label: target.name, preview: target.preview, target })} />
+        ) : !activeTab ? (
           <PanelEmpty
             onOpenBrowser={isBrowserAvailable ? createTab : undefined}
             onOpenExtensions={onOpenExtensions}

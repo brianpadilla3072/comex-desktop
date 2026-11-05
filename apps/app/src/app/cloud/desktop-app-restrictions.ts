@@ -17,12 +17,12 @@ export const DESKTOP_RESTRICTION_OPENCODE_PROVIDER_ID = "opencode";
 export function checkDesktopAppRestriction(input: {
   config: DenDesktopConfig | null | undefined;
   restriction: DesktopAppRestrictionKey;
+  comexWorkspace?: boolean;
 }) {
-  // OpenCode Zen is retired, including signed-out and offline use. Reuse the
-  // restriction every surface already honors (model list, Connect, Automations
-  // and the engine's disabled providers), regardless of organization policy.
+  // Upstream retired Zen. The local Comex distribution also supports the new
+  // Console account integration on this id, without bypassing model policy.
   if (input.restriction === "allowZenModel") {
-    return true;
+    return !input.comexWorkspace || input.config?.allowCustomProviders === false;
   }
   return desktopPolicyKeyEnforced(input.restriction) && input.config?.[input.restriction] === false;
 }

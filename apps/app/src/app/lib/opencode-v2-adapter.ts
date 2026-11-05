@@ -19,6 +19,7 @@ import type {
 } from "@opencode-ai/sdk/v2/client";
 
 import { createClient, createDesktopFetch, type FieldsResult } from "./opencode";
+import { createNativeProviderAuth } from "./opencode-v2-auth";
 import { AUTO_ROUTER_SESSION_ROUTES_KEY, autoRouterReplyRoutes } from "@openwork/types/den/auto-router";
 import type { OpenworkSessionHistory } from "./openwork-server";
 import { isDesktopRuntime } from "./runtime-env";
@@ -3033,6 +3034,7 @@ export function createClientV2(
     });
   };
 
+  const nativeAuth = createNativeProviderAuth(request);
   const adapter = {
     global: {
       health: async (options?: RequestOptions): Promise<FieldsResult<{ healthy: boolean; version: string }>> => {
@@ -3061,6 +3063,7 @@ export function createClientV2(
     },
     provider: {
       list: (parameters?: DirectoryParameters, options?: RequestOptions) => listProviders(parameters, options),
+      auth: nativeAuth.catalog,
     },
     app: {
       agents: async (
@@ -3141,6 +3144,8 @@ export function createClientV2(
   Object.assign(compatibilityClient.session, adapter.session);
   Object.assign(compatibilityClient.config, adapter.config);
   Object.assign(compatibilityClient.provider, adapter.provider);
+  Object.assign(compatibilityClient.provider.oauth, nativeAuth.oauth);
+  Object.assign(compatibilityClient.auth, nativeAuth.credentials);
   Object.assign(compatibilityClient.app, adapter.app);
   Object.assign(compatibilityClient.command, adapter.command);
   Object.assign(compatibilityClient.permission, adapter.permission);

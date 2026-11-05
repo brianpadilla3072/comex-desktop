@@ -23,6 +23,8 @@ python3 scripts/tabla_xlsx.py analisis/preseleccion.csv -o analisis/preseleccion
 
 El script produce: fila de título, encabezados con color y negrita, formato numérico automático (miles, decimales, porcentajes), ancho de columnas, panel inmovilizado, gráfico nativo de Excel (`--chart line|bar`) y nota "Fuente:" al pie. Acepta CSV (`,` o `;`, se autodetecta) o JSON (lista de objetos). Ver `--help` para todas las opciones.
 
+Los códigos de producto y país se conservan como texto (incluidos ceros iniciales). Los datos importados, incluso si empiezan con `=`, se guardan como texto literal: las fórmulas se agregan explícitamente después. Se reconocen números como `1.234,56` y `1,234.56`; un separador único se interpreta como decimal. Para porcentajes, usar `12,5%` o una fracción como `0.125`, indicando la unidad en el encabezado.
+
 ## Convenciones del pack (mantenerlas)
 
 - **Datos crudos intactos**: la hoja con lo descargado de Comtrade/Trade Map no se edita a mano. Las transformaciones y promedios van en otra hoja o en otra planilla, para que el dato original sea auditable.

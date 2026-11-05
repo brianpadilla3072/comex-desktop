@@ -269,6 +269,24 @@ type DesktopConfigState = {
  */
 export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) {
   const denAuth = useDenAuth();
+  const [comexWorkspace, setComexWorkspace] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const update = async () => {
+      try {
+        const connection = await resolveOpenworkConnection();
+        if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
+          if (active) setComexWorkspace(false);
+          return;
+        }
+        const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
+        if (active) setComexWorkspace(feature.enabled);
+      } catch { if (active) setComexWorkspace(false); }
+    };
+    void update();
+    const timer = window.setInterval(() => void update(), 15_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
   const [desktopConfigState, setDesktopConfigState] = useState<DesktopConfigState>({
     config: DEFAULT_DESKTOP_CONFIG,
     loading: true,
@@ -619,8 +637,8 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
   const configRef = useRef(config);
   configRef.current = config;
   const checkRestriction = useCallback<DesktopAppRestrictionChecker>(
-    ({ restriction }) => checkDesktopAppRestriction({ config: configRef.current, restriction }),
-    [],
+    ({ restriction }) => checkDesktopAppRestriction({ config: configRef.current, restriction, comexWorkspace }),
+    [comexWorkspace],
   );
   const value = useMemo<DesktopConfigStore>(() => {
     return {

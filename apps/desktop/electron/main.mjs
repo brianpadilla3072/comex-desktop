@@ -152,6 +152,8 @@ const {
   session,
   shell,
 } = require("electron");
+if (app.isPackaged) process.env.OPENWORK_COMEX_PACK_DIR = path.join(process.resourcesPath, "pack");
+
 const startNativeDictation = createNativeDictation({
   platform: process.platform, menu: Menu, processId: process.pid, systemRoot: process.env.SystemRoot,
 });

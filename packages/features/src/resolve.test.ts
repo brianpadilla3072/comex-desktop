@@ -16,17 +16,23 @@ import {
   RETIRED_FEATURE_KEYS,
   type FeatureContext,
   type FeatureDefinition,
+  type FeatureDeployment,
 } from "@openwork/features"
 
 const base: FeatureContext = { deployment: "cloud", locks: {}, rollouts: {}, overrides: {} }
 const featureDocs = (feature: FeatureDefinition) => feature.docs
 
-test("without stored state, every feature follows its registry default", () => {
-  for (const key of FEATURE_KEYS) {
-    const resolved = resolveFeature(key, base)
-    assert.equal(resolved.enabled, FEATURES[key].default)
-    assert.equal(resolved.source, "everyone")
-    assert.equal(resolved.overrideApplies, true)
+test("without stored state, supported deployments follow defaults and unavailable features stay off", () => {
+  const deployments: FeatureDeployment[] = ["cloud", "self_hosted"]
+  for (const deployment of deployments) {
+    for (const key of FEATURE_KEYS) {
+      const feature: FeatureDefinition = FEATURES[key]
+      const available = feature.deployments.includes(deployment)
+      const resolved = resolveFeature(key, { ...base, deployment })
+      assert.equal(resolved.enabled, available && feature.default, `${deployment}: ${key}`)
+      assert.equal(resolved.source, available ? "everyone" : "unavailable")
+      assert.equal(resolved.overrideApplies, available)
+    }
   }
 })
 

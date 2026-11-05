@@ -104,6 +104,17 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  comexWorkspace: {
+    label: "Comex workspace",
+    description: "Local Word previews, project memory and the Comex research pack.",
+    category: "experience",
+    added: "2026-11-05",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/comex-workspace/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   googleCalendarRecurrence: {
     label: "Google Calendar recurring meetings",
     description: "Create and change recurring meeting series through the native Google Calendar capabilities.",

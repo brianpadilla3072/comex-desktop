@@ -25,9 +25,9 @@ function mockEngine(authFails: boolean) {
     const request = input instanceof Request ? input : new Request(input, init);
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
-    if (path.endsWith("/provider/auth")) {
+    if (path.endsWith("/api/integration")) {
       if (authFails) return Response.json({ name: "UnknownError", data: { message: engineError } }, { status: 500 });
-      return Response.json({ anthropic: [{ type: "api", label: "API key" }] });
+      return Response.json({ data: [{ id: "anthropic", methods: [{ type: "key", label: "API key" }], connections: [] }] });
     }
     return Response.json({});
   });
@@ -59,7 +59,7 @@ test("Connect opens the dialog with the engine error when sign-in methods fail t
   try {
     await store.openProviderAuthModal({ returnFocusTarget: "composer" });
     const snapshot = store.getSnapshot();
-    expect(engine.requests.some((request) => request.endsWith("/provider/auth"))).toBe(true);
+    expect(engine.requests.some((request) => request.endsWith("/api/integration"))).toBe(true);
     expect(snapshot.providerAuthModalOpen).toBe(true);
     expect(snapshot.providerAuthBusy).toBe(false);
     expect(snapshot.providerAuthMethods).toEqual({});
