@@ -1,6 +1,6 @@
 ---
 name: taller-de-agentes
-description: Crear, modificar, probar e instalar skills y agentes de OpenCode para comercio exterior — cuando aparece una tarea nueva que se va a repetir, cuando algo del pack quedó corto, o cuando se pide "creá una skill para X", "hacé un agente que haga Y", "automatizar este trabajo", "modificar una skill existente", "probar esta skill". Usar SIEMPRE que la conversación gire alrededor de fabricar nuevas capacidades del pack (skills, agentes, scripts), no para usarlas.
+description: "Crear, modificar, probar e instalar skills y agentes de OpenCode para comercio exterior — cuando aparece una tarea nueva que se va a repetir, cuando algo del pack quedó corto, o cuando se pide \"creá una skill para X\", \"hacé un agente que haga Y\", \"automatizar este trabajo\", \"modificar una skill existente\", \"probar esta skill\". Usar SIEMPRE que la conversación gire alrededor de fabricar nuevas capacidades del pack (skills, agentes, scripts), no para usarlas."
 ---
 
 # Taller de Agentes

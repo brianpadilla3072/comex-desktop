@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { useEffect, useRef, type ReactNode } from "react";
 import { desktopPolicyKeys, type BrandAccentColor } from "@openwork/types/den/desktop-policies";
 
@@ -87,7 +88,8 @@ export function useBrandLogoUrl(): string | undefined {
 
 /** Organization-managed display name. It does not change the signed app identity. */
 export function useBrandAppName(): string {
-  return useOrgRestrictions().brandAppName ?? DEFAULT_SHELL_CONFIG.appName;
+  const specialist = useSpecialistApplications();
+  return useOrgRestrictions().brandAppName ?? specialist?.active?.name ?? DEFAULT_SHELL_CONFIG.appName;
 }
 
 const POLICY_NOTIFICATION_DEDUPE = "desktop-policy-active";

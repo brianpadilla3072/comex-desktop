@@ -1,5 +1,5 @@
 ---
-description: Orquestador de estudios de mercado internacionales e investigaciones de comercio exterior. Recibe un pedido en lenguaje simple (producto, mercado, objetivo) y conduce todo el estudio: brief, datos oficiales, análisis, borrador del informe y verificación de fuentes. Ideal como agente principal para estudiantes de Comercio Exterior.
+description: "Orquestador de estudios de mercado internacionales e investigaciones de comercio exterior. Recibe un pedido en lenguaje simple (producto, mercado, objetivo) y conduce todo el estudio: brief, datos oficiales, análisis, borrador del informe y verificación de fuentes. Ideal como agente principal para estudiantes de Comercio Exterior."
 mode: all
 color: "#2e7d5b"
 ---

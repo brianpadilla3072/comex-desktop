@@ -26,6 +26,7 @@ config:
   #   "false" off for everyone; /admin shows "Set by deployment config"
   # The /admin kill switch still turns a feature off, even when locked on.
   features:
+    specialistApplications: ""    # default on · Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.
     openworkPromotions: ""        # default off · Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.
     comexWorkspace: ""            # default on · Local Word previews, project memory and the Comex research pack.
     googleCalendarRecurrence: ""  # default off · Create and change recurring meeting series through the native Google Calendar capabilities.

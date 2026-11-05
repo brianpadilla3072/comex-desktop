@@ -1,6 +1,6 @@
 ---
 name: datos-comex
-description: Cómo obtener datos oficiales de comercio internacional — estadísticas de exportaciones e importaciones, aranceles, flujos por país y producto, códigos HS/NCM — usando Trade Map, UN Comtrade, WITS, OMC, OEC, Market Access Map y fuentes argentinas. Usar SIEMPRE que hagan falta estadísticas de comercio exterior, datos de exportación o importación, aranceles, barreras, rankings de mercados o países proveedores, valores unitarios, o cuando se mencione UN Comtrade, Trade Map, NCM, código arancelario, aduana o retenciones, aunque no se pida explícitamente "una base de datos".
+description: "Cómo obtener datos oficiales de comercio internacional — estadísticas de exportaciones e importaciones, aranceles, flujos por país y producto, códigos HS/NCM — usando Trade Map, UN Comtrade, WITS, OMC, OEC, Market Access Map y fuentes argentinas. Usar SIEMPRE que hagan falta estadísticas de comercio exterior, datos de exportación o importación, aranceles, barreras, rankings de mercados o países proveedores, valores unitarios, o cuando se mencione UN Comtrade, Trade Map, NCM, código arancelario, aduana o retenciones, aunque no se pida explícitamente \"una base de datos\"."
 ---
 
 # Datos de Comercio Exterior

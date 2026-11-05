@@ -95,13 +95,15 @@ export function sessionMemoryPath(sessionId: string): string {
   return `comex/sesiones/${sessionId}.md`;
 }
 
-export async function ensureComexSession(root: string, sessionId: string): Promise<void> {
-  if (!comexWorkspaceEnabled()) return;
+export async function ensureComexSession(root: string, sessionId: string, specialist = false): Promise<void> {
+  if (!comexWorkspaceEnabled() && !specialist) return;
   const canonical = await realpath(root);
   await createIfMissing(canonical, sessionMemoryPath(sessionId), "# Notas de esta sesión\n\n## Objetivo\nPendiente.\n\n## Avances y decisiones\nSin notas guardadas.\n\n## Próximo paso\nPendiente.\n");
 }
 
 export async function ensureComexWorkspace(root: string, packOverride?: string): Promise<boolean> {
+  // A specialist project owns its pack, even when its management UI is disabled.
+  if (await info(await safePath(root, ".opencode/specialist-application.json"))) return false;
   if (!comexWorkspaceEnabled()) return false;
   const canonical = await realpath(root);
   const previous = queues.get(canonical) ?? Promise.resolve(false);

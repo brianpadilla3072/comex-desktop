@@ -1,6 +1,6 @@
 ---
 name: planilla-xlsx
-description: Crear y editar planillas de Excel (.xlsx) — datos de comercio exterior, series de exportaciones/importaciones, matrices de análisis (preselección de mercados, PESTEL, DOFA), tablas para el informe y cálculos. Usar SIEMPRE que se pida un archivo de Excel, una planilla, un .xlsx, "una hoja de cálculo", datos tabulados para trabajar o entregar, o cuando un dataset del estudio (CSV de Comtrade, Trade Map, encuestas) tenga que volcarse a Excel. También para leer, editar o calcular sobre un .xlsx existente.
+description: "Crear y editar planillas de Excel (.xlsx) — datos de comercio exterior, series de exportaciones/importaciones, matrices de análisis (preselección de mercados, PESTEL, DOFA), tablas para el informe y cálculos. Usar SIEMPRE que se pida un archivo de Excel, una planilla, un .xlsx, \"una hoja de cálculo\", datos tabulados para trabajar o entregar, o cuando un dataset del estudio (CSV de Comtrade, Trade Map, encuestas) tenga que volcarse a Excel. También para leer, editar o calcular sobre un .xlsx existente."
 ---
 
 # Hojas de cálculo (xlsx)

@@ -1,6 +1,6 @@
 ---
 name: informe-academico
-description: Redacción y armado de trabajos finales, monografías, TFI, casos de internacionalización y trabajos prácticos universitarios — estructura por capítulo, contenido de cada sección, normas APA 7 completas, formato de entrega (portada, márgenes, interlineado), marco teórico y metodología. Usar SIEMPRE que se pida un trabajo para la universidad/colegio, un TFI, una monografía, un paper, un informe académico, "hacer el trabajo final", armar el marco teórico o la metodología, aplicar normas APA, o cuando un estudio de mercado (skill estudio-mercado-internacional) tenga que convertirse en el documento final para entregar. También para revisar formato y estructura de un borrador académico existente.
+description: "Redacción y armado de trabajos finales, monografías, TFI, casos de internacionalización y trabajos prácticos universitarios — estructura por capítulo, contenido de cada sección, normas APA 7 completas, formato de entrega (portada, márgenes, interlineado), marco teórico y metodología. Usar SIEMPRE que se pida un trabajo para la universidad/colegio, un TFI, una monografía, un paper, un informe académico, \"hacer el trabajo final\", armar el marco teórico o la metodología, aplicar normas APA, o cuando un estudio de mercado (skill estudio-mercado-internacional) tenga que convertirse en el documento final para entregar. También para revisar formato y estructura de un borrador académico existente."
 ---
 
 # Informe Académico

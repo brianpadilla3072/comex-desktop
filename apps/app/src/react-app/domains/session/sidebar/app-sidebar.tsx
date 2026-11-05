@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
@@ -721,7 +722,12 @@ function isSessionActivityStatus(status: string | undefined): status is SessionA
   return status === "idle" || status === "thinking" || status === "responding" || status === "error" || status === "compacting" || status === "waiting";
 }
 
-export function AppSidebar(props: AppSidebarProps) {
+export function AppSidebar(inputProps: AppSidebarProps) {
+  const specialist = useSpecialistApplications();
+  const props = specialist?.active ? {
+    ...inputProps,
+    workspaceSessionGroups: inputProps.workspaceSessionGroups.filter(group => specialist.active?.workspaceIds.includes(group.workspace.id)),
+  } : inputProps;
   const { open, isMobile } = useSidebar();
   // Lives in the UI store (not component state) so the open/closed state of
   // each workspace group survives this sidebar unmounting, e.g. while the
@@ -860,7 +866,7 @@ export function AppSidebar(props: AppSidebarProps) {
         ) : (
           <div data-sidebar-brand className="flex h-11 min-w-0 flex-1 items-center gap-1.5 pl-4 pr-1">
             <img src={resolveExtensionIconSrc("/openwork-sidebar-mark.svg")} alt="" className="size-5 shrink-0 object-contain dark:invert" />
-            <span className="truncate text-[15px] font-medium tracking-[-0.4px]" title={brandAppName}>{brandAppName}</span>
+            <SpecialistApplicationSwitcher fallbackName={brandAppName} />
           </div>
         )}
         {open || isMobile ? <SidebarActions onOpenSessionSearch={props.onOpenSessionSearch} /> : null}

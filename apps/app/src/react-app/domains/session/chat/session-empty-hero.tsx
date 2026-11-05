@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, X, Zap } from "lucide-react";
 
@@ -99,6 +100,7 @@ export type SessionEmptyHeroProps = {
  * built-in defaults otherwise.
  */
 export function SessionEmptyHero(props: SessionEmptyHeroProps) {
+  const specialist = useSpecialistApplications();
   const comexEnabled = useComexFeature(props.composer?.client ?? null);
   // The session is created on submit, so until then the prompt has no
   // conversation to live in. Persist it under the workspace's reserved slot so
@@ -193,7 +195,11 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
       });
       return { title: card.title, description: card.description, prompt: card.selectionPrompt };
     })
-    : comexEnabled ? COMEX_SUGGESTIONS : DEFAULT_SUGGESTIONS;
+    : specialist?.active?.template === "custom" ? [
+      { title: "Empezar un trabajo", description: "Objetivo y alcance", prompt: `Quiero empezar un trabajo de ${specialist.active.specialty}. Ayudame a precisar el objetivo, los datos necesarios y los entregables.` },
+      { title: "Revisar un documento", description: "Argumentos y evidencia", prompt: "Quiero que revises un documento según tu especialidad. Primero pedime el archivo y los criterios de revisión." },
+      { title: "Organizar mi proyecto", description: "Etapas y próximos pasos", prompt: "Ayudame a organizar mi proyecto. Confirmá el alcance y proponé etapas concretas, con entregables y evidencia para cada una." },
+    ] : comexEnabled ? COMEX_SUGGESTIONS : DEFAULT_SUGGESTIONS;
 
   const submit = async (
     resolvedPrompt: string,
@@ -229,7 +235,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
     <div data-chat-empty-hero className="mx-auto flex w-full max-w-[640px] flex-col gap-6 px-4 max-lg:h-full max-lg:min-h-0 max-lg:gap-4 max-lg:overflow-y-auto max-lg:px-3 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6">
       <div data-empty-greeting hidden={hideIntroduction} className="text-center max-lg:pt-6">
         <h2 className="text-lg font-medium tracking-tight text-foreground">
-          {comexEnabled ? "¿Qué querés investigar?" : "What do you need done?"}
+          {specialist?.active ? `¿En qué trabajamos${specialist.catalog?.user?.displayName ? `, ${specialist.catalog.user.displayName}` : ""}?` : comexEnabled ? "¿Qué querés investigar?" : "What do you need done?"}
         </h2>
       </div>
 

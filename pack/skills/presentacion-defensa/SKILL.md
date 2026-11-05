@@ -1,6 +1,6 @@
 ---
 name: presentacion-defensa
-description: Preparar guiones de exposición y practicar la defensa oral de estudios de comercio exterior a partir del informe y sus evidencias. Usar para exposición académica, preguntas del docente y explicación de cálculos; no implica generación automática de PowerPoint.
+description: "Preparar guiones de exposición y practicar la defensa oral de estudios de comercio exterior a partir del informe y sus evidencias. Usar para exposición académica, preguntas del docente y explicación de cálculos; no implica generación automática de PowerPoint."
 ---
 
 # Presentación y defensa

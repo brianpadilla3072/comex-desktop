@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { SpecialistApplicationsProvider } from "@/react-app/domains/specialists/provider";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
@@ -458,6 +459,7 @@ export function AppRoot() {
       <DevProfiler id="AppRoot">
         <DesktopUpdaterProvider>
         <ShellConfigProvider>
+        <SpecialistApplicationsProvider>
         <AppMenuProvider>
         <OpenworkControlProvider>
           <OpenworkRouteControlActions />
@@ -597,6 +599,7 @@ export function AppRoot() {
           </EnterpriseActivationGate>
         </OpenworkControlProvider>
         </AppMenuProvider>
+        </SpecialistApplicationsProvider>
         </ShellConfigProvider>
         </DesktopUpdaterProvider>
       </DevProfiler>

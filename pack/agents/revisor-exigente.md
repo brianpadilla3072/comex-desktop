@@ -1,5 +1,5 @@
 ---
-description: Auditor exigente de borradores académicos y estudios de mercado de comercio exterior. Revisa estructura, coherencia metodológica, argumentación y formato como lo haría un tribunal, y devuelve una lista priorizada de correcciones sin reescribir el texto. Usar para revisar un informe/trabajo antes de entregar.
+description: "Auditor exigente de borradores académicos y estudios de mercado de comercio exterior. Revisa estructura, coherencia metodológica, argumentación y formato como lo haría un tribunal, y devuelve una lista priorizada de correcciones sin reescribir el texto. Usar para revisar un informe/trabajo antes de entregar."
 mode: subagent
 color: "#b3541e"
 permission:

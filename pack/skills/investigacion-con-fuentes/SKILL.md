@@ -1,6 +1,6 @@
 ---
 name: investigacion-con-fuentes
-description: Disciplina de citación, verificación de datos y honestidad académica para trabajos de investigación y estudios de mercado. Usar SIEMPRE que se redacte un trabajo académico, un informe o un estudio de mercado, que se citen datos o estadísticas, que se arme una bibliografía, o antes de entregar cualquier documento con cifras. También cuando se pida verificar información, chequear fuentes o detectar datos inventados.
+description: "Disciplina de citación, verificación de datos y honestidad académica para trabajos de investigación y estudios de mercado. Usar SIEMPRE que se redacte un trabajo académico, un informe o un estudio de mercado, que se citen datos o estadísticas, que se arme una bibliografía, o antes de entregar cualquier documento con cifras. También cuando se pida verificar información, chequear fuentes o detectar datos inventados."
 ---
 
 # Investigación con Fuentes

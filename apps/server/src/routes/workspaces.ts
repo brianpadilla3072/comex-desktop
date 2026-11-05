@@ -1,3 +1,8 @@
+import { registerSpecialistRoutes } from "../specialists/routes.js";
+import { specialistStore } from "../specialists/store.js";
+import { prepareSpecialistWorkspace } from "../specialists/packs.js";
+import { specialistApplicationsEnabled } from "../comex/features.js";
+import { z } from "zod";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { recordAudit } from "../audit.js";
@@ -8,7 +13,7 @@ import { ensureDir, exists, shortId } from "../utils.js";
 import { defaultWorkspaceOpenworkConfig, ensureWorkspaceFiles } from "../workspace-init.js";
 import { seedOpenworkWorkspaceConfigIfEmpty } from "../openwork-workspace-config-store.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { addRoute, type Route } from "./registry.js";
+import { addRoute, type Route, type RequestContext } from "./registry.js";
 
 type JsonResponse = (data: unknown, status?: number) => Response;
 type ReadJsonBody = (request: Request) => Promise<Record<string, unknown>>;
@@ -115,9 +120,9 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
 
   const resolveWorkspaceForRegistry = (id: string): Promise<WorkspaceInfo> => resolveWorkspace(config, id);
 
-  addRoute(routes, "POST", "/workspaces/local", "host", async (ctx) => {
+  const createLocalWorkspace = async (ctx: RequestContext, supplied?: Record<string, unknown>) => {
     ensureWritable(config);
-    const body = await readJsonBody(ctx.request);
+    const body = supplied ?? await readJsonBody(ctx.request);
     const folderPath = typeof body.folderPath === "string" ? body.folderPath.trim() : "";
     const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : basename(folderPath || "Workspace");
     const preset = typeof body.preset === "string" && body.preset.trim() ? body.preset.trim() : "starter";
@@ -127,6 +132,14 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
     }
 
     const workspacePath = resolve(folderPath);
+    const applicationId = typeof body.applicationId === "string" ? body.applicationId : undefined;
+    if (applicationId) {
+      if (!specialistApplicationsEnabled()) throw new ApiError(404, "specialists_disabled", "Los perfiles especialistas están desactivados.");
+      const store = await specialistStore(config);
+      const bound = store.forWorkspace(workspaceIdForPath(workspacePath));
+      if (bound && bound.id !== applicationId) throw new ApiError(409, "project_already_bound", "Este proyecto pertenece a otra aplicación.");
+      if (!bound) await prepareSpecialistWorkspace(config, store.application(applicationId), workspacePath);
+    }
     await ensureDir(workspacePath);
     await ensureWorkspaceFiles(workspacePath, preset);
 
@@ -148,6 +161,7 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
       ...inheritWorkspaceOpencodeConnection(config),
     };
 
+    if (applicationId) (await specialistStore(config)).bind(workspaceId, applicationId, workspacePath);
     config.workspaces = [workspace, ...config.workspaces.filter((entry) => entry.id !== workspace.id)];
     if (!config.authorizedRoots.some((root) => resolve(root) === workspacePath)) {
       config.authorizedRoots = [...config.authorizedRoots, workspacePath];
@@ -170,6 +184,13 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
       workspaces: config.workspaces.map(serializeWorkspace),
       persisted,
     }, 201);
+  };
+  addRoute(routes, "POST", "/workspaces/local", "host", ctx => createLocalWorkspace(ctx));
+  registerSpecialistRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable,
+    createWorkspace: async (ctx, payload) => {
+      const response = await createLocalWorkspace(ctx, payload);
+      return z.object({ activeId: z.string() }).parse(await response.json()).activeId;
+    },
   });
 
   addRoute(routes, "PATCH", "/workspaces/:id/display-name", "host", async (ctx) => {

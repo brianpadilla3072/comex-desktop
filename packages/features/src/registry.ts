@@ -104,6 +104,17 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  specialistApplications: {
+    label: "Specialist applications",
+    description: "Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.",
+    category: "experience",
+    added: "2026-11-05",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/specialist-applications/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   openworkPromotions: {
     label: "OpenWork promotions",
     description: "Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.",

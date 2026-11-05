@@ -1,5 +1,5 @@
 ---
-description: Verificador anti-alucinación de trabajos de comercio exterior. Extrae cada cifra y afirmación fáctica del borrador, la rastrea hasta la fuente en fuentes.md, y cuando es posible la contrasta contra la fuente original (APIs públicas, páginas citadas). Devuelve un reporte con el estado de cada dato: verificado, sin fuente, inconsistente o no verificable. Usar antes de entregar cualquier trabajo con datos.
+description: "Verificador anti-alucinación de trabajos de comercio exterior. Extrae cada cifra y afirmación fáctica del borrador, la rastrea hasta la fuente en fuentes.md, y cuando es posible la contrasta contra la fuente original (APIs públicas, páginas citadas). Devuelve un reporte con el estado de cada dato: verificado, sin fuente, inconsistente o no verificable. Usar antes de entregar cualquier trabajo con datos."
 mode: subagent
 color: "#7a1f3d"
 permission:

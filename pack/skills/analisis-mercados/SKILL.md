@@ -1,6 +1,6 @@
 ---
 name: analisis-mercados
-description: Herramientas de análisis para estudios de comercio exterior — matriz de preselección de mercados, PESTEL, DOFA, indicadores de comercio (TCAC, cuotas de mercado, valores unitarios, VCA), ranking de competidores y dimensionamiento de la demanda. Usar SIEMPRE que haya que analizar datos de un estudio de mercado, comparar o rankear países/mercados, armar una matriz de preselección, hacer un análisis PESTEL o DAFO/DOFA, calcular indicadores de crecimiento o participación, estimar el tamaño de un mercado, o cuando ya se descargaron datos de Comtrade/Trade Map y hay que convertirlos en conclusiones.
+description: "Herramientas de análisis para estudios de comercio exterior — matriz de preselección de mercados, PESTEL, DOFA, indicadores de comercio (TCAC, cuotas de mercado, valores unitarios, VCA), ranking de competidores y dimensionamiento de la demanda. Usar SIEMPRE que haya que analizar datos de un estudio de mercado, comparar o rankear países/mercados, armar una matriz de preselección, hacer un análisis PESTEL o DAFO/DOFA, calcular indicadores de crecimiento o participación, estimar el tamaño de un mercado, o cuando ya se descargaron datos de Comtrade/Trade Map y hay que convertirlos en conclusiones."
 ---
 
 # Análisis de Mercados

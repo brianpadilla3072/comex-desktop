@@ -1,6 +1,6 @@
 ---
 name: estudio-mercado-internacional
-description: Metodología completa para hacer estudios de mercado internacionales, planes de internacionalización, selección de mercados y casos de exportación. Usar SIEMPRE que se pida un estudio de mercado, un análisis de mercado exterior, una investigación de mercados, un plan de exportación/internacionalización, la selección de un país o mercado meta, un caso práctico de comercio exterior o un trabajo final de la carrera de Comercio Exterior, aunque no se mencione la metodología. También cuando se analice la viabilidad de exportar o importar un producto.
+description: "Metodología completa para hacer estudios de mercado internacionales, planes de internacionalización, selección de mercados y casos de exportación. Usar SIEMPRE que se pida un estudio de mercado, un análisis de mercado exterior, una investigación de mercados, un plan de exportación/internacionalización, la selección de un país o mercado meta, un caso práctico de comercio exterior o un trabajo final de la carrera de Comercio Exterior, aunque no se mencione la metodología. También cuando se analice la viabilidad de exportar o importar un producto."
 ---
 
 # Estudio de Mercado Internacional

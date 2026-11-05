@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
@@ -211,6 +212,7 @@ export type AccountStatusMenuProps = {
  * used to show in a full-width bottom status bar.
  */
 export function AccountStatusMenu(props: AccountStatusMenuProps) {
+  const specialist = useSpecialistApplications();
   const denAuth = useDenAuth();
   const platform = usePlatform();
   const navigate = useNavigate();
@@ -298,12 +300,12 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
     : formatControlPlaneHost(denBaseUrl);
   const accountLabel = signedIn
     ? user.name?.trim() || user.email
-    : !shellConfig.cloudSignin ? "Comex" : restoringSession ? serverLabel : "Sign in";
+    : !shellConfig.cloudSignin ? specialist?.catalog?.user?.displayName ?? "Comex" : restoringSession ? serverLabel : "Sign in";
   // The sidebar row shows the name only; the email stays inside the account
   // menu so it is not permanently on screen (matches Claude Code and Codex).
   const accountDetail = signedIn
     ? serverLabel
-    : !shellConfig.cloudSignin ? "Espacio local" : restoringSession ? "Restoring your session" : "Sync with OpenWork Cloud";
+    : !shellConfig.cloudSignin ? specialist?.active?.name ?? "Espacio local" : restoringSession ? "Restoring your session" : "Sync with OpenWork Cloud";
 
   const runtimeStatus = props.showConnectionStatus
     ? resolveRuntimeStatus({

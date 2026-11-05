@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { freeAutoSwitchedOff, modelForNewTask, openComposerModelPickerEvent } from "@/app/lib/inference-access";
 import { useAutoAccess, useObservedAutoAccessSnapshot } from "@/react-app/domains/cloud/auto-access-ui";
 import { newSessionDraftSlot, newSessionDraftOwnerKey, openNewSessionDraft } from "@/react-app/domains/session/chat/new-session-destination";
@@ -415,6 +416,7 @@ function focusedWorkbenchPaneOwner() {
 }
 
 export function SessionRoute() {
+  const specialistApplicationId = useSpecialistApplications()?.active?.id;
   const navigate = useNavigate();
   const location = useLocation();
   const appsRouteActive = /^(?:\/apps|\/dashboard\/apps)(?:\/|$)/.test(location.pathname);
@@ -3675,7 +3677,7 @@ export function SessionRoute() {
       let createdOnServer = false;
       if (client) {
         list = await client
-          .createLocalWorkspace({ folderPath: folder, name: workspaceName, preset })
+          .createLocalWorkspace({ folderPath: folder, name: workspaceName, preset, applicationId: specialistApplicationId })
           .then((serverList) => {
             createdOnServer = true;
             return serverList;
@@ -3787,7 +3789,7 @@ export function SessionRoute() {
     } finally {
       setCreateWorkspaceBusy(false);
     }
-  }, [baseUrl, client, local, navigateToWorkspaceSession, newTaskAgent, refreshRouteState, reloadWorkspaceSessions, rememberPendingCreatedSession, token]);
+  }, [specialistApplicationId, baseUrl, client, local, navigateToWorkspaceSession, newTaskAgent, refreshRouteState, reloadWorkspaceSessions, rememberPendingCreatedSession, token]);
 
   /**
    * Chat-first onboarding: the empty-state composer creates a default chat

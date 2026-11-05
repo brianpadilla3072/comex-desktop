@@ -1,6 +1,6 @@
 ---
 name: cotizacion-exportacion
-description: Formación de precios de exportación e importación — Incoterms 2020, precios FOB/CFR/CIF, landed cost (costo de destino), aranceles de importación, retenciones, cálculo de presupuestos comerciales de exportación. Usar SIEMPRE que se hable de cotizar, presupuestar o pricing de un producto exportable/importable, de Incoterms (EXW, FOB, CIF, DDP...), de "¿a qué precio puedo vender en el mercado X?", landed cost, costo de destino, margen exportador, arancel aplicado, retenciones, o cuando un caso práctico de comercio exterior pida armar el presupuesto comercial o la planilla de costos. También cuando haya que comparar competitividad de precios entre mercados o proveedores.
+description: "Formación de precios de exportación e importación — Incoterms 2020, precios FOB/CFR/CIF, landed cost (costo de destino), aranceles de importación, retenciones, cálculo de presupuestos comerciales de exportación. Usar SIEMPRE que se hable de cotizar, presupuestar o pricing de un producto exportable/importable, de Incoterms (EXW, FOB, CIF, DDP...), de \"¿a qué precio puedo vender en el mercado X?\", landed cost, costo de destino, margen exportador, arancel aplicado, retenciones, o cuando un caso práctico de comercio exterior pida armar el presupuesto comercial o la planilla de costos. También cuando haya que comparar competitividad de precios entre mercados o proveedores."
 ---
 
 # Cotización de Exportación

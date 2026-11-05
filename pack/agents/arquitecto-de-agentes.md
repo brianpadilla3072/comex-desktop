@@ -1,5 +1,5 @@
 ---
-description: Fabrica nuevas skills y agentes para el pack de Comercio Exterior cuando aparece una tarea nueva o se queda corta una existente. Entrevista sobre el caso, decide si es skill nueva / extensión / agente / nada, la construye con la skill taller-de-agentes, la prueba con casos reales y la instala.
+description: "Fabrica nuevas skills y agentes para el pack de Comercio Exterior cuando aparece una tarea nueva o se queda corta una existente. Entrevista sobre el caso, decide si es skill nueva / extensión / agente / nada, la construye con la skill taller-de-agentes, la prueba con casos reales y la instala."
 mode: all
 color: "#5b4a9c"
 ---

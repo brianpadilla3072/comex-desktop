@@ -1,6 +1,6 @@
 ---
 name: logistica-transporte
-description: Plantear cadenas logísticas de exportación y justificar modo, operadores e Incoterm por producto y destino en estudios de prefactibilidad comercial. No realiza despachos ni reservas de transporte.
+description: "Plantear cadenas logísticas de exportación y justificar modo, operadores e Incoterm por producto y destino en estudios de prefactibilidad comercial. No realiza despachos ni reservas de transporte."
 ---
 
 # Logística y transporte

@@ -1,6 +1,6 @@
 ---
 name: documento-docx
-description: Crear, editar y entregar documentos de Microsoft Word (.docx) — informes académicos, trabajos finales, cartas, presupuestos y documentos formales de comercio exterior. Usar SIEMPRE que se pida un archivo de Word, un .docx, un informe para entregar en la universidad, un trabajo final, un documento "para imprimir", "con tapa", "en Word", o cuando el entregable de un estudio de mercado o investigación tenga que ser un documento (no un markdown). También para convertir un informe existente a Word o para editar un .docx recibido.
+description: "Crear, editar y entregar documentos de Microsoft Word (.docx) — informes académicos, trabajos finales, cartas, presupuestos y documentos formales de comercio exterior. Usar SIEMPRE que se pida un archivo de Word, un .docx, un informe para entregar en la universidad, un trabajo final, un documento \"para imprimir\", \"con tapa\", \"en Word\", o cuando el entregable de un estudio de mercado o investigación tenga que ser un documento (no un markdown). También para convertir un informe existente a Word o para editar un .docx recibido."
 ---
 
 # Documentos Word (docx)

@@ -112,6 +112,23 @@ function parseEngineActivity(value: unknown): EngineActivity {
   return { v1, v2 };
 }
 
+export interface SpecialistApplication {
+  id: string; name: string; specialty: string; personality: string;
+  template: "comex" | "custom"; agentCount: number; skillCount: number; createdAt: number;
+  workspaceIds: string[];
+}
+export interface SpecialistCatalog {
+  enabled: boolean;
+  user: { id: string; displayName: string } | null;
+  activeApplicationId?: string | null;
+  applications: SpecialistApplication[];
+}
+export interface SpecialistApplicationInput {
+  userName?: string; name: string; specialty: string; personality: string;
+  template: "comex" | "custom"; packPath?: string; preferredWorkspaceId?: string;
+}
+export interface SpecialistPackSummary { agents: string[]; skills: string[]; fileCount: number; bytes: number }
+
 export interface EngineV2PreviewStatus {
   connectionSource?: "installed";
   lastWarning?: string;
@@ -1750,7 +1767,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         timeoutMs: timeouts.binary,
       }),
     listWorkspaces: () => requestJson<OpenworkWorkspaceList>(baseUrl, "/workspaces", { token, hostToken, timeoutMs: timeouts.listWorkspaces }),
-    createLocalWorkspace: (payload: { folderPath: string; name: string; preset: string }) =>
+    createLocalWorkspace: (payload: { folderPath: string; name: string; preset: string; applicationId?: string }) =>
       requestJson<WorkspaceList>(baseUrl, "/workspaces/local", {
         token,
         hostToken,
@@ -2403,6 +2420,12 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         { token, hostToken, timeoutMs: timeouts.binary },
       ),
 
+    getSpecialistApplications: () => requestJson<SpecialistCatalog>(baseUrl, "/specialist-applications", { token, hostToken }),
+    previewSpecialistPack: (payload: { template?: "comex"; packPath?: string }) => requestJson<SpecialistPackSummary>(baseUrl, "/specialist-applications/preview-pack", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
+    createSpecialistApplication: (payload: SpecialistApplicationInput) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
+    updateSpecialistApplication: (id: string, payload: Pick<SpecialistApplicationInput, "name" | "specialty" | "personality">) => requestJson<{ catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "PATCH", body: payload }),
+    activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
+    createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
     getComexFeatures: () => requestJson<{ enabled: boolean; openworkPromotions?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */

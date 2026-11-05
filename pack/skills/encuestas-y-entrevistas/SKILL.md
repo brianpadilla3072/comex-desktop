@@ -1,6 +1,6 @@
 ---
 name: encuestas-y-entrevistas
-description: Diseñar encuestas y entrevistas para estudios de mercado y analizar respuestas reales aportadas por la persona. Usar cuando la consigna pide investigación primaria, muestra, cuestionario o tabulación; no sustituye la realización del trabajo de campo.
+description: "Diseñar encuestas y entrevistas para estudios de mercado y analizar respuestas reales aportadas por la persona. Usar cuando la consigna pide investigación primaria, muestra, cuestionario o tabulación; no sustituye la realización del trabajo de campo."
 ---
 
 # Encuestas y entrevistas

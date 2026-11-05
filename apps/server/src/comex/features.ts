@@ -14,3 +14,9 @@ export function openworkPromotionsEnabled(env: NodeJS.ProcessEnv = process.env):
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("openworkPromotions", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+export function specialistApplicationsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistApplications", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

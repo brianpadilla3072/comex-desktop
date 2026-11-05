@@ -61,6 +61,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "specialistApplications": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist applications: Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite. Renders DEN_FEATURE_SPECIALIST_APPLICATIONS."
+            },
             "openworkPromotions": {
               "enum": [
                 "",

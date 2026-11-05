@@ -31,7 +31,7 @@
     "test:fs-engine": "node scripts/fs-engine.mjs",
     "test:browser-entry": "node scripts/browser-entry.mjs",
     "test:e2e": "node scripts/e2e.mjs && node scripts/session-switch.mjs && node scripts/fs-engine.mjs && node scripts/browser-entry.mjs",
-    "test:comex": "bun test tests/comex-project-panel.test.tsx && bun test tests/comex-promotions.test.tsx && bun test tests/comex-free-models.test.ts && bun test tests/comex-docx-preview.test.ts && bun test tests/opencode-v2-auth.test.ts && bun test tests/provider-auth-load-error.test.ts && bun test tests/opencode-zen-removal.test.ts && bun test tests/session-provider-auth-error.test.ts"
+    "test:comex": "bun test tests/comex-project-panel.test.tsx && bun test tests/comex-promotions.test.tsx && bun test tests/comex-free-models.test.ts && bun test tests/specialist-applications.test.tsx && bun test tests/comex-docx-preview.test.ts && bun test tests/opencode-v2-auth.test.ts && bun test tests/provider-auth-load-error.test.ts && bun test tests/opencode-zen-removal.test.ts && bun test tests/session-provider-auth-error.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
