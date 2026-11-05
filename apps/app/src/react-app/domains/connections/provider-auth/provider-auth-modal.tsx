@@ -165,7 +165,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     return normalizedId === "anthropic" || normalizedName === "anthropic";
   };
 
-  const isOpencodeZenProvider = (id: string) => id.trim().toLowerCase() === "opencode";
+  const isOpencodeAccountProvider = (id: string) => ["opencode", "opencode-go"].includes(id.trim().toLowerCase());
 
   const OPENCODE_ZEN_KEY_URL = "https://opencode.ai/auth";
 
@@ -675,7 +675,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       return "Continue in the browser and let OpenWork finish the connection automatically.";
     }
     if (method.type === "cloud") return "Managed by your organization.";
-    if (isOpencodeZenProvider(entry.id)) {
+    if (isOpencodeAccountProvider(entry.id)) {
       return "Conectá tu cuenta de OpenCode Console o una API key de OpenCode.";
     }
     return "Paste a secret key that OpenWork stores locally on this device.";
@@ -868,28 +868,28 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                     </div>
                   </div>
                   <div className="text-xs text-gray-10">
-                    {isOpencodeZenProvider(selectedEntry.id)
-                      ? "Conectá OpenCode Console con tu cuenta o una API key de opencode.ai/auth."
+                    {isOpencodeAccountProvider(selectedEntry.id)
+                      ? `Conectá ${selectedEntry.name} con una API key vigente de opencode.ai/auth.`
                       : "Paste your API key to connect."}
                   </div>
-                  {isOpencodeZenProvider(selectedEntry.id) ? (
+                  {isOpencodeAccountProvider(selectedEntry.id) ? (
                     <div className="rounded-lg border border-indigo-5/30 bg-indigo-3/15 px-3 py-2.5 text-xs text-indigo-12 space-y-1.5">
                       <div>
-                        OpenCode Zen gives you access to the best coding models. Free models keep working without a key.
+                        Si la clave venció, generá una nueva en tu consola de OpenCode y reemplazala aquí.
                       </div>
                       <button
                         type="button"
                         className="text-indigo-11 hover:text-indigo-12 underline underline-offset-2 font-medium"
                         onClick={() => void openExternalUrl(OPENCODE_ZEN_KEY_URL)}
                       >
-                        Get an API key →
+                        Obtener una clave nueva
                       </button>
                     </div>
                   ) : null}
                   <SecretTextInput
                     id="provider-auth-api-key"
                     label="API key"
-                    placeholder={isOpencodeZenProvider(selectedEntry.id) ? "ock_..." : "sk-..."}
+                    placeholder="Pegá tu API key"
                     handleRef={apiKeyField}
                     onValueChange={(next) => {
                       setHasApiKey(next);

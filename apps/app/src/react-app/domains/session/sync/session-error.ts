@@ -384,7 +384,7 @@ function providerCredentialCopy(fields: ReturnType<typeof sessionErrorFields>) {
     return { title: "Your provider sign-in couldn’t be renewed", description: "Sign in to your provider again in model settings." };
   }
   if (signals.some((value) => ["api key expired", "api key has expired", "api_key_expired", "expired_api_key"].includes(value))) {
-    return { title: "Your API key has expired", description: "Replace your API key in model settings." };
+    return { title: "La clave de API está vencida", description: "Creá una clave nueva en la consola del proveedor y reemplazala en Conexiones. Volver a iniciar sesión no renueva esta clave." };
   }
   if (signals.some((value) => ["invalid api key", "invalid_api_key", "api key is invalid"].includes(value))) {
     return { title: "Your API key wasn’t accepted", description: "Check or replace your API key in model settings." };

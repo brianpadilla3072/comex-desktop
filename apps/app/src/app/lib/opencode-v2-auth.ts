@@ -81,6 +81,16 @@ export function createNativeProviderAuth(request: NativeRequest) {
       set: async (parameters: { providerID: string; auth: unknown }): Promise<FieldsResult<boolean>> => {
         if (!record(parameters.auth) || parameters.auth.type !== "api" || typeof parameters.auth.key !== "string") throw new Error("Usá el inicio de sesión del proveedor o una API key válida.");
         const transport = await request("POST", `/api/integration/${encodeURIComponent(parameters.providerID)}/connect/key`, { key: parameters.auth.key, answer: null, label: null });
+        if (!transport.response.ok) return result(transport, false);
+        // A stored key is not necessarily usable. Honor a known native auth
+        // failure instead of announcing that an expired/rejected key connected.
+        const checked = await request("GET", "/api/integration");
+        if (!checked.response.ok) return result(checked, false);
+        const integration = items(checked.payload).find(item => item.id === parameters.providerID);
+        const connections = record(integration) && Array.isArray(integration.connections) ? integration.connections.filter(record) : [];
+        if (connections.length && connections.every(connection => record(connection.status) && connection.status.status === "needs_auth")) {
+          return failure(checked, "La clave se guardó, pero OpenCode indica que no sirve para autenticar esta conexión. Generá una clave vigente para este proveedor.");
+        }
         return result(transport, true);
       },
       remove: async (parameters: { providerID: string }): Promise<FieldsResult<boolean>> => {

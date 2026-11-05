@@ -1,7 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import { presentOpencodeSessionError } from "../src/react-app/domains/session/sync/session-error"
+import { mapV2SessionError } from "../src/app/lib/opencode-v2-adapter"
 
 const requestId = "req_01j-gateway-auth"
+
+test("native v2 preserves an expired key response and explains that signing in cannot renew it", () => {
+  const native = { type: "provider.auth", status: 401, message: "This API key has expired. Create a new API key in OpenCode Console.", response: { body: JSON.stringify({ error: { code: "api_key_expired", message: "This API key has expired." } }) } }
+  const mapped = mapV2SessionError(native)
+  expect(mapped.data).toMatchObject({ statusCode: 401, responseBody: native.response.body })
+  const presentation = presentOpencodeSessionError(mapped)
+  expect(presentation.kind).toBe("provider-credentials")
+  expect(presentation.title).toBe("La clave de API está vencida")
+  expect(presentation.description).toContain("no renueva esta clave")
+})
 
 function gatewayFailure(code: "provider_authentication_failed" | "provider_permission_denied", message: string) {
   return {

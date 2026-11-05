@@ -24,7 +24,7 @@ test("Go and Console use native integrations, without the retired v1 authenticat
   expect(catalog.data?.["opencode-go"]).toEqual([{ type: "api", label: "API key" }]);
   expect(catalog.data?.opencode?.[1]).toEqual({ type: "oauth", label: "OpenCode Console account" });
   await auth.credentials.set({ providerID: "opencode-go", auth: { type: "api", key: "fixture-key" } });
-  expect(calls.at(-1)).toMatchObject({ method: "POST", path: "/api/integration/opencode-go/connect/key", body: { key: "fixture-key", answer: null, label: null } });
+  expect(calls.find(call => call.method === "POST")).toMatchObject({ method: "POST", path: "/api/integration/opencode-go/connect/key", body: { key: "fixture-key", answer: null, label: null } });
   expect(calls.some(call => call.path === "/provider/auth" || call.path === "/api/credential")).toBe(false);
 });
 test("Console device authorization retains the native method and defaults, then polls the same attempt", async () => {
@@ -58,4 +58,12 @@ test("native authentication failures remain failures instead of reporting a conn
   const auth = createNativeProviderAuth(async (method, path) => ({ payload: { message: "Access denied" }, request: new Request(`http://localhost${path}`, { method }), response: new Response(null, { status: 403 }) }));
   expect((await auth.catalog()).error).toBeDefined();
   expect((await auth.credentials.set({ providerID: "opencode-go", auth: { type: "api", key: "fixture-key" } })).error).toBeDefined();
+});
+
+test("a stored key that the engine reports as needing authentication is not called connected", async () => {
+  const auth = createNativeProviderAuth(async (method, path) => ({
+    payload: path === "/api/integration" ? { data: [{ id: "opencode-go", connections: [{ type: "credential", status: { status: "needs_auth" } }] }] } : null,
+    request: new Request(`http://localhost${path}`, { method }), response: new Response(null, { status: method === "POST" ? 204 : 200 }),
+  }));
+  expect((await auth.credentials.set({ providerID: "opencode-go", auth: { type: "api", key: "fixture-expired" } })).error).toBeDefined();
 });

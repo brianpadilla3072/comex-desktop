@@ -56,7 +56,7 @@ Capturas de la aplicación real con documentos de ejemplo explícitos; no repres
 
 Resultado global: **Incomplete**. La integración local tiene pruebas verdes; falta la validación académica con modelo, campo real y una instalación Windows limpia.
 
-Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 62 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (5), errores de conexión (4) y reglas de acceso a Console (6). Ninguna omitida.
+Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 67 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4). Ninguna omitida.
 
 Mejoras verificadas en los generadores: códigos HS/país como texto, decimales en ambos formatos, rechazo de valores no finitos, respuestas multilínea intactas y fórmulas importadas tratadas como datos literales. La cotización rechaza costos negativos o no finitos.
 
@@ -71,6 +71,12 @@ Verificado en Linux:
 - El motor enumera los 4 agentes y las 12 skills instalados (además de las skills globales existentes).
 - Navegación nativa de Electron a INDEC con título y URL reales.
 
-La prueba de UI adicional confirmó comparación/resolución de conflictos con archivos reales; la desactivación en UI se comprobó simulando la respuesta del endpoint de feature, además de las pruebas del resolvedor del servidor. El catálogo de autenticación se consultó en Chromium contra el motor real: Console devuelve clave y cuenta OAuth, Go devuelve clave. No se completó una nueva sesión de cuenta ni se hizo una llamada paga para verificarla.
+La prueba de UI adicional confirmó comparación/resolución de conflictos con archivos reales; la desactivación en UI se comprobó simulando la respuesta del endpoint de feature, además de las pruebas del resolvedor del servidor. El catálogo de autenticación se consultó en Chromium contra el motor real: Console devuelve clave y cuenta OAuth, Go devuelve clave. Prueba real posterior: se reutilizó la conexión Go ya guardada en el equipo dentro del perfil local de Comex y se envió un único mensaje de prueba con `opencode-go/gpt-6-luna`. El proveedor respondió HTTP 401 con `api_key_expired`; no se obtuvo una respuesta de inferencia. La clave debe reemplazarse desde la consola de OpenCode. Reautenticarse no renueva una clave vencida. No se registraron claves en el repositorio ni en capturas.
+
+La presentación v2 ahora conserva `response.body`, identifica `api_key_expired` y explica la renovación en castellano. Una conexión que el motor ya marca `needs_auth` no se anuncia como conectada después de guardar. Go aparece junto a Console en la lista de proveedores y tiene el enlace Obtener una clave nueva.
+
+![Error real de clave vencida](clave-vencida.png)
+
+![Reemplazar clave de Go](reconectar-go.png)
 
 No se ejecutó una investigación completa mediante un modelo, ni se verificó la generación autónoma del informe académico. Los generadores del pack requieren sus dependencias Python. Las encuestas necesitan respuestas reales. No se generó ni validó un instalador Windows/macOS ni una presentación PowerPoint. El siguiente hito es ejecutar el caso TP1 con proveedor configurado, contrastar sus fuentes y evaluar los entregables con `pruebas/casos/tp1-2026/criterios.md` en el proyecto padre.
