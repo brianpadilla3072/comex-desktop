@@ -30,7 +30,7 @@ export function readInstalledOpencodeConnection(file: string): OpencodeV2Connect
 
 /** Attach only: OpenCode continues owning accounts, configuration and history.
  * No migration, global provider mirror, config rewrite or child-process shutdown. */
-export function createInstalledOpencodeEngine(file: string, deferStart = false): EngineV2Preview {
+export function createInstalledOpencodeEngine(file: string, deferStart = false, browser?: { install(directory: string): Promise<void>; close(): Promise<void> }): EngineV2Preview {
   let stopped = false;
   let pending: Promise<void> | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -87,6 +87,20 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false):
   async function unsupportedMcp() {
     throw new Error("Administrá las conexiones MCP desde tu OpenCode instalado. Comex no modifica su configuración.");
   }
+  async function ensureWorkspaceReady(directory: string) {
+    if (browser) {
+      await browser.install(directory);
+    }
+    await probe(directory);
+    if (browser) {
+      const result = await fetchOpencodeV2Json(readInstalledOpencodeConnection(file), "/api/plugin", { directory, timeoutMs: 8_000 });
+      const plugins = z.object({ data: z.array(z.object({ id: z.string().optional(), state: z.object({ status: z.string() }) })) }).safeParse(result.json);
+      if (result.status !== 200 || !plugins.success || !plugins.data.data.some(plugin => plugin.id === "comex.browser" && plugin.state.status === "active")) {
+        throw new Error("El puente del navegador todavía no está disponible en OpenCode. Volvé a intentar en unos segundos.");
+      }
+      state.lastWarning = "Navegador de Comex conectado mediante un puente local por proyecto. Las cuentas y conexiones MCP siguen perteneciendo a tu OpenCode instalado.";
+    }
+  }
   if (!deferStart) start();
   return {
     start, status, setEnabled: keepV2, setChatRouting: keepV2,
@@ -96,10 +110,10 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false):
       try { return readInstalledOpencodeConnection(file); }
       catch { cached = undefined; state.running = false; state.lastError = unavailable; return undefined; }
     },
-    refreshProviders: () => probe(), ensureWorkspaceReady: directory => probe(directory),
+    refreshProviders: () => probe(), ensureWorkspaceReady,
     syncWorkspaceMcp: unsupportedMcp, settleWorkspaceMcp: unsupportedMcp,
-    warmWorkspace: (_id, directory) => { void probe(directory).catch(() => undefined); },
+    warmWorkspace: (_id, directory) => { void ensureWorkspaceReady(directory).catch(() => undefined); },
     settleWorkspaceSkills: async () => {},
-    stop: async () => { stopped = true; if (timer) clearInterval(timer); timer = undefined; cached = undefined; state.running = false; await pending?.catch(() => undefined); },
+    stop: async () => { stopped = true; if (timer) clearInterval(timer); timer = undefined; cached = undefined; state.running = false; await pending?.catch(() => undefined); await browser?.close(); },
   };
 }

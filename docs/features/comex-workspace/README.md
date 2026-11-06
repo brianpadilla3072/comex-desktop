@@ -44,10 +44,21 @@ No cambia silenciosamente al motor administrado.
 - Para usar el motor administrado: `OPENWORK_COMEX_OPENCODE_MODE=managed`.
 - La detección se desactiva con `DEN_FEATURE_COMEX_WORKSPACE=false`.
 
-El modo instalado mantiene las herramientas que ese OpenCode ya tiene. No
-inyecta los plugins privados de Comex ni sincroniza desde Comex las conexiones
-MCP; hay que administrarlas en OpenCode. El panel de navegador sigue pudiendo
-abrirse manualmente; su control por el agente requiere el motor administrado.
+El modo instalado mantiene las herramientas que ese OpenCode ya tiene y agrega
+un complemento de navegador en `.opencode/plugins/comex-browser/server.js` de
+cada proyecto registrado. No cambia la configuración global, las cuentas ni
+las conexiones MCP de OpenCode. El complemento ofrece las herramientas
+`browser_tabs/open/observe/act/extract/navigate/handoff` y WebMCP del navegador
+integrado. El motor aporta el ID de la conversación; la política y las
+aprobaciones siguen pasando por el host de Comex.
+
+El token de transporte queda fuera del proyecto, en un archivo privado 0600 del
+runtime, y se vuelve a leer en cada llamada para admitir reinicios. La copia
+en el proyecto contiene solamente referencias a archivos locales. Se rechazan
+carpetas enlazadas y no se sobrescriben copias modificadas o de otra instancia.
+Al cerrar Comex se cierra solo el puente, sin detener el servicio instalado.
+La carga por proyecto sigue el mecanismo nativo de
+[plugins de OpenCode v2](https://dev.opencode.ai/v2/docs/plugins).
 El panel Proyecto, Word, Excel y la inyección de memoria del servidor siguen
 funcionando. La compatibilidad del servicio instalado se verificó en Linux.
 
@@ -95,7 +106,7 @@ Capturas de la aplicación real con documentos de ejemplo explícitos; no repres
 
 Resultado global: **Incomplete**. La integración local tiene pruebas verdes; falta la validación académica con modelo, campo real y una instalación Windows limpia.
 
-Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 89 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2) y prioridad/precios de modelos gratuitos (3), perfiles SQLite/packs (5) y alta de aplicaciones (2), navegación lateral (3), mapa de agentes (2) e interruptores de ambas funciones (1). Ninguna omitida.
+Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 92 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2) y prioridad/precios de modelos gratuitos (3), perfiles SQLite/packs (5) y alta de aplicaciones (2), navegación lateral (3), mapa de agentes (2) e interruptores de ambas funciones (1) y puente del navegador instalado (3). Ninguna omitida.
 
 Mejoras verificadas en los generadores: códigos HS/país como texto, decimales en ambos formatos, rechazo de valores no finitos, respuestas multilínea intactas y fórmulas importadas tratadas como datos literales. La cotización rechaza costos negativos o no finitos.
 
@@ -119,3 +130,11 @@ La presentación v2 ahora conserva `response.body`, identifica `api_key_expired`
 ![Reemplazar clave de Go](reconectar-go.png)
 
 No se ejecutó una investigación completa mediante un modelo, ni se verificó la generación autónoma del informe académico. Los generadores del pack requieren sus dependencias Python. Las encuestas necesitan respuestas reales. No se generó ni validó un instalador Windows/macOS ni una presentación PowerPoint. El siguiente hito es ejecutar el caso TP1 con proveedor configurado, contrastar sus fuentes y evaluar los entregables con `pruebas/casos/tp1-2026/criterios.md` en el proyecto padre.
+
+Prueba real adicional del navegador instalado: `opencode-go/beam-free` ejecutó
+`browser_tabs`, `browser_open` y `browser_observe` sobre example.org, y luego
+`browser_act` para seguir «Learn more». El recibo confirmó un clic, cero fallos
+y navegación a `https://www.iana.org/help/example-domains`, título «Example
+Domains». No se usaron búsquedas ni shell para esa comprobación. La captura
+con imagen en una pestaña oculta no quedó verificada; la prueba confirma
+navegación, lectura textual y clic.

@@ -1,5 +1,6 @@
 import { comexWorkspaceEnabled } from "./comex/features.js";
 import { createInstalledOpencodeEngine } from "./comex/installed-opencode.js";
+import { createInstalledBrowserIntegration } from "./comex/installed-browser.js";
 import { startupPhase } from "./startup-phase.js";
 import { withEngineSwitchFence } from "./engine-switch-fence.js";
 import { engineAutoUpgradeRetry, waitForEngineIdle, type EngineAutoUpgradeRetry } from "./engine-auto-upgrade.js";
@@ -744,7 +745,7 @@ export function createEngineV2Preview(options: {
   const { config } = options;
   const installedService = process.env.OPENWORK_COMEX_OPENCODE_SERVICE_FILE;
   if (comexWorkspaceEnabled() && installedService && process.env.OPENWORK_COMEX_OPENCODE_MODE !== "managed") {
-    return createInstalledOpencodeEngine(installedService, options.deferStart);
+    return createInstalledOpencodeEngine(installedService, options.deferStart, createInstalledBrowserIntegration(config));
   }
   const waits = { ...ENGINE_V2_UPKEEP_WAITS, ...options.waits };
   const rootDir = join(runtimeStorageDir(config), "opencode-v2", "state");
