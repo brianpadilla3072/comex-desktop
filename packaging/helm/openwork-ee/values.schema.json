@@ -61,6 +61,26 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "agentActivityMap": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Agent activity map: Show delegated agents in the composer, with a live task map, their prompts and executed tool calls. Renders DEN_FEATURE_AGENT_ACTIVITY_MAP."
+            },
+            "conversationNavigator": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Conversation navigator: Jump between conversation turns using a side rail with message previews and keyboard navigation. Renders DEN_FEATURE_CONVERSATION_NAVIGATOR."
+            },
             "specialistApplications": {
               "enum": [
                 "",

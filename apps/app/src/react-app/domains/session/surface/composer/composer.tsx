@@ -149,6 +149,7 @@ type ComposerProps = {
   flush?: boolean;
   topAccessory?: ReactNode;
   runModeControl?: ReactNode;
+  agentActivityControl?: ReactNode;
   contextControl?: ReactNode;
 };
 
@@ -1573,6 +1574,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   returnFocus={() => rootRef.current?.querySelector<HTMLElement>("[contenteditable='true']") ?? null}
                 />
                 {props.runModeControl}
+                {props.agentActivityControl}
                 </div>
 
                 <div data-composer-settings className="col-span-2 row-start-1 flex min-w-0 flex-wrap items-center gap-1 border-b border-dls-border pb-2 max-lg:flex-1 max-lg:flex-nowrap max-lg:border-0 max-lg:pb-0 @min-[560px]/composer:flex-1 @min-[560px]/composer:border-0 @min-[560px]/composer:pb-0">

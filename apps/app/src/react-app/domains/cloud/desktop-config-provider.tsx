@@ -54,6 +54,8 @@ import {
 } from "./workspace-branding-restart";
 
 export type DesktopConfigStore = {
+  conversationNavigator?: boolean;
+  agentActivityMap?: boolean;
   comexWorkspace?: boolean;
   config: DenDesktopConfig;
   loading: boolean;
@@ -270,6 +272,8 @@ type DesktopConfigState = {
  * the app or the network, and on a five-minute interval.
  */
 export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) {
+  const [conversationNavigator, setConversationNavigator] = useState(false);
+  const [agentActivityMap, setAgentActivityMap] = useState(false);
   const denAuth = useDenAuth();
   const [comexWorkspace, setComexWorkspace] = useState(false);
   useEffect(() => {
@@ -278,15 +282,17 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); }
+          if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
         if (active) {
           setComexWorkspace(feature.enabled);
+          setConversationNavigator(feature.conversationNavigator === true);
+          setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
         }
-      } catch { if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); } }
+      } catch { if (active) { setComexWorkspace(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);
@@ -649,6 +655,8 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
     return {
       config,
       comexWorkspace,
+      conversationNavigator,
+      agentActivityMap,
       freshConfigStatus,
       loading,
       refresh,
@@ -656,7 +664,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       checkRestriction,
       connectPolicySync,
     };
-  }, [checkRestriction, config, comexWorkspace, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
+  }, [checkRestriction, config, comexWorkspace, conversationNavigator, agentActivityMap, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
 
   return (
     <DesktopConfigContext.Provider value={value}>
@@ -705,4 +713,12 @@ export function useDesktopRestriction(
 /** Local Comex behavior uses the authenticated host's registry decision. */
 export function useComexWorkspaceEnabled(): boolean {
   return use(DesktopConfigContext)?.comexWorkspace === true;
+}
+
+export function useConversationNavigatorEnabled(): boolean {
+  return use(DesktopConfigContext)?.conversationNavigator === true;
+}
+
+export function useAgentActivityMapEnabled(): boolean {
+  return use(DesktopConfigContext)?.agentActivityMap === true;
 }

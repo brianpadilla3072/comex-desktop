@@ -20,3 +20,15 @@ export function specialistApplicationsEnabled(env: NodeJS.ProcessEnv = process.e
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("specialistApplications", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+export function conversationNavigatorEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("conversationNavigator", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function agentActivityMapEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("agentActivityMap", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

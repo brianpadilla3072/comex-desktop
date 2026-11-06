@@ -12,6 +12,7 @@ export interface MessageListViewport {
   trailingHeight?: number
   historyComplete: boolean
   revealAll?: boolean
+  navigation?: { messageId: string; request: number }
   stickyBottom: () => boolean
   onReady?: () => void
 }
@@ -74,6 +75,9 @@ function VirtualGroups<T>(props: ProgressiveMessageListProps<T>) {
   const priorityIndex = React.useMemo(() => props.priorityMessageId
     ? groups.findIndex((group) => getMessageIds(group).includes(props.priorityMessageId!)) : -1,
   [groups, getMessageIds, props.priorityMessageId])
+  const navigationIndex = React.useMemo(() => viewport?.navigation
+    ? groups.findIndex(group => getMessageIds(group).includes(viewport.navigation!.messageId)) : -1,
+  [groups, getMessageIds, viewport?.navigation])
   const bridge = React.useRef<MeasuredGroups<T>>(null)
   const [revision, refresh] = React.useReducer((value: number) => value + 1, 0)
   const [width, setWidth] = React.useState(viewport?.viewportWidth ?? 0)
@@ -148,9 +152,10 @@ function VirtualGroups<T>(props: ProgressiveMessageListProps<T>) {
     }
     if (range.count) indexes.add(range.count - 1)
     if (priorityIndex >= 0) indexes.add(priorityIndex)
+    if (navigationIndex >= 0) indexes.add(navigationIndex)
     if (anchorIndex >= 0 && (!bridge.current || bridge.current.waitingForAnchor)) indexes.add(anchorIndex)
     return [...indexes].sort((a, b) => a - b)
-  }, [identityKeys, priorityIndex, anchorIndex, viewport?.revealAll, Boolean(viewport), revision])
+  }, [identityKeys, priorityIndex, navigationIndex, anchorIndex, viewport?.revealAll, Boolean(viewport), revision])
   const measureElement = React.useCallback((node: HTMLDivElement, entry: ResizeObserverEntry | undefined, instance: ThreadVirtualizer) => {
     const index = instance.indexFromElement(node)
     if (!viewport?.scrollRef.current?.clientHeight || !viewport.scrollRef.current.clientWidth || !node.parentElement?.getBoundingClientRect().width) {
@@ -203,6 +208,22 @@ function VirtualGroups<T>(props: ProgressiveMessageListProps<T>) {
     bridge.current?.measureMounted()
   }, [virtualizer, estimates])
   React.useLayoutEffect(() => { syncOffset.current?.() })
+  React.useEffect(() => {
+    const container = viewport?.scrollRef.current
+    const navigation = viewport?.navigation
+    if (!container || !navigation || navigationIndex < 0) return
+    // Pin only the requested group, preserving virtualization of the rest.
+    let frame = 0
+    let attempts = 0
+    const jump = () => {
+      const node = [...container.querySelectorAll<HTMLElement>("[data-message-id]")]
+        .find(element => element.dataset.messageId === navigation.messageId)
+      if (!node) { if (++attempts < 8) frame = requestAnimationFrame(jump); return }
+      container.scrollTo({ top: container.scrollTop + node.getBoundingClientRect().top - container.getBoundingClientRect().top - 16, behavior: "instant" })
+    }
+    frame = requestAnimationFrame(jump)
+    return () => cancelAnimationFrame(frame)
+  }, [viewport?.navigation, viewport?.scrollRef, navigationIndex])
   const items = virtualizer.getVirtualItems()
   const segments: Segment[] = []
   if (leading > 0) segments.push({ key: "history-prefix", index: -1, height: leading, placeholder: true })

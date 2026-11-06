@@ -4,7 +4,7 @@
 
 Esta distribución local de Comex activa la integración por defecto, sin exigir una cuenta de Den. El operador puede desactivarla con `DEN_FEATURE_COMEX_WORKSPACE=false`; la decisión pasa por el registro compartido de features. No está disponible en cloud.
 
-La personalización por usuario y las aplicaciones especialistas se describen en [Perfiles locales con SQLite](../specialist-applications/README.md).
+La personalización por usuario y las aplicaciones especialistas se describen en [Perfiles locales con SQLite](../specialist-applications/README.md). El chat incluye [navegación lateral](../conversation-navigator/README.md) y [mapa de actividad de agentes](../agent-activity-map/README.md).
 
 ## Comportamiento
 
@@ -95,7 +95,7 @@ Capturas de la aplicación real con documentos de ejemplo explícitos; no repres
 
 Resultado global: **Incomplete**. La integración local tiene pruebas verdes; falta la validación académica con modelo, campo real y una instalación Windows limpia.
 
-Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 83 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2) y prioridad/precios de modelos gratuitos (3), perfiles SQLite/packs (5) y alta de aplicaciones (2). Ninguna omitida.
+Batería reproducible: `pnpm test:comex` (Node 24, pnpm fijado por el repositorio, Bun y Python con python-docx/openpyxl). Son 89 pruebas: registro de features (26), instalación/memoria (8), panel (5), visor Word (2), generadores (6), autenticación nativa (6), errores de conexión (4) y reglas de acceso a Console (6) y presentación de errores de credenciales (4), conexión al servicio/flag de publicidad (4) y reactividad de promociones (2) y prioridad/precios de modelos gratuitos (3), perfiles SQLite/packs (5) y alta de aplicaciones (2), navegación lateral (3), mapa de agentes (2) e interruptores de ambas funciones (1). Ninguna omitida.
 
 Mejoras verificadas en los generadores: códigos HS/país como texto, decimales en ambos formatos, rechazo de valores no finitos, respuestas multilínea intactas y fórmulas importadas tratadas como datos literales. La cotización rechaza costos negativos o no finitos.
 

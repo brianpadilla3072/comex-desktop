@@ -23,6 +23,9 @@ import { createClientV2, isOpencodeV2BaseUrl, v2AcknowledgementText } from "@/ap
 import * as opencodeSessionNative from "@/app/lib/opencode-session-native";
 import type { NativeSessionSnapshotTarget } from "@/app/lib/opencode-session-native";
 import { isDesktopRuntime } from "@/app/lib/runtime-env";
+import { useConversationNavigatorEnabled, useAgentActivityMapEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
+import { ConversationNavigator } from "./conversation-navigator";
+import { AgentActivityMap } from "./composer/agent-activity-map";
 import { cn } from "@/lib/utils";
 import { setThemeMode } from "@/app/theme";
 import { t } from "@/i18n";
@@ -99,7 +102,7 @@ import {
   resolveAdmissionOutcome,
 } from "./session-admission-outcome";
 import { describeOpencodeSessionError, interruptedTaskRecoveryPrompt, presentOpencodeSessionError, sessionErrorPresentationFromUIMessage, type OpencodeSessionErrorPresentation } from "@/react-app/domains/session/sync/session-error";
-import { createSessionErrorUIMessage } from "@/react-app/domains/session/sync/usechat-adapter";
+import { createSessionErrorUIMessage, snapshotToUIMessages } from "@/react-app/domains/session/sync/usechat-adapter";
 import { TaskRecovery } from "@/components/chat/task-recovery";
 import { SignInHandoffNotice } from "@/react-app/domains/cloud/sign-in-handoff-notice";
 import { autoAccessRefreshEvent, autoAccessWallFromError, preflightAutoSubmission, type AutoAccessBlock } from "@/app/lib/inference-access";
@@ -2257,6 +2260,12 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const composerBusy = chatStreaming || status === "submitted";
   // Sub-agents of the current turn, attached to the composer (OpenCode v2 only).
   const subagentTrackerParentActive = status === "streaming" || status === "retrying" || status === "submitted";
+  const agentActivityMapEnabled = useAgentActivityMapEnabled();
+  const readAgentMessages = useCallback(async (sessionId: string) => {
+    const result = await opencodeClient.session.messages({ sessionID: sessionId });
+    if (result.error || !result.data) throw new Error("No se pudo leer la actividad del agente.");
+    return snapshotToUIMessages({ messages: result.data });
+  }, [opencodeClient]);
   const subagentTrackerToolCallIds = useMemo<ReadonlySet<string>>(
     () => new Set(snapshotEngine === "v2"
       ? currentTurnSubagentParts(visibleMessages).map((part) => part.toolCallId)
@@ -3300,6 +3309,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
   }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const conversationNavigatorEnabled = useConversationNavigatorEnabled();
+  const [conversationNavigation, setConversationNavigation] = useState<{ owner: string; messageId: string; request: number } | null>(null);
   const childNavigationScope = JSON.stringify([props.opencodeBaseUrl, props.workspaceId, props.draftScope]);
   const origin = childOrigin(childNavigationScope, props.sessionId);
   const parentID = snapshot?.session.parentID;
@@ -3430,6 +3441,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       : initialScroll.mode === "manual" ? initialScroll.geometry?.after : undefined,
     historyComplete: hasFullHistory,
     revealAll: findOwned,
+    navigation: conversationNavigation?.owner === sessionOwner && conversationNavigatorEnabled ? conversationNavigation : undefined,
     stickyBottom: () => getSessionScrollState(useSessionScrollStore.getState().sessions, props.sessionId, sessionOwner).mode === "stickyBottom",
     onReady: sessionScroll.refresh,
   };
@@ -3840,7 +3852,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             sessionScroll.markScrollGesture(event.currentTarget);
           }}
           onScroll={sessionScroll.handleScroll}
-          className={cn("absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y px-3 pb-4 pt-4 sm:px-5",
+          className={cn("absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y px-3 pb-4 pt-4 sm:px-5", conversationNavigatorEnabled && "lg:pl-10",
             !isDesktopRuntime() && "max-lg:[mask-image:linear-gradient(to_bottom,transparent,black_1rem)]")}
         >
           {/* Chat column: tighter than the composer (800px) so messages
@@ -3972,6 +3984,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
             ) : null}
           </div>
         </div>
+        {conversationNavigatorEnabled ? <ConversationNavigator key={sessionOwner} messages={visibleMessages} scrollRef={scrollRef}
+          historyComplete={hasFullHistory} onLoadHistory={openingHistory.ensureFullSnapshot}
+          onNavigate={messageId => { sessionScroll.markScrollGesture(scrollRef.current); setConversationNavigation(current => ({ owner: sessionOwner, messageId, request: (current?.request ?? 0) + 1 })); }} /> : null}
         <SessionScrollOverlay
           sessionId={props.sessionId}
           owner={sessionOwner}
@@ -4045,6 +4060,9 @@ export function SessionSurface(props: SessionSurfaceProps) {
         <SignInHandoffNotice workspaceId={props.workspaceId} sessionId={props.sessionId} hasDraft={Boolean(persistableComposerDraftText(draft).trim())} />
         <ReactSessionComposer
           runModeControl={<WorkspaceRunModeMenu client={props.client} workspaceId={props.workspaceId} busy={composerBusy || preparingCloudTools || Boolean(props.activePermission || props.activeQuestion)} />}
+          agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={sessionOwner} messages={visibleMessages} workspaceId={props.workspaceId}
+            owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive}
+            syncDegraded={runSyncHealth.degraded} readChild={readAgentMessages} onOpenChild={openChild} /> : null}
           draft={autoSendPayload ? draft : autoSending ? "" : draft}
           mentions={mentions}
           onDraftChange={handleComposerDraftChange}
@@ -4133,7 +4151,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     sendingId={sendingQueuedId}
                   />
                 ) : null}
-                {subagentTrackerShown && !archived ? (
+                {subagentTrackerShown && !archived && (!agentActivityMapEnabled || remoteTrackerTasks.length > 0) ? (
                   <ComposerSubagentTracker
                     messages={visibleMessages}
                     workspaceId={props.workspaceId}
@@ -4141,7 +4159,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                     syncDegraded={runSyncHealth.degraded}
                     onOpenSubagentSession={openChild}
                     onStopSubagentSession={handleStopSubagentSession}
-                    includeLocal={subagentTrackerToolCallIds.size > 0}
+                    includeLocal={!agentActivityMapEnabled && subagentTrackerToolCallIds.size > 0}
                     remote={remoteTrackerTasks.length > 0 ? {
                       tasks: remoteTrackerTasks,
                       owner: remoteTrackerOwner,

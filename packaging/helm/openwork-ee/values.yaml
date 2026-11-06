@@ -26,6 +26,8 @@ config:
   #   "false" off for everyone; /admin shows "Set by deployment config"
   # The /admin kill switch still turns a feature off, even when locked on.
   features:
+    agentActivityMap: ""          # default on · Show delegated agents in the composer, with a live task map, their prompts and executed tool calls.
+    conversationNavigator: ""     # default on · Jump between conversation turns using a side rail with message previews and keyboard navigation.
     specialistApplications: ""    # default on · Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.
     openworkPromotions: ""        # default off · Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.
     comexWorkspace: ""            # default on · Local Word previews, project memory and the Comex research pack.

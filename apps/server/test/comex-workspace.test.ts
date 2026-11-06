@@ -4,7 +4,15 @@ import { mkdtemp, mkdir, readFile, writeFile, symlink, access } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedComexPack, ensureComexWorkspace, ensureComexSession, readComexMemory, sessionMemoryPath } from "../src/comex/seed.js";
-import { comexWorkspaceEnabled } from "../src/comex/features.js";
+import { comexWorkspaceEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../src/comex/features.js";
+
+test("conversation navigation and agent map honor independent operator switches", () => {
+  assert.equal(conversationNavigatorEnabled({ DEN_FEATURE_CONVERSATION_NAVIGATOR: "true" }), true);
+  assert.equal(conversationNavigatorEnabled({ DEN_FEATURE_CONVERSATION_NAVIGATOR: "false" }), false);
+  assert.equal(agentActivityMapEnabled({ DEN_FEATURE_AGENT_ACTIVITY_MAP: "true" }), true);
+  assert.equal(agentActivityMapEnabled({ DEN_FEATURE_AGENT_ACTIVITY_MAP: "false" }), false);
+  assert.equal(agentActivityMapEnabled({ DEN_FEATURE_AGENT_ACTIVITY_MAP: "false", DEN_FEATURE_CONVERSATION_NAVIGATOR: "true" }), false);
+});
 
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "comex-seed-"));

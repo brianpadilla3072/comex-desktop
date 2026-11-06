@@ -104,6 +104,28 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  agentActivityMap: {
+    label: "Agent activity map",
+    description: "Show delegated agents in the composer, with a live task map, their prompts and executed tool calls.",
+    category: "experience",
+    added: "2026-11-05",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/agent-activity-map/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
+  conversationNavigator: {
+    label: "Conversation navigator",
+    description: "Jump between conversation turns using a side rail with message previews and keyboard navigation.",
+    category: "experience",
+    added: "2026-11-05",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/conversation-navigator/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistApplications: {
     label: "Specialist applications",
     description: "Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.",

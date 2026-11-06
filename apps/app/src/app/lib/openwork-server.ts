@@ -2426,7 +2426,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     updateSpecialistApplication: (id: string, payload: Pick<SpecialistApplicationInput, "name" | "specialty" | "personality">) => requestJson<{ catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "PATCH", body: payload }),
     activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
     createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
-    getComexFeatures: () => requestJson<{ enabled: boolean; openworkPromotions?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */
     readWorkspaceFile: (workspaceId: string, path: string, options?: { sessionId?: string; fileScope?: "workspace" | "conversation" }) =>
