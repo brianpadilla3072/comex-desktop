@@ -91,6 +91,8 @@ jobs:
         run: pnpm --filter @openwork/features build
       - name: Verify packaged main process imports compiled workspace packages
         run: node --test apps/desktop/scripts/check-runtime-exports.test.mjs
+      - name: Verify Windows packaged smoke helpers
+        run: node --test apps/desktop/scripts/windows-packaged-smoke.test.mjs
       - name: Verify session recovery, Git isolation and evaluation
         run: node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/server/test/comex-continuity.test.ts apps/server/test/comex-continuity-routes.test.ts apps/server/test/comex-git.test.ts apps/server/test/comex-git-routes.test.ts scripts/comex-eval.test.mjs scripts/comex-verify.test.mjs scripts/release/comex-python-runtime.test.mjs
       - name: Verify bundled model catalog and offline updates
@@ -172,6 +174,20 @@ jobs:
         run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --${{ matrix.target }} --x64 --publish never
       - name: Verify and stage updater artifacts
         run: node scripts/release/comex-artifacts.mjs apps/desktop/dist-electron "$RELEASE_VERSION" "${{ matrix.target }}" release-assets
+      - name: Smoke-test installed Windows build
+        if: matrix.target == 'win'
+        timeout-minutes: 10
+        run: node apps/desktop/scripts/windows-packaged-smoke.mjs --installer release-assets --version "$RELEASE_VERSION"
+      - name: Upload Windows smoke evidence
+        if: matrix.target == 'win' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comex-windows-smoke-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/openwork-windows-smoke/timing.json
+            ${{ runner.temp }}/openwork-windows-smoke/app.log
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: comex-release-${{ matrix.target }}

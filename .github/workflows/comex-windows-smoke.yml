@@ -1,0 +1,83 @@
+name: Comex Windows smoke
+
+# Installs the NSIS build into an isolated directory and boots it, exactly
+# like the release pipeline does on Windows (see the "Smoke-test installed
+# Windows build" step in comex-release.yml, which gates publication). This
+# workflow lets anyone verify a commit on demand without cutting a release:
+# Actions → Comex Windows smoke → Run workflow.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to package (defaults to the caller's commit)
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch or tag to package (defaults to the selected branch)
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    name: Install and boot the Windows build
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_VERSION: 9.9.9
+      PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: 'false'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      SIGN_WINDOWS: 'false'
+      OPENWORK_WINDOWS_SMOKE_DIR: ${{ runner.temp }}/openwork-windows-smoke
+    steps:
+      - name: Enable long Windows paths
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.4.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.10'
+      - name: Install desktop dependencies
+        run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.7'
+          enable-cache: false
+      - name: Prepare and verify relocatable document runtime
+        run: node scripts/release/comex-prepare-python.mjs
+      - name: Stamp smoke version
+        run: node scripts/release/stamp-version.mjs --version "$RELEASE_VERSION"
+      - name: Build desktop
+        run: pnpm --filter @openwork/desktop build:electron
+      - name: Package without publishing
+        run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win --x64 --publish never
+      - name: Install and smoke-test the Windows build
+        timeout-minutes: 10
+        run: node apps/desktop/scripts/windows-packaged-smoke.mjs --installer apps/desktop/dist-electron --version "$RELEASE_VERSION"
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comex-windows-smoke-standalone-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/openwork-windows-smoke/timing.json
+            ${{ runner.temp }}/openwork-windows-smoke/app.log
+          if-no-files-found: ignore
+          retention-days: 7
