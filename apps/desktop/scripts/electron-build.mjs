@@ -73,6 +73,9 @@ run(nodeCmd, [resolve(repoRoot, "apps/server/scripts/build-opencode-plugin-deps.
 // published "default" export (dist/index.js); build it so plain-node
 // consumers resolve it in packaged layouts.
 run(pnpmCmd, ["--filter", "@openwork/headless-threads", "build"], repoRoot);
+// openwork-office-attachments / openwork-spreadsheets import @openwork/workbook
+// at runtime in the packaged app; ship compiled JS.
+run(pnpmCmd, ["--filter", "@openwork/workbook", "build"], repoRoot);
 // browser-panel.mjs imports @openwork/features through its default export, and
 // the packaged main process is plain ESM (no bundler): ship compiled JS.
 run(pnpmCmd, ["--filter", "@openwork/features", "build"], repoRoot);

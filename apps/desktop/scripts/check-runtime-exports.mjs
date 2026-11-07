@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const runtimeImportPattern = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(["'])([^"']+)\1/g;
@@ -19,23 +19,41 @@ export function codeLines(source) {
     .map((line) => line.replace(/\/\*.*?\*\//g, " ").replace(/(^|\s)\/\/.*$/, "$1"));
 }
 
-export function findWorkspaceRuntimeImporters(electronRoot) {
+function walkRuntimeFiles(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const file = join(dir, name);
+    const stats = statSync(file);
+    if (stats.isDirectory()) {
+      // node_modules and sourcemap caches are build output, not shipped code.
+      if (name !== "node_modules") walkRuntimeFiles(file, out);
+    } else if ((name.endsWith(".mjs") || name.endsWith(".js")) && !name.endsWith(".test.mjs") && !name.endsWith(".test.js")) {
+      out.push(file);
+    }
+  }
+  return out;
+}
+
+export function findWorkspaceRuntimeImporters(directories) {
   const runtimeImports = new Map();
-  for (const fileName of readdirSync(electronRoot).filter((name) => name.endsWith(".mjs") && !name.endsWith(".test.mjs")).sort()) {
-    const source = codeLines(readFileSync(resolve(electronRoot, fileName), "utf8")).join("\n");
-    for (const match of source.matchAll(runtimeImportPattern)) {
-      const specifier = match[2];
-      if (!specifier.startsWith("@openwork/")) continue;
-      if (!runtimeImports.has(specifier)) runtimeImports.set(specifier, new Set());
-      runtimeImports.get(specifier).add(`electron/${fileName}`);
+  const dirs = Array.isArray(directories) ? directories : [directories];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const file of walkRuntimeFiles(dir).sort()) {
+      const source = codeLines(readFileSync(file, "utf8")).join("\n");
+      for (const match of source.matchAll(runtimeImportPattern)) {
+        const specifier = match[2];
+        if (!specifier.startsWith("@openwork/")) continue;
+        if (!runtimeImports.has(specifier)) runtimeImports.set(specifier, new Set());
+        runtimeImports.get(specifier).add(`${basename(resolve(dir, ".."))}/${basename(dir)}/${join(file.slice(dir.length + 1))}`.replace(/\\/g, "/"));
+      }
     }
   }
   return runtimeImports;
 }
 
-export function findRuntimeTypeScriptImporters(electronRoot) {
+export function findRuntimeTypeScriptImporters(directories) {
   const offenders = [];
-  for (const [specifier, importers] of findWorkspaceRuntimeImporters(electronRoot)) {
+  for (const [specifier, importers] of findWorkspaceRuntimeImporters(directories)) {
     let resolved;
     try {
       resolved = import.meta.resolve(specifier);
@@ -62,7 +80,13 @@ export function findRuntimeTypeScriptImporters(electronRoot) {
  * the TypeScript source on purpose. Fail the build instead of publishing it.
  */
 export function assertWorkspaceRuntimeExports(electronRoot) {
-  const offenders = findRuntimeTypeScriptImporters(electronRoot);
+  // The embedded server runs in the main process, so the emitted server bundle
+  // is runtime code too: its bare @openwork/* imports resolve through
+  // node_modules exactly like the electron/*.mjs ones. electron-build calls
+  // this after the server build, so scan the emitted JS when it exists.
+  const repoRoot = resolve(electronRoot, "..", "..");
+  const serverDist = resolve(repoRoot, "apps", "server", "dist");
+  const offenders = findRuntimeTypeScriptImporters(existsSync(serverDist) ? [electronRoot, serverDist] : electronRoot);
   if (!offenders.length) return;
   const list = offenders
     .map(({ specifier, pathname, importers }) => `  - ${specifier} → ${pathname}\n      importado por ${importers.join(", ")}`)

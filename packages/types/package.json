@@ -62,7 +62,7 @@
         "default": "./src/agent-context-diagnostics.ts"
       },
       "development": "./src/agent-context-diagnostics.ts",
-      "default": "./src/agent-context-diagnostics.ts"
+      "default": "./dist/agent-context-diagnostics.js"
     },
     "./openwork-affordance": {
       "types": {
@@ -70,7 +70,7 @@
         "default": "./src/openwork-affordance.ts"
       },
       "development": "./src/openwork-affordance.ts",
-      "default": "./src/openwork-affordance.ts"
+      "default": "./dist/openwork-affordance.js"
     },
     "./openwork-context": {
       "types": {
@@ -86,7 +86,7 @@
         "default": "./src/openwork-provider.ts"
       },
       "development": "./src/openwork-provider.ts",
-      "default": "./src/openwork-provider.ts"
+      "default": "./dist/openwork-provider.js"
     },
     "./automations": {
       "types": {
@@ -94,7 +94,7 @@
         "default": "./src/automations.ts"
       },
       "development": "./src/automations.ts",
-      "default": "./src/automations.ts"
+      "default": "./dist/automations.js"
     },
     "./automation-models": {
       "types": {
@@ -537,7 +537,7 @@
         "default": "./src/model-guide.ts"
       },
       "development": "./src/model-guide.ts",
-      "default": "./src/model-guide.ts"
+      "default": "./dist/model-guide.js"
     },
     "./permission-modes": {
       "types": {
@@ -545,7 +545,7 @@
         "default": "./src/permission-modes.ts"
       },
       "development": "./src/permission-modes.ts",
-      "default": "./src/permission-modes.ts"
+      "default": "./dist/permission-modes.js"
     },
     "./task-continuity": {
       "types": {
@@ -553,7 +553,7 @@
         "default": "./src/task-continuity.ts"
       },
       "development": "./src/task-continuity.ts",
-      "default": "./src/task-continuity.ts"
+      "default": "./dist/task-continuity.js"
     },
     "./scoped-memory": {
       "types": {
@@ -561,7 +561,7 @@
         "default": "./src/scoped-memory.ts"
       },
       "development": "./src/scoped-memory.ts",
-      "default": "./src/scoped-memory.ts"
+      "default": "./dist/scoped-memory.js"
     }
   },
   "files": [
