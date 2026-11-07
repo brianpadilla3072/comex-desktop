@@ -347,6 +347,9 @@ importers:
       '@openwork/enterprise-mcp-client':
         specifier: workspace:*
         version: link:../../packages/enterprise-mcp-client
+      '@openwork/features':
+        specifier: workspace:*
+        version: link:../../packages/features
       '@openwork/free-auto':
         specifier: workspace:*
         version: link:../../packages/free-auto
