@@ -87,6 +87,8 @@ jobs:
           version: '11.4.0'
       - name: Install verification dependencies
         run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
+      - name: Build compiled workspace packages for the packaged app
+        run: pnpm --filter @openwork/features build
       - name: Verify packaged main process imports compiled workspace packages
         run: node --test apps/desktop/scripts/check-runtime-exports.test.mjs
       - name: Verify session recovery, Git isolation and evaluation

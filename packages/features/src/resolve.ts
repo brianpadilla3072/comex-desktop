@@ -23,7 +23,7 @@ import {
   type FeatureMap,
   type FeatureOverrides,
   type OutcomeFeatureKey,
-} from "./registry.ts"
+} from "@openwork/features/registry"
 
 /**
  * Retired keys. Older clients and stored overrides may still send or hold them;
