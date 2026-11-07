@@ -1,4 +1,4 @@
-// Self-references (not relative paths) so this TypeScript source runs as-is
-// under Node and typechecks in every consumer without a build step.
-export * from "@openwork/features/registry"
-export * from "@openwork/features/resolve"
+// Relative imports keep the TypeScript source usable as-is under Node/tsx,
+// and let tsup emit self-contained inlined builds for packaged consumers.
+export * from "./registry.ts"
+export * from "./resolve.ts"

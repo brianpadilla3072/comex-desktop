@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, cpSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertWorkspaceRuntimeExports } from "./check-runtime-exports.mjs";
 import { prepareServerConstants } from "./prepare-server-constants.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -72,6 +73,9 @@ run(nodeCmd, [resolve(repoRoot, "apps/server/scripts/build-opencode-plugin-deps.
 // published "default" export (dist/index.js); build it so plain-node
 // consumers resolve it in packaged layouts.
 run(pnpmCmd, ["--filter", "@openwork/headless-threads", "build"], repoRoot);
+// browser-panel.mjs imports @openwork/features through its default export, and
+// the packaged main process is plain ESM (no bundler): ship compiled JS.
+run(pnpmCmd, ["--filter", "@openwork/features", "build"], repoRoot);
 // OPENWORK_ELECTRON_BUILD tells Vite to emit relative asset paths so
 // index.html resolves /assets/* correctly when loaded via file:// from
 // inside the packaged .app bundle.
@@ -87,6 +91,7 @@ copyFileSync(resolve(repoRoot, "apps", "server", "package.json"), resolve(packag
 for (const fileName of readdirSync(electronRoot).filter((name) => name.endsWith(".mjs")).sort()) {
   run(nodeCmd, ["--check", resolve(electronRoot, fileName)], repoRoot);
 }
+assertWorkspaceRuntimeExports(electronRoot);
 run(nodeCmd, [resolve(__dirname, "check-electron-bridge.mjs")], repoRoot);
 
 process.stdout.write(

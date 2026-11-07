@@ -10,29 +10,37 @@
         "openwork-build": "./dist/types/src/index.d.ts",
         "default": "./src/index.ts"
       },
+      "bun": "./src/index.ts",
       "development": "./src/index.ts",
-      "default": "./src/index.ts"
+      "default": "./dist/index.js"
     },
     "./registry": {
       "types": {
         "openwork-build": "./dist/types/src/registry.d.ts",
         "default": "./src/registry.ts"
       },
+      "bun": "./src/registry.ts",
       "development": "./src/registry.ts",
-      "default": "./src/registry.ts"
+      "default": "./dist/registry.js"
     },
     "./resolve": {
       "types": {
         "openwork-build": "./dist/types/src/resolve.d.ts",
         "default": "./src/resolve.ts"
       },
+      "bun": "./src/resolve.ts",
       "development": "./src/resolve.ts",
-      "default": "./src/resolve.ts"
+      "default": "./dist/resolve.js"
     }
   },
+  "files": [
+    "dist",
+    "src",
+    "package.json"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "test": "node --test src/*.test.ts",
+    "build": "tsup src/index.ts src/registry.ts src/resolve.ts --format esm --clean --external zod --target es2022 && tsc -p tsconfig.build.json",
+    "test": "node --conditions=development --test src/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -40,6 +48,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "tsup": "^8.5.0",
     "typescript": "^5.6.3"
   }
 }

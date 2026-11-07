@@ -87,6 +87,8 @@ jobs:
           version: '11.4.0'
       - name: Install verification dependencies
         run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
+      - name: Verify packaged main process imports compiled workspace packages
+        run: node --test apps/desktop/scripts/check-runtime-exports.test.mjs
       - name: Verify session recovery, Git isolation and evaluation
         run: node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/server/test/comex-continuity.test.ts apps/server/test/comex-continuity-routes.test.ts apps/server/test/comex-git.test.ts apps/server/test/comex-git-routes.test.ts scripts/comex-eval.test.mjs scripts/comex-verify.test.mjs scripts/release/comex-python-runtime.test.mjs
       - name: Verify bundled model catalog and offline updates
