@@ -42,7 +42,6 @@ jobs:
       PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: 'false'
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       SIGN_WINDOWS: 'false'
-      OPENWORK_WINDOWS_SMOKE_DIR: ${{ runner.temp }}/openwork-windows-smoke
     steps:
       - name: Enable long Windows paths
         run: git config --global core.longpaths true
@@ -92,6 +91,8 @@ jobs:
         run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win --x64 --publish never
       - name: Install and smoke-test the Windows build
         timeout-minutes: 10
+        env:
+          OPENWORK_WINDOWS_SMOKE_DIR: ${{ runner.temp }}/openwork-windows-smoke
         run: |
           if [ "${{ inputs.release }}" != "" ]; then
             node apps/desktop/scripts/windows-packaged-smoke.mjs --installer smoke-installer --version "$RELEASE_VERSION"
