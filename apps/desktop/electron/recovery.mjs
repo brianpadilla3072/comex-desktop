@@ -103,7 +103,7 @@ function validRecoveryArtifactIdentity(artifact) {
   } catch {
     return false;
   }
-  const prefix = `/different-ai/openwork/releases/download/v${version}/`;
+  const prefix = `/brianpadilla3072/comex-desktop/releases/download/v${version}/`;
   if (url.protocol !== "https:" || url.hostname !== "github.com" || !url.pathname.startsWith(prefix)) return false;
   const assetArch = artifact.platform === "linux" && artifact.arch === "x64" ? "x86_64" : artifact.arch;
   const platformSlug = artifact.platform === "darwin" ? "mac" : artifact.platform === "win32" ? "win" : "linux";
@@ -124,10 +124,10 @@ export function selectRecoveryArtifact(files, { version, platform, arch, distrib
     && typeof file.sha512 === "string"
     && file.sha512.trim(),
   );
-  const baseUrl = `https://github.com/different-ai/openwork/releases/download/v${normalizedVersion}/`;
+  const baseUrl = `https://github.com/brianpadilla3072/comex-desktop/releases/download/v${normalizedVersion}/`;
   for (const selected of matching) {
     const url = new URL(selected.url, baseUrl);
-    if (url.origin !== "https://github.com" || !url.pathname.startsWith(`/different-ai/openwork/releases/download/v${normalizedVersion}/`)) {
+    if (url.origin !== "https://github.com" || !url.pathname.startsWith(`/brianpadilla3072/comex-desktop/releases/download/v${normalizedVersion}/`)) {
       continue;
     }
     const artifact = {

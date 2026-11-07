@@ -128,3 +128,19 @@ El ejercicio que pide cualquier caso: "¿mi precio CIF + landed cost me deja ven
 ## Entregable
 
 La cotización se presenta como tabla (el output del script se vuelca a Excel con `planilla-xlsx` para editarla, o como tabla del informe vía `documento-docx`), siempre con: supuestos al pie, fecha de cotización, moneda y validez de la oferta ("sujeta a confirmación de fletes y aranceles").
+
+## Recorrido reproducible y evidencia
+
+Para ejecutar con el entorno privado del proyecto:
+
+```bash
+python3 .opencode/scripts/documents.py setup
+python3 .opencode/scripts/documents.py run quote -- --exw 100 --unidades 100 --flete-internacional-lote 1000 --csv costos.csv
+python3 .opencode/scripts/documents.py run excel -- costos.csv -o costos.xlsx --fuente "Supuestos y fecha reales del presupuesto"
+python3 .opencode/scripts/documents.py verify costos.xlsx
+```
+
+Estos importes son un ejemplo sintético. No presentarlos como precios de mercado,
+una cotización de un proveedor ni asesoramiento tributario verificado.
+Para probar los generadores sin investigación: `python3 .opencode/scripts/documents.py smoke --out prueba-nueva`.
+El `evidence.json` registra hashes y el alcance técnico; no valida fuentes ni encuestas.

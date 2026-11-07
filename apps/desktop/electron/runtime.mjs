@@ -1637,6 +1637,12 @@ export function createRuntimeManager({
     // Bun honors Node's NODE_EXTRA_CA_CERTS, so bundled Bun sidecars inherit
     // the exported OS trust store through the same child env variable.
     const env = mergeSystemCaChildEnv(baseEnv, caEnv, extra);
+    // Comex desktop ships the guide; an explicit operator false still wins.
+    env.DEN_FEATURE_COMEX_MODEL_GUIDE ??= "true";
+    env.DEN_FEATURE_COMEX_SCOPED_MEMORY ??= "true";
+    env.DEN_FEATURE_COMEX_CHAT_COMMANDS ??= "true";
+    env.DEN_FEATURE_TASK_CONTINUITY ??= "true";
+    env.DEN_FEATURE_COMEX_GIT_WORKSPACE ??= "true";
     const pathKey = envKey(env, "PATH") ?? "PATH";
     const pathEnv = enrichedPath(sidecarDirs, env[pathKey]);
     if (pathEnv) {

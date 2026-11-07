@@ -20,11 +20,11 @@ import type { ReleaseChannel } from "../types";
 
 /** Stable channel's Tauri updater manifest URL. */
 export const STABLE_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/latest/download/latest.json";
+  "https://github.com/brianpadilla3072/comex-desktop/releases/latest/download/latest.json";
 
 /** Alpha channel's Tauri updater manifest URL (macOS-only, rolling). */
 export const ALPHA_UPDATER_ENDPOINT =
-  "https://github.com/different-ai/openwork/releases/download/alpha-macos-latest/latest.json";
+  "https://github.com/brianpadilla3072/comex-desktop/releases/download/alpha-macos-latest/latest.json";
 
 export type PlatformKind = "darwin" | "linux" | "windows" | "web" | "unknown";
 

@@ -37,6 +37,7 @@ const WorkspaceFileTree = lazy(() =>
 
 const EMPTY_TRANSCRIPT_TARGETS: OpenTarget[] = [];
 type ArtifactPanelProps = {
+  cacheScope?: string;
   sessionId: string;
   tab: ArtifactPanelTab;
   client: OpenworkServerClient | null;
@@ -44,10 +45,12 @@ type ArtifactPanelProps = {
   workspaceRoot: string;
   onOpenTarget?: (target: OpenTarget, options?: OpenTargetOptions) => void;
   isLocalWorkspace?: boolean;
+  onOpenWorkspaceFile?: (path: string) => void;
   onClose: () => void;
 };
 
 type ArtifactPanelViewProps = {
+  cacheScope?: string;
   sessionId: string;
   client: OpenworkServerClient;
   workspaceId: string;
@@ -55,6 +58,7 @@ type ArtifactPanelViewProps = {
   onOpenTarget?: (target: OpenTarget, options?: OpenTargetOptions) => void;
   isLocalWorkspace?: boolean;
   target: OpenTarget;
+  onOpenWorkspaceFile?: (path: string) => void;
   onClose: () => void;
 };
 
@@ -68,7 +72,7 @@ function isTextContent(target: OpenTarget): boolean {
   return ["markdown", "code", "text", "sheet", "html"].includes(target.preview) && !/\.(xlsx|xls|ods)$/i.test(target.value);
 }
 
-export function ArtifactPanel({ sessionId, tab, client, workspaceId, workspaceRoot, onOpenTarget, isLocalWorkspace, onClose }: ArtifactPanelProps) {
+export function ArtifactPanel({ sessionId, tab, client, workspaceId, workspaceRoot, onOpenTarget, isLocalWorkspace, onOpenWorkspaceFile, onClose, cacheScope }: ArtifactPanelProps) {
   const transcriptTargets = usePanelTabStore((state) => state.transcriptArtifactTargets[sessionId] ?? EMPTY_TRANSCRIPT_TARGETS);
   const artifactTargets = useMemo(() => transcriptTargets.filter(isCollectibleArtifactTarget), [transcriptTargets]);
   const target = tab.target ?? artifactTargets.find((item) => item.id === tab.id) ?? null;
@@ -79,6 +83,7 @@ export function ArtifactPanel({ sessionId, tab, client, workspaceId, workspaceRo
 
   return (
     <ArtifactPanelView
+      cacheScope={cacheScope}
       sessionId={sessionId}
       client={client}
       workspaceId={workspaceId}
@@ -86,12 +91,13 @@ export function ArtifactPanel({ sessionId, tab, client, workspaceId, workspaceRo
       onOpenTarget={onOpenTarget}
       isLocalWorkspace={isLocalWorkspace}
       target={target}
+      onOpenWorkspaceFile={onOpenWorkspaceFile}
       onClose={onClose}
     />
   );
 }
 
-function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, target, onOpenTarget, isLocalWorkspace, onClose }: ArtifactPanelViewProps) {
+function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, target, onOpenTarget, isLocalWorkspace, onOpenWorkspaceFile, onClose, cacheScope }: ArtifactPanelViewProps) {
   const comexEnabled = useComexFeature(client);
   const [failure, setFailure] = useState<{ owner: string; title: string; details: string } | null>(null);
   const owner = JSON.stringify([sessionId, workspaceId, target.id]);
@@ -113,6 +119,7 @@ function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, targ
   const workspaceName = workspaceRoot.split(/[/\\]/).filter(Boolean).pop() ?? "Workspace";
 
   const openWorkspaceFile = (entry: { path: string; size: number; mtimeMs: number }) => {
+    if (onOpenWorkspaceFile) { onOpenWorkspaceFile(entry.path); return; }
     const nextTarget = openTargetFromWorkspaceFile(entry.path, { size: entry.size, updatedAt: entry.mtimeMs });
     if (!nextTarget) return;
     usePanelTabStore.getState().openTab(sessionId, {
@@ -124,7 +131,7 @@ function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, targ
     });
   };
 
-  const queryKey = ["artifact-panel", workspaceId, sessionId, target.fileScope ?? null, target.id, target.updatedAt ?? null];
+  const queryKey = ["artifact-panel", workspaceId, sessionId, target.fileScope ?? null, target.id, target.updatedAt ?? null, cacheScope ?? null];
   const { data, error, isError, isLoading } = useQuery<ArtifactQueryState>({
     queryKey,
     queryFn: async () => {

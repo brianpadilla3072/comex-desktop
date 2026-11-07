@@ -1,0 +1,91 @@
+# Memoria del proyecto
+
+## Consigna y alcance
+Pendiente de confirmar.
+
+## Productos y destinos
+Pendientes de decisión de la estudiante.
+
+## Decisiones y supuestos
+Sin decisiones registradas.
+
+## Fuentes y evidencia
+Ver fuentes.md y cumplimiento.md cuando existan.
+
+## Trabajo de campo
+Encuesta pendiente; no hay respuestas reales registradas.
+
+## Próximos pasos
+Confirmar alcance, productos y destinos.
+
+## Desarrollo de la aplicación: rendimiento (2026-11-06)
+
+Se midieron RAM y CPU en Electron real con perfil aislado y viewport de 1280 × 800; alcance y evidencia en `docs/comex/RENDIMIENTO-RAM-CPU.md`. No es una medición del instalador ni de inferencia. Se optimizó el catálogo de archivos con lotes de ocho lecturas de metadatos, conservando filtros y resultados. La comparación sobre 6.000 archivos y la validación se documentan en `docs/comex/RENDIMIENTO.md`. Queda pendiente investigar la convivencia de los motores antes de alterar su ciclo de vida. Esto no modifica el estado pendiente del trabajo de campo académico.
+
+## Desarrollo de la aplicación: catálogo de modelos (2026-11-06)
+
+Se implementó `comexModelGuide`: JSON incluido en el release, copia SQLite y observaciones locales por proveedor/modelo. La URL de actualización está vacía por defecto; puede fijarse en el JSON antes de publicar o con `OPENWORK_MODEL_CATALOG_URL`. Consulta diaria desde la aplicación, sin servidor externo ni agente. El selector distingue Go como suscripción y muestra fichas con datos del motor y seis barras; sin evidencia las barras son grises. No hay evaluaciones de inteligencia inventadas ni benchmarks integrados todavía. Mantenimiento y validación en `docs/features/comex-model-guide/README.md`. Esto no modifica los pendientes del trabajo académico ni el estado de la encuesta.
+
+Ajuste del catálogo r2: selector y fichas compactos, doce ofertas con referencias de AA Intelligence Index v5.0.1 y escala editorial documentada. Tres endpoints gratuitos llevan asterisco de referencia al modelo base, sin asegurar identidad ni rendimiento del endpoint. Los modelos anónimos conservan `s/d`. La fecha exacta de ejecución no se inventa: se guarda la fecha de consulta y `measuredAt: null`.
+
+Catálogo r3: se amplió a 18 ofertas con nivel y cinco fichas con N/A documentado. Los modelos con puntuación se muestran primero dentro de su proveedor o grupo de costos; se conserva el orden de favoritos, recientes y búsquedas. Sin evaluación se muestra “Sin datos”, sin un medidor gris que parezca nivel cero. Las referencias al modelo base siguen marcadas con asterisco.
+
+Catálogo r4: a pedido del usuario se investigaron las 24 ofertas que faltaban, con 22 estimaciones editoriales separadas de las 18 referencias AA existentes. Se muestran ≈, rango, confianza y fuentes, con criterios publicados por oferta en `docs/features/comex-model-guide/investigacion-r4.md`. Big Pickle y Pulse Alpha mantienen ausencia de nivel por evidencia insuficiente. No se hicieron inferencias ni mediciones propias, y no se identifican los modelos stealth por rumores. Las estimaciones se distribuyen en el JSON incluido en el release; no se añade un servidor. Los pendientes académicos y la encuesta siguen sin cambios.
+
+Selector: se agregó una comparación gráfica de inteligencia y costo al pasar sobre una fila. Punto grande = oferta actual, arriba = más capacidad, izquierda = menor costo para un ejemplo fijo de tokens. Go compara consumo de referencia y aclara la suscripción. Ofertas sin precio/nivel no tienen punto inventado; referencias y estimaciones no se mezclan. Una alternativa más barata solo se sugiere si alcanza el nivel, conservadoramente considerando los rangos estimados. Evidencia en `docs/features/comex-model-guide/model-guide-value.png`; pruebas de lógica e interfaz y typecheck completados. No cambia el estado del trabajo académico.
+
+Ajuste confirmado por el usuario: conservar el aspecto y los colores de las barras, quitar los números de la fila y mostrar detalles al pasar sobre las barras. Implementado con demora de 250 ms y sin hover en el resto de la fila. La ficha incluye conclusión, alternativas con nombre y escala de costo fija; las recomendaciones evaluadas comparan valores originales, evitando equivalencias falsas entre modelos del mismo tramo. Pruebas y evidencia en `docs/features/comex-model-guide/README.md`. Sin cambios en los pendientes académicos.
+
+Compositor: referencia visual aportada por el usuario aplicada en `comexWorkspace`, con esquinas redondeadas, adjuntos a la izquierda, modelo y menú directo de esfuerzo a la derecha. Solo se ofrecen variantes reales del catálogo; no confundir modos con nivel de inteligencia. Permisos de escritorio conservan consulta real, restricciones y confirmación antes de habilitar modo amplio; no se modificaron permisos. Dictado continúa sujeto a su disponibilidad nativa. Capturas y validación en `docs/features/comex-model-guide/README.md`. No se enviaron inferencias durante las pruebas. Sin cambios académicos.
+
+El usuario aclaró que “modos” significa permisos, no esfuerzo de razonamiento ni perfiles de agente. Se añadieron los tres iniciales solicitados: Solicitar aprobación, Aprobar automáticamente y Acceso completo, más creación/duplicado/edición/eliminación de perfiles por proyecto. La plantilla Investigar permite lectura/web, bloquea edición y pregunta por comandos/exterior; se guardó como perfil sin activarla. Activar es una acción separada con revisión, exige proyecto inactivo y mantiene restricciones existentes. Integración nativa v2 verificada por metadatos y rechazo de excepciones de agentes que debiliten el modo, con reversión si no se confirma. No se modificaron los permisos activos del proyecto durante la validación. Evidencia en `docs/features/comex-permission-modes/README.md`. No cambia los pendientes del trabajo académico.
+
+Ajuste confirmado: desactivar significa ocultar un modo sin borrarlo. Se implementó **Personalizar modos → Editar → Modo habilitado**, incluso para los tres iniciales; se conserva el perfil y los permisos actuales. “Crear modo personalizado” también se movió dentro de Personalizar modos. El selector solo muestra modos habilitados y la entrada de gestión; cada fila de gestión tiene Editar y las acciones secundarias quedan dentro del editor. Verificados ocultamiento persistente, recuperación, interfaz a 390 px, seis pruebas de servidor y typechecks. No se cambiaron los permisos activos del proyecto. Sin cambios en los pendientes académicos.
+
+## Desarrollo de la aplicación: tareas programadas y complementos (2026-11-06)
+
+Se aplicaron las dos referencias visuales aportadas por el usuario bajo el flag existente `comexWorkspace`, conservando el alcance general del producto. Tareas programadas incorpora lateral, búsqueda, filtro y seis ejemplos que precargan el editor. Complementos incorpora Personalizar, Habilidades, instalados, pestañas Públicos/Personales y catálogo en dos columnas sobre los datos existentes. No se instalaron complementos ni se programaron tareas durante la verificación. Evidencia y límites de las capturas en `docs/features/scheduled-tasks-complements/README.md`. Sin cambios en los pendientes académicos.
+
+## Desarrollo general de la aplicación: objetivos y continuidad (2026-11-06)
+
+El alcance del producto es general; Comercio Exterior es una aplicación o pack,
+no una restricción del producto. Se añadió `taskContinuity`, con objetivos por
+conversación, criterios, límite de turnos y continuaciones usando exactamente
+`opencode/big-pickle`. El servidor guarda extractos automáticos sin sobrescribir
+los checkpoints manuales, pausa ante detención o admisión incierta y conserva
+el estado al reiniciar. El mismo chat puede ir a un worktree y volver manteniendo
+su hogar persistente; retirar un worktree requiere que esté limpio, integrado
+y sin conversaciones que lo usen. Los cambios de código requieren un turno de
+revisión; los informes no. Se corrigió la propagación local de la credencial de
+host y la verificación de movimientos asíncronos. Evidencia, capturas, límites y
+pruebas en `docs/features/task-continuity/README.md` y `verification.json`. El
+servidor debe permanecer abierto para continuar objetivos. No se generó un
+instalador ni se publicó un release. Esto no modifica los pendientes académicos.
+
+## Desarrollo general de la aplicación: navegación y disposición (2026-11-06)
+
+A pedido del usuario se inspeccionó la aplicación actual y se adaptó la estructura a la referencia: barra de iconos permanente con cuenta al pie, panel contextual, menús superiores, Proyectos y Recientes, pestañas visibles y Resultados/Fuentes con memoria y herramientas desplegables. Se conserva el control existente `comexWorkspace` y el alcance general del producto. Tareas programadas y Complementos no duplican el árbol de proyectos ni conservan encima el panel derecho del chat. Evidencia y límites de validación en `docs/features/workspace-navigation/README.md`. Validación en navegador de escritorio y móvil sin enviar mensajes ni cambiar permisos; no se generó instalador. Sin cambios en pendientes académicos.
+
+## Memoria por niveles (2026-11-06)
+
+El usuario confirmó los niveles conversación, proyecto y aplicación, con conversación por defecto, y pidió implementarlos. Se agregó `comexScopedMemory`: SQLite local y panel Memoria con los tres niveles para agregar, editar y borrar notas. Conversación se aísla por chat/proyecto; proyecto usa su carpeta canónica de origen; aplicación se comparte entre proyectos de la misma instalación e identidad autenticada de conexión. No se extrae memoria del historial ni de texto citado/pegado: órdenes directas con contenido concreto como “recordá en proyecto: usar euros” se guardan al admitir un prompt v2 y producen un recibo de nivel y contenido para la confirmación del agente. Las notas previas se conservan en Notas anteriores. Evidencia y límites en `docs/features/comex-scoped-memory/README.md`. Pasaron 21 pruebas de backend, typechecks, comprobación de banderas y verificación de creación/persistencia/edición/eliminación en navegador y móvil. Los ejemplos de prueba se retiraron; no se enviaron inferencias. Esto no cambia los pendientes académicos ni acredita respuestas de encuesta.
+
+## Comandos del compositor (2026-11-06)
+
+El usuario pidió definir e implementar los comandos de la referencia y medir código/escala. Aclaró que OpenCode debe seguir siendo el dueño de la ejecución, salvo herramientas propias de la app. Se agregó `comexChatCommands`: presentación y alias en el menú `/`, sin otro motor, historial, registro de ejecución ni base de datos. Archivar/bifurcar/lateral reutilizan las operaciones existentes de OpenCode; Compactar llama a session.compact; Iniciar prepara `/init` nativo mediante el envío normal; MCP/Estado consultan datos existentes, incluyendo límites Go/Console cuando se informan. Fijar usa la preferencia de lateral existente. Boceto PNG, copia HTML revisable y mascota son herramientas locales. No hay publicación ni enlaces públicos automáticos. Se conserva el catálogo nativo y sus comandos de plugins con `:`. La bifurcación vacía se bloquea conforme al rechazo real del motor, y no se agrega una prohibición propia de compactar durante actividad. Evidencia, límites, métricas y 26 pruebas en `docs/features/comex-chat-commands/README.md`. La validación no ejecutó modelos ni `/init`. Sin cambios en los pendientes académicos.
+
+## Desarrollo general: pestañas de herramientas (2026-11-06)
+
+El + abre Nueva pestaña, separado de Nuevo chat, siguiendo la referencia completa del usuario. Se conectaron archivos, páginas Markdown, terminal, navegador nativo y chat lateral a una barra común, con metadatos y borradores por servidor/proyecto/cuenta. El guardado de páginas nuevas usa `createOnly` con aprobación y creación exclusiva para conservar archivos existentes, incluido un conflicto concurrente. Evidencia, siete pruebas, typechecks y límites de las pruebas del puente nativo en `docs/features/workspace-resource-tabs/README.md`. No se reinició un servidor compartido, se enviaron mensajes, se generó instalador ni se modificaron permisos. Sin cambios en los pendientes académicos.
+
+## Tarjeta compacta del chat (2026-11-06)
+
+A pedido del usuario se agregó Resultados/Fuentes a la derecha del chat, detrás de `comexWorkspace`, con datos del historial y pestañas asociadas a la conversación. Fuentes separa aportes del usuario y muestra miniaturas; Ver todo amplía la lista y las imágenes. Los botones + reutilizan nueva pestaña y adjuntos del borrador. Reserva espacio en pantallas amplias; los paneles completos y el chat dividido conservan su disposición. Typecheck de la app y verificación headless del componente con datos de prueba; sin enviar mensajes ni subir archivos reales. Captura y límites en `docs/features/session-resources-card/README.md`. Sin cambios en pendientes académicos.
+
+## Fuentes como pestaña y menú de contexto (2026-11-06)
+
+El usuario corrigió la referencia: Ver todo abre una pestaña Fuentes, y + ofrece Usar complementos / Adjuntar archivos o carpetas. Se reemplazó el diálogo completo por una pestaña identificada por chat y con lectura del historial nativo, aislada por conexión e identidad. Lista adjuntos, rutas disponibles y llamadas reales de herramientas; no inventa rutas para imágenes que solo conservan datos. El menú anidado con búsqueda reutiliza catálogo y acciones del compositor, y lleva los archivos elegidos al borrador. Las carpetas se aportan como archivos adjuntos, sin permiso persistente. Conectar complementos abre la administración existente. Se conserva comexWorkspace. Seis pruebas de estado y verificación headless con fixtures; captura y límites en docs/features/session-resources-card/README.md. Sin mensajes, cargas ni conexiones reales; sin cambios en pendientes académicos.
+
+## Feedback visual de agentes (2026-11-06)
+
+El usuario pidió reproducir la actividad visual de sus capturas y confirmó Subagentes dentro de la tarjeta Resultados/Fuentes. Se incorporaron tiempo encima del turno, filas compactas de herramientas con comando/salida desplegables, avisos compactos de tareas delegadas, compactación respaldada por estado/eventos nativos y resumen de subagentes entre Resultados y Fuentes. El resumen abre una pestaña Subagentes por chat, con lista, detalle, estado y comandos del hijo elegido. Se preservan conversaciones y acciones nativas, el mapa previo y el alcance general del producto. Los recuentos distinguen trabajando/listos/esperas/errores/detenidos/sin confirmar. Sin otro motor u orquestador. Typecheck y ocho pruebas de estado; verificación headless con componentes reales y fixtures, sin lanzar investigación ni agentes reales. Capturas y límites en docs/features/execution-feedback/README.md. Bun no disponible para el ejecutor antiguo. Sin cambios en pendientes académicos.

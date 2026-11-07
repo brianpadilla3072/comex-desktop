@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState } from "react";
+import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, FileText, Globe, RefreshCw } from "lucide-react";
 import { OpenworkServerError, type OpenworkServerClient } from "@/app/lib/openwork-server";
@@ -8,6 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { openTargetFromWorkspaceFile, type OpenTarget } from "../artifacts/open-target";
 
+import { ScopedMemoryPanel } from "./scoped-memory-panel";
+import { ComexContinuityPanel } from "./continuity-panel";
+import { TaskContinuityPanel } from "./task-panel";
+import { ComexGitPanel } from "./git-panel";
 import { readMemoryDraft, writeMemoryDraft } from "./memory-draft";
 
 const projectPath = "comex/estado.md";
@@ -17,7 +22,11 @@ export function ComexProjectPanel({ client, workspaceId, sessionId, onOpenTarget
   client: OpenworkServerClient; workspaceId: string; sessionId: string;
   onOpenTarget: (target: OpenTarget) => void; onOpenBrowser?: () => void;
 }) {
+  const referenceLayout = useComexWorkspaceEnabled();
+  const features = useQuery({ queryKey: ["comex-feature", client.baseUrl], queryFn: () => client.getComexFeatures(), retry: false, staleTime: 15_000, refetchInterval: 15_000 });
   const files = useQuery({ queryKey: ["comex-files", client.baseUrl, workspaceId], queryFn: () => client.listWorkspaceFiles(workspaceId), refetchInterval: 15_000, retry: false });
+  const [allResults, setAllResults] = useState(false);
+  const [allSources, setAllSources] = useState(false);
   const [mode, setMode] = useState<"project" | "session">("project");
   const safeSession = /^[A-Za-z0-9_-]{1,256}$/.test(sessionId);
   const path = mode === "project" ? projectPath : `comex/sesiones/${safeSession ? sessionId : "invalid"}.md`;
@@ -29,24 +38,38 @@ export function ComexProjectPanel({ client, workspaceId, sessionId, onOpenTarget
   const sources = (files.data?.items ?? []).filter(item => item.kind === "file" && /(?:^|\/)(?:fuentes|cumplimiento|consigna)\.md$/i.test(item.path));
   return <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4" data-testid="comex-project-panel">
     <section>
-      <div className="mb-2 flex items-center"><h2 className="flex-1 text-sm font-medium">Resultados del proyecto</h2><Button variant="ghost" size="icon-sm" aria-label="Actualizar archivos" disabled={files.isFetching} onClick={() => void files.refetch()}><RefreshCw className={files.isFetching ? "animate-spin" : ""} /></Button></div>
-      {files.isLoading ? <div role="status" aria-label="Buscando archivos del proyecto" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div> : files.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer los archivos. Volvé a intentar con Actualizar archivos.</p> : !results.length ? <p className="text-xs text-muted-foreground">Todavía no hay documentos. Pedí el informe o la planilla en el chat.</p> : <ul className="space-y-1">{results.map(item => <li key={item.path}><Button variant="ghost" className="w-full justify-start gap-2 rounded-lg text-left" onClick={() => openFile(item.path)}><FileText className="shrink-0" /><span className="truncate">{item.path.split("/").pop()}</span></Button></li>)}</ul>}
+      <div className="mb-2 flex items-center"><h2 className="flex-1 text-sm font-medium">{referenceLayout ? "Resultados" : "Resultados del proyecto"}</h2><Button variant="ghost" size="icon-sm" aria-label="Actualizar archivos" disabled={files.isFetching} onClick={() => void files.refetch()}><RefreshCw className={files.isFetching ? "animate-spin" : ""} /></Button></div>
+      {files.isLoading ? <div role="status" aria-label="Buscando archivos del proyecto" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div> : files.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer los archivos. Volvé a intentar con Actualizar archivos.</p> : !results.length ? <p className="text-xs text-muted-foreground">Todavía no hay documentos. Pedí el informe o la planilla en el chat.</p> : <ul className="space-y-1">{(referenceLayout && !allResults ? results.slice(0, 5) : results).map(item => <li key={item.path}><Button variant="ghost" className="w-full justify-start gap-2 rounded-lg text-left" onClick={() => openFile(item.path)}><FileText className="shrink-0" /><span className="truncate">{item.path.split("/").pop()}</span></Button></li>)}</ul>}
+      {referenceLayout && results.length > 5 ? <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setAllResults(value => !value)}>{allResults ? "Mostrar menos" : `Ver todos (${results.length})`}</Button> : null}
     </section>
     <section>
-      <h2 className="mb-2 text-sm font-medium">Fuentes y cumplimiento</h2>
+      <h2 className="mb-2 text-sm font-medium">{referenceLayout ? "Fuentes" : "Fuentes y cumplimiento"}</h2>
       {!sources.length && <p className="text-xs text-muted-foreground">Los registros de fuentes y requisitos aparecerán cuando se guarden.</p>}
-      {sources.map(item => <Button key={item.path} variant="ghost" className="w-full justify-start gap-2 rounded-lg" onClick={() => openFile(item.path)}><BookOpen /><span className="truncate">{item.path}</span></Button>)}
+      {(referenceLayout && !allSources ? sources.slice(0, 3) : sources).map(item => <Button key={item.path} variant="ghost" className="w-full justify-start gap-2 rounded-lg" onClick={() => openFile(item.path)}><BookOpen /><span className="truncate">{item.path}</span></Button>)}
+      {referenceLayout && sources.length > 3 ? <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setAllSources(value => !value)}>{allSources ? "Mostrar menos" : `Ver todas (${sources.length})`}</Button> : null}
       {onOpenBrowser && <Button variant="ghost" className="mt-2 w-full justify-start gap-2 rounded-lg" onClick={onOpenBrowser}><Globe />Abrir navegador</Button>}
     </section>
-    <section className="border-t border-border pt-4">
-      <h2 className="mb-3 text-sm font-medium">Memoria</h2>
+    <ProjectDisclosure collapsible={referenceLayout} title="Herramientas del proyecto" legacyTitle=""><div className="flex flex-col gap-5">
+    {!features.isError && features.data?.taskContinuity && <TaskContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
+    {!features.isError && features.data?.comexContinuity && <ComexContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
+    {!features.isError && features.data?.comexGitWorkspace && <ComexGitPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={features.data?.taskContinuity ? sessionId : undefined} />}
+    </div></ProjectDisclosure>
+    <ProjectDisclosure collapsible={referenceLayout} title="Memoria">
+      {features.data?.comexScopedMemory ? <ScopedMemoryPanel client={client} workspaceId={workspaceId} sessionId={sessionId} /> : <>
       <div className="mb-3 flex gap-1" role="group" aria-label="Alcance de la memoria">
         <Button variant={mode === "project" ? "secondary" : "ghost"} size="sm" aria-pressed={mode === "project"} onClick={() => setMode("project")}>Proyecto</Button>
         <Button variant={mode === "session" ? "secondary" : "ghost"} size="sm" aria-pressed={mode === "session"} disabled={!safeSession} onClick={() => setMode("session")}>Esta sesión</Button>
       </div>
       <MemoryEditor key={`${client.baseUrl}:${workspaceId}:${path}`} client={client} workspaceId={workspaceId} path={path} />
-    </section>
+      </>}
+      {features.data?.comexScopedMemory && <details className="mt-4 border-t border-border pt-3"><summary className="cursor-pointer text-xs text-muted-foreground">Notas anteriores</summary><div className="mt-3 space-y-3"><div className="flex gap-1" role="group" aria-label="Alcance de notas anteriores"><Button variant={mode === "project" ? "secondary" : "ghost"} size="sm" onClick={() => setMode("project")}>Proyecto</Button><Button variant={mode === "session" ? "secondary" : "ghost"} size="sm" disabled={!safeSession} onClick={() => setMode("session")}>Conversación</Button></div><MemoryEditor key={`${client.baseUrl}:${workspaceId}:${path}`} client={client} workspaceId={workspaceId} path={path} /></div></details>}
+    </ProjectDisclosure>
   </div>;
+}
+
+function ProjectDisclosure({ collapsible, title, legacyTitle = title, children }: { collapsible: boolean; title: string; legacyTitle?: string; children: ReactNode }) {
+  if (!collapsible) return <section>{legacyTitle ? <h2 className="mb-3 text-sm font-medium">{legacyTitle}</h2> : null}{children}</section>;
+  return <details className="border-t border-border pt-3"><summary className="cursor-pointer text-sm font-medium">{title}</summary><div className="mt-4">{children}</div></details>;
 }
 
 function MemoryEditor({ client, workspaceId, path }: { client: OpenworkServerClient; workspaceId: string; path: string }) {

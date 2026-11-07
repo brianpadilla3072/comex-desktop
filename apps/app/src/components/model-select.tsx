@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ModelOption, ModelRef } from "@/app/types";
@@ -22,6 +23,7 @@ import { useDesktopFeature } from "@/react-app/domains/session/status/use-deskto
 export { ModelPickerFooter } from "@/react-app/domains/models/model-picker-panel";
 
 interface ModelSelectProps {
+  compact?: boolean;
   open: boolean;
   value: ModelRef;
   hideValue?: boolean;
@@ -41,9 +43,10 @@ interface ModelSelectProps {
   retainedSelection?: RetainedModelSelection;
 }
 
-export function ModelSelect({ open, value, hideValue = false, onOpenChange, onChange, disabled = false, sessionId,
+export function ModelSelect({ compact = false, open, value, hideValue = false, onOpenChange, onChange, disabled = false, sessionId,
   openWorkModelsSyncing = false, fallbackOptions = [], behaviorValue = null, behaviorOptions = [], onBehaviorChange, onSetWorkspaceDefault, onReloadWorkspace, retainedSelection: savedSelection }: ModelSelectProps) {
   const [focusAlternative, setFocusAlternative] = React.useState(false);
+  const [modeOpen, setModeOpen] = React.useState(false);
   const isMobile = useIsMobile();
   const popupRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -90,14 +93,16 @@ export function ModelSelect({ open, value, hideValue = false, onOpenChange, onCh
   });
   const openProvider = () => { onOpenChange(false); window.dispatchEvent(new Event(openProviderAuthEvent)); };
   const openSettings = () => { onOpenChange(false); openAutoProviderSettings(); };
-  return <Popover open={open} onOpenChange={(next) => {
+  const modeLabel = (label: string, variant: string | null) => variant === null ? "Predeterminado" : ({ none: "Sin razonamiento", minimal: "Mínimo", low: "Bajo", medium: "Medio", high: "Alto", xhigh: "Muy alto", max: "Máximo" })[variant] ?? label;
+  return <><Popover open={open} onOpenChange={(next) => {
     // A provider sign-in opened from this picker owns focus until it finishes or is cancelled.
     if (!next && choice.loginOpen) return;
+    if (next) setModeOpen(false);
     setFocusAlternative(false); onOpenChange(next);
   }}>
     <PopoverTrigger type="button" disabled={disabled} aria-label="Change model"
-      className="inline-flex h-9 min-w-0 items-center gap-1.5 px-2.5 text-sm text-muted-foreground hover:text-foreground focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-      <span className="max-w-56 truncate">{hideValue ? "Select model" : fixedModelTitle(value, { plainFreeModel }) ?? (catalog.currentOption ? modelTitle(catalog.currentOption, { plainFreeModel }) : "Select model")}{!hideValue && summary ? ` · ${summary}` : ""}{!hideValue && fastOn ? <span data-testid="model-fast-indicator" className="text-xs font-medium"> · Fast</span> : null}</span><ChevronDown className="size-3" />
+      className={`inline-flex h-9 min-w-0 items-center gap-1.5 text-sm hover:text-foreground focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${compact ? "max-w-48 px-1 text-foreground" : "px-2.5 text-muted-foreground"}`}>
+      <span className="max-w-56 truncate">{hideValue ? "Select model" : fixedModelTitle(value, { plainFreeModel }) ?? (catalog.currentOption ? modelTitle(catalog.currentOption, { plainFreeModel }) : "Select model")}{!compact && !hideValue && summary ? ` · ${summary}` : ""}{!hideValue && fastOn ? <span data-testid="model-fast-indicator" className="text-xs font-medium"> · Fast</span> : null}</span><ChevronDown className="size-3" />
     </PopoverTrigger>
     <PopoverContent ref={popupRef} tabIndex={-1} align="start" initialFocus={() => isMobile || focusAlternative ? popupRef.current : searchInputRef.current} data-testid="composer-model-picker" className="flex max-h-[min(var(--available-height),36rem)] w-90 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl p-0">
       <ModelPickerPanel searchInputRef={searchInputRef} options={options} current={value} behaviorValue={behaviorValue} fallbackBehaviorOptions={behaviorOptions}
@@ -105,5 +110,14 @@ export function ModelSelect({ open, value, hideValue = false, onOpenChange, onCh
         onConnectProvider={!restrictToCloud ? openProvider : undefined} onOpenProviderSettings={!checkRestriction({ restriction: "allowControlSettings" }) ? openSettings : undefined}
         onSetWorkspaceDefault={onSetWorkspaceDefault ?? setWorkspaceDefault} openWorkModelsSyncing={openWorkModelsSyncing} autoVisible={autoVisible} onReloadWorkspace={onReloadWorkspace} />
     </PopoverContent>
-  </Popover>;
+  </Popover>{compact && !hideValue && !managesOwnBehavior(value) && selectedBehavior.options.length > 1 && onBehaviorChange ? <DropdownMenu open={modeOpen} onOpenChange={setModeOpen}>
+    <DropdownMenuTrigger disabled={disabled} aria-label="Elegir modo de razonamiento" className="inline-flex h-9 min-w-0 shrink-0 items-center gap-1 rounded-md px-1 text-sm text-muted-foreground hover:text-foreground">
+      <span className="max-w-24 truncate">{modeLabel(selectedBehavior.label, selectedBehavior.value)}</span><ChevronDown className="size-3" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent side="top" align="end" className="w-56">
+      <DropdownMenuRadioGroup value={selectedBehavior.value ?? "__provider_default__"} onValueChange={next => { const selected = selectedBehavior.options.find(item => (item.value ?? "__provider_default__") === next); if (selected) { onBehaviorChange(selected.value); setModeOpen(false); } }}>
+        {selectedBehavior.options.map(item => <DropdownMenuRadioItem key={item.value ?? "__provider_default__"} value={item.value ?? "__provider_default__"}>{modeLabel(item.label, item.value)}</DropdownMenuRadioItem>)}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  </DropdownMenu> : null}</>;
 }

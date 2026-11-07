@@ -57,6 +57,29 @@ Gotchas:
 
 Para análisis (promedios, rankings, cruces), pandas es cómodo si está instalado; si no, `openpyxl` + `csv` del estándar alcanzan. Los datos que alimentan el informe siempre pasan por un cálculo visible: dejar el script o la celda de fórmula como evidencia.
 
-## Dependencias
+## Entorno y control de entrega
 
-`openpyxl`. Se instala con `bash instalar.sh` (crea el entorno del pack en `~/.comex-pack/venv`).
+En un proyecto Comex, el launcher está en `.opencode/scripts/documents.py`.
+Si trabajás desde el pack original, usá `scripts/documents.py`.
+En Windows el ejecutable puede ser `py -3` o `python`; en Linux/macOS, `python3`.
+
+```bash
+python3 .opencode/scripts/documents.py doctor
+python3 .opencode/scripts/documents.py setup
+python3 .opencode/scripts/documents.py run excel -- datos.csv -o datos.xlsx --fuente "Base y fecha reales de consulta"
+python3 .opencode/scripts/documents.py verify datos.xlsx
+```
+
+`setup` prepara un entorno privado en `~/.comex-pack/venv` con versiones fijadas;
+`COMEX_PACK_HOME` permite elegir otra carpeta. No modifica Python del sistema.
+La primera preparación requiere Python 3.10+, venv/pip y acceso a PyPI; con
+`setup --wheelhouse CARPETA` usa exclusivamente wheels locales, sin red.
+Si la app configura `COMEX_DOCUMENTS_PYTHON`, usar ese intérprete incluido: doctor
+indica `pythonBundled=true` tras validar imports y versiones, y setup no modifica
+ese runtime. Sin sidecar se necesita un Python disponible para el entorno privado.
+No anunciar instalación Windows comprobada solo por pasar pruebas en Linux.
+
+`verify` comprueba ZIP/XML, reabre el archivo, rechaza entregables vacíos y emite
+SHA-256. La revisión visual sigue pendiente hasta renderizar o abrir el archivo.
+No afirmar que el formato fue revisado visualmente solo porque `verify` pasó.
+Las fórmulas de Excel requieren recálculo con Excel/LibreOffice; openpyxl no las calcula.

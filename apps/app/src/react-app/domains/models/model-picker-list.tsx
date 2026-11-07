@@ -1,4 +1,7 @@
-import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
+import { prioritizeAssessedModels } from "./model-guide-order";
+import { useModelGuide } from "./use-model-guide";
+import { guideOffering, guideBillingLabel, ModelGuideDetails } from "./model-guide-details";
+import { useComexWorkspaceEnabled, useComexModelGuideEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Building, Check, Cloud, Laptop, Lock, Pin, PinOff, Sparkles } from "lucide-react";
 import type { ModelOption, ModelRef } from "@/app/types";
@@ -99,10 +102,21 @@ function menuChord(label: string, chord: string) {
   return <><span className="min-w-0 flex-1">{label}</span><kbd className="ml-4 font-sans text-xs text-muted-foreground">{chord}</kbd></>;
 }
 
-function ModelPickerRows({ options, current, query, onQueryChange, onSelect, focusAlternative = false, footer, leading, searchInputRef, autoFocusSearch = true,
+function ModelPickerRows({ options: originalOptions, current, query, onQueryChange, onSelect, focusAlternative = false, footer, leading, searchInputRef, autoFocusSearch = true,
   catalogState, retainedSelection, onConnectProvider, onOpenProviderSettings, onSetWorkspaceDefault, currentBehaviorValue, openWorkModelsSyncing, onReloadWorkspace, onRetryAuto, autoRow, plainFreeModel = false,
 }: ModelPickerListProps & { autoRow?: AutoRowState; plainFreeModel?: boolean }) {
   const freeFirst = useComexWorkspaceEnabled();
+  const guideEnabled = useComexModelGuideEnabled();
+  const guide = useModelGuide(originalOptions, guideEnabled);
+  const [guideBusy, setGuideBusy] = useState(false);
+  const [guideError, setGuideError] = useState(false);
+  const [guideDetailsKey, setGuideDetailsKey] = useState<string | null>(null);
+  // Closing a popup can reveal another trigger under the pointer. Wait for the next deliberate hover.
+  const guideHoverBlockedUntil = useRef(0);
+  const options = useMemo(() => guideEnabled ? originalOptions.map(option => {
+    const offering = guideOffering(option, guide.snapshot);
+    return option.providerID === "opencode-go" || offering.provider?.billing === "subscription" ? { ...option, isFree: false } : option;
+  }) : originalOptions, [originalOptions, guideEnabled, guide.snapshot]);
   const display = { plainFreeModel };
   const favorites = useModelCollectionsStore((state) => state.favorites);
   const recent = useModelCollectionsStore((state) => state.recent);
@@ -115,9 +129,12 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
   // Searching ranks every model in one list (best first); browsing keeps the groups.
   const searching = query.trim().length > 0;
   const search = useMemo(() => searching ? searchModels(options, query) : null, [searching, options, query]);
-  const groups: ModelGroup[] = search
+  const baseGroups: ModelGroup[] = search
     ? search.matches.length ? [{ value: SEARCH_GROUP, items: search.matches.map((match) => match.option) }] : []
     : modelGroups(options, favorites, recent, query, freeFirst);
+  const groups = guideEnabled && !search ? prioritizeAssessedModels(baseGroups, guide.snapshot) : baseGroups;
+  const guideRatedCount = options.filter(option => guideOffering(option, guide.snapshot).model?.reasoning).length;
+  const guideEstimatedCount = options.filter(option => { const model = guideOffering(option, guide.snapshot).model; return !model?.reasoning && model?.reasoningEstimate; }).length;
   const providerMiss = search?.provider && !search.provider.found ? search.provider : undefined;
   const pins = orderedModelPins(options, favorites);
   const pinned = new Set(pins.map(modelRefKey));
@@ -219,9 +236,11 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
               const subtitle = autoState ? autoPickerCopy(autoState, false, undefined, autoRow?.code, autoRow?.resetsAt).subtitle : active && failed ? `${modelSubtitle(option, false, display)}${modelSubtitle(option, false, display) ? " · " : ""}availability not verified` : modelSubtitle(option, false, display);
               // The name always wins the row. One quiet line under it carries where the model
               // comes from (only where a group mixes providers) and what is true about it now.
-              const meta = autoState || (isAutoModel(option) && !plainFreeModel) || isAutoRouterModel(option) ? subtitle
+              const baseMeta = autoState || (isAutoModel(option) && !plainFreeModel) || isAutoRouterModel(option) ? subtitle
                 : [MIXED_GROUPS.has(group.value) ? option.description?.trim() : null, modelStateLabel(option),
                   active && failed ? "Availability not verified" : null].filter(Boolean).join(" · ");
+              const offering = guideEnabled ? guideOffering(option, guide.snapshot) : undefined;
+              const meta = guideEnabled ? [baseMeta, guideBillingLabel(option.providerID, offering?.provider, offering?.observation, offering?.model)].filter(Boolean).join(" · ") : baseMeta;
               // Options typed in the search show only where they apply; the line above the list says the rest.
               const applies = search ? searchIntentTag(option, search.intent) : null;
               const pinLabel = pinned.has(key) ? "Unpin" : "Pin to top";
@@ -235,16 +254,16 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
                 value={`${group.value}:${key} ${name} ${subtitle}`} disabled={blocked}
                 data-model-key={key} data-checked={active} data-testid={`model-option-${option.providerID}-${option.modelID}`}
                 aria-label={`${name}, ${subtitle}, ${MODEL_SOURCE_LABELS[modelSource(option)]}${active ? ", current model" : ""}`}
-                tabIndex={blocked ? -1 : 0} className="group/model min-h-9 gap-2.5 rounded-lg px-2 py-1.5 text-sm data-disabled:opacity-55"
+                tabIndex={blocked ? -1 : 0} className={`group/model px-2 data-disabled:opacity-55 ${guideEnabled ? "min-h-8 gap-2 rounded-md py-1 text-xs" : "min-h-9 gap-2.5 rounded-lg py-1.5 text-sm"}`}
                 onFocus={() => setHighlighted(option)} onClick={() => select(option)}
                 onKeyDown={(event) => { if (event.key === "Enter" && event.target === event.currentTarget) { event.preventDefault(); select(option); } }}
               />}>
                 <ProviderMark model={option} description={option.description} plainFreeModel={plainFreeModel} />
-                <span data-slot="model-label" className="min-w-0 flex-1 leading-5">
+                <span data-slot="model-label" className={`min-w-0 flex-1 ${guideEnabled ? "leading-[18px]" : "leading-5"}`}>
                   <span className={`block truncate${active ? " font-medium" : ""}`} title={name}>{name}</span>
                   {meta ? <span className="block truncate text-xs text-muted-foreground" title={meta}>{meta}</span> : null}
                 </span>
-                {freeFirst && option.isFree ? <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">Gratis</span> : null}
+                {guideEnabled ? <ModelGuideDetails option={option} snapshot={guide.snapshot} open={guideDetailsKey === key} onHover={() => { if (Date.now() >= guideHoverBlockedUntil.current) setGuideDetailsKey(key); }} onOpenChange={open => setGuideDetailsKey(previous => { if (open) return key; if (previous !== key) return previous; guideHoverBlockedUntil.current = Date.now() + 500; return null; })} /> : freeFirst && option.isFree ? <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">Gratis</span> : null}
                 {applies ? <span data-testid="model-search-applies" className="shrink-0 text-xs text-muted-foreground">{applies}</span> : null}
                 {shortcutLabels.get(key) ? <kbd data-testid="model-shortcut-key" className="shrink-0 rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground">{shortcutLabels.get(key)}</kbd> : null}
                 {/* Fixed trailing slots keep checks aligned; pin shows on pointer or focus (keyboard: ⇧P). */}
@@ -262,6 +281,10 @@ function ModelPickerRows({ options, current, query, onQueryChange, onSelect, foc
         {loading && hasOptions ? <ModelLoadingRows /> : null}
         {failed && !verified && hasOptions && !query.trim() ? <ModelLoadingRows rows={2} label="Other models not loaded" still /> : null}
       </CommandPanel>
+      {guideEnabled && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <span role="status">{guideError ? "No pude consultar la actualización" : guide.snapshot?.status.error ? "Última copia válida · actualización pendiente" : guide.snapshot ? `${guideRatedCount} referencias · ${guideEstimatedCount} estimados · ${options.length - guideRatedCount - guideEstimatedCount} sin datos` : guide.isError ? "Catálogo sin conexión" : "Catálogo local"}</span>
+        {guide.snapshot?.status.remoteConfigured && <Button type="button" variant="ghost" size="sm" disabled={guideBusy} onClick={() => { setGuideBusy(true); setGuideError(false); void guide.refresh().catch(() => setGuideError(true)).finally(() => setGuideBusy(false)); }}>Actualizar catálogo</Button>}
+      </div>}
       {failed ? <PickerNotice tone={verified ? "neutral" : "error"} role="alert" testId="model-catalog-error" action={<Button size="sm" variant="outline" disabled={!catalogState?.onRetry || retryBusy || catalogState.refreshing} onClick={() => void retry()}>Retry</Button>}>
         {verified ? <>Showing models from <time dateTime={verified.toISOString()}>{verified.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time>. Couldn’t refresh just now.</> : hasOptions ? "Couldn’t load the rest of your models. Pinned models still work." : "Couldn’t load your models. Try again."}
       </PickerNotice> : null}

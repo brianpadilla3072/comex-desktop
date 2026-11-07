@@ -1,0 +1,1568 @@
+{
+  "schemaVersion": 1,
+  "revision": 4,
+  "publishedAt": "2026-11-06T14:38:38Z",
+  "updateUrl": null,
+  "providers": [
+    {
+      "providerID": "opencode-go",
+      "billing": "subscription",
+      "note": "Requiere una suscripción Go activa. El uso incluido tiene límites; el uso extra puede consumir saldo si está habilitado. Comex no verifica tu plan ni el saldo restante.",
+      "source": {
+        "label": "OpenCode Go",
+        "url": "https://opencode.ai/console/go",
+        "checkedAt": "2026-11-06T12:00:00Z"
+      }
+    },
+    {
+      "providerID": "opencode",
+      "billing": "metered",
+      "note": "Proveedor separado de Go: ofrece modelos de pago por uso y modelos gratuitos con límites. Elegirlo no utiliza automáticamente tu suscripción Go.",
+      "source": {
+        "label": "OpenCode Console",
+        "url": "https://opencode.ai/v2/docs/console/models/",
+        "checkedAt": "2026-11-06T12:00:00Z"
+      }
+    }
+  ],
+  "models": [
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.3-flash",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/glm-5-3-flash",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 28,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/glm-5-3-flash",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy4",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/tencent-hy4",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 4,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 35,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/tencent-hy4",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k3.1-pro",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/kimi-k3-1-pro",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 5,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 46,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/kimi-k3-1-pro",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "minimax-m3.1-flash",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/minimax-m3-1-flash",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 29,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/minimax-m3-1-flash",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.6-flash",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/mimo-v2-6-flash",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 27,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/mimo-v2-6-flash",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.6-pro",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/mimo-v2-6-pro",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 4,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 30,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/mimo-v2-6-pro",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "gemini-4-argon",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/gemini-4-argon",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 6,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 50,
+        "metric": "puntos AA",
+        "effort": "high",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/gemini-4-argon",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "minimax-m3",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/minimax-m3",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 2,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 19,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/minimax-m3",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "step-5-preview",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/step-5",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 29,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/step-5",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "glm-5.3-flash-free",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/glm-5-3-flash",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "assessmentScope": "base-reference",
+      "summary": "Referencia del modelo base por su nombre público. La identidad exacta, configuración y rendimiento del endpoint gratuito no se verificaron de forma independiente.",
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 28,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/glm-5-3-flash",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "mimo-v2.6-flash-free",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/mimo-v2-6-flash",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "assessmentScope": "base-reference",
+      "summary": "Referencia del modelo base por su nombre público. La identidad exacta, configuración y rendimiento del endpoint gratuito no se verificaron de forma independiente.",
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 27,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/mimo-v2-6-flash",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "nemotron-3.5-lightning-free",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/nemotron-3-5-lightning",
+        "checkedAt": "2026-11-06T13:48:46Z"
+      },
+      "assessmentScope": "base-reference",
+      "summary": "Referencia del modelo base por su nombre público. La identidad exacta, configuración y rendimiento del endpoint gratuito no se verificaron de forma independiente.",
+      "reasoning": {
+        "level": 1,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 6,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/nemotron-3-5-lightning",
+          "checkedAt": "2026-11-06T13:48:46Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "gpt-6-luna",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/gpt-6-luna",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 28.0,
+        "metric": "puntos AA",
+        "effort": "max",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/gpt-6-luna",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.3",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/glm-5-3",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 4,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 32.0,
+        "metric": "puntos AA",
+        "effort": "max",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/glm-5-3",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "grok-4.7",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/grok-4-7",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 4,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 35.0,
+        "metric": "puntos AA",
+        "effort": "xhigh",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/grok-4-7",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "claude-haiku-5-5",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/claude-haiku-5-5",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 4,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 36.0,
+        "metric": "puntos AA",
+        "effort": "max",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/claude-haiku-5-5",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "nemotron-3.5-super-vl-free",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/nemotron-3-5-super-vl",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 2,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 14.0,
+        "metric": "puntos AA",
+        "effort": "Razonamiento habilitado; nivel no especificado en la ficha pública",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/nemotron-3-5-super-vl",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      },
+      "assessmentScope": "base-reference",
+      "summary": "Referencia del modelo base por su nombre público. La identidad exacta, configuración y rendimiento del endpoint gratuito no se verificaron de forma independiente."
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "gpt-5.6-luna",
+      "source": {
+        "label": "Artificial Analysis",
+        "url": "https://artificialanalysis.ai/models/gpt-5-6-luna",
+        "checkedAt": "2026-11-06T14:14:48Z"
+      },
+      "reasoning": {
+        "level": 3,
+        "benchmark": "Artificial Analysis Intelligence Index",
+        "benchmarkVersion": "5.0.1",
+        "score": 24.0,
+        "metric": "puntos AA",
+        "effort": "max",
+        "methodology": "Comex AA-6 v1: puntos AA <10=1, <20=2, <30=3, <40=4, <50=5, >=50=6. Umbrales fijos; no porcentajes ni percentiles. Referencia externa, no prueba del endpoint de Go ni del esfuerzo seleccionado.",
+        "measuredAt": null,
+        "source": {
+          "label": "Artificial Analysis",
+          "url": "https://artificialanalysis.ai/models/gpt-5-6-luna",
+          "checkedAt": "2026-11-06T14:14:48Z"
+        }
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "beam-free",
+      "source": {
+        "label": "Reflection · Beam, lanzamiento",
+        "url": "https://reflection.ai/blog/beam-is-available",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "La publicación de Reflection demuestra programación y uso de herramientas con Beam en OpenCode. La correspondencia exacta de Beam Free con el checkpoint publicado no está verificada; la estimación usa esa referencia provisional.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Reflection · Beam, lanzamiento",
+            "url": "https://reflection.ai/blog/beam-is-available",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. La publicación de Reflection demuestra programación y uso de herramientas con Beam en OpenCode. La correspondencia exacta de Beam Free con el checkpoint publicado no está verificada; la estimación usa esa referencia provisional.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Reflection · Beam, lanzamiento",
+            "url": "https://reflection.ai/blog/beam-is-available",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "Estimación por referencia al modelo anunciado; no se probó el endpoint gratuito ni su configuración."
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "beam-free",
+      "source": {
+        "label": "Reflection · Beam, lanzamiento",
+        "url": "https://reflection.ai/blog/beam-is-available",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "La publicación de Reflection demuestra programación y uso de herramientas con Beam en OpenCode. La correspondencia exacta de Beam Free con el checkpoint publicado no está verificada; la estimación usa esa referencia provisional.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Reflection · Beam, lanzamiento",
+            "url": "https://reflection.ai/blog/beam-is-available",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. La publicación de Reflection demuestra programación y uso de herramientas con Beam en OpenCode. La correspondencia exacta de Beam Free con el checkpoint publicado no está verificada; la estimación usa esa referencia provisional.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Reflection · Beam, lanzamiento",
+            "url": "https://reflection.ai/blog/beam-is-available",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "crouton-alpha-free",
+      "source": {
+        "label": "Stealth Models · pruebas propias de Crouton",
+        "url": "https://stealthmodels.com/benchmarks/models/crouton-alpha",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "El evaluador publica nueve resultados propios: StealthMark 48/100, en juegos y SVG. Evidencia limitada a esas tareas, no un índice general ni una prueba de agentes de programación. Identidad del laboratorio sin confirmar.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Stealth Models · pruebas propias de Crouton",
+            "url": "https://stealthmodels.com/benchmarks/models/crouton-alpha",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "Estimación por referencia al modelo anunciado; no se probó el endpoint gratuito ni su configuración."
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "crouton-alpha-free",
+      "source": {
+        "label": "Stealth Models · pruebas propias de Crouton",
+        "url": "https://stealthmodels.com/benchmarks/models/crouton-alpha",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "El evaluador publica nueve resultados propios: StealthMark 48/100, en juegos y SVG. Evidencia limitada a esas tareas, no un índice general ni una prueba de agentes de programación. Identidad del laboratorio sin confirmar.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Stealth Models · pruebas propias de Crouton",
+            "url": "https://stealthmodels.com/benchmarks/models/crouton-alpha",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "deepseek-v4.1-flash",
+      "source": {
+        "label": "DeepSeek · ficha oficial V4.1 Flash",
+        "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "medium",
+        "rationale": "La ficha oficial publica resultados de razonamiento, código y agentes. Apoya capacidad para tareas complejas; son resultados del fabricante y no prueban la revisión exacta ni el rendimiento de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · ficha oficial V4.1 Flash",
+            "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. La ficha oficial publica resultados de razonamiento, código y agentes. Apoya capacidad para tareas complejas; son resultados del fabricante y no prueban la revisión exacta ni el rendimiento de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · ficha oficial V4.1 Flash",
+            "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "deepseek-v4.1-flash-free",
+      "source": {
+        "label": "DeepSeek · ficha oficial V4.1 Flash",
+        "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "medium",
+        "rationale": "La ficha oficial publica resultados de razonamiento, código y agentes. Apoya capacidad para tareas complejas; son resultados del fabricante y no prueban la revisión exacta ni el rendimiento de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · ficha oficial V4.1 Flash",
+            "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. La ficha oficial publica resultados de razonamiento, código y agentes. Apoya capacidad para tareas complejas; son resultados del fabricante y no prueban la revisión exacta ni el rendimiento de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · ficha oficial V4.1 Flash",
+            "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "Estimación por referencia al modelo anunciado; no se probó el endpoint gratuito ni su configuración."
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "deepseek-v4-pro",
+      "source": {
+        "label": "DeepSeek · anuncio y cambios de rutas",
+        "url": "https://deepseek.com/en/news/deepseek-v4-1-flash/",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "DeepSeek anunció redirección de V4 Pro a V4.1 Flash en su API. Go sigue listando V4 Pro por separado: no se confirmó qué revisión sirve. El rango amplio refleja esa ambigüedad; no se hereda la puntuación del sucesor.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · anuncio y cambios de rutas",
+            "url": "https://deepseek.com/en/news/deepseek-v4-1-flash/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. DeepSeek anunció redirección de V4 Pro a V4.1 Flash en su API. Go sigue listando V4 Pro por separado: no se confirmó qué revisión sirve. El rango amplio refleja esa ambigüedad; no se hereda la puntuación del sucesor.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "DeepSeek · anuncio y cambios de rutas",
+            "url": "https://deepseek.com/en/news/deepseek-v4-1-flash/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "flint-40b-free",
+      "source": {
+        "label": "Recursive · ficha oficial Flint",
+        "url": "https://huggingface.co/RecursiveSI/flint",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 3,
+        "confidence": "low",
+        "rationale": "Recursive reporta 54,9% en Terminal-Bench 2.1 y 74,2% en SWE-bench Verified con sus harnesses. Orientado a programación con herramientas; evidencia insuficiente para asegurar igual capacidad general.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Recursive · ficha oficial Flint",
+            "url": "https://huggingface.co/RecursiveSI/flint",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Recursive reporta 54,9% en Terminal-Bench 2.1 y 74,2% en SWE-bench Verified con sus harnesses. Orientado a programación con herramientas; evidencia insuficiente para asegurar igual capacidad general.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Recursive · ficha oficial Flint",
+            "url": "https://huggingface.co/RecursiveSI/flint",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/models/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "Estimación por referencia al modelo anunciado; no se probó el endpoint gratuito ni su configuración."
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.2",
+      "source": {
+        "label": "Z.ai · ficha oficial GLM-5.2",
+        "url": "https://huggingface.co/zai-org/GLM-5.2",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "medium",
+        "rationale": "La ficha de Z.ai reporta GPQA 91,2 y SWE-bench Pro 62,1, con mejoras en tareas largas. Sin índice AA 5.0.1 completo para esta versión; aproximación editorial basada en la evaluación del fabricante.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Z.ai · ficha oficial GLM-5.2",
+            "url": "https://huggingface.co/zai-org/GLM-5.2",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "AA 5.0.1: N/A en la revisión anterior. Se agrega una estimación editorial independiente; no sustituye una medición.",
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. La ficha de Z.ai reporta GPQA 91,2 y SWE-bench Pro 62,1, con mejoras en tareas largas. Sin índice AA 5.0.1 completo para esta versión; aproximación editorial basada en la evaluación del fabricante.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Z.ai · ficha oficial GLM-5.2",
+            "url": "https://huggingface.co/zai-org/GLM-5.2",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy3",
+      "source": {
+        "label": "Tencent · ficha oficial Hy3",
+        "url": "https://huggingface.co/tencent/Hy3",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Tencent publica una evaluación interna ciega con 270 expertos: 2,67/4 en tareas de trabajo. También documenta recuperación de herramientas. Es evidencia del fabricante, acotada a su muestra y configuración.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Tencent · ficha oficial Hy3",
+            "url": "https://huggingface.co/tencent/Hy3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Tencent publica una evaluación interna ciega con 270 expertos: 2,67/4 en tareas de trabajo. También documenta recuperación de herramientas. Es evidencia del fabricante, acotada a su muestra y configuración.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Tencent · ficha oficial Hy3",
+            "url": "https://huggingface.co/tencent/Hy3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy4-preview",
+      "source": {
+        "label": "Tencent · lanzamiento Hy4 preview",
+        "url": "https://www.tencent.com/tencent-releases-and-open-sources-tencent-hy4-preview/",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Tencent reporta 2,99/4 en una evaluación interna de 203 tareas con expertos, junto a GLM-5.3 y Kimi K3. Es la versión preview; no se copia el índice del Hy4 final.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Tencent · lanzamiento Hy4 preview",
+            "url": "https://www.tencent.com/tencent-releases-and-open-sources-tencent-hy4-preview/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Tencent reporta 2,99/4 en una evaluación interna de 203 tareas con expertos, junto a GLM-5.3 y Kimi K3. Es la versión preview; no se copia el índice del Hy4 final.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Tencent · lanzamiento Hy4 preview",
+            "url": "https://www.tencent.com/tencent-releases-and-open-sources-tencent-hy4-preview/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "iceman-contributor-free",
+      "source": {
+        "label": "Stealth Models · pruebas propias de Iceman",
+        "url": "https://stealthmodels.com/benchmarks/models/iceman-contributor",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 2,
+        "rangeLow": 1,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Stealth Models publica nueve resultados propios, con StealthMark 19,2/100 en juegos y SVG. Es una señal débil y específica de esas tareas; no establece identidad del laboratorio ni rendimiento de programación.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Stealth Models · pruebas propias de Iceman",
+            "url": "https://stealthmodels.com/benchmarks/models/iceman-contributor",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k2.7-code",
+      "source": {
+        "label": "Moonshot · ficha oficial Kimi K2.7 Code",
+        "url": "https://huggingface.co/moonshotai/Kimi-K2.7-Code",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "medium",
+        "rationale": "Moonshot documenta mejoras sobre K2.6 en programación multietapa y eficiencia de tokens. La evidencia es del fabricante y está enfocada en código; no equivale a una evaluación general del endpoint de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Moonshot · ficha oficial Kimi K2.7 Code",
+            "url": "https://huggingface.co/moonshotai/Kimi-K2.7-Code",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Moonshot documenta mejoras sobre K2.6 en programación multietapa y eficiencia de tokens. La evidencia es del fabricante y está enfocada en código; no equivale a una evaluación general del endpoint de Go.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Moonshot · ficha oficial Kimi K2.7 Code",
+            "url": "https://huggingface.co/moonshotai/Kimi-K2.7-Code",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k3",
+      "source": {
+        "label": "Moonshot · ficha oficial Kimi K3",
+        "url": "https://huggingface.co/moonshotai/Kimi-K3",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "medium",
+        "rationale": "Moonshot publica GPQA 93,5 y HLE-Full 43,5 sin herramientas con esfuerzo max, además de pruebas de agentes. La estimación no traslada esas condiciones al esfuerzo actual ni a la versión K3.1.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Moonshot · ficha oficial Kimi K3",
+            "url": "https://huggingface.co/moonshotai/Kimi-K3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "AA 5.0.1: N/A en la revisión anterior. Se agrega una estimación editorial independiente; no sustituye una medición.",
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Moonshot publica GPQA 93,5 y HLE-Full 43,5 sin herramientas con esfuerzo max, además de pruebas de agentes. La estimación no traslada esas condiciones al esfuerzo actual ni a la versión K3.1.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Moonshot · ficha oficial Kimi K3",
+            "url": "https://huggingface.co/moonshotai/Kimi-K3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "longcat-2.0",
+      "source": {
+        "label": "Meituan · ficha oficial LongCat-2.0",
+        "url": "https://huggingface.co/meituan-longcat/LongCat-2.0",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Meituan documenta entrenamiento para tareas largas e integración con harnesses de programación. Respalda una estimación para tareas multietapa; faltan resultados generales comparables en AA 5.0.1.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Meituan · ficha oficial LongCat-2.0",
+            "url": "https://huggingface.co/meituan-longcat/LongCat-2.0",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "AA 5.0.1: N/A en la revisión anterior. Se agrega una estimación editorial independiente; no sustituye una medición.",
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Meituan documenta entrenamiento para tareas largas e integración con harnesses de programación. Respalda una estimación para tareas multietapa; faltan resultados generales comparables en AA 5.0.1.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Meituan · ficha oficial LongCat-2.0",
+            "url": "https://huggingface.co/meituan-longcat/LongCat-2.0",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.5",
+      "source": {
+        "label": "Xiaomi · ficha oficial MiMo-V2.5",
+        "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Xiaomi documenta entrenamiento multimodal y agentes, con evaluaciones propias de código y contexto largo. No se confunde la versión base sin postentrenamiento con la versión de chat ni se hereda el resultado de V2.6.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Xiaomi · ficha oficial MiMo-V2.5",
+            "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Xiaomi documenta entrenamiento multimodal y agentes, con evaluaciones propias de código y contexto largo. No se confunde la versión base sin postentrenamiento con la versión de chat ni se hereda el resultado de V2.6.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Xiaomi · ficha oficial MiMo-V2.5",
+            "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.5-pro",
+      "source": {
+        "label": "Xiaomi · ficha oficial MiMo-V2.5-Pro",
+        "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Xiaomi presenta la versión Pro para ingeniería de software y tareas largas con herramientas. La estimación se apoya en esa evidencia del fabricante; no convierte las tablas del modelo Base en puntuación de chat.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Xiaomi · ficha oficial MiMo-V2.5-Pro",
+            "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "AA 5.0.1: N/A en la revisión anterior. Se agrega una estimación editorial independiente; no sustituye una medición.",
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Xiaomi presenta la versión Pro para ingeniería de software y tareas largas con herramientas. La estimación se apoya en esa evidencia del fabricante; no convierte las tablas del modelo Base en puntuación de chat.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Xiaomi · ficha oficial MiMo-V2.5-Pro",
+            "url": "https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "muse-spark-1.2-contributor",
+      "source": {
+        "label": "Meta · Muse Spark 1.2",
+        "url": "https://ai.meta.com/llama/",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Meta documenta capacidades de código y flujos con herramientas de Spark 1.2. Sin evaluación general comparable completa para esta oferta; no se le copia el resultado de Spark 1.3.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Meta · Muse Spark 1.2",
+            "url": "https://ai.meta.com/llama/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Meta documenta capacidades de código y flujos con herramientas de Spark 1.2. Sin evaluación general comparable completa para esta oferta; no se le copia el resultado de Spark 1.3.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Meta · Muse Spark 1.2",
+            "url": "https://ai.meta.com/llama/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "muse-spark-1.3-contributor",
+      "source": {
+        "label": "Vercel · Muse Spark 1.3 y Contributor",
+        "url": "https://vercel.com/changelog/muse-spark-1-3-now-available-on-ai-gateway",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "medium",
+        "rationale": "Vercel confirma que Contributor comparte pesos y capacidades con Spark 1.3. AA reporta 37 puntos para Spark 1.3 max. Se estima por referencia: el esfuerzo y la configuración del endpoint Go no están verificados.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Vercel · Muse Spark 1.3 y Contributor",
+            "url": "https://vercel.com/changelog/muse-spark-1-3-now-available-on-ai-gateway",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "Artificial Analysis · Muse Spark 1.3 (max)",
+            "url": "https://artificialanalysis.ai/models/muse-spark-1-3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Vercel confirma que Contributor comparte pesos y capacidades con Spark 1.3. AA reporta 37 puntos para Spark 1.3 max. Se estima por referencia: el esfuerzo y la configuración del endpoint Go no están verificados.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Vercel · Muse Spark 1.3 y Contributor",
+            "url": "https://vercel.com/changelog/muse-spark-1-3-now-available-on-ai-gateway",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "Artificial Analysis · Muse Spark 1.3 (max)",
+            "url": "https://artificialanalysis.ai/models/muse-spark-1-3",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "qwen3.7-plus",
+      "source": {
+        "label": "Alibaba · Qwen3.7 Plus",
+        "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-7-plus",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Alibaba documenta capacidades multimodales, programación y herramientas de la variante Plus. Sin índice AA 5.0.1 completo: estimación amplia apoyada en capacidades declaradas, no en una comparación independiente.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Alibaba · Qwen3.7 Plus",
+            "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-7-plus",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "summary": "AA 5.0.1: N/A en la revisión anterior. Se agrega una estimación editorial independiente; no sustituye una medición.",
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Alibaba documenta capacidades multimodales, programación y herramientas de la variante Plus. Sin índice AA 5.0.1 completo: estimación amplia apoyada en capacidades declaradas, no en una comparación independiente.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Alibaba · Qwen3.7 Plus",
+            "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-7-plus",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "qwen3.8-flash",
+      "source": {
+        "label": "Alibaba · lanzamiento Qwen3.8 Flash",
+        "url": "https://www.alibabacloud.com/blog/alibaba-releases-qwen3-8-flash-with-innovative-model-architecture-delivering-optimal-price-performance_603503",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Alibaba presenta resultados de código, herramientas y tareas de oficina frente a V4 Flash y Opus 4.6. Son pruebas del fabricante; no se equiparan sus porcentajes a los puntos AA.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Alibaba · lanzamiento Qwen3.8 Flash",
+            "url": "https://www.alibabacloud.com/blog/alibaba-releases-qwen3-8-flash-with-innovative-model-architecture-delivering-optimal-price-performance_603503",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 3,
+        "rangeLow": 2,
+        "rangeHigh": 4,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Alibaba presenta resultados de código, herramientas y tareas de oficina frente a V4 Flash y Opus 4.6. Son pruebas del fabricante; no se equiparan sus porcentajes a los puntos AA.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Alibaba · lanzamiento Qwen3.8 Flash",
+            "url": "https://www.alibabacloud.com/blog/alibaba-releases-qwen3-8-flash-with-innovative-model-architecture-delivering-optimal-price-performance_603503",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "qwen3.8-max",
+      "source": {
+        "label": "Qwen · lanzamiento Qwen3.8 Max",
+        "url": "https://qwen.ai/blog?id=qwen3.8",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "reasoningEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "medium",
+        "rationale": "Qwen reporta Terminal-Bench 2.1 de 86,6 y SWE-bench Pro de 67,7, además de tareas de oficina. La estimación se apoya en comparaciones del fabricante; revisión exacta y esfuerzo de Go sin confirmar.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Qwen · lanzamiento Qwen3.8 Max",
+            "url": "https://qwen.ai/blog?id=qwen3.8",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      },
+      "agenticEstimate": {
+        "level": 4,
+        "rangeLow": 3,
+        "rangeHigh": 5,
+        "confidence": "low",
+        "rationale": "Estimación para agentes de programación basada en las tareas con herramientas descritas en las fuentes. Qwen reporta Terminal-Bench 2.1 de 86,6 y SWE-bench Pro de 67,7, además de tareas de oficina. La estimación se apoya en comparaciones del fabricante; revisión exacta y esfuerzo de Go sin confirmar.",
+        "methodology": "Comex estimación v1: juicio editorial ordinal (1 básico, 2 sencillo, 3 multietapa, 4 complejo, 5 avanzado, 6 frontera), apoyado en las fuentes citadas. No predice puntos AA ni convierte porcentajes entre benchmarks. El rango expresa incertidumbre editorial, no un intervalo estadístico. No se probó este endpoint ni tu esfuerzo seleccionado.",
+        "estimatedAt": "2026-11-06T14:38:38Z",
+        "sources": [
+          {
+            "label": "Qwen · lanzamiento Qwen3.8 Max",
+            "url": "https://qwen.ai/blog?id=qwen3.8",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          },
+          {
+            "label": "OpenCode Go · modelos y condiciones",
+            "url": "https://opencode.ai/v2/docs/console/go/",
+            "checkedAt": "2026-11-06T14:38:38Z"
+          }
+        ]
+      }
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "big-pickle",
+      "source": {
+        "label": "OpenCode · modelos y condiciones",
+        "url": "https://opencode.ai/v2/docs/console/models/",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "summary": "Investigado el 6/11/2026. OpenCode lo presenta como modelo stealth. No se encontró evidencia primaria suficiente y reproducible para estimar capacidad general de la oferta actual. Identidad y revisión sin confirmar; no se asigna nivel."
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "pulse-alpha-free",
+      "source": {
+        "label": "OpenCode · modelos y condiciones",
+        "url": "https://opencode.ai/v2/docs/console/models/",
+        "checkedAt": "2026-11-06T14:38:38Z"
+      },
+      "summary": "Investigado el 6/11/2026. OpenCode lo presenta como modelo stealth. No se encontró evidencia primaria suficiente y reproducible para estimar capacidad general de la oferta actual. Identidad y revisión sin confirmar; no se asigna nivel."
+    }
+  ]
+}

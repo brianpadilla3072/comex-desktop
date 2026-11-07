@@ -1,5 +1,7 @@
 /** @jsxImportSource react */
 import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/react-app/domains/specialists/provider";
+import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
+import { CompactSidebarNav } from "./compact-sidebar-nav";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
@@ -154,7 +156,7 @@ import {
   type SessionGroupDefinition,
   type SidebarView,
 } from "./session-management-store";
-import { filterSettledSessions, useSessionSettleState, useSettleNow, type SessionSettleState } from "./session-settle";
+import { filterSettledSessions, sessionLastActivityAt, useSessionSettleState, useSettleNow, type SessionSettleState } from "./session-settle";
 import { buildSessionFeed, type FeedEntry, type FeedSection, type SessionFeed } from "./session-feed";
 import { cn } from "@/lib/utils";
 import { getSessionActivityStatusLabel, useSessionActivityStore, type SessionActivityStatus, type SessionWaitingKind } from "../status/session-activity-store";
@@ -729,6 +731,9 @@ export function AppSidebar(inputProps: AppSidebarProps) {
     workspaceSessionGroups: inputProps.workspaceSessionGroups.filter(group => specialist.active?.workspaceIds.includes(group.workspace.id)),
   } : inputProps;
   const { open, isMobile } = useSidebar();
+  const comexWorkspace = useComexWorkspaceEnabled();
+  const referenceLayout = comexWorkspace && !isMobile;
+  const contextualDestination = referenceLayout && (props.extensionsActive || props.automationsActive);
   // Lives in the UI store (not component state) so the open/closed state of
   // each workspace group survives this sidebar unmounting, e.g. while the
   // user is in Settings.
@@ -846,11 +851,20 @@ export function AppSidebar(inputProps: AppSidebarProps) {
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <Sidebar
+      {referenceLayout ? <aside data-permanent-navigation className="relative z-20 flex w-12 shrink-0 flex-col border-r border-border bg-sidebar">
+        <CompactSidebarNav onNewTask={() => props.onCreateTaskInWorkspace(props.selectedWorkspaceId)} newTaskDisabled={props.newTaskDisabled}
+          onSearch={props.onOpenSessionSearch} onDashboard={props.onOpenDashboard} dashboardLabel={props.dashboardLabel} dashboardActive={props.dashboardActive}
+          onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
+          onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+        <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
+      </aside> : null}
+      {!contextualDestination ? <Sidebar
         collapsible="offcanvas"
-        className="border-e-0 group-data-[side=left]:border-e-0 mac:**:data-[sidebar=sidebar]:bg-transparent"
+        className={cn("border-e-0 group-data-[side=left]:border-e-0 mac:**:data-[sidebar=sidebar]:bg-transparent", referenceLayout && "data-[side=left]:left-12 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(3rem-var(--sidebar-width))] top-10 h-[calc(100svh-2.5rem)]")}
       >
-        <SidebarTitlebar history={props.conversationHistory} />
+        {!referenceLayout ? <SidebarTitlebar history={props.conversationHistory} /> : null}
+        <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center pr-2 titlebar-drag">
         {brandLogoUrl ? (
           <div
@@ -878,20 +892,20 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 type="button"
                 data-sidebar-new-chat
                 className="text-sidebar-foreground/70"
-                aria-label={t("session.new_task")}
+                aria-label={referenceLayout ? "Nuevo chat" : t("session.new_task")}
                 aria-keyshortcuts={isMacPlatform() ? "Meta+N" : "Control+N"}
                 tooltip={t("session.new_task")}
                 disabled={props.newTaskDisabled}
                 onClick={() => props.onCreateTaskInWorkspace(props.selectedWorkspaceId)}
               >
                 <SquarePen className="size-4" />
-                <span className="flex-1 truncate">{t("session.new_task")}</span>
+                <span className="flex-1 truncate">{referenceLayout ? "Nuevo chat" : t("session.new_task")}</span>
                 <kbd className="ml-auto font-sans text-[11px] text-sidebar-foreground/50 max-lg:hidden pointer-coarse:hidden">
                   {isMacPlatform() ? "⌘N" : "Ctrl+N"}
                 </kbd>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {props.onOpenDashboard ? (
+            {!referenceLayout && props.onOpenDashboard ? (
               <SidebarDestination
                 active={props.dashboardActive === true}
                 icon={Blocks}
@@ -899,7 +913,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 onSelect={props.onOpenDashboard}
               />
             ) : null}
-            {props.onOpenAutomations ? (
+            {!referenceLayout && props.onOpenAutomations ? (
               <SidebarDestination
                 active={props.automationsActive === true}
                 icon={Clock3}
@@ -919,12 +933,12 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 onSelect={props.onOpenAutomations}
               />
             ) : null}
-            <SidebarDestination
+            {!referenceLayout ? <SidebarDestination
               active={props.extensionsActive === true}
               icon={LayoutGrid}
               label={t("settings.tab_extensions")}
               onSelect={props.onOpenExtensions}
-            />
+            /> : null}
             {props.mobileChatActions}
           </SidebarMenu>
         </SidebarHeader>
@@ -950,7 +964,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 />
               ) : (
                 <span className={SIDEBAR_SECTION_LABEL}>
-                  {t("workspace_list.title")}
+                  {referenceLayout ? "Proyectos" : t("workspace_list.title")}
                 </span>
               )}
               {feedView ? (
@@ -997,17 +1011,29 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 />
               ))}
             </Reorder.Group>}
+            {referenceLayout ? <SidebarGroup data-recent-conversations className="pt-6">
+              <SidebarGroupContent><p className="mb-2 px-2 text-sm text-muted-foreground">Recientes</p>
+                <SidebarMenu>{props.workspaceSessionGroups.flatMap(group => getRootSessions(group.sessions).filter(session => !session.time?.archived).map(session => ({ session, group })))
+                  .sort((a, b) => (b.session.time?.updated ?? 0) - (a.session.time?.updated ?? 0)).slice(0, 12).map(({ session, group }) => <SidebarMenuItem key={`${group.workspace.id}:${session.id}`}>
+                    <SidebarMenuButton isActive={props.selectedWorkspaceId === group.workspace.id && props.selectedSessionId === session.id} onClick={() => props.onOpenSession(group.workspace.id, session.id)} title={session.title}>
+                      <span className="truncate">{session.title || "Nuevo chat"}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup> : null}
             {!feed && archivedSessions.length > 0 ? (
               <GlobalArchivedSessions entries={archivedSessions} />
             ) : null}
           </m.div>
           {feed ? <FeedShelfDock feed={feed} archived={archivedSessions} groups={props.workspaceSessionGroups} /> : null}
         </SidebarReorderScope>
+        </div>
 
-        <SidebarFooter className="border-t border-sidebar-border/60 p-1.5 pe-0">
+        {!referenceLayout ? <SidebarFooter className="border-t border-sidebar-border/60 p-1.5 pe-0">
           <ActivationCard onOpenExtensions={props.onOpenExtensions} />
           <AccountStatusMenu {...props.status} onOpenAccountSettings={props.onOpenAccountSettings} />
-        </SidebarFooter>
+        </SidebarFooter> : null}
 
         <SidebarRail
           style={{ cursor: "col-resize" }}
@@ -1018,7 +1044,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
           } : undefined}
           onPointerDown={props.onStartResize}
         />
-      </Sidebar>
+      </Sidebar> : null}
     </SidebarContext.Provider>
   );
 }
@@ -2454,7 +2480,8 @@ export function SessionMenuItem({
     displayTitle,
     ctx.settleWorkspaceIds?.has(workspaceId) ?? false,
   );
-  const relativeTime = formatSessionRelativeTime(session.time?.updated ?? session.time?.created);
+  const workedAt = useSessionManagementStore((state) => state.settledById[session.id]?.unsettledAt);
+  const relativeTime = formatSessionRelativeTime(sessionLastActivityAt(session, { unsettledAt: workedAt }));
   const shortcutDigit = ctx.sessionNumberShortcutByTarget.get(
     sessionNumberShortcutTargetKey(workspaceId, session.id),
   );

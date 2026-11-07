@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { RecoveryActionResult, RecoveryRelease } from "@/app/lib/desktop";
 import type { DenAppVersionMetadata, DenDesktopConfig } from "@/app/lib/den";
-import { readFreshDenAppVersionMetadata } from "@/app/lib/version-gate";
+import { readFreshDesktopVersionMetadata } from "@/app/lib/version-gate";
 import { useDesktopConfig } from "@/react-app/domains/cloud/desktop-config-provider";
 import { bootOverlayCanHide, useBootState, useBootOverlayVisible } from "./boot-state";
 import { useCloudWorkspaceStatus } from "./cloud-workspace-overlay";
@@ -15,7 +15,7 @@ async function loadRecoveryPolicy(
 ): Promise<{ metadata: DenAppVersionMetadata; policy: DenDesktopConfig } | null> {
   const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 10_000));
   return Promise.race([
-    Promise.all([readFreshDenAppVersionMetadata(), refreshDesktopConfig()])
+    Promise.all([readFreshDesktopVersionMetadata(), refreshDesktopConfig()])
       .then(([metadata, policy]) => ({ metadata, policy }))
       .catch(() => null),
     timeout,

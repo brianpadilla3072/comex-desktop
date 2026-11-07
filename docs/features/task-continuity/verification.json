@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-06",
+  "checks": [
+    {
+      "name": "server-regression",
+      "tests": 30,
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "interface-and-local-credentials",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "server-typecheck",
+      "status": "Passed"
+    },
+    {
+      "name": "app-typecheck",
+      "status": "Passed"
+    },
+    {
+      "name": "native-big-pickle",
+      "report": "native-proof.json",
+      "status": "Passed"
+    },
+    {
+      "name": "full-application-chrome-and-real-server",
+      "status": "Passed",
+      "screenshots": [
+        "goal-complete.png",
+        "worktree-panel.png"
+      ]
+    }
+  ],
+  "featureRegistry": "Passed",
+  "helmRendering": "Not run: Helm is not installed",
+  "screenshots": [
+    "goal-complete.png",
+    "worktree-panel.png"
+  ]
+}

@@ -1408,7 +1408,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
 
   if (event.type === "session.next.compaction.ended" || event.type === "session.compacted") {
     const sessionId = sessionIdFromProperties(event.properties);
-    if (sessionId) useSessionActivityStore.getState().setCompacting(workspaceId, sessionId, false);
+    if (sessionId) useSessionActivityStore.getState().setCompacting(workspaceId, sessionId, false, event.type === "session.compacted");
     return;
   }
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
+import { ExecutionToolRow } from "./execution-feedback";
 import { Fragment } from "react"
 
 import { RAIL_LINE, RAIL_ROW, RailMeta, TextSentenceLine, TrailingChevron } from "@/components/chat/activity-rail"
@@ -74,6 +76,7 @@ function TextStepRow({ row, status, disclosureKey }: {
   status: TextStepStatus
   disclosureKey: string | undefined
 }) {
+  const referenceFeedback = useComexWorkspaceEnabled()
   const part = row.part
   const [open, setOpen] = useWorkbenchDisclosure(disclosureKey)
   const sentence = textStepSentence(part, status)
@@ -92,6 +95,7 @@ function TextStepRow({ row, status, disclosureKey }: {
       {expandable ? <TrailingChevron open={open} /> : null}
     </>
   )
+  if (referenceFeedback) return <ExecutionToolRow part={part} status={status} disclosureKey={disclosureKey} />
   return (
     <div data-tool-aggregate-row="" data-text-step-row={status} className="flex min-w-0 flex-col gap-1.5">
       {expandable ? (

@@ -17,6 +17,7 @@ import {
   openTargetForHref,
   openTargetFromLocalPath,
   planFileOpen,
+  resolveCollectibleOpenTarget,
 } from "../src/react-app/domains/session/artifacts/resolve-open-target";
 
 const ROOT = "/Users/me/openwork-repo";
@@ -194,6 +195,22 @@ describe("rendered chat Markdown", () => {
     expect(html).not.toContain("<video");
   });
 
+  test("shows a local image as its file reference until the chat loads it", () => {
+    const html = renderMarkdownHtml("![Dolores Park postcard](<~/Downloads/OpenWork/ses_1/Dolores Park postcard.png>)", "chat");
+    expect(html).toContain('data-openwork-image-path="~/Downloads/OpenWork/ses_1/Dolores Park postcard.png"');
+    expect(html).toContain("data-openwork-image-fallback");
+    expect(html).toContain('data-openwork-link-href="~/Downloads/OpenWork/ses_1/Dolores Park postcard.png"');
+    // Never an address the window cannot load.
+    expect(html).not.toContain('src="#"');
+    expect(html).not.toContain("<img src=");
+  });
+
+  test("keeps web images as plain images", () => {
+    const html = renderMarkdownHtml("![chart](https://example.com/chart.png)", "chat");
+    expect(html).toContain('src="https://example.com/chart.png"');
+    expect(html).not.toContain("data-openwork-image-path");
+  });
+
   test("does not link destinations that cannot open", () => {
     const html = renderMarkdownHtml("[top](#top) and [share](//server/share/a.pdf)", "chat");
     expect(html).not.toContain("data-openwork-link-href");
@@ -252,6 +269,45 @@ describe("native file actions", () => {
 });
 
 describe("session file origin", () => {
+  test("Copy path keeps an unresolved relative reference as written", () => {
+    expect(filePathForCopy(fileTarget("designs/2026-11-02-v2/boards/overview.jpg"), {
+      origin: "local", workspaceRoot: ROOT, homeDir: HOME,
+    })).toBe("designs/2026-11-02-v2/boards/overview.jpg");
+  });
+
+  test("Copy path uses the resolved location when the workspace found the file", () => {
+    const resolved = fileTarget("conference-shorts/designs/2026-11-02-v2/boards/overview.jpg", {
+      resolvedPath: `${ROOT}/conference-shorts/designs/2026-11-02-v2/boards/overview.jpg`,
+      exists: true,
+    });
+    expect(filePathForCopy(resolved, { origin: "local", workspaceRoot: ROOT, homeDir: HOME }))
+      .toBe(`${ROOT}/conference-shorts/designs/2026-11-02-v2/boards/overview.jpg`);
+  });
+
+  test("resolves a nested relative link through the workspace search", async () => {
+    const calls: Array<{ targets: OpenTarget[]; options: Record<string, unknown> }> = [];
+    const resolved = fileTarget("conference-shorts/designs/2026-11-02-v2/boards/overview.jpg", {
+      resolvedPath: `${ROOT}/conference-shorts/designs/2026-11-02-v2/boards/overview.jpg`,
+      exists: true,
+    });
+    const client = {
+      resolveArtifacts: async (_workspaceId: string, targets: OpenTarget[], options: Record<string, unknown>) => {
+        calls.push({ targets, options });
+        return { items: [resolved] };
+      },
+    } as unknown as Parameters<typeof resolveCollectibleOpenTarget>[0];
+    const found = await resolveCollectibleOpenTarget(
+      client,
+      "workspace",
+      fileTarget("designs/2026-11-02-v2/boards/overview.jpg"),
+      "session",
+      { search: true },
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.options).toMatchObject({ search: true, sessionId: "session" });
+    expect(found).toEqual(resolved);
+  });
+
   test("Copy path keeps the remote machine's home instead of expanding it locally", () => {
     const target = fileTarget("~/Downloads/report.pdf");
     expect(filePathForCopy(target, { origin: "remote", workspaceRoot: ROOT, homeDir: HOME })).toBe("~/Downloads/report.pdf");

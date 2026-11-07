@@ -619,7 +619,7 @@ export function SidePanel({
   browserPresentation,
   browserShownElsewhere = false,
 }: SidePanelProps) {
-  const comexEnabled = useComexFeature(client);
+  const comexEnabled = useComexFeature(client, true);
   const { tabs } = useSessionPanelState(sessionId);
   const activeTab = useActivePanelTab(sessionId);
   const isBrowserAvailable = Boolean(getElectronBrowser());

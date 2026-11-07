@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { comexWorkspaceEnabled } from "./features.js";
+import { comexContinuityEnabled, comexWorkspaceEnabled } from "./features.js";
+import { readComexCheckpoint, redactMemorySecrets } from "./continuity.js";
 
 const queues = new Map<string, Promise<boolean>>();
 const sha = (text: string | Uint8Array) => createHash("sha256").update(text).digest("hex");
@@ -54,7 +55,10 @@ async function files(root: string, prefix: string): Promise<string[]> {
 }
 
 export async function seedComexPack(root: string, pack: string): Promise<boolean> {
-  const sourceFiles = [...await files(pack, "skills"), ...await files(pack, "agents")];
+  const runtimeFiles = ["scripts/documents.py", "scripts/requirements.lock.txt"];
+  const installedRuntime: string[] = [];
+  for (const name of runtimeFiles) if ((await info(join(pack, name)))?.isFile()) installedRuntime.push(name);
+  const sourceFiles = [...await files(pack, "skills"), ...await files(pack, "agents"), ...installedRuntime];
   const markerName = ".opencode/.comex-pack-hashes.json";
   const marker = await safePath(root, markerName);
   const raw: unknown = await info(marker) ? JSON.parse(await readFile(marker, "utf8")) : {};
@@ -130,7 +134,8 @@ export async function readComexMemory(root: string, sessionId: string) {
     if (!stat) return { path, text: "", truncated: false };
     if (!stat.isFile() || stat.size > 128 * 1024) return { path, text: "Archivo demasiado grande para la memoria automática; consultar por separado si hace falta.", truncated: true };
     const text = await readFile(path, "utf8");
-    return { path, text: text.slice(0, limit), truncated: text.length > limit };
+    return { path, text: comexContinuityEnabled() ? redactMemorySecrets(text.slice(0, limit)) : text.slice(0, limit), truncated: text.length > limit };
   };
-  return { project: await load(PROJECT_MEMORY_PATH, 12_000), session: await load(sessionMemoryPath(sessionId), 6_000) };
+  return { project: await load(PROJECT_MEMORY_PATH, 12_000), session: await load(sessionMemoryPath(sessionId), 6_000),
+    ...(comexContinuityEnabled() ? { continuity: await readComexCheckpoint(canonical, sessionId) } : {}) };
 }

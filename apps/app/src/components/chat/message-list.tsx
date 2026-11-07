@@ -1,5 +1,7 @@
 "use memo";
 
+import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
+import { ExecutionRunHeader, ContextCompactionLine } from "./execution-feedback";
 import { appBuildActivity, appBuildInProgress, appCreationRuns } from "@/react-app/domains/apps/app-creation-progress"
 import { BuiltAppPreviewSync } from "@/react-app/domains/apps/built-app-chat-preview"
 import { builtAppSummary } from "@/react-app/domains/apps/built-mcp-app-model"
@@ -90,7 +92,8 @@ import { ImageAttachmentBadge } from "@/components/chat/image-attachment-badge"
 import { AttachmentFileChip, ComposerBadgeChip, ComposerPillChip, PastedTextChip } from "@/components/chat/composer-pill"
 import { agentBadge, fileMentionBadge } from "@/react-app/domains/session/surface/composer/composer-chips"
 import { isChatAttachmentUrl } from "@/react-app/domains/session/sync/attachment-file-part"
-import { readComposerPill, splitComposerPillText } from "@/react-app/domains/session/surface/composer/composer-pills"
+import { splitComposerPillText } from "@/react-app/domains/session/surface/composer/composer-pills"
+import { composerDraftFromSentParts, sentTextPartToken } from "@/react-app/domains/session/surface/composer/sent-message-tokens"
 import { Image } from "@/components/ui/image"
 import {
   Message,
@@ -755,35 +758,26 @@ type UserMessageProps = {
   isStreaming: boolean
 }
 
-function isPastedTextPart(part: UIMessage["parts"][number]) {
-  if (part.type !== "text") return false
-  const metadata = part.providerMetadata?.opencode
-  return Boolean(metadata && typeof metadata === "object" && "pastedText" in metadata && metadata.pastedText === true)
-}
-
 function fileBytes(part: FileUIPart) {
   const metadata = part.providerMetadata?.opencode
   const bytes = metadata && typeof metadata === "object" && "bytes" in metadata ? metadata.bytes : undefined
   return typeof bytes === "number" ? bytes : undefined
 }
 
-/** Agent and file mentions keep their composer badge in the sent message. */
-function textPartMentionBadge(part: UIMessage["parts"][number]) {
-  if (part.type !== "text") return null
-  const metadata = part.providerMetadata?.opencode
-  if (!metadata || typeof metadata !== "object") return null
-  if ("agentMention" in metadata && typeof metadata.agentMention === "string") return agentBadge(metadata.agentMention)
-  if ("fileMention" in metadata && typeof metadata.fileMention === "string") return fileMentionBadge(metadata.fileMention)
-  return null
-}
-
-/** The pill a sent text part was tagged with in the composer, if any. */
-function textPartComposerPill(part: UIMessage["parts"][number]) {
-  if (part.type !== "text") return null
-  const metadata = part.providerMetadata?.opencode
-  return metadata && typeof metadata === "object" && "composerPill" in metadata
-    ? readComposerPill(metadata.composerPill)
-    : null
+/** The chip a sent text part is drawn as: the same one the composer drew. */
+function renderSentTokenChip(part: UIMessage["parts"][number], key: string) {
+  const token = sentTextPartToken(part)
+  if (!token) return null
+  switch (token.kind) {
+    case "pill":
+      return <ComposerPillChip key={key} pill={token.pill} />
+    case "pasted":
+      return part.type === "text" ? <PastedTextChip key={key} text={part.text} /> : null
+    case "agent":
+      return <ComposerBadgeChip key={key} badge={agentBadge(token.name)} />
+    case "file":
+      return <ComposerBadgeChip key={key} badge={fileMentionBadge(token.path)} />
+  }
 }
 
 function renderPlainTextWithSearchHighlights(text: string, highlightQuery: string | undefined, keyPrefix: string) {
@@ -997,6 +991,11 @@ const UserMessage = React.memo(
       onOpenTarget(target)
     }
     const messageText = React.useMemo(() => getMessagesText([message]), [message])
+    // Edit puts every chip back in the composer as the same chip.
+    const editMessage = () => {
+      const draft = composerDraftFromSentParts(message.parts)
+      onEditUserMessage(message.id, draft.text, draft)
+    }
     const inlineParts = React.useMemo(
       () => message.parts.filter((part) => (part.type === "text" && Boolean(part.text)) || isFileUIPart(part)),
       [message.parts],
@@ -1006,7 +1005,7 @@ const UserMessage = React.memo(
     const menuActions: MenuAction[] = []
     if (messageText) menuActions.push(
       { type: "item", id: "copy", label: "Copy", icon: <Copy className="size-4" />, onSelect: () => navigator.clipboard.writeText(messageText) },
-      { type: "item", id: "edit", label: "Edit message", icon: <Pencil className="size-4" />, disabled: readOnly || Boolean(wall), onSelect: () => onEditUserMessage(message.id, messageText) },
+      { type: "item", id: "edit", label: "Edit message", icon: <Pencil className="size-4" />, disabled: readOnly || Boolean(wall), onSelect: editMessage },
     )
     if (!wall) menuActions.push(
       { type: "item", id: "revert", label: "Revert", icon: <Undo2 className="size-4" />, disabled: readOnly, onSelect: () => onRevertToUserMessage(message.id) },
@@ -1038,11 +1037,8 @@ const UserMessage = React.memo(
                     onClick={openLink}
                   >
                     {inlineParts.map((part, index) => {
-                      const pill = textPartComposerPill(part)
-                      if (pill) return <ComposerPillChip key={`pill-${index}`} pill={pill} />
-                      if (part.type === "text" && isPastedTextPart(part)) return <PastedTextChip key={`pasted-${index}`} text={part.text} />
-                      const mention = textPartMentionBadge(part)
-                      if (mention) return <ComposerBadgeChip key={`mention-${index}`} badge={mention} />
+                      const chip = renderSentTokenChip(part, `chip-${index}`)
+                      if (chip) return chip
                       if (part.type === "text") {
                         return (
                           <span key={`text-${index}`} className="whitespace-pre-wrap">
@@ -1084,7 +1080,7 @@ const UserMessage = React.memo(
                           size="icon"
                           aria-label="Edit message"
                           disabled={readOnly}
-                          onClick={() => onEditUserMessage(message.id, messageText)}
+                          onClick={editMessage}
                         >
                           <Pencil />
                         </Button>
@@ -1407,6 +1403,11 @@ function getRenderableMessage(message: UIMessage) {
  * Measured from the last turn's top, so history placeholders swapping above
  * do not count. A shrink the person causes (collapsing a row) is not held.
  * Released when the turn ends, where the steps fold anyway.
+ *
+ * The reserve never empties the screen. A message the person sends starts a
+ * new last group with nothing held below it: inheriting the earlier turn's
+ * room pushed the new message up out of sight over blank space. And at most
+ * half the view is held, so the turn's latest row always stays on screen.
  */
 function LiveTurnReserve({ active }: { active: boolean }) {
   const ref = React.useRef<HTMLDivElement>(null)
@@ -1416,7 +1417,7 @@ function LiveTurnReserve({ active }: { active: boolean }) {
     if (!spacer || !list) return
     spacer.style.height = ""
     if (!active || typeof ResizeObserver === "undefined") return
-    let anchor: Element | null = null
+    let anchor: string | null = null
     let tallest = 0
     let releaseUntil = 0
     const measure = () => {
@@ -1426,13 +1427,17 @@ function LiveTurnReserve({ active }: { active: boolean }) {
       if (!last || last.hasAttribute("data-thread-placeholder")) return
       const box = spacer.getBoundingClientRect()
       const span = box.top - last.getBoundingClientRect().top
-      // A new last group (a follow-up mid-run) keeps the room already reserved.
-      if (last !== anchor) {
-        tallest = anchor ? span + box.height : span
-        anchor = last
+      // A new last group (a message just sent) starts with nothing held below
+      // it, so it lands at the bottom instead of rising over blank space. The
+      // same group remounting keeps its room.
+      const group = last.getAttribute("data-thread-group")
+      if (group !== anchor) {
+        tallest = span
+        anchor = group
       }
       tallest = performance.now() < releaseUntil ? span : Math.max(tallest, span)
-      const reserve = Math.max(0, tallest - span)
+      const view = list.closest("[data-thread-scroll]")?.clientHeight || window.innerHeight
+      const reserve = Math.min(Math.max(0, tallest - span), view / 2)
       if (Math.abs(reserve - box.height) > 0.5) spacer.style.height = reserve > 0 ? `${reserve}px` : ""
     }
     const release = () => { releaseUntil = performance.now() + 500 }
@@ -1543,6 +1548,8 @@ function MessageGroup({
   isStreaming,
   newestAppCallIds,
 }: AssistantMessageGroupProps) {
+  const referenceFeedback = useComexWorkspaceEnabled();
+  const workedPrefix = referenceFeedback ? "Ha trabajado durante" : "Worked for";
   const { onForkAtMessage, forkingMessageId, showThinking, readOnly, getConnectionDecision, resolveReplyModelTitle, autoRoutes, resolveAutoRouteName, sessionId } = useMessageList()
   const connectionCardParts = React.useMemo(() => connectionCardPartIds(items, getConnectionDecision), [items, getConnectionDecision])
   const newestAppCalls = React.useMemo(() => new Set(newestAppCallIds.split("\n")), [newestAppCallIds])
@@ -1679,10 +1686,10 @@ function MessageGroup({
     ) + proseReasoning.length
   const stepRunLabel =
     stepsStartedAt !== null && stepsEndedAt !== null && stepsEndedAt > stepsStartedAt
-      ? `Worked for ${formatToolCallDuration(stepsEndedAt - stepsStartedAt)}`
+      ? `${workedPrefix} ${formatToolCallDuration(stepsEndedAt - stepsStartedAt)}`
       : stepRowCount === 1
-        ? "1 step"
-        : `${stepRowCount} steps`
+        ? referenceFeedback ? "1 paso" : "1 step"
+        : `${stepRowCount} ${referenceFeedback ? "pasos" : "steps"}`
   // A short finished run reads fine as a list, so only long ones fold away.
   const collapseSteps =
     !isLiveGroup && stepItems.length > 0 && stepRowCount >= COLLAPSED_STEP_RUN_MIN_ROWS
@@ -1694,7 +1701,7 @@ function MessageGroup({
   const replyStartedAt = stepsStartedAt ?? (lastRealItem ? getMessageCreated(lastRealItem.message) : null)
   const stepCountLabel = stepRowCount ? `${stepRowCount} ${stepRowCount === 1 ? "step" : "steps"}` : null
   const replyWorkedLabel = replyStartedAt !== null && stepsEndedAt !== null && stepsEndedAt > replyStartedAt
-    ? `Worked for ${formatToolCallDuration(stepsEndedAt - replyStartedAt)}`
+    ? `${workedPrefix} ${formatToolCallDuration(stepsEndedAt - replyStartedAt)}`
     : null
   const replySummaryLabel = replyWorkedLabel
     ? `${replyWorkedLabel}${stepCountLabel ? ` · ${stepCountLabel}` : ""}`
@@ -1796,7 +1803,7 @@ function MessageGroup({
         collapseSteps ? (
           <CompletedStepRun
             label={(resolvedReplyModel ? replyWorkedLabel : null) ?? stepRunLabel}
-            count={((resolvedReplyModel ? replyWorkedLabel : null) ?? stepRunLabel).startsWith("Worked for") ? stepCountLabel : null}
+            count={((resolvedReplyModel ? replyWorkedLabel : null) ?? stepRunLabel).startsWith(workedPrefix) ? stepCountLabel : null}
           >
             <div className="flex flex-col gap-2">
               {renderItems(stepItems, 0)}
@@ -1949,6 +1956,7 @@ export function shouldShowRunReconnecting(status: ThreadStatus, syncDegraded: bo
 }
 
 export function MessageList({ messages, messageIdReplacements, status, activityStatus, retryStatus, syncHealth, viewport, sessionErrorHandled = false, backgroundTasksInComposer = false }: MessageListProps) {
+  const referenceFeedback = useComexWorkspaceEnabled();
   const { workspaceId, sessionId, onStopSubagentSession, resolveReplyModelTitle, autoRoutes, resolveAutoRouteName } = useMessageList()
   // Only this turn's reply: before it starts there is no model to show, never the previous turn's.
   const workingModel = React.useMemo<WorkingModel | null>(() => {
@@ -2062,6 +2070,16 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
     // Revalidate existing state only. Silence never aborts or resubmits work.
     void revalidateWorkspaceSessionSync({ workspaceId, baseUrl })
   }, [noNewActivity, workspaceId, sessionId, baseUrl])
+  const compactedAt = useSessionActivityStore(state => state.recordsByWorkspaceId[workspaceId]?.[sessionId]?.lastCompactedAt ?? 0);
+  const lastUserMessage = messages.findLast(message => message.role === "user");
+  const lastUserAt = (lastUserMessage ? getMessageCreated(lastUserMessage) : null) ?? Infinity;
+  const compactedInHistory = messages.some(message => {
+    const metadata = message.metadata;
+    const native = metadata && typeof metadata === "object" ? Reflect.get(metadata, "opencode") : null;
+    return native && typeof native === "object" && Reflect.get(native, "contextCompacted") === true && (getMessageCreated(message) ?? 0) >= lastUserAt;
+  });
+  const liveGroupExists = items.some(item => isMessageGroup(item) && item.messages.at(-1)?.index === lastVisibleIndex);
+  const feedbackHeader = referenceFeedback && (appRunActive || status === "submitted") && !appPanelLive ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ExecutionRunHeader seconds={runElapsedSeconds} disconnected={syncDegraded} waiting={activityStatus === "waiting"} retrying={status === "retrying"} /></div> : null;
   const currentToolCallIds = React.useMemo(
     () => new Set(latestAssistantToolParts.map((part) => part.toolCallId)),
     [latestAssistantToolParts],
@@ -2090,6 +2108,8 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
         renderGroup={(item) => {
         if (isMessageGroup(item)) {
           return (
+            <React.Fragment>
+            {item.messages.at(-1)?.index === lastVisibleIndex ? feedbackHeader : null}
             <MemoizedMessageGroup
               key={item.messages[0]?.message.id ?? "empty-assistant-group"}
               items={item.messages}
@@ -2097,6 +2117,7 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
               isStreaming={isStreaming && item.messages.at(-1)?.index === lastVisibleIndex}
               newestAppCallIds={newestAppCallIds}
             />
+            </React.Fragment>
           )
         }
 
@@ -2139,9 +2160,11 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
             runs, the count joins its Working line; otherwise it takes that
             line's place on its own. One line either way, so the chat does not
             move when the turn ends and the count stays. */}
-        {showLoading && !appPanelLive && <LoadingMessage elapsedSeconds={runElapsedSeconds} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
-        {showReconnecting && <ReconnectingMessage lastConfirmedAt={syncHealth?.lastConfirmedAt ?? null} />}
-        {!showLoading && backgroundShells.length > 0 && <BackgroundTasksMessage shells={backgroundShells} stale={syncDegraded} />}
+        {!referenceFeedback && showLoading && !appPanelLive && <LoadingMessage elapsedSeconds={runElapsedSeconds} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
+        {!liveGroupExists ? feedbackHeader : null}
+        {referenceFeedback && (activityStatus === "compacting" || compactedAt >= lastUserAt || compactedInHistory) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} /></div> : null}
+        {showReconnecting && (!referenceFeedback || !feedbackHeader) && <ReconnectingMessage lastConfirmedAt={syncHealth?.lastConfirmedAt ?? null} />}
+        {(!showLoading || referenceFeedback) && backgroundShells.length > 0 && <BackgroundTasksMessage shells={backgroundShells} stale={syncDegraded} />}
         {retryStatus ? <RetryMessage status={retryStatus} /> : null}
         {error && !hasSessionErrorMessage && !sessionErrorHandled ? <ErrorMessage error={error} /> : null}
         {steadyLiveTurn ? <LiveTurnReserve key={sessionId} active={runActive || status === "submitted"} /> : null}

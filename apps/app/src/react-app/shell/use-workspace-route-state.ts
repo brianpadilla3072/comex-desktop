@@ -224,6 +224,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const [client, setClient] = useState<OpenworkServerClient | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [token, setToken] = useState("");
+  const [hostToken, setHostToken] = useState("");
   const [engineRoutingByServer, setEngineRoutingByServer] = useState<Record<string, boolean>>({});
   const engineRoutingByServerRef = useRef(engineRoutingByServer);
   const [engineRoutingPoller] = useState(() => createEngineRoutingPoller({
@@ -278,7 +279,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const workspaceServerClientResolverRef = useRef(
     createWorkspaceServerClientResolverState({ baseUrl: "", token: "" }),
   );
-  const updateLocalServer = useCallback((next: { baseUrl: string; token: string }) =>
+  const updateLocalServer = useCallback((next: { baseUrl: string; token: string; hostToken?: string }) =>
     workspaceServerClientResolverRef.current.update(next), []);
   const endpointForWorkspace = useCallback(
     (workspace: RouteWorkspace | null | undefined): ResolvedWorkspaceEndpoint | null =>
@@ -634,6 +635,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
           setClient(null);
           setBaseUrl("");
           setToken("");
+          setHostToken("");
           if (workspacesRef.current.length === 0 && desktopWorkspaces.length > 0) {
             const orderedDesktopWorkspaces = commitStableWorkspaceOrder(desktopWorkspaces);
             setWorkspaces(orderedDesktopWorkspaces);
@@ -651,6 +653,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         setClient(null);
         setBaseUrl("");
         setToken("");
+          setHostToken("");
         const orderedDesktopWorkspaces = commitStableWorkspaceOrder(desktopWorkspaces);
         setWorkspaces(orderedDesktopWorkspaces);
         sessionsByWorkspaceIdRef.current = {};
@@ -664,7 +667,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       // workspace-scoped requests below. `endpointForWorkspace` reads from
       // this resolver synchronously, including while the workspace list below
       // is awaited. Old inventory reads must immediately become stale.
-      updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken });
+      updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken, hostToken: resolvedHostToken });
 
       const openworkClient = createOpenworkServerClient({
         baseUrl: normalizedBaseUrl,
@@ -736,12 +739,13 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
         alreadyLoadedWorkspaceIds,
       );
 
-      updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken });
+      updateLocalServer({ baseUrl: normalizedBaseUrl, token: resolvedToken, hostToken: resolvedHostToken });
 
       setConnectionPending(false);
       setClient(openworkClient);
       setBaseUrl(normalizedBaseUrl);
       setToken(resolvedToken);
+      setHostToken(resolvedHostToken);
       // Publish host credentials/generation with their endpoint, never before
       // the awaited workspace refresh while React still holds the old port.
       onHostInfo(hostInfo);
@@ -1180,7 +1184,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const selectedWorkspaceRoot = selectedWorkspace?.path?.trim() || "";
   // Single source of truth for the selected workspace's server URL/token/id:
   // the user's local OpenWork server.
-  const selectedWorkspaceEndpoint = useWorkspaceServerClient(selectedWorkspace, { baseUrl, token });
+  const selectedWorkspaceEndpoint = useWorkspaceServerClient(selectedWorkspace, { baseUrl, token, hostToken });
   const selectedWorkspaceServerToken = selectedWorkspaceEndpoint?.token ?? "";
   const defaultOpencodeBaseUrl = selectedWorkspaceEndpoint?.opencodeBaseUrl ?? "";
   const opencode2BaseUrl = selectedWorkspaceEndpoint ? `${selectedWorkspaceEndpoint.mountedBaseUrl}/opencode2` : "";

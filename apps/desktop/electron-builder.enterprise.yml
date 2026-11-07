@@ -9,8 +9,8 @@ protocols:
       - openwork
 publish:
   - provider: github
-    owner: different-ai
-    repo: openwork
+    owner: brianpadilla3072
+    repo: comex-desktop
     releaseType: release
     channel: enterprise
 linux:

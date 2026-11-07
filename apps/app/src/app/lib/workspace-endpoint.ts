@@ -13,6 +13,7 @@
 import type { WorkspaceInfo } from "./desktop";
 import {
   buildOpenworkWorkspaceBaseUrl,
+  isLoopbackOpenworkServerUrl,
   createOpenworkServerClient,
   type OpenworkServerClient,
 } from "./openwork-server";
@@ -33,6 +34,7 @@ export type ResolvedWorkspaceEndpoint = {
 };
 
 export type LocalServerHandle = {
+  hostToken?: string | null;
   baseUrl: string | null | undefined;
   token: string | null | undefined;
 };
@@ -57,6 +59,7 @@ export function resolveWorkspaceEndpoint(
   const client = createOpenworkServerClient({
     baseUrl: localBaseUrl,
     token: localToken || undefined,
+    hostToken: isLoopbackOpenworkServerUrl(localBaseUrl) ? localServer.hostToken?.trim() || undefined : undefined,
   });
   const mountedBaseUrl = (
     buildOpenworkWorkspaceBaseUrl(localBaseUrl, workspaceId) ?? localBaseUrl

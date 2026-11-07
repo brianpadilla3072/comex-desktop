@@ -47,8 +47,8 @@ afterPack: scripts/electron-after-pack.cjs
 afterSign: scripts/electron-after-sign.cjs
 publish:
   - provider: github
-    owner: different-ai
-    repo: openwork
+    owner: brianpadilla3072
+    repo: comex-desktop
     releaseType: release
 mac:
   icon: resources/icons/icon.icns
@@ -92,6 +92,11 @@ linux:
   icon: resources/icons/linux
   syncDesktopName: true
   extraResources:
+    - from: vendor/comex-python
+      to: comex-python
+      filter:
+        - "**/*"
+        - "!**/__pycache__/**"
     - from: ../../pack
       to: pack
       filter:
@@ -123,6 +128,11 @@ win:
     sign: scripts/windows-sign.cjs
     signingHashAlgorithms: [sha256]
   extraResources:
+    - from: vendor/comex-python
+      to: comex-python
+      filter:
+        - "**/*"
+        - "!**/__pycache__/**"
     - from: ../../pack
       to: pack
       filter:

@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from "node:fs";
-import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { link, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
@@ -644,7 +644,7 @@ function normalizeResolvedRelativePath(input: string): string {
   return parts.join("/");
 }
 
-async function listWorkspaceCatalogEntries(workspaceRoot: string, excludeHeavyDirectories = false) {
+export async function listWorkspaceCatalogEntries(workspaceRoot: string, excludeHeavyDirectories = false) {
   const rootResolved = resolve(workspaceRoot);
   const items: FileSessionCatalogEntry[] = [];
   const skippedDirectories: string[] = [];
@@ -665,52 +665,31 @@ async function listWorkspaceCatalogEntries(workspaceRoot: string, excludeHeavyDi
     });
     entries.sort((a, b) => a.name.localeCompare(b.name));
 
-    for (const entry of entries) {
-      if (excludeHeavyDirectories && entry.isDirectory() && FILE_BROWSER_EXCLUDED_DIRECTORIES.has(entry.name)) {
-        continue;
-      }
-      const absPath = join(dirPath, entry.name);
-      const relRaw = relative(rootResolved, absPath).replace(/\\/g, "/");
-      const rel = normalizeResolvedRelativePath(relRaw);
-
-      if (entry.isDirectory()) {
-        let info;
-        try {
-          info = await stat(absPath);
-        } catch (error: unknown) {
-          if (error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "EACCES" || error.code === "EPERM")) {
-            continue;
-          }
+    // Bound concurrent metadata reads without retaining a promise per file or
+    // opening every subdirectory at once. Keep traversal and output ordering.
+    const candidates = entries.filter(entry =>
+      (entry.isDirectory() || entry.isFile()) &&
+      !(excludeHeavyDirectories && entry.isDirectory() && FILE_BROWSER_EXCLUDED_DIRECTORIES.has(entry.name))
+    );
+    for (let offset = 0; offset < candidates.length; offset += 8) {
+      const batch = candidates.slice(offset, offset + 8);
+      const metadata = await Promise.allSettled(batch.map(entry => stat(join(dirPath, entry.name))));
+      for (const [index, entry] of batch.entries()) {
+        const result = metadata[index];
+        if (result.status === "rejected") {
+          const error: unknown = result.reason;
+          if (error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "EACCES" || error.code === "EPERM")) continue;
           throw error;
         }
-        items.push({
-          path: rel,
-          kind: "dir",
-          size: 0,
-          mtimeMs: info.mtimeMs,
-          revision: fileRevision({ mtimeMs: info.mtimeMs, size: 0 }),
-        });
-        await walk(absPath);
-        continue;
+        const info = result.value;
+        const absPath = join(dirPath, entry.name);
+        const rel = normalizeResolvedRelativePath(relative(rootResolved, absPath).replace(/\\/g, "/"));
+        const directory = entry.isDirectory();
+        const size = directory ? 0 : info.size;
+        items.push({ path: rel, kind: directory ? "dir" : "file", size,
+          mtimeMs: info.mtimeMs, revision: fileRevision({ mtimeMs: info.mtimeMs, size }) });
+        if (directory) await walk(absPath);
       }
-
-      if (!entry.isFile()) continue;
-      let info;
-      try {
-        info = await stat(absPath);
-      } catch (error: unknown) {
-        if (error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "EACCES" || error.code === "EPERM")) {
-          continue;
-        }
-        throw error;
-      }
-      items.push({
-        path: rel,
-        kind: "file",
-        size: info.size,
-        mtimeMs: info.mtimeMs,
-        revision: fileRevision(info),
-      });
     }
   };
 
@@ -720,6 +699,23 @@ async function listWorkspaceCatalogEntries(workspaceRoot: string, excludeHeavyDi
   return { items, skippedDirectories };
 }
 
+
+/** Atomic create for a new page: a file created while approval was pending is never replaced. */
+export async function writeWorkspaceTextArtifact(absPath: string, content: string, createOnly = false) {
+  await ensureDir(dirname(absPath));
+  const tmp = `${absPath}.tmp-${shortId()}`;
+  try {
+    await writeFile(tmp, content, "utf8");
+    if (createOnly) {
+      try { await link(tmp, absPath); }
+      catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "EEXIST") throw new ApiError(409, "conflict", "A file already exists at this path");
+        throw error;
+      }
+    } else await rename(tmp, absPath);
+    return await stat(absPath);
+  } finally { await rm(tmp, { force: true }).catch(() => undefined); }
+}
 
 export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
   const {
@@ -1255,6 +1251,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     const baseUpdatedAt =
       typeof baseUpdatedAtRaw === "number" && Number.isFinite(baseUpdatedAtRaw) ? baseUpdatedAtRaw : null;
     const force = body.force === true;
+    const createOnly = body.createOnly === true;
 
     const absPath = await resolveConversationFilePath(workspace, relativePath, body.sessionId, body.fileScope);
 
@@ -1263,6 +1260,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
       throw new ApiError(400, "invalid_path", "Path must point to a file");
     }
     const beforeUpdatedAt = before ? before.mtimeMs : null;
+    if (createOnly && before) throw new ApiError(409, "conflict", "A file already exists at this path");
     if (!force && beforeUpdatedAt !== null && baseUpdatedAt !== null && beforeUpdatedAt !== baseUpdatedAt) {
       throw new ApiError(409, "conflict", "File changed since it was loaded", {
         baseUpdatedAt,
@@ -1277,11 +1275,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
       paths: [absPath],
     });
 
-    await ensureDir(dirname(absPath));
-    const tmp = `${absPath}.tmp-${shortId()}`;
-    await writeFile(tmp, content, "utf8");
-    await rename(tmp, absPath);
-    const after = await stat(absPath);
+    const after = await writeWorkspaceTextArtifact(absPath, content, createOnly);
     const revision = fileRevision(after);
 
     recordWorkspaceFileEvent(workspace.id, {

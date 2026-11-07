@@ -61,6 +61,86 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "taskContinuity": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Persistent goals and automatic continuity: Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review. Renders DEN_FEATURE_TASK_CONTINUITY."
+            },
+            "comexModelGuide": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Model guide and local catalog: Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates. Renders DEN_FEATURE_COMEX_MODEL_GUIDE."
+            },
+            "comexChatCommands": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Chat slash commands: Manage chats, inspect status, sketch and review local share copies from the composer command menu. Renders DEN_FEATURE_COMEX_CHAT_COMMANDS."
+            },
+            "comexScopedMemory": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Conversation, project and application memory: Remember explicit notes at conversation, project or application scope and manage them locally. Renders DEN_FEATURE_COMEX_SCOPED_MEMORY."
+            },
+            "comexContinuity": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Recoverable project checkpoints: Save and resume structured session progress, decisions and pending work with conflict detection. Renders DEN_FEATURE_COMEX_CONTINUITY."
+            },
+            "comexGitWorkspace": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Git review and isolated work: Review local changes and create isolated Git worktrees from the current committed revision. Renders DEN_FEATURE_COMEX_GIT_WORKSPACE."
+            },
+            "browserAgentPointer": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Visible browser agent pointer: Show the agent pointer and click position inside the embedded browser while it is under agent control. Renders DEN_FEATURE_BROWSER_AGENT_POINTER."
+            },
+            "specialistIntegrations": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist research and portable packs: Connect Tavily research and import or safely update portable OCX agent and skill packs for a specialist application. Renders DEN_FEATURE_SPECIALIST_INTEGRATIONS."
+            },
             "agentActivityMap": {
               "enum": [
                 "",

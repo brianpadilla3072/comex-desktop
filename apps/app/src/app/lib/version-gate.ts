@@ -4,12 +4,11 @@
 // so they're reusable from any React feature site once the updater flow
 // gets wired.
 
-import {
-  createDenClient,
-  readDenSettings,
-  type DenAppVersionMetadata,
-  type DenDesktopConfig,
+import type {
+  DenAppVersionMetadata,
+  DenDesktopConfig,
 } from "./den";
+import { readComexReleaseMetadata } from "./comex-release-metadata";
 import type { ReleaseChannel } from "../types";
 
 declare global {
@@ -219,25 +218,22 @@ export function isAlphaUpdateAllowedByVersionCeiling(input: {
   return !orgMaxVersion || isWithinOnePatchAhead(input.updateVersion, orgMaxVersion);
 }
 
-async function readDenLatestAppVersion(): Promise<string | null> {
+async function readLatestDesktopVersion(): Promise<string | null> {
   try {
-    const metadata = await readFreshDenAppVersionMetadata();
+    const metadata = await readFreshDesktopVersionMetadata();
     return metadata.latestAppVersion;
   } catch {
     return null;
   }
 }
 
-export async function readFreshDenAppVersionMetadata(): Promise<DenAppVersionMetadata> {
+export async function readFreshDesktopVersionMetadata(): Promise<DenAppVersionMetadata> {
   if (import.meta.env.DEV && typeof window !== "undefined" && window.__openworkReadDesktopVersionMetadataEval) {
     return window.__openworkReadDesktopVersionMetadataEval();
   }
-  const settings = readDenSettings();
-  const token = settings.authToken?.trim() ?? "";
-  return createDenClient({
-    baseUrl: settings.baseUrl,
-    ...(token ? { token } : {}),
-  }).getAppVersionMetadata();
+  // This fork publishes its own versions. Organization policies still apply,
+  // but the upstream Den inventory cannot authorize Comex's release numbers.
+  return readComexReleaseMetadata();
 }
 
 export type StableDesktopUpdateSelection =
@@ -247,7 +243,7 @@ export type StableDesktopUpdateSelection =
 
 /**
  * Select the highest stable release that is both published and approved.
- * The explicit Den inventory is the trust boundary: stored policy entries
+ * The published Comex inventory is the trust boundary: stored policy entries
  * that do not correspond to a published updater manifest are never targeted.
  */
 export function selectStableDesktopUpdate(input: {
@@ -303,7 +299,7 @@ export async function resolveFreshStableDesktopUpdate(input: {
 }): Promise<StableDesktopUpdateSelection | null> {
   const [desktopConfig, metadata] = await Promise.all([
     input.refreshDesktopConfig(),
-    (input.readMetadata ?? readFreshDenAppVersionMetadata)(),
+    (input.readMetadata ?? readFreshDesktopVersionMetadata)(),
   ]);
   return selectStableDesktopUpdate({
     currentVersion: input.currentVersion,
@@ -322,7 +318,7 @@ export async function resolveAutomaticStableDesktopUpdate(input: {
   if (isUpdateAllowedByDesktopConfig(input.latestVersion, input.desktopConfig)) return null;
 
   try {
-    const metadata = await (input.readMetadata ?? readFreshDenAppVersionMetadata)();
+    const metadata = await (input.readMetadata ?? readFreshDesktopVersionMetadata)();
     const selection = selectStableDesktopUpdate({
       currentVersion: input.currentVersion,
       metadata,
@@ -335,17 +331,16 @@ export async function resolveAutomaticStableDesktopUpdate(input: {
 }
 
 /**
- * Ask Den for the currently-supported latest app version (dev #1476) and
+ * Read the latest published Comex version and
  * return true only when the candidate update version is the latest
- * version or older. If Den is unreachable or returns an invalid payload,
+ * version or older. If the release catalog is unreachable or invalid,
  * this returns `false` — the caller must treat that as "do not surface
  * the update".
  *
- * No-op safe: callers can invoke this without any Den auth; the client
- * will omit the token when none is persisted.
+ * The catalog is public and does not receive Den credentials.
  */
-export async function isUpdateSupportedByDen(updateVersion: string): Promise<boolean> {
-  const latestAppVersion = await readDenLatestAppVersion();
+export async function isUpdateSupportedByReleaseCatalog(updateVersion: string): Promise<boolean> {
+  const latestAppVersion = await readLatestDesktopVersion();
   if (!latestAppVersion) return false;
   const comparison = compareVersions(updateVersion, latestAppVersion);
   return comparison !== null && comparison <= 0;
@@ -364,7 +359,7 @@ export async function isAlphaUpdateAllowed(
   currentVersion?: string | null,
 ): Promise<boolean> {
   if (!isAlphaChannelAllowedByDesktopConfig(desktopConfig)) return false;
-  const latestAppVersion = await readDenLatestAppVersion();
+  const latestAppVersion = await readLatestDesktopVersion();
   if (!latestAppVersion) return false;
   return isAlphaUpdateAllowedByVersionCeiling({
     updateVersion,
@@ -375,8 +370,8 @@ export async function isAlphaUpdateAllowed(
 }
 
 /**
- * Combined gate: the update must be supported by Den (version metadata
- * endpoint) AND allowed by the active org's `allowedDesktopVersions` if
+ * Combined gate: the update must be supported by the Comex release catalog
+ * AND allowed by the active org's `allowedDesktopVersions` if
  * one is configured. Intended to be the single call site the React
  * updater flow makes before surfacing an update as installable.
  */
@@ -387,5 +382,5 @@ export async function isUpdateAllowed(
   if (!isUpdateAllowedByDesktopConfig(updateVersion, desktopConfig)) {
     return false;
   }
-  return isUpdateSupportedByDen(updateVersion);
+  return isUpdateSupportedByReleaseCatalog(updateVersion);
 }

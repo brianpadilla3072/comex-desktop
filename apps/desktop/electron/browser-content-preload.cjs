@@ -317,6 +317,48 @@ function installDismissListeners() {
   }, { capture: true });
 }
 
+// Agent input travels through Chromium, so it does not move the OS cursor.
+// Draw its trusted page coordinates in an isolated, non-interactive shadow root.
+function installAgentPointer() {
+  let active = false, host = null, marker = null, ring = null, pulse = null;
+  function hide() { if (host) host.style.display = "none"; }
+  function state(value) { active = value?.enabled === true && value?.active === true; if (!active) hide(); }
+  ipcRenderer?.on("openwork:browser:pointer-state", (_event, value) => state(value));
+  ipcRenderer?.invoke("openwork:browser:pointer-state").then(state).catch(() => {});
+  function mount() {
+    if (host?.isConnected) return;
+    host = document.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.setAttribute("data-comex-agent-pointer", "");
+    host.style.cssText = "position:fixed;inset:0;z-index:2147483647;pointer-events:none;display:none;contain:strict;";
+    const shadow = host.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent = ":host{pointer-events:none!important}*{pointer-events:none!important}#pointer{position:absolute;left:0;top:0;width:24px;height:30px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65));transition:transform 120ms ease-out}#ring{position:absolute;left:-14px;top:-14px;width:28px;height:28px;border:2px solid #f4a340;border-radius:50%;opacity:0}#ring.pressed{opacity:.9}svg{display:block}#label{position:absolute;left:18px;top:23px;padding:2px 5px;border-radius:4px;background:#252525;color:#f5f5f5;font:11px/1.4 system-ui;white-space:nowrap}@media(prefers-reduced-motion:reduce){#pointer{transition:none}}";
+    marker = document.createElement("div"); marker.id = "pointer";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 30"); svg.setAttribute("width", "24"); svg.setAttribute("height", "30");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M2 1 L2 23 L8 18 L13 28 L18 25 L13 16 L22 15 Z");
+    path.setAttribute("fill", "#f5f5f5"); path.setAttribute("stroke", "#252525"); path.setAttribute("stroke-width", "1.5");
+    svg.append(path); marker.append(svg);
+    const label = document.createElement("span"); label.id = "label"; label.textContent = "Agente"; marker.append(label);
+    ring = document.createElement("span"); ring.id = "ring"; marker.append(ring);
+    shadow.append(style, marker); (document.documentElement ?? document).append(host);
+  }
+  function point(event) {
+    if (!active || !event.isTrusted || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+    mount(); host.style.display = "block";
+    marker.style.transform = `translate(${event.clientX}px,${event.clientY}px)`;
+    if (event.type === "pointerdown" || event.type === "mousedown") {
+      ring.classList.add("pressed"); clearTimeout(pulse); pulse = setTimeout(() => ring?.classList.remove("pressed"), 500);
+    }
+  }
+  for (const type of ["pointermove", "pointerdown", "mousedown", "wheel"]) window.addEventListener(type, point, { capture: true, passive: true });
+  window.addEventListener("pointerout", event => { if (!event.relatedTarget) hide(); }, { capture: true });
+  window.addEventListener("blur", hide);
+  window.addEventListener("pagehide", () => { clearTimeout(pulse); hide(); });
+}
+
 function installToolChangeRelay() {
   let timer = null;
   window.addEventListener("openwork:webmcp-tools-changed", () => {
@@ -329,6 +371,7 @@ function installToolChangeRelay() {
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
+  installAgentPointer();
   // This listener and its DOM wrappers live only in Electron's isolated world.
   // Main-world overrides cannot alter these reads or send IPC replies. The only
   // page-facing method below requests a check; it never forwards caller data.

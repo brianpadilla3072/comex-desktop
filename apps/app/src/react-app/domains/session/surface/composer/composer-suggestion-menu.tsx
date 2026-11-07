@@ -41,7 +41,7 @@ export function ComposerSuggestionMenu(props: {
         data-composer-suggestions=""
         // Pressing the list or its scrollbar must not move the caret out of the editor.
         onMouseDown={(event) => event.preventDefault()}
-        className="max-h-[min(var(--available-height),16rem)] w-(--anchor-width) gap-0 overscroll-contain rounded-[14px] bg-popover p-1.5 shadow-[var(--dls-shell-shadow)] ring-0 data-open:animate-none data-closed:animate-none dark:ring-0"
+        className="max-h-[min(var(--available-height),22rem)] w-(--anchor-width) gap-0 overscroll-contain rounded-[14px] bg-popover p-1.5 shadow-[var(--dls-shell-shadow)] ring-0 data-open:animate-none data-closed:animate-none dark:ring-0"
       >
         {props.children}
       </PopoverContent>

@@ -25,6 +25,7 @@ import { BrowserTaskError, createBrowserTaskHost } from "@openwork/computer-use/
 import { agentPermissionDenialMessage, decideAgentPermission, stricterAgentPermissionDecision } from "@openwork/types/den/agent-permissions-runtime";
 import { createWebMcpBroker } from "./webmcp-host.mjs";
 import { createWebMcpFramePolicy } from "./webmcp-policy.mjs";
+import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_SESSION_PARTITION = "persist:openwork-browser";
@@ -53,6 +54,15 @@ const BROWSER_SECURITY_PREFERENCES = Object.freeze({
 
 export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, checkPolicy, readWebsiteRules, websiteRulesWereInForce = false, onWebsiteRulesInForce, showNativeContextMenu, closeNativeContextMenu,
   approveFiles = async () => false, approveCredential = undefined }) {
+  const featureContext = parseFeatureEnvironment(process.env);
+  const pointerEnabled = !featureContext.problems.some(problem => problem.fatal) && resolveFeature("browserAgentPointer", { ...featureContext, rollouts: {}, overrides: {} }).enabled;
+  function pointerState(tab) { return { enabled: pointerEnabled, active: !!tab?.agentViewport }; }
+  function sendPointerState(tab) {
+    if (tab.view.webContents.isDestroyed()) return;
+    for (const frame of tab.view.webContents.mainFrame.framesInSubtree) {
+      try { frame.send("openwork:browser:pointer-state", pointerState(tab)); } catch {}
+    }
+  }
   // The member's agent permission rules for websites, from their desktop
   // config. They apply to every page, frame and request the built-in browser
   // makes, whoever opens it, as the engines apply them to the agent's web fetches.
@@ -452,8 +462,9 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
     runDetachedTask("open linked browser page", () => openBrowserUrlForAutomation(url, "builtin", { ownerSessionId }));
   }
 
+  // Absent unless this launch opened the debug port. Browser tools never need it.
   function cdpBrowserUrl() {
-    return `http://127.0.0.1:${remoteDebugPort}`;
+    return remoteDebugPort > 0 ? `http://127.0.0.1:${remoteDebugPort}` : undefined;
   }
 
   /**
@@ -1426,6 +1437,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
   function lockAgentViewport(tab) {
     if (tab.agentViewport !== agentViewportKey) {
       tab.agentViewport = agentViewportKey;
+      sendPointerState(tab);
       // `panel` keeps the page's current size, so taking the tab rescales
       // nothing. A page off screen takes the panel's size when it is shown.
       const bounds = tab.background ? null : lastBrowserBounds;
@@ -1444,6 +1456,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
   function releaseAgentViewport(tab) {
     if (!tab.agentViewport) return;
     tab.agentViewport = null;
+    sendPointerState(tab);
     tab.agentViewportSize = null;
     tab.agentViewportAwaitsPanel = false;
     tab.viewportScale = 1;
@@ -2254,6 +2267,10 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
         return { allowed: false, originKeyed: false, reason: "unknown_browser_frame" };
       }
       return ensureWebMcpFramePolicy().checkFrame(event.senderFrame);
+    });
+    ipcMain.handle("openwork:browser:pointer-state", event => {
+      const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
+      return tab && event.senderFrame ? pointerState(tab) : { enabled: false, active: false };
     });
     ipcMain.handle("openwork:browser:setProxy", (_event, proxy) => setBrowserProxy(proxy));
     // The app says when the member's rules may have changed. It can only make

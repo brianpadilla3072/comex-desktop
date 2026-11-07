@@ -1,3 +1,4 @@
+import type { GuideObservation } from "@openwork/types/model-guide";
 import type {
   Message,
   Part,
@@ -440,6 +441,7 @@ export type ModelOption = {
   behaviorOptions?: ModelBehaviorOption[];
   disabled?: boolean;
   isFree: boolean;
+  guideObservation?: GuideObservation;
   /** A free model of the engine's built-in OpenCode Zen provider that nobody configured: the silent fallback. */
   zenFallback?: boolean;
   isRecommended?: boolean;

@@ -138,3 +138,7 @@ y navegación a `https://www.iana.org/help/example-domains`, título «Example
 Domains». No se usaron búsquedas ni shell para esa comprobación. La captura
 con imagen en una pestaña oculta no quedó verificada; la prueba confirma
 navegación, lectura textual y clic.
+
+## Modos de permisos del compositor
+
+La interfaz Comex ofrece los tres modos iniciales y perfiles personalizables por proyecto. [Funcionamiento, límites, pruebas y capturas](../comex-permission-modes/README.md). El menú requiere conexión v2 para aplicar; no activa permisos ni elimina restricciones por abrirlo.

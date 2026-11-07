@@ -1,3 +1,4 @@
+import { guideObservationSchema } from "@openwork/types/model-guide";
 import type { CloudImportedProvider } from "@/app/cloud/import-state";
 import type { ModelOption, ModelRef } from "@/app/types";
 import { getModelBehaviorSummary } from "@/app/lib/model-behavior";
@@ -25,8 +26,10 @@ function costsNothing(model: { nativeFree?: boolean; cost?: { input?: number; ou
 export function runtimeModelOptions(data: ProviderList, isNewProvider: (providerId: string) => boolean = () => false): ModelOption[] {
   return getConnectedProviderItems(data).flatMap((provider) => Object.entries(provider.models).map(([id, model]): ModelOption => {
     const summary = getModelBehaviorSummary(provider.id, model, null, provider.name);
+    const observed = guideObservationSchema.safeParse("guideObservation" in model ? model.guideObservation : null);
     const ref = { providerID: provider.id, modelID: id };
     return {
+      ...(observed.success ? { guideObservation: { ...observed.data, providerName: provider.name } } : {}),
       ...ref, title: model.name || id, description: provider.name,
       behaviorTitle: summary.title, behaviorLabel: summary.label, behaviorDescription: summary.description,
       behaviorValue: summary.value, behaviorOptions: summary.options,

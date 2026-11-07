@@ -40,11 +40,12 @@ def _bootstrap():
     except ImportError:
         pass
     is_win = os.name == "nt"
-    venv_py = Path.home() / ".comex-pack" / "venv" / ("Scripts/python.exe" if is_win else "bin/python")
-    if venv_py.exists() and Path(sys.executable).resolve() != venv_py.resolve():
+    venv_root = Path(os.environ.get("COMEX_PACK_HOME", Path.home() / ".comex-pack")) / "venv"
+    venv_py = venv_root / ("Scripts/python.exe" if is_win else "bin/python")
+    if venv_py.exists() and Path(sys.prefix).resolve() != venv_root.resolve():
         os.execv(str(venv_py), [str(venv_py), __file__, *sys.argv[1:]])
-    sys.exit("Falta la librería python-docx. Ejecutá 'bash instalar.sh' en la carpeta del pack "
-             "(o 'python3 -m pip install --user python-docx').")
+    sys.exit("Falta la librería python-docx. Prepará el entorno privado con "
+             "'python scripts/documents.py setup' (o 'bash instalar.sh' en el pack).")
 
 
 _bootstrap()
@@ -108,9 +109,18 @@ def bottom_border(par):
     pPr.append(borders)
 
 
-def add_field(par, instr):
+def add_field(par, instr, preview=None):
     fld = OxmlElement("w:fldSimple")
     fld.set(qn("w:instr"), instr)
+    # Cached field results keep previews useful before Word recalculates fields.
+    for index, label in enumerate(preview or []):
+        run = OxmlElement("w:r")
+        if index:
+            run.append(OxmlElement("w:br"))
+        text = OxmlElement("w:t")
+        text.text = label
+        run.append(text)
+        fld.append(run)
     par._p.append(fld)
 
 
@@ -240,9 +250,10 @@ def convert(md_path, out_path, toc, font, size):
     if toc:
         p = doc.add_paragraph()
         p.add_run("Índice").bold = True
-        add_field(doc.add_paragraph(), 'TOC \\o "1-3" \\h \\z \\u')
+        outline = [line.strip().lstrip("# ").strip() for line in lines if line.strip().startswith("#")]
+        add_field(doc.add_paragraph(), 'TOC \\o "1-3" \\h \\z \\u', preview=outline)
         note = doc.add_paragraph()
-        note.add_run("(En Word: clic derecho sobre el índice → Actualizar campo)").italic = True
+        note.add_run("Para completar los números de página en Word, actualizá este índice.").italic = True
         doc.add_page_break()
 
     table_no, fig_no = 1, 1

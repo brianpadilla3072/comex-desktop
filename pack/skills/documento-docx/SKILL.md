@@ -75,6 +75,29 @@ Para buscar texto en un docx complejo, recordar que Word parte el texto en mucho
 - Toda tabla del documento conserva la nota "Fuente:" como párrafo debajo (regla de `investigacion-con-fuentes`): no quitarla.
 - Un `.docx` de Word no es un archivo de texto: para leerlo usá `python-docx` o `pandoc -t markdown archivo.docx`, nunca `cat`.
 
-## Dependencias
+## Entorno y control de entrega
 
-`python-docx`. Se instala con `bash instalar.sh` (crea el entorno del pack en `~/.comex-pack/venv`). Si el script no encuentra la librería, la pide e indica cómo instalarla.
+En un proyecto Comex, el launcher está en `.opencode/scripts/documents.py`.
+Si trabajás desde el pack original, usá `scripts/documents.py`.
+En Windows el ejecutable puede ser `py -3` o `python`; en Linux/macOS, `python3`.
+
+```bash
+python3 .opencode/scripts/documents.py doctor
+python3 .opencode/scripts/documents.py setup
+python3 .opencode/scripts/documents.py run word -- informe.md -o informe.docx --toc
+python3 .opencode/scripts/documents.py verify informe.docx
+```
+
+`setup` prepara un entorno privado en `~/.comex-pack/venv` con versiones fijadas;
+`COMEX_PACK_HOME` permite elegir otra carpeta. No modifica Python del sistema.
+La primera preparación requiere Python 3.10+, venv/pip y acceso a PyPI; con
+`setup --wheelhouse CARPETA` usa exclusivamente wheels locales, sin red.
+Si la app configura `COMEX_DOCUMENTS_PYTHON`, usar ese intérprete incluido: doctor
+indica `pythonBundled=true` tras validar imports y versiones, y setup no modifica
+ese runtime. Sin sidecar se necesita un Python disponible para el entorno privado.
+No anunciar instalación Windows comprobada solo por pasar pruebas en Linux.
+
+`verify` comprueba ZIP/XML, reabre el archivo, rechaza entregables vacíos y emite
+SHA-256. La revisión visual sigue pendiente hasta renderizar o abrir el archivo.
+No afirmar que el formato fue revisado visualmente solo porque `verify` pasó.
+Las fórmulas de Excel requieren recálculo con Excel/LibreOffice; openpyxl no las calcula.

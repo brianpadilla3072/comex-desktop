@@ -77,7 +77,14 @@
     "release:cut:watch": "node scripts/release/cut.mjs --watch",
     "evals:check-browser": "pnpm --dir evals check:browser",
     "evals:check": "pnpm --dir evals run check",
-    "test:comex": "pnpm --filter @openwork/features test && node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test apps/server/test/comex-workspace.test.ts apps/server/test/comex-installed-opencode.test.ts apps/server/test/comex-installed-browser.test.ts apps/server/test/specialist-applications.test.ts && pnpm --filter @openwork/app test:comex && python3 -B -m unittest discover -s pack/tests -v && python3 pack/scripts/validar.py"
+    "test:comex": "pnpm --filter @openwork/features test && node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test apps/server/test/comex-workspace.test.ts apps/server/test/comex-installed-opencode.test.ts apps/server/test/comex-installed-browser.test.ts apps/server/test/specialist-applications.test.ts && pnpm --filter @openwork/app test:comex && python3 -B -m unittest discover -s pack/tests -v && python3 pack/scripts/validar.py",
+    "comex:documents": "node scripts/comex-documents.mjs",
+    "comex:eval": "node scripts/comex-eval.mjs",
+    "comex:verify": "node scripts/comex-verify.mjs",
+    "test:comex:eval": "node --test scripts/comex-eval.test.mjs",
+    "models:catalog:check": "node scripts/model-catalog.mjs check",
+    "models:catalog:export": "node scripts/model-catalog.mjs export",
+    "models:catalog:schema": "node scripts/model-catalog.mjs schema"
   },
   "devDependencies": {
     "@stoplight/spectral-cli": "6.16.3",

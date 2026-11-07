@@ -38,6 +38,7 @@ type SessionActivityRecord = {
   errorActive: boolean;
   errorMessage: string | null;
   compacting: boolean;
+  lastCompactedAt?: number;
   waitingPermissionIds: string[];
   waitingQuestionIds: string[];
   // When this session waited for a person's approval or answer, oldest first.
@@ -90,7 +91,7 @@ type SessionActivityStore = {
   replaceWaitingRequests: (workspaceId: string, sessionId: string, kind: "permission" | "question", requestIds: string[]) => void;
   setError: (workspaceId: string, sessionId: string, message?: string) => void;
   clearError: (workspaceId: string, sessionId: string) => void;
-  setCompacting: (workspaceId: string, sessionId: string, compacting: boolean) => void;
+  setCompacting: (workspaceId: string, sessionId: string, compacting: boolean, completed?: boolean) => void;
   removeSession: (workspaceId: string, sessionId: string) => void;
 };
 
@@ -215,6 +216,7 @@ function sameActivityRecord(
     && current.assistantOutput === next.assistantOutput
     && current.errorActive === next.errorActive
     && current.errorMessage === next.errorMessage
+    && current.lastCompactedAt === next.lastCompactedAt
     && current.compacting === next.compacting
     && sameStrings(current.waitingPermissionIds, next.waitingPermissionIds)
     && sameStrings(current.waitingQuestionIds, next.waitingQuestionIds)
@@ -558,13 +560,14 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       errorMessage: null,
     })));
   },
-  setCompacting: (workspaceId, sessionId, compacting) => {
+  setCompacting: (workspaceId, sessionId, compacting, completed = false) => {
     const workspace = workspaceId.trim();
     const session = sessionId.trim();
     if (!workspace || !session) return;
     set((state) => updateRecord(state, workspace, session, (record) => ({
       ...record,
       compacting,
+      ...(completed ? { lastCompactedAt: Date.now() } : {}),
       errorActive: compacting ? false : record.errorActive,
       errorMessage: compacting ? null : record.errorMessage,
     })));

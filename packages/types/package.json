@@ -530,6 +530,38 @@
       },
       "development": "./src/browser-demonstration.ts",
       "default": "./dist/browser-demonstration.js"
+    },
+    "./model-guide": {
+      "types": {
+        "openwork-build": "./dist/types/src/model-guide.d.ts",
+        "default": "./src/model-guide.ts"
+      },
+      "development": "./src/model-guide.ts",
+      "default": "./src/model-guide.ts"
+    },
+    "./permission-modes": {
+      "types": {
+        "openwork-build": "./dist/types/src/permission-modes.d.ts",
+        "default": "./src/permission-modes.ts"
+      },
+      "development": "./src/permission-modes.ts",
+      "default": "./src/permission-modes.ts"
+    },
+    "./task-continuity": {
+      "types": {
+        "openwork-build": "./dist/types/src/task-continuity.d.ts",
+        "default": "./src/task-continuity.ts"
+      },
+      "development": "./src/task-continuity.ts",
+      "default": "./src/task-continuity.ts"
+    },
+    "./scoped-memory": {
+      "types": {
+        "openwork-build": "./dist/types/src/scoped-memory.d.ts",
+        "default": "./src/scoped-memory.ts"
+      },
+      "development": "./src/scoped-memory.ts",
+      "default": "./src/scoped-memory.ts"
     }
   },
   "files": [

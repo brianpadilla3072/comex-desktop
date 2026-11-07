@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 
-export function useComexFeature(client: OpenworkServerClient | null): boolean {
+export function useComexFeature(client: OpenworkServerClient | null, includeTasks = false): boolean {
   const query = useQuery({
     queryKey: ["comex-feature", client?.baseUrl],
     queryFn: () => {
@@ -13,5 +13,5 @@ export function useComexFeature(client: OpenworkServerClient | null): boolean {
     refetchInterval: 15_000,
     retry: false,
   });
-  return Boolean(client && !query.isError && query.data?.enabled);
+  return Boolean(client && !query.isError && (query.data?.enabled || includeTasks && query.data?.taskContinuity));
 }

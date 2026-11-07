@@ -20,6 +20,7 @@ let failWrite = false;
 let target: OpenTarget | null = null;
 const client: OpenworkServerClient = {
   ...createOpenworkServerClient({ baseUrl: "http://localhost/comex-test" }),
+  getComexFeatures: async () => ({ enabled: true, openworkPromotions: false, conversationNavigator: false, agentActivityMap: false, comexContinuity: false, comexGitWorkspace: false }),
   listWorkspaceFiles: async () => ({ items: [{ path: "informe.docx", kind: "file", size: 10, mtimeMs: 1, revision: "1" }], total: 1, truncated: false }),
   readWorkspaceFile: async (_, path, options) => {
     expect(options?.fileScope).toBe("workspace");

@@ -61,6 +61,7 @@ export async function openSpecialistStore(path: string) {
       agent_count INTEGER NOT NULL, skill_count INTEGER NOT NULL, created_at INTEGER NOT NULL,
       UNIQUE(user_id, name))`,
     "CREATE TABLE IF NOT EXISTS specialist_user_state (id TEXT PRIMARY KEY CHECK(id = 'local'), application_id TEXT NOT NULL REFERENCES specialist_applications(id))",
+    "CREATE TABLE IF NOT EXISTS specialist_provider_settings (application_id TEXT NOT NULL REFERENCES specialist_applications(id), provider_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), PRIMARY KEY(application_id, provider_id))",
     `CREATE TABLE IF NOT EXISTS specialist_projects (
       workspace_id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES specialist_applications(id),
       root_path TEXT NOT NULL UNIQUE)`,
@@ -73,6 +74,19 @@ export async function openSpecialistStore(path: string) {
   const user = () => { const value = sql.get("SELECT id, display_name AS displayName FROM specialist_users WHERE id = 'local'"); return value ? userSchema.parse(value) : null; };
   return {
     user, application,
+    researchEnabled: (id: string, providerId = "tavily") => {
+      application(id);
+      const row = sql.get("SELECT enabled FROM specialist_provider_settings WHERE application_id = ? AND provider_id = ?", [id, providerId]);
+      return row ? z.object({ enabled: z.number() }).parse(row).enabled === 1 : false;
+    },
+    setResearchEnabled: (id: string, enabled: boolean, providerId = "tavily") => {
+      application(id);
+      sql.run("INSERT INTO specialist_provider_settings(application_id, provider_id, enabled) VALUES (?, ?, ?) ON CONFLICT(application_id, provider_id) DO UPDATE SET enabled = excluded.enabled", [id, providerId, enabled ? 1 : 0]);
+    },
+    updatePackCounts: (id: string, counts: { agents: number; skills: number }) => {
+      application(id);
+      sql.run("UPDATE specialist_applications SET agent_count = ?, skill_count = ? WHERE id = ?", [counts.agents, counts.skills, id]);
+    },
     list: () => {
       const projects = sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects").map(value => projectSchema.parse(value));
       const active = sql.get("SELECT application_id AS id FROM specialist_user_state WHERE id = 'local'");

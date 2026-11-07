@@ -139,6 +139,8 @@ import { libraryConnectorCues } from "../library-connector-cues";
 import { useLibraryCloud, type LibraryEditableSkill, type LibraryShareTarget } from "../use-library-cloud";
 import { AddLibraryItemPage } from "./add-library-item-page";
 import { LibraryAddControl } from "./library-add-control";
+import { ComplementsHome } from "./complements-home";
+import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
 import {
   catalogConnectionNeedsSignIn,
   connectorSummary,
@@ -413,6 +415,8 @@ type LibraryScreen =
   | { kind: "edit"; skill: LibraryEditableSkill };
 
 export function McpView(props: McpViewProps) {
+  const complementsLayout = useComexWorkspaceEnabled();
+  const complementsConfigRef = useRef<HTMLDivElement>(null);
   const cloudSession = useCloudSession();
   const denAuth = useDenAuth();
   const denBaseUrl = readDenSettings().baseUrl;
@@ -599,7 +603,7 @@ export function McpView(props: McpViewProps) {
       variant="default"
       pending={denAuth.status === "checking"}
       disabledReason={addDisabledReason}
-      label={t("extensions.add_to_library")}
+      label={complementsLayout ? "Añadir" : t("extensions.add_to_library")}
       onSelect={(kind) => handleAddKind(kind)}
     />
   );
@@ -1949,6 +1953,7 @@ export function McpView(props: McpViewProps) {
 
   const inventory = (
     <LibraryInventory
+      columns={complementsLayout}
       rows={rows}
       loading={props.inventoryLoading === true}
       filter={filter}
@@ -2096,6 +2101,44 @@ export function McpView(props: McpViewProps) {
 
   return (
     <section className="w-full animate-in fade-in duration-300">
+      {complementsLayout ? <ComplementsHome
+        rows={rows}
+        skills={filter === "skill"}
+        search={search}
+        onSearch={setSearch}
+        onSkills={(skills) => setInventoryFilter(skills ? "skill" : "all")}
+        addControl={signedOut ? <Button size="sm" onClick={props.onOpenCloudAccount}><Plus />Añadir</Button> : addControl}
+        refreshControl={props.onRefresh ? <RefreshButton busy={props.busy} onRefresh={refreshLibrary}>Actualizar</RefreshButton> : null}
+        onSettings={() => {
+          setShowAdvanced(true);
+          requestAnimationFrame(() => complementsConfigRef.current?.scrollIntoView({ block: "start" }));
+        }}
+        inventory={inventory}
+        personalInventory={<LibraryInventory columns rows={rows.filter(row => row.section === "mine")} loading={props.inventoryLoading === true} filter="all" search={search} emptyState={<p className="text-sm text-muted-foreground">No hay complementos personales.</p>} />}
+        notice={<>
+          {inventoryError ? <p role="alert" className="mb-5 text-sm text-destructive">{inventoryError}</p> : null}
+          {!props.allowManageExtensions ? <p className="mb-5 text-sm text-muted-foreground">{manageExtensionsDisabledReason()}</p> : null}
+        </>}
+        catalog={<div className="space-y-10">
+          {connectorPresets.length > 0 ? <section>
+            <h3 className="mb-5 text-sm font-medium">Disponibles para conectar</h3>
+            <div className="grid gap-x-12 gap-y-4 xl:grid-cols-2">
+              {connectorPresets.filter(preset => `${preset.displayName} ${preset.description}`.toLowerCase().includes(search.toLowerCase())).map(preset => <ExtensionCard
+                key={preset.presetId}
+                name={preset.displayName}
+                description={connectorSummary(preset)}
+                iconSlug={preset.presetId}
+                url={preset.url}
+                connected={addedConnectorUrls.has(preset.url)}
+                onClick={() => setScreen({ kind: "connector-setup", preset })}
+                trailing={<Button variant="ghost" size="icon-sm" aria-label={`Configurar ${preset.displayName}`} onClick={() => setScreen({ kind: "connector-setup", preset })}><Plus /></Button>}
+              />)}
+            </div>
+          </section> : null}
+          {inventory}
+        </div>}
+      /> : <>
+
       {props.headerActionsTarget ? createPortal(addControl, props.headerActionsTarget) : props.headerActionsTarget === undefined ? (
         <div className="mb-5 flex h-[52px] items-center justify-between border-b border-dls-border px-6">
           <h1 className="text-base leading-6 font-medium">{t("extensions.title")}</h1>
@@ -2191,6 +2234,9 @@ export function McpView(props: McpViewProps) {
 
       {filter === "plugin" && props.pluginsContent ? <div className="mt-6">{props.pluginsContent}</div> : null}
 
+      </>}
+
+      <div ref={complementsConfigRef}>
       <McpAdvancedConfigSection
         open={showAdvanced}
         configScope={configScope}
@@ -2204,6 +2250,8 @@ export function McpView(props: McpViewProps) {
         onReveal={revealConfig}
         onAddMcp={props.allowManageExtensions ? () => handleAddKind("workspace-mcp") : undefined}
       />
+
+      </div>
 
       <ConfirmModal
         open={logoutOpen}
@@ -2469,6 +2517,7 @@ function LibrarySignUpBanner(props: { onSignUp?: () => void }) {
 }
 
 export function LibraryInventory(props: {
+  columns?: boolean;
   rows: LibraryRow[];
   loading: boolean;
   filter: ExtensionInventoryFilter;
@@ -2488,7 +2537,7 @@ export function LibraryInventory(props: {
   const sections = librarySectionOrder
     .map((section) => ({ section, rows: visible.filter((row) => row.section === section) }))
     .filter((entry) => entry.rows.length > 0);
-  const containerClassName = "flex flex-col [&>div]:border-b [&>div]:border-dls-border/60";
+  const containerClassName = props.columns ? "grid gap-x-12 gap-y-4 pt-5 xl:grid-cols-2" : "flex flex-col [&>div]:border-b [&>div]:border-dls-border/60";
   const showLocked = props.signedOut === true && category === "all" && !needle && !props.onlyNeedsSignIn;
 
   return (

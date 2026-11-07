@@ -53,7 +53,8 @@
     "undici": "6.29.1",
     "yaml": "^2.9.0",
     "zod": "^4.6.6",
-    "@openwork/computer-use": "workspace:*"
+    "@openwork/computer-use": "workspace:*",
+    "@openwork/features": "workspace:*"
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",

@@ -6,8 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { agentName, useSubagentRunState } from "@/components/chat/subagent-run-line";
-import { isTaskToolPart, type TaskToolPart } from "@/lib/build-in-tools";
+import { agentName, useSubagentRunState, useElapsedSeconds } from "@/components/chat/subagent-run-line";
+import { ExecutionRunHeader, ExecutionToolRow } from "@/components/chat/execution-feedback";
+import { taskChildSessionId, isTaskToolPart, type TaskToolPart } from "@/lib/build-in-tools";
+import { replyModelLabel } from "@/react-app/domains/session/sync/reply-model";
 import { cn } from "@/lib/utils";
 
 export function conversationAgentTasks(messages: readonly UIMessage[]): TaskToolPart[] {
@@ -18,7 +20,7 @@ export function conversationAgentTasks(messages: readonly UIMessage[]): TaskTool
   return [...tasks.values()];
 }
 
-type AgentState = { kind: "running" | "waiting" | "done" | "error" | "stopped" | "unknown"; label: string; childId: string | null };
+type AgentState = { kind: "running" | "waiting" | "done" | "error" | "stopped" | "unknown"; label: string; childId: string | null; startedAt?: number | null };
 const UNKNOWN: AgentState = { kind: "unknown", label: "Verificando estado", childId: null };
 export function agentMapState(state: ReturnType<typeof useSubagentRunState>, syncDegraded: boolean): AgentState {
   const childId = state.childSessionId;
@@ -40,58 +42,65 @@ function ObserveAgent({ part, workspaceId, parentActive, syncDegraded, report }:
   part: TaskToolPart; workspaceId: string; parentActive: boolean; syncDegraded: boolean; report: (id: string, state: AgentState) => void;
 }) {
   const live = useSubagentRunState(part, parentActive, workspaceId, syncDegraded);
-  const state = agentMapState(live, syncDegraded);
-  useEffect(() => { report(part.toolCallId, state); }, [report, part.toolCallId, state.kind, state.label, state.childId]);
+  const state = { ...agentMapState(live, syncDegraded), startedAt: live.startedAt };
+  useEffect(() => { report(part.toolCallId, state); }, [report, part.toolCallId, state.kind, state.label, state.childId, state.startedAt]);
   return null;
 }
 
-export function AgentActivityMap({ messages, workspaceId, owner, parentTitle, parentActive, syncDegraded, readChild, onOpenChild }: {
+export function AgentActivityMap({ messages, workspaceId, owner, parentTitle, parentActive, syncDegraded, readChild, onOpenChild, presentation = "button", onOpenWorkspace, initialChildId, visible = true }: {
   messages: readonly UIMessage[]; workspaceId: string; owner: string; parentTitle: string; parentActive: boolean; syncDegraded: boolean;
   readChild: (sessionId: string) => Promise<UIMessage[]>; onOpenChild?: (sessionId: string) => void;
+  presentation?: "button" | "summary" | "workspace"; onOpenWorkspace?: () => void; initialChildId?: string; visible?: boolean;
 }) {
   const tasks = useMemo(() => conversationAgentTasks(messages), [messages]);
   const [states, setStates] = useState<Record<string, AgentState>>({});
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const report = useCallback((id: string, next: AgentState) => {
-    setStates(current => current[id]?.kind === next.kind && current[id]?.label === next.label && current[id]?.childId === next.childId ? current : { ...current, [id]: next });
+    setStates(current => current[id]?.kind === next.kind && current[id]?.label === next.label && current[id]?.childId === next.childId && current[id]?.startedAt === next.startedAt ? current : { ...current, [id]: next });
   }, []);
+  const initialTaskId = initialChildId ? tasks.find(task => taskChildSessionId(task) === initialChildId)?.toolCallId : undefined;
+  useEffect(() => { setSelectedId(initialTaskId ?? null); }, [initialChildId, initialTaskId]);
   const running = tasks.filter(task => states[task.toolCallId]?.kind === "running").length;
   const waiting = tasks.some(task => states[task.toolCallId]?.kind === "waiting");
   const selected = tasks.find(task => task.toolCallId === selectedId);
-  if (!tasks.length) return null;
-  return <>
-    {tasks.map(part => <ObserveAgent key={part.toolCallId} part={part} workspaceId={workspaceId} parentActive={parentActive} syncDegraded={syncDegraded} report={report} />)}
-    <Button variant="ghost" size="xs" className="gap-1.5 rounded-full bg-muted/60 text-muted-foreground" aria-label="Ver agentes en segundo plano" data-agent-map-button
-      onClick={() => { setSelectedId(null); setOpen(true); }}>
-      <StateDot kind={running ? "running" : waiting ? "waiting" : "done"} />{tasks.length} {tasks.length === 1 ? "agente" : "agentes"}
-      <span className="sr-only">{running} en ejecución</span>
-    </Button>
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className={cn("max-h-[85dvh] overflow-y-auto", selected ? "lg:max-w-2xl" : "lg:max-w-4xl")} data-agent-map-dialog>
-        <DialogHeader><DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
-          {selected ? <Button variant="ghost" size="icon-xs" aria-label="Volver al mapa de agentes" onClick={() => setSelectedId(null)}><ArrowLeft /></Button> : null}
-          <span className="truncate">{selected ? selected.input?.description || "Detalle del agente" : "Mapa de agentes"}</span>
-        </DialogTitle></DialogHeader>
-        {selected ? <AgentDetails key={selected.toolCallId} part={selected} state={states[selected.toolCallId] ?? UNKNOWN} owner={owner} readChild={readChild} onOpenChild={onOpenChild} /> : <>
-          <p className="text-sm text-muted-foreground">{tasks.length} {tasks.length === 1 ? "agente" : "agentes"} · {running} en ejecución</p>
-          <div className="grid items-center gap-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-10" data-agent-flow>
-            <div className="relative flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-3 md:after:absolute md:after:top-1/2 md:after:-right-10 md:after:w-10 md:after:border-t md:after:border-muted-foreground/30">
-              <StateDot kind={syncDegraded ? "unknown" : parentActive ? "running" : "done"} />
-              <div className="min-w-0"><p className="truncate text-sm font-medium">{parentTitle || "Conversación principal"}</p><p className="text-xs text-muted-foreground">Agente principal</p></div>
-            </div>
-            <div className="grid min-w-0 gap-2 md:border-l md:border-muted-foreground/30 md:pl-5">
-              {tasks.map(part => { const state = states[part.toolCallId] ?? UNKNOWN; return <Button key={part.toolCallId} variant="outline"
-                className="relative h-auto min-h-14 w-full justify-start gap-2 rounded-lg px-3 py-2 text-left md:before:absolute md:before:top-1/2 md:before:-left-5 md:before:w-5 md:before:border-t md:before:border-muted-foreground/30"
-                title={part.input?.description} onClick={() => setSelectedId(part.toolCallId)} data-agent-node={part.toolCallId}>
-                <StateDot kind={state.kind} /><span className="min-w-0"><span className="block truncate text-sm">{part.input?.description || agentName(part.input?.subagent_type ?? "")}</span><span className="block text-xs font-normal text-muted-foreground">{state.label}</span></span>
-              </Button>; })}
-            </div>
-          </div>
-        </>}
-      </DialogContent>
-    </Dialog>
+  const unknown = tasks.filter(task => !states[task.toolCallId] || states[task.toolCallId]?.kind === "unknown").length;
+  const done = tasks.filter(task => states[task.toolCallId]?.kind === "done").length;
+  const stopped = tasks.filter(task => states[task.toolCallId]?.kind === "stopped").length;
+  const waitingCount = tasks.filter(task => states[task.toolCallId]?.kind === "waiting").length;
+  const failed = tasks.filter(task => states[task.toolCallId]?.kind === "error").length;
+  if (!tasks.length) return presentation === "workspace" ? <p className="p-4 text-sm text-muted-foreground">Sin subagentes en esta conversación</p> : null;
+  const observers = tasks.map(part => <ObserveAgent key={part.toolCallId} part={part} workspaceId={workspaceId} parentActive={parentActive} syncDegraded={syncDegraded} report={report} />);
+  const summary = [running ? `${running} procesando` : "", waitingCount ? `${waitingCount} esperando respuesta` : "", unknown ? `${unknown} sin confirmar` : "", failed ? `${failed} con errores` : "", stopped ? `${stopped} detenidos` : "", done ? `${done} ${done === 1 ? "listo" : "listos"}` : ""].filter(Boolean).join(" · ");
+  const content = <>
+    <header className="flex min-h-10 items-center gap-2 border-b border-border px-4 text-sm">
+      {selected ? <Button variant="ghost" size="icon-xs" aria-label="Volver a subagentes" onClick={() => setSelectedId(null)}><ArrowLeft /></Button> : null}
+      <span className="truncate">{selected ? selected.input?.description || "Detalle del agente" : "Subagentes"}</span>
+      <span className="ml-auto text-xs text-muted-foreground">{selected ? agentName(selected.input?.subagent_type ?? "") : summary}</span>
+    </header>
+    <div className="mx-auto w-full max-w-3xl px-4 py-7 pb-32">
+      {selected ? <AgentDetails key={selected.toolCallId} part={selected} state={states[selected.toolCallId] ?? UNKNOWN} owner={owner} readChild={readChild} onOpenChild={onOpenChild} compact={presentation === "workspace"} active={visible} /> : <div data-agent-flow className="divide-y divide-border">
+        {tasks.map((part, index) => { const state = states[part.toolCallId] ?? UNKNOWN; return <Button key={part.toolCallId} variant="ghost" className="h-auto min-h-16 w-full justify-start gap-3 rounded-none text-left" onClick={() => setSelectedId(part.toolCallId)} data-agent-node={part.toolCallId}>
+          <AgentMark index={index} /><span className="min-w-0 flex-1"><span className="block truncate text-sm">{part.input?.description || agentName(part.input?.subagent_type ?? "")}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{state.label}</span></span><StateDot kind={state.kind} />
+        </Button>; })}
+      </div>}
+    </div>
   </>;
+  if (presentation === "workspace") return <div className="h-full overflow-y-auto" data-agents-workspace>{observers}{content}</div>;
+  return <>
+    {observers}
+    <Button variant="ghost" size="xs" className={presentation === "summary" ? "h-8 w-full justify-start gap-2 px-1 text-xs font-normal" : "gap-1.5 rounded-full bg-muted/60 text-muted-foreground"} aria-label="Ver agentes en segundo plano" data-agent-map-button
+      onClick={() => { setSelectedId(null); if (onOpenWorkspace) onOpenWorkspace(); else setOpen(true); }}>
+      {presentation === "summary" ? <span className="inline-flex -space-x-0.5" aria-hidden>{tasks.slice(0, 3).map((part, index) => <AgentMark key={part.toolCallId} index={index} />)}</span> : <StateDot kind={running ? "running" : waiting ? "waiting" : unknown ? "unknown" : failed ? "error" : "done"} />}
+      {presentation === "summary" ? summary : `${tasks.length} ${tasks.length === 1 ? "agente" : "agentes"}`}
+      <span className="sr-only">{tasks.length} subagentes · {running} en ejecución</span>
+    </Button>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto lg:max-w-4xl" data-agent-map-dialog><DialogHeader><DialogTitle>Mapa de agentes</DialogTitle></DialogHeader>{content}</DialogContent></Dialog>
+  </>;
+}
+
+function AgentMark({ index }: { index: number }) {
+  return <span aria-hidden className={cn("shrink-0 text-base", ["text-purple-400", "text-amber-400", "text-teal-400"][index % 3])}>{["✣", "✳", "◈"][index % 3]}</span>;
 }
 
 function inputField(input: unknown, field: string): string | null {
@@ -103,23 +112,27 @@ export function agentToolCalls(messages: readonly UIMessage[]) {
   return messages.flatMap(message => message.role !== "assistant" ? [] : message.parts.filter(isToolUIPart));
 }
 
-function AgentDetails({ part, state, owner, readChild, onOpenChild }: {
-  part: TaskToolPart; state: AgentState; owner: string; readChild: (sessionId: string) => Promise<UIMessage[]>; onOpenChild?: (sessionId: string) => void;
+function AgentDetails({ part, state, owner, readChild, onOpenChild, compact = false, active = true }: {
+  active?: boolean; compact?: boolean; part: TaskToolPart; state: AgentState; owner: string; readChild: (sessionId: string) => Promise<UIMessage[]>; onOpenChild?: (sessionId: string) => void;
 }) {
   const childId = state.childId;
-  const query = useQuery({ queryKey: ["agent-activity-map", owner, childId], queryFn: () => readChild(childId!), enabled: Boolean(childId),
-    refetchInterval: state.kind === "running" || state.kind === "waiting" || state.kind === "unknown" ? 2000 : false, retry: false });
+  const elapsed = useElapsedSeconds(state.kind === "running", state.startedAt ?? null, state.kind === "unknown", part.toolCallId);
+  const query = useQuery({ queryKey: ["agent-activity-map", owner, childId], queryFn: () => readChild(childId!), enabled: Boolean(childId) && active,
+    refetchInterval: active && (state.kind === "running" || state.kind === "waiting" || state.kind === "unknown") ? 2000 : false, retry: false });
   const previousKind = useRef(state.kind);
   useEffect(() => {
     const changed = previousKind.current !== state.kind;
     previousKind.current = state.kind;
     // Read the last tool results once more before stopping the live poll.
-    if (changed && childId && (state.kind === "done" || state.kind === "error" || state.kind === "stopped")) void query.refetch();
-  }, [state.kind, childId, query.refetch]);
+    if (active && changed && childId && (state.kind === "done" || state.kind === "error" || state.kind === "stopped")) void query.refetch();
+  }, [active, state.kind, childId, query.refetch]);
   const calls = agentToolCalls(query.data ?? []);
+  const lastReply = query.data?.findLast(message => message.role === "assistant");
+  const model = lastReply ? replyModelLabel(lastReply) : null;
   return <div className="grid min-w-0 gap-4" data-agent-details>
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><StateDot kind={state.kind} /><span>{state.label}</span><span>· {agentName(part.input?.subagent_type ?? "")}</span></div>
-    <Collapsible defaultOpen><CollapsibleTrigger className="text-sm font-medium">Prompt del agente</CollapsibleTrigger><CollapsibleContent>
+    {compact && (state.kind === "running" || state.kind === "waiting" || state.kind === "unknown") ? <ExecutionRunHeader seconds={elapsed} disconnected={state.label === "Sin conexión"} unconfirmed={state.kind === "unknown"} retrying={state.label === "Reintentando"} waiting={state.kind === "waiting"} /> : null}
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><StateDot kind={state.kind} /><span>{state.label}</span><span>· {agentName(part.input?.subagent_type ?? "")}</span>{model ? <span className="ml-auto">{model}</span> : null}</div>
+    <Collapsible defaultOpen={!compact}><CollapsibleTrigger className="text-sm font-medium">Prompt del agente</CollapsibleTrigger><CollapsibleContent>
       <pre className="mt-2 max-h-52 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 font-sans text-sm">{part.input?.prompt || "El motor no informó el prompt."}</pre>
     </CollapsibleContent></Collapsible>
     {!childId ? <p className="text-sm text-muted-foreground">El agente todavía no informó su conversación.</p> : null}
@@ -128,16 +141,27 @@ function AgentDetails({ part, state, owner, readChild, onOpenChild }: {
     {query.data ? <Collapsible defaultOpen><CollapsibleTrigger className="text-sm font-medium">Herramientas y comandos ({calls.length})</CollapsibleTrigger><CollapsibleContent className="mt-2 grid gap-2">
       {calls.length === 0 ? <p className="text-sm text-muted-foreground">Todavía no hay comandos registrados.</p> : calls.map(call => {
         const name = call.type === "dynamic-tool" ? call.toolName : call.type.slice(5);
-        const command = inputField(call.input, "command") || inputField(call.input, "code") || inputField(call.input, "script");
         const label = inputField(call.input, "description") || inputField(call.input, "filePath") || name;
-        const output = call.state === "output-available" ? (typeof call.output === "string" ? call.output : JSON.stringify(call.output, null, 2)) : call.state === "output-error" ? call.errorText : null;
+        if (compact) return <ExecutionToolRow key={call.toolCallId} part={call} status={(state.kind === "unknown" || state.kind === "done" || state.kind === "stopped" || state.kind === "error") && call.state !== "output-available" && call.state !== "output-error" ? "unknown" : call.state === "output-error" || call.state === "output-denied" ? "failed" : call.state === "output-available" ? "done" : state.kind === "waiting" ? "waiting" : "running"} />;
         return <Collapsible key={call.toolCallId} className="border-b border-border pb-2"><CollapsibleTrigger className="flex w-full min-w-0 gap-2 text-left text-sm"><span className="shrink-0 font-medium">{name}</span><span className="truncate text-muted-foreground">{label}</span></CollapsibleTrigger><CollapsibleContent className="mt-2 grid gap-2">
-          <p className="text-xs text-muted-foreground">{call.state === "output-available" ? "Finalizó" : call.state === "output-error" ? "Falló" : call.state === "input-streaming" ? "Preparando" : "En ejecución"}</p>
-          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-xs">{command || JSON.stringify(call.input ?? {}, null, 2)}</pre>
-          {output ? <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-xs">{output.slice(0, 20000)}{output.length > 20000 ? "\n…" : ""}</pre> : null}
+          <AgentToolDetails call={call} />
         </CollapsibleContent></Collapsible>;
       })}
     </CollapsibleContent></Collapsible> : null}
     {childId && onOpenChild ? <Button variant="outline" className="justify-self-start" onClick={() => onOpenChild(childId)}>Abrir conversación del agente</Button> : null}
   </div>;
+}
+
+/** Keep expensive formatting inside the disclosure's mounted content. A folded
+ * row must not stringify its output on every activity poll or parent render. */
+function AgentToolDetails({ call }: { call: ReturnType<typeof agentToolCalls>[number] }) {
+  const output = useMemo(() => call.state === "output-available"
+    ? (typeof call.output === "string" ? call.output : JSON.stringify(call.output, null, 2))
+    : call.state === "output-error" ? call.errorText : null, [call]);
+  const command = useMemo(() => inputField(call.input, "command") || inputField(call.input, "code") || inputField(call.input, "script") || JSON.stringify(call.input ?? {}, null, 2), [call.input]);
+  return <>
+    <p className="text-xs text-muted-foreground">{call.state === "output-available" ? "Finalizó" : call.state === "output-error" ? "Falló" : call.state === "input-streaming" ? "Preparando" : "En ejecución"}</p>
+    <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-xs">{command}</pre>
+    {output ? <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-xs">{output.slice(0, 20000)}{output.length > 20000 ? "\n…" : ""}</pre> : null}
+  </>;
 }

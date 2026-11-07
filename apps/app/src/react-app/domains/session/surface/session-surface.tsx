@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { SessionResourcesCard } from "./session-resources-card";
 import { openMemberApiKeyDialog } from "../../connections/member-api-key-dialog";
 import { childOrigin, rememberChildOrigin, prepareChildReturn, consumeChildReturn, registerChildDraftPersistence } from "@/lib/child-navigation";
 import { remoteSessionRouteId } from "@/lib/remote-session-route";
@@ -25,7 +26,7 @@ import type { NativeSessionSnapshotTarget } from "@/app/lib/opencode-session-nat
 import { isDesktopRuntime } from "@/app/lib/runtime-env";
 import { useConversationNavigatorEnabled, useAgentActivityMapEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { ConversationNavigator } from "./conversation-navigator";
-import { AgentActivityMap } from "./composer/agent-activity-map";
+import { AgentActivityMap, conversationAgentTasks } from "./composer/agent-activity-map";
 import { cn } from "@/lib/utils";
 import { setThemeMode } from "@/app/theme";
 import { t } from "@/i18n";
@@ -76,6 +77,7 @@ import { isComputerTarget } from "./composer/computer-mentions";
 import { decodeComposerMentionValue, encodeComposerMentionValue, type ComposerMentionKind } from "./composer/mention-encoding";
 import { openDesktopUrl } from "@/app/lib/desktop";
 import { parseSlashCommandInvocation } from "./composer/slash-command";
+import type { SentMessageDraft } from "./composer/sent-message-tokens";
 import { COMPOSER_DRAFT_TOKEN_RE, COMPOSER_PILL_TOKEN_GLOBAL_RE, composerPillText, parseComposerPillToken } from "./composer/composer-pills";
 import { createPastedTextChip, insertDraftToken, resolvePastedTextPlaceholders } from "./composer/pasted-text";
 import {
@@ -733,6 +735,11 @@ function createImageLightboxEvalMessages(sessionId: string): UIMessage[] {
 }
 
 export type SessionSurfaceProps = {
+  resourceCardEnabled?: boolean;
+  resourceCardTargets?: OpenTarget[];
+  onAddResourceResult?: () => void;
+  onViewSources?: () => void;
+  onOpenAgents?: (childId?: string) => void;
   client: OpenworkServerClient;
   environmentClient?: OpenworkServerClient | null;
   workspaceId: string;
@@ -801,7 +808,7 @@ export type SessionSurfaceProps = {
   respondPermission?: (requestID: string, reply: "once" | "always" | "reject") => void;
   activeQuestion?: PendingQuestion | null;
   questionReplyBusy?: boolean;
-  respondQuestion?: (requestID: string, answers: string[][]) => void | Promise<void>;
+  respondQuestion?: (requestID: string, answers: string[][] | null) => void | Promise<void>;
   safeStringify?: (value: unknown) => string;
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   providerConnectedCount?: number;
@@ -1155,6 +1162,7 @@ function uncopiedChatReason(error: unknown): string | undefined {
 }
 
 export function SessionSurface(props: SessionSurfaceProps) {
+  const [sourcesMenuHost, setSourcesMenuHost] = useState<HTMLDivElement | null>(null);
   const local = useLocal();
   const { config: shellConfig } = useShellConfig();
   const showThinking = local.prefs.showThinking;
@@ -3719,12 +3727,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
     });
   }, [openingHistory.runWithFullSnapshot, props.onForkAtMessage, props.sessionId, sessionOwner, setError]);
 
-  const handleEditUserMessage = useCallback((messageId: string, text: string) => {
+  const handleEditUserMessage = useCallback((messageId: string, text: string, sent?: SentMessageDraft) => {
     if (archived) return;
+    // Chips come back as chips: register the mentions and pasted text the
+    // draft's tokens name before the editor renders it.
+    if (sent) {
+      setComposerMentions(props.sessionId, { ...mentions, ...sent.mentions });
+      setComposerPasteParts(props.sessionId, sent.pasteParts);
+    }
     // Preserve the boundary with the draft; the destructive revert is deferred
     // until the replacement prompt is actually sent.
     void typeComposerText(text, messageId);
-  }, [archived, typeComposerText]);
+  }, [archived, mentions, props.sessionId, setComposerMentions, setComposerPasteParts, typeComposerText]);
 
   const handleRestoreRevertedSession = useCallback(() => {
     if (archived || !archiveStateKnown || sessionWorkHeld(props.opencodeBaseUrl, props.sessionId)) return;
@@ -3826,8 +3840,22 @@ export function SessionSurface(props: SessionSurfaceProps) {
       data-session-surface-workspace-id={props.workspaceId}
       onPointerDownCapture={handleFindSurfaceInteraction}
       onFocusCapture={handleFindSurfaceInteraction}
-      className="flex h-full min-h-0 flex-col"
+      className="@container relative flex h-full min-h-0 flex-col"
     >
+      {props.resourceCardEnabled && props.onAddResourceResult && props.onViewSources ? (
+        <div className="absolute right-2 top-2 z-10 hidden w-[300px] @min-[1100px]:block">
+          <SessionResourcesCard
+            agents={props.onOpenAgents && conversationAgentTasks(renderedMessages).length ? <AgentActivityMap key={historyViewOwner} presentation="summary" messages={renderedMessages} workspaceId={props.workspaceId} owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive} syncDegraded={runSyncHealth.degraded} readChild={readAgentMessages} onOpenWorkspace={() => props.onOpenAgents?.()} /> : undefined}
+            messages={renderedMessages}
+            targets={[...verifiedOpenTargets, ...(props.resourceCardTargets ?? [])]}
+            onOpen={handleOpenTarget}
+            onAddResult={props.onAddResourceResult}
+            onViewSources={props.onViewSources}
+            sourceMenuHostRef={setSourcesMenuHost}
+          />
+        </div>
+      ) : null}
+      <div className={cn("flex h-full min-h-0 flex-col", props.resourceCardEnabled && "@min-[1100px]:pr-[316px]")}>
       <SessionHistoryStatus key={sessionOwner} complete={hasFullHistory && !openingHistory.openingError} pending={pendingSessionLoad}
          failedReason={uncopiedChatReason(openingHistory.openingError) ?? uncopiedChatReason(snapshotQuery.error)}
          loading={openingHistory.openingLoading || snapshotQuery.isFetching && openingHistory.partial || openingHistory.pages.loading}
@@ -3838,6 +3866,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         <div
           ref={scrollRef}
           data-thread-scroll
+          tabIndex={0}
           onWheel={(event) => {
             sessionScroll.markScrollGesture(event.target);
           }}
@@ -3947,7 +3976,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
                       onForkAtMessage={handleForkAtMessage}
                       forkingMessageId={forkingMessageId}
                       onEditUserMessage={handleEditUserMessage}
-                      onOpenSubagentSession={openChild}
+                      onOpenSubagentSession={props.onOpenAgents ?? openChild}
                       onOpenRemoteTask={props.onOpenRemoteTask ? openRemoteTask : undefined}
                       onStopSubagentSession={archived ? undefined : handleStopSubagentSession}
                       composerSubagentToolCallIds={subagentTrackerToolCallIds}
@@ -4059,6 +4088,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
         </div> : null}
         <SignInHandoffNotice workspaceId={props.workspaceId} sessionId={props.sessionId} hasDraft={Boolean(persistableComposerDraftText(draft).trim())} />
         <ReactSessionComposer
+          sourcesMenuHost={props.resourceCardEnabled ? sourcesMenuHost : null}
+          chatCommandTarget={{ client: props.client, nativeClient: opencodeClient, workspaceId: props.workspaceId, opencodeBaseUrl: props.opencodeBaseUrl,
+            sessionId: props.sessionId, title: props.sessionTitle, secondary: props.chatPane === "secondary", messages: snapshot?.messages,
+            contextLimit: props.providerCatalog?.[sessionModel.selectedModel.providerID]?.[sessionModel.selectedModel.modelID]?.limit.context,
+            loadTranscript: async () => {
+              let messages: OpenworkSessionHistory["messages"] | null = null;
+              await openingHistory.runWithFullSnapshot(async full => { messages = full.messages; }, { fresh: true });
+              if (!messages) throw new Error("No se pudo leer el historial completo.");
+              return messages;
+            },
+            fork: props.onForkAtMessage ? async () => { await props.onForkAtMessage?.(null, props.sessionId, () => branchOwnerRef.current?.owner === sessionOwner); } : undefined,
+          }}
           runModeControl={<WorkspaceRunModeMenu client={props.client} workspaceId={props.workspaceId} busy={composerBusy || preparingCloudTools || Boolean(props.activePermission || props.activeQuestion)} />}
           agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={sessionOwner} messages={visibleMessages} workspaceId={props.workspaceId}
             owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive}
@@ -4185,6 +4226,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
                         void Promise.resolve(props.respondQuestion?.(composerQuestion.id, answers)).catch(() => {});
                       }
                     }}
+                    onDismiss={props.respondQuestion ? () => {
+                      if (composerQuestion) {
+                        void Promise.resolve(props.respondQuestion?.(composerQuestion.id, null)).catch(() => {});
+                      }
+                    } : undefined}
                   />
                   </div>
                 ) : (props.todos ?? []).some((todo) => todo.content.trim()) ? (
@@ -4229,6 +4275,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           ],
         }}
       /> : null}
+      </div>
     </div>
     </DevProfiler>
   );

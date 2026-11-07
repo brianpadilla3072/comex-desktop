@@ -88,3 +88,8 @@ evals/results/
 # API contracts are generated from source for builds and CI.
 /packages/docs/openapi.json
 /packages/sdk/src/gen/
+
+# Generated standalone document runtime; built in CI for the target platform.
+/apps/desktop/vendor/comex-python/
+
+__pycache__/

@@ -4,7 +4,8 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistIntegrationsEnabled } from "../comex/features.js";
+import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
@@ -18,6 +19,7 @@ export function registerSpecialistRoutes(options: {
   createWorkspace: (ctx: RequestContext, payload: Record<string, unknown>) => Promise<string>;
 }) {
   const { routes, config, readJsonBody, jsonResponse, ensureWritable, createWorkspace } = options;
+  registerIntegrationRoutes(options);
   function requireFeature(write = false) {
     if (!specialistApplicationsEnabled()) throw new ApiError(404, "specialists_disabled", "Los perfiles especialistas están desactivados.");
     if (write) ensureWritable(config);
@@ -27,7 +29,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {

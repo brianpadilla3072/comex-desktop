@@ -204,6 +204,7 @@ export type AccountStatusMenuProps = {
   openWorkConnectState?: SessionCloudMcpMaintenanceState;
   showSettingsButton?: boolean;
   onOpenAccountSettings?: () => void;
+  compact?: boolean;
   onSendFeedback?: () => void;
 };
 
@@ -359,24 +360,24 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             data-runtime-state={runtimeStatus?.variant}
             data-connect-state={connectStatus?.state}
             /* ps-1.5 puts the 24px avatar 12px from the edge, so the name lands on the sidebar label lane. */
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg ps-1.5 pe-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent max-lg:min-h-11"
-            aria-label={signedIn ? `${accountLabel} — account and status` : "Account and status"}
-            title={connectNeedsAttention
+            className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-lg ps-1.5 pe-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent max-lg:min-h-11", props.compact && "size-9 flex-none justify-center p-0")}
+            aria-label={props.compact ? `${accountLabel} — cuenta y ajustes` : signedIn ? `${accountLabel} — account and status` : "Account and status"}
+            title={props.compact ? accountLabel : connectNeedsAttention
               ? openWorkConnectAttentionTitle(connectStatus.description)
               : connectStatus
                 ? `${runtimeStatus ? `${runtimeStatus.label} · ` : ""}OpenWork Connect: ${connectStatus.label}`
                 : runtimeStatus?.label}
           >
-              {signedIn ? (
+              {signedIn || props.compact && specialist?.catalog?.user ? (
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
-                  {accountInitials(user.name, user.email)}
+                  {signedIn ? accountInitials(user.name, user.email) : accountInitials(accountLabel, "")}
                 </span>
               ) : (
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground">
                   <UserRound size={13} />
                 </span>
               )}
-              <span className="min-w-0 flex-1">
+              <span className={cn("min-w-0 flex-1", props.compact && "sr-only")}>
                 <span className="block truncate text-[12px] font-medium text-sidebar-foreground">
                   {accountLabel}
                 </span>
@@ -384,7 +385,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
                   {accountDetail}
                 </span>
               </span>
-              {connectNeedsAttention ? (
+              {connectNeedsAttention && !props.compact ? (
                 <span className="flex size-4 shrink-0 items-center justify-center">
                   <StatusDot variant="disconnected" />
                 </span>
@@ -392,7 +393,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
           </button>
         }
       />
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Account menu"><MoreHorizontal size={14} /></Button>} />
+      {!props.compact ? <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Account menu"><MoreHorizontal size={14} /></Button>} /> : null}
       <DropdownMenuContent side="top" align="start" className="w-72">
         {signedIn ? (
           <div className="px-2 py-1.5 text-[11px] text-muted-foreground">{user.email}</div>

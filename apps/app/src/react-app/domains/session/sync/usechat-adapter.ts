@@ -165,6 +165,7 @@ export function textPartToUIPart(part: TextPart): UIMessage["parts"][number] | n
       ...(backgroundShell ? { backgroundShell } : {}),
       ...(subagentNotice ? { subagentNotice } : {}),
       ...(part.metadata?.openworkPastedText === true ? { pastedText: true } : {}),
+      ...(typeof part.metadata?.openworkFileMention === "string" ? { fileMention: part.metadata.openworkFileMention } : {}),
     } },
   };
 }
@@ -192,6 +193,7 @@ export function snapshotToUIMessages(snapshot: Pick<OpenworkSessionSnapshot, "me
       metadata: { opencode: {
         ...(typeof created === "number" ? { created } : {}),
         ...(typeof completed === "number" ? { completed } : {}),
+        ...(message.info.role === "assistant" && "summary" in message.info && message.info.summary === true && typeof completed === "number" ? { contextCompacted: true } : {}),
         ...(typeof parentID === "string" ? { parentID } : {}),
         ...(replyModelFromInfo(message.info) ? { replyModel: replyModelFromInfo(message.info) } : {}),
       } },

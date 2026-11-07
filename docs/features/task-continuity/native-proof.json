@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-11-06T22:05:29.751Z",
+  "model": "opencode/big-pickle",
+  "workspace": "/tmp/task-native-proof-2FxjN0/project",
+  "assertions": [
+    "Big Pickle creó código y pruebas; las pruebas pasan fuera del agente",
+    "El objetivo abrió un turno separado de revisión de código y terminó con evidencia",
+    "Objetivo y continuidad sobreviven al reinicio del servidor",
+    "El mismo chat conserva su identidad e historial al pasar a un worktree",
+    "El chat vuelve al proyecto y retira el worktree limpio sin perder los archivos originales",
+    "El token de cliente no puede activar ni cambiar objetivos",
+    "Un documento real termina en un turno, sin activar revisión de código"
+  ],
+  "status": "Passed",
+  "sessionId": "ses_e4d1ac325ffeYTYZ83hi2S3Ebn",
+  "finishedAt": "2026-11-06T22:06:20.841Z"
+}

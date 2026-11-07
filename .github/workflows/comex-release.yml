@@ -1,0 +1,241 @@
+name: Comex release
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'patches/**'
+      - 'pack/**'
+      - 'scripts/**'
+      - 'constants.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - '.npmrc'
+      - '.github/workflows/comex-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize publications. A newer push must not interrupt a release halfway.
+concurrency:
+  group: comex-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      published: ${{ steps.release.outputs.published }}
+    steps:
+      - uses: actions/github-script@v7
+        id: release
+        with:
+          script: |
+            const version = `1.0.${context.runNumber}`;
+            const tag = `v${version}`;
+            core.setOutput('version', version);
+            core.setOutput('tag', tag);
+            let release;
+            try {
+              release = (await github.rest.repos.getReleaseByTag({ ...context.repo, tag })).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (release && release.target_commitish !== context.sha) {
+              throw new Error(`Release ${tag} belongs to another commit.`);
+            }
+            core.setOutput('published', Boolean(release && !release.draft));
+            if (release && !release.draft) return;
+            try {
+              const latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
+              const match = /^v1\.0\.(\d+)$/.exec(latest.tag_name);
+              if (match && Number(match[1]) >= context.runNumber) {
+                throw new Error(`Refusing to replace newer release ${latest.tag_name} with ${tag}.`);
+              }
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+  validate:
+    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.10'
+      - name: Validate pack
+        run: python pack/scripts/validar.py
+      - name: Verify updater and release validation
+        run: node --test apps/desktop/electron/updater.test.mjs scripts/release/comex-artifacts.test.mjs
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.4.0'
+      - name: Install verification dependencies
+        run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
+      - name: Verify session recovery, Git isolation and evaluation
+        run: node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/server/test/comex-continuity.test.ts apps/server/test/comex-continuity-routes.test.ts apps/server/test/comex-git.test.ts apps/server/test/comex-git-routes.test.ts scripts/comex-eval.test.mjs scripts/comex-verify.test.mjs scripts/release/comex-python-runtime.test.mjs
+      - name: Verify bundled model catalog and offline updates
+        run: |
+          node scripts/model-catalog.mjs check
+          node --conditions=development --import ./apps/server/node_modules/tsx/dist/loader.mjs --test apps/server/test/model-guide.test.ts apps/server/test/model-guide-routes.test.ts apps/server/test/comex-permission-modes.test.ts apps/server/test/comex-scoped-memory.test.ts apps/app/tests/chat-commands.test.ts
+          TSX_TSCONFIG_PATH=apps/app/tsconfig.json node --conditions=development --import ./apps/server/node_modules/tsx/dist/loader.mjs --test apps/app/tests/model-guide.test.tsx
+      - name: Verify recovery and review panels
+        run: bun test apps/app/tests/comex-continuity-panel.test.tsx apps/app/tests/comex-git-panel.test.tsx apps/app/tests/comex-project-panel.test.tsx
+      - name: Verify public release metadata
+        run: bun test apps/app/tests/comex-release-metadata.test.ts apps/app/tests/version-gate.test.ts
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.published != 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux
+            triple: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: win
+            triple: x86_64-pc-windows-msvc
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      TARGET: ${{ matrix.triple }}
+      PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: 'false'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      SIGN_WINDOWS: 'false'
+    steps:
+      - name: Enable long Windows paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.4.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.10'
+      - name: Install desktop dependencies
+        run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.7'
+          enable-cache: false
+      - name: Prepare and verify relocatable document runtime
+        run: node scripts/release/comex-prepare-python.mjs
+      - name: Verify document generation with the bundled interpreter
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export COMEX_DOCUMENTS_PYTHON="$PWD/apps/desktop/vendor/comex-python/python.exe"
+          else
+            export COMEX_DOCUMENTS_PYTHON="$PWD/apps/desktop/vendor/comex-python/bin/python3"
+          fi
+          node scripts/comex-documents.mjs smoke --out "$RUNNER_TEMP/comex-document-smoke"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comex-documents-${{ matrix.target }}
+          path: ${{ runner.temp }}/comex-document-smoke/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stamp version
+        run: node scripts/release/stamp-version.mjs --version "$RELEASE_VERSION"
+      - name: Build desktop
+        run: pnpm --filter @openwork/desktop build:electron
+      - name: Package without publishing
+        run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --${{ matrix.target }} --x64 --publish never
+      - name: Verify and stage updater artifacts
+        run: node scripts/release/comex-artifacts.mjs apps/desktop/dist-electron "$RELEASE_VERSION" "${{ matrix.target }}" release-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comex-release-${{ matrix.target }}
+          path: release-assets/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish:
+    needs: [prepare, validate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: comex-release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Recheck complete release before publication
+        run: node scripts/release/comex-artifacts.mjs release-assets "$RELEASE_VERSION" all verified-assets
+      - name: Create or resume draft
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            let release;
+            try {
+              release = (await github.rest.repos.getReleaseByTag({ ...context.repo, tag })).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (release) {
+              if (!release.draft || release.target_commitish !== context.sha) {
+                throw new Error('Refusing to overwrite an existing published release or a different commit.');
+              }
+            } else {
+              await github.rest.repos.createRelease({
+                ...context.repo, tag_name: tag, target_commitish: context.sha,
+                name: `Comex ${process.env.RELEASE_VERSION}`, draft: true,
+                body: `Actualización automática de Comex.\n\nCódigo: ${context.sha}\n\nWindows x64: instalador .exe. Linux x64: AppImage.`,
+              });
+            }
+      - name: Build Comex release inventory
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            const versions = releases
+              .filter(release => !release.draft && !release.prerelease && /^v1\.0\.\d+$/.test(release.tag_name))
+              .filter(release => ['latest.yml', 'latest-linux.yml', 'comex-release.json'].every(name => release.assets.some(asset => asset.name === name)))
+              .map(release => release.tag_name.slice(1));
+            const version = process.env.RELEASE_VERSION;
+            const metadata = {
+              latestAppVersion: version,
+              publishedDesktopVersions: [...new Set([...versions, version])].sort((a, b) => Number(a.split('.')[2]) - Number(b.split('.')[2])),
+            };
+            require('node:fs').writeFileSync('verified-assets/comex-release.json', JSON.stringify(metadata, null, 2) + '\n');
+      - name: Upload complete release
+        run: gh release upload "$RELEASE_TAG" verified-assets/* --clobber
+      - name: Publish after both platforms succeeded
+        run: gh release edit "$RELEASE_TAG" --draft=false --latest

@@ -1,3 +1,7 @@
+import type { MemoryScope, MemorySnapshot } from "@openwork/types/scoped-memory";
+import type { TaskState, GoalInput } from "@openwork/types/task-continuity";
+import type { PermissionProfileInput, PermissionModesSnapshot } from "@openwork/types/permission-modes";
+import type { GuideObservation, GuideSnapshot } from "@openwork/types/model-guide";
 import { z } from "zod";
 import type { McpStatusMap } from "../types";
 import type { ConnectionActionIntent } from "@openwork/types/connection-action-app";
@@ -119,6 +123,7 @@ export interface SpecialistApplication {
 }
 export interface SpecialistCatalog {
   enabled: boolean;
+  integrationsEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
   applications: SpecialistApplication[];
@@ -128,6 +133,13 @@ export interface SpecialistApplicationInput {
   template: "comex" | "custom"; packPath?: string; preferredWorkspaceId?: string;
 }
 export interface SpecialistPackSummary { agents: string[]; skills: string[]; fileCount: number; bytes: number }
+export interface SpecialistIntegrationCatalog {
+  providers: Array<{ id: string; label: string; enabled: boolean; installed: boolean; authenticated: boolean; version?: string; loginPending: boolean; error: string | null }>;
+  packFactories: Array<{ id: string; name: string; version?: string }>;
+  definitions: Array<{ id: string; label: string }>;
+  engines: Array<{ id: string; label: string }>;
+}
+export interface SpecialistPackReview { fingerprint: string; changes: Array<{ path: string; action: string }>; conflicts: Array<{ workspaceId: string; path: string }>; pack: SpecialistPackSummary }
 
 export interface EngineV2PreviewStatus {
   connectionSource?: "installed";
@@ -1637,6 +1649,15 @@ export type WorkspaceRunModeUpdate = WorkspaceRunModeResponse & {
   refresh: "reloaded" | "deferred" | "skipped";
 };
 
+export type ComexCheckpointInput = {
+  objective: string; decisions: string[]; progress: string[]; pending: string[];
+  artifacts: { path: string; evidence: string }[];
+};
+export type ComexCheckpoint = ComexCheckpointInput & { version: 1; revision: number; sessionId: string; updatedAt: string };
+export type ComexCheckpointState = { status: "missing" | "invalid"; revision: 0; checkpoint: null } | { status: "ready"; revision: number; checkpoint: ComexCheckpoint };
+export type ComexGitReview = { root: string; head: string | null; status: string[]; diff: string; truncated: boolean };
+export type ComexGitWorktree = { path: string; head: string; detached: boolean; includesUncommittedChanges: boolean };
+
 export function createOpenworkServerClient(options: { baseUrl: string; token?: string; hostToken?: string }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const token = options.token;
@@ -1868,6 +1889,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         `/workspace/${workspaceId}/config`,
         { token, hostToken, timeoutMs: timeouts.config },
       ),
+    getPermissionModes: (workspaceId: string) => requestJson<PermissionModesSnapshot>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/permission-modes`, { token, hostToken }),
+    savePermissionMode: (workspaceId: string, revision: number, profile: PermissionProfileInput, id?: string) => requestJson<PermissionModesSnapshot>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/permission-modes`, { token, hostToken, method: "POST", body: { revision, profile, ...(id ? { id } : {}) } }),
+    deletePermissionMode: (workspaceId: string, revision: number, id: string) => requestJson<PermissionModesSnapshot>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/permission-modes/${encodeURIComponent(id)}`, { token, hostToken, method: "DELETE", body: { revision } }),
+    applyPermissionMode: (workspaceId: string, revision: number, id: string | null) => requestJson<PermissionModesSnapshot>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/permission-modes/active`, { token, hostToken, method: "PUT", body: { revision, id, confirmed: true } }),
     getWorkspaceRunMode: (workspaceId: string) =>
       requestJson<WorkspaceRunModeResponse>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/permissions/mode`, {
         token, hostToken, timeoutMs: timeouts.config,
@@ -2421,12 +2446,35 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       ),
 
     getSpecialistApplications: () => requestJson<SpecialistCatalog>(baseUrl, "/specialist-applications", { token, hostToken }),
+    getSpecialistIntegrations: (id: string) => requestJson<SpecialistIntegrationCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/integrations`, { token, hostToken, timeoutMs: 30_000 }),
+    specialistIntegrationAction: (id: string, provider: string, payload: { action: "install" | "login" | "disconnect" | "test" | "key" | "enable"; apiKey?: string; enabled?: boolean }) => requestJson<{ authorizationUrl?: string; verifiedAt?: string; sources?: Array<{ title: string; url: string }> }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/integrations/${encodeURIComponent(provider)}/action`, { token, hostToken, method: "POST", body: payload, timeoutMs: payload.action === "install" ? 240_000 : 60_000 }),
+    previewSpecialistPackUpdate: (id: string, packPath: string) => requestJson<SpecialistPackReview>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/pack/preview-update`, { token, hostToken, method: "POST", body: { packPath }, timeoutMs: 60_000 }),
+    updateSpecialistPack: (id: string, packPath: string, fingerprint: string) => requestJson<{ applied: number; preserved: Array<{ workspaceId: string; path: string }> }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/pack/update`, { token, hostToken, method: "POST", body: { packPath, fingerprint }, timeoutMs: 60_000 }),
+    exportSpecialistOcx: (id: string, destination: string) => requestJson<{ folderPath: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/pack/export-ocx`, { token, hostToken, method: "POST", body: { destination }, timeoutMs: 60_000 }),
     previewSpecialistPack: (payload: { template?: "comex"; packPath?: string }) => requestJson<SpecialistPackSummary>(baseUrl, "/specialist-applications/preview-pack", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     createSpecialistApplication: (payload: SpecialistApplicationInput) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     updateSpecialistApplication: (id: string, payload: Pick<SpecialistApplicationInput, "name" | "specialty" | "personality">) => requestJson<{ catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "PATCH", body: payload }),
     activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
     createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
-    getComexFeatures: () => requestJson<{ enabled: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
+    putComexCheckpoint: (workspaceId: string, sessionId: string, body: { expectedRevision: number; checkpoint: ComexCheckpointInput }) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body }),
+    getComexGitReview: (workspaceId: string, sessionId?: string) => requestJson<ComexGitReview>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/review${sessionId ? `?codeOnly=true&session=${encodeURIComponent(sessionId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 }),
+    createComexGitWorktree: (workspaceId: string, expectedHead: string) => requestJson<ComexGitWorktree>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/worktrees`, { token, hostToken, method: "POST", body: { expectedHead }, timeoutMs: 30_000 }),
+    getModelGuide: (scope: string) => requestJson<GuideSnapshot>(baseUrl, `/model-guide?scope=${encodeURIComponent(scope)}`, { token, hostToken }),
+    discoverModels: (scope: string, models: GuideObservation[]) => requestJson<GuideSnapshot>(baseUrl, "/model-guide/discover", { token, hostToken, method: "POST", body: { scope, models } }),
+    refreshModelGuide: (scope: string) => requestJson<GuideSnapshot>(baseUrl, `/model-guide/refresh?scope=${encodeURIComponent(scope)}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 15_000 }),
+    getTaskContinuity: (workspaceId: string, sessionId: string) => requestJson<TaskState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(sessionId)}`, { token, hostToken }),
+    updateTaskGoal: (workspaceId: string, sessionId: string, body: { revision: number; action: "start" | "pause" | "resume"; goal?: GoalInput }) => requestJson<TaskState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body, timeoutMs: 60_000 }),
+    listTaskWorktrees: (workspaceId: string, sessionId: string) => requestJson<{ items: { path: string; head: string; locked: boolean }[] }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(sessionId)}/worktrees`, { token, hostToken, timeoutMs: 30_000 }),
+    changeTaskWorktree: (workspaceId: string, sessionId: string, body: { action: "isolate" | "return" | "remove"; expectedHead?: string; path?: string }) => requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(sessionId)}/worktrees`, { token, hostToken, method: "POST", body, timeoutMs: 60_000 }),
+    compactChat: (workspaceId: string, sessionId: string) => requestJson<{ data: unknown }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode2/api/session/${encodeURIComponent(sessionId)}/compact`, { token, hostToken, method: "POST", body: { delivery: "steer" } }),
+    getChatUsageLimits: (workspaceId: string) => requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode2/api/experimental/usage/limits`, { token, hostToken }),
+
+    getScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken }),
+    saveScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, text: string, id?: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "POST", body: { expectedRevision, text, ...(id ? { id } : {}) } }),
+    deleteScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, id: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "DELETE", body: { expectedRevision, id } }),
+
+    getComexFeatures: () => requestJson<{ enabled: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */
     readWorkspaceFile: (workspaceId: string, path: string, options?: { sessionId?: string; fileScope?: "workspace" | "conversation" }) =>
@@ -2467,7 +2515,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
 
     writeWorkspaceFile: (
       workspaceId: string,
-      payload: { path: string; content: string; baseUpdatedAt?: number | null; force?: boolean; sessionId?: string; fileScope?: "workspace" | "conversation" },
+      payload: { path: string; content: string; baseUpdatedAt?: number | null; createOnly?: boolean; force?: boolean; sessionId?: string; fileScope?: "workspace" | "conversation" },
     ) =>
       requestJson<OpenworkWorkspaceFileWriteResult>(
         baseUrl,

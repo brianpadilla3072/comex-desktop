@@ -43,11 +43,12 @@ def _bootstrap():
     except ImportError:
         pass
     is_win = os.name == "nt"
-    venv_py = Path.home() / ".comex-pack" / "venv" / ("Scripts/python.exe" if is_win else "bin/python")
-    if venv_py.exists() and Path(sys.executable).resolve() != venv_py.resolve():
+    venv_root = Path(os.environ.get("COMEX_PACK_HOME", Path.home() / ".comex-pack")) / "venv"
+    venv_py = venv_root / ("Scripts/python.exe" if is_win else "bin/python")
+    if venv_py.exists() and Path(sys.prefix).resolve() != venv_root.resolve():
         os.execv(str(venv_py), [str(venv_py), __file__, *sys.argv[1:]])
-    sys.exit("Falta la librería openpyxl. Ejecutá 'bash instalar.sh' en la carpeta del pack "
-             "(o 'python3 -m pip install --user openpyxl').")
+    sys.exit("Falta la librería openpyxl. Prepará el entorno privado con "
+             "'python scripts/documents.py setup' (o 'bash instalar.sh' en el pack).")
 
 
 _bootstrap()

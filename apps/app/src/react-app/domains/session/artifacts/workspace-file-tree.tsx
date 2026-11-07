@@ -29,6 +29,7 @@ export type WorkspaceFileAction = {
 };
 
 type WorkspaceFileTreeProps = {
+  cacheScope?: string;
   client: OpenworkServerClient;
   workspaceId: string;
   workspaceName: string;
@@ -69,12 +70,12 @@ function treePath(entry: OpenworkWorkspaceCatalogEntry) {
   return entry.kind === "dir" ? `${entry.path}/` : entry.path;
 }
 
-export function WorkspaceFileTree({ client, workspaceId, workspaceName, selectedPath, onOpenFile, fileActions }: WorkspaceFileTreeProps) {
+export function WorkspaceFileTree({ client, workspaceId, workspaceName, selectedPath, onOpenFile, fileActions, cacheScope }: WorkspaceFileTreeProps) {
   const showNativeMenu = useNativeContextMenu();
   const showNativeMenuRef = useRef(showNativeMenu);
   showNativeMenuRef.current = showNativeMenu;
   const query = useQuery({
-    queryKey: ["workspace-file-tree", workspaceId] as const,
+    queryKey: ["workspace-file-tree", workspaceId, cacheScope ?? null] as const,
     queryFn: () => client.listWorkspaceFiles(workspaceId),
     staleTime: 30_000,
     refetchOnWindowFocus: false,

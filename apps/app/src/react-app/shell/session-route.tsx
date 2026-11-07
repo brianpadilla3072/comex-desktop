@@ -1,3 +1,4 @@
+import { ChatCommandHost } from "@/react-app/domains/session/commands/host";
 /** @jsxImportSource react */
 import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { freeAutoSwitchedOff, modelForNewTask, openComposerModelPickerEvent } from "@/app/lib/inference-access";
@@ -131,7 +132,7 @@ import {
   type NewTaskComposerHandoff,
 } from "@/react-app/domains/session/chat/new-task-composer";
 import { isDesktopProviderBlocked } from "@/app/cloud/desktop-app-restrictions";
-import { useCheckDesktopRestriction, useOrgRestrictions } from "@/react-app/domains/cloud/desktop-config-provider";
+import { useCheckDesktopRestriction, useOrgRestrictions, useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { newChatDefaultModel, orgDefaultModelForEngine } from "@/react-app/domains/models/org-default-model";
 import { useRestrictionNotice } from "@/react-app/domains/cloud/restriction-notice-provider";
 import { ReactSessionRuntime } from "@/react-app/domains/session/sync/runtime-sync";
@@ -434,7 +435,8 @@ export function SessionRoute() {
   // On desktop, Dashboard and Automations stay in the sidebar while signed
   // out: each page explains that it needs OpenWork Cloud and calls nothing.
   const denAuthChecking = denAuth.status === "checking";
-  const signedOutDesktopSurfaces = isDesktopRuntime() && !denAuthChecking && !denAuth.isSignedIn;
+  const referenceLayout = useComexWorkspaceEnabled();
+  const signedOutDesktopSurfaces = (isDesktopRuntime() || referenceLayout) && !denAuthChecking && !denAuth.isSignedIn;
   const dashboardSurfaceAvailable = mcpAppsDashboardEnabled || signedOutDesktopSurfaces;
   const dashboardRouteActive = dashboardSurfaceAvailable && dashboardRouteRequested;
   const dashboardWorkspaceRoute = dashboardRouteRequested
@@ -550,6 +552,7 @@ export function SessionRoute() {
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
     setRetryingWorkspaceIds,
+    sessionListErrorsByWorkspaceId,
     startupRetryTimerRef,
     selectedWorkspaceId,
     selectedWorkspace,
@@ -869,8 +872,8 @@ export function SessionRoute() {
   const pendingConversation = pendingConversationForRoute(pendingConversations, requestedPendingId, sessionDraftScope, selectedWorkspaceId, location.pathname === "/session");
   const workspaceSessionGroups = useMemo(() => {
     const lists = withPendingSessionPublication(sessionsByWorkspaceId, pendingConversations, sessionDraftScope);
-    return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds));
-  }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
+    return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds), sessionListErrorsByWorkspaceId);
+  }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionListErrorsByWorkspaceId, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
   useEffect(() => {
     for (const entry of Object.values(pendingConversations)) {
       if (entry.scope === sessionDraftScope && entry.session && sessionsByWorkspaceId[entry.destination.workspaceId]?.some((session) => session.id === entry.sessionId)) {
@@ -3895,6 +3898,7 @@ export function SessionRoute() {
   };
 
   return (
+    <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
     <WorkspaceProvider
       client={opencodeClient}
       opencodeBaseUrl={opencodeBaseUrl}
@@ -4454,5 +4458,6 @@ export function SessionRoute() {
     />
     </GatewayModelAccessProvider>
     </WorkspaceProvider>
+    </ChatCommandHost>
   );
 }

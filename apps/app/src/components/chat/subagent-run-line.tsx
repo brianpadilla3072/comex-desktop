@@ -1,5 +1,6 @@
 "use client"
 
+import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useEffect, useRef, useState } from "react"
 
 import {
@@ -130,6 +131,7 @@ export function useElapsedSeconds(active: boolean, startedAt: number | null, syn
  * to safe task/output labels, never raw prompts or payloads.
  */
 export function SubagentRunLine({ part, className, parentActive = true }: SubagentRunLineProps) {
+  const referenceFeedback = useComexWorkspaceEnabled();
   const [open, setOpen] = useState(false)
   const { onOpenSubagentSession, onStopSubagentSession, composerSubagentToolCallIds, syncDegraded, workspaceId } = useMessageList()
   const [stopping, setStopping] = useState(false)
@@ -161,7 +163,12 @@ export function SubagentRunLine({ part, className, parentActive = true }: Subage
       ? "Task failed"
       : "Completed"
 
-  const lines = (
+  const referenceLabel = syncDegraded || activity === "waiting-start" || activity === "waiting-result" ? `${title} · Estado sin confirmar`
+    : permissionPending || questionPending ? `${title} · Necesita tu respuesta`
+    : stopped && !childRunning ? `${title} · Detenido`
+    : isFailed || activity === "failed" ? `${title} · Falló`
+    : inFlight ? `La actividad de ${title} ha comenzado` : `La actividad de ${title} ha finalizado`;
+  const lines = referenceFeedback ? <span className="flex min-w-0 items-center gap-2"><span aria-hidden className="text-purple-400">✣</span><span className="truncate">{referenceLabel}</span></span> : (
     <>
       <span className="flex min-w-0 items-center gap-2">
         <span className={cn("min-w-0 truncate", activity === "shimmer" && "ow-text-shimmer")}>

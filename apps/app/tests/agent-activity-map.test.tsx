@@ -67,3 +67,24 @@ test("no delegated tasks means no button; tasks from earlier turns remain inspec
   expect(host.querySelector("button")).toBeNull();
   expect(conversationAgentTasks([...tasks(), { id: "next", role: "user", parts: [{ type: "text", text: "Seguí" }] }]).length).toBe(3);
 });
+
+test("collapsed tool details do not serialize large outputs until opened", async () => {
+  let serialized = 0;
+  const output = { toJSON() { serialized++; return { rows: Array.from({ length: 4000 }, (_, index) => ({ index, evidence: "Datos sintéticos de rendimiento" })) }; } };
+  const readChild = async (): Promise<UIMessage[]> => [{ id: "reply-perf", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "bash", toolCallId: "perf-tool", state: "output-available", input: { description: "Resultado extenso", command: "revisar" }, output }] }];
+  await act(async () => root.render(<QueryClientProvider client={queryClient}><AgentActivityMap messages={tasks()} workspaceId="ws-map-test" owner="perf-map-owner" parentTitle="Prueba" parentActive={false} syncDegraded={false} readChild={readChild} /></QueryClientProvider>));
+  await act(async () => host.querySelector<HTMLElement>("[data-agent-map-button]")!.click());
+  await act(async () => { document.querySelector<HTMLElement>('[data-agent-node="finished"]')!.click(); await new Promise(resolve => setTimeout(resolve, 30)); });
+  expect(serialized).toBe(0);
+  const trigger = [...document.querySelectorAll<HTMLElement>('[data-agent-details] button')].find(node => node.textContent?.includes("Resultado extenso"))!;
+  await act(async () => trigger.click());
+  expect(serialized).toBe(1);
+  expect(document.querySelector('[data-agent-details]')!.textContent).toContain("Datos sintéticos de rendimiento");
+  await act(async () => {
+    queryClient.setQueryData<UIMessage[]>(["agent-activity-map", "perf-map-owner", "child-finished"], [{ id: "reply-perf", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "bash", toolCallId: "perf-tool", state: "output-error", input: { description: "Resultado extenso", command: "revisar" }, errorText: "Error actualizado del agente" }] }]);
+  });
+  expect(document.querySelector('[data-agent-details]')!.textContent).toContain("Error actualizado del agente");
+  expect(document.querySelector('[data-agent-details]')!.textContent).not.toContain("Datos sintéticos de rendimiento");
+  expect(serialized).toBe(1);
+
+});

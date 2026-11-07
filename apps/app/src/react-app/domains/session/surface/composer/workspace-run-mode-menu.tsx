@@ -1,3 +1,4 @@
+import { PermissionModeMenu } from "./permission-mode-menu";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Hand, LoaderCircle, ShieldAlert, ShieldCheck } from "lucide-react";
@@ -6,7 +7,7 @@ import { isDesktopRuntime } from "@/app/lib/runtime-env";
 import { toast } from "@/components/ui/sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useDesktopRestriction } from "@/react-app/domains/cloud/desktop-config-provider";
+import { useComexWorkspaceEnabled, useDesktopRestriction } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useFeatureFlagsPreferences } from "@/react-app/domains/settings/state/feature-flags-preferences";
 
 type Props = { client: OpenworkServerClient | null; workspaceId: string | null; busy: boolean };
@@ -19,14 +20,17 @@ const modes = [
 
 export function WorkspaceRunModeMenu(props: Props) {
   const { workspaceRunModeEnabled } = useFeatureFlagsPreferences();
+  const comex = useComexWorkspaceEnabled();
   const restricted = useDesktopRestriction("allowControlSettings");
-  if (!workspaceRunModeEnabled || restricted || !isDesktopRuntime() || !props.client || !props.workspaceId) return null;
+  if (comex && !restricted && props.client && props.workspaceId) return <PermissionModeMenu key={`${props.client.baseUrl}:${props.workspaceId}`} client={props.client} workspaceId={props.workspaceId} busy={props.busy} />;
+  if ((!workspaceRunModeEnabled && !comex) || restricted || !isDesktopRuntime() || !props.client || !props.workspaceId) return null;
   // Remount on endpoint/workspace changes so a pending confirmation cannot
   // apply the previous pane's choice to a newly selected workspace.
   return <WorkspaceRunModePicker key={`${props.client.baseUrl}:${props.workspaceId}`} client={props.client} workspaceId={props.workspaceId} busy={props.busy} />;
 }
 
 function WorkspaceRunModePicker({ client, workspaceId, busy }: { client: OpenworkServerClient; workspaceId: string; busy: boolean }) {
+  const comex = useComexWorkspaceEnabled();
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const queryClient = useQueryClient();
@@ -49,6 +53,7 @@ function WorkspaceRunModePicker({ client, workspaceId, busy }: { client: Openwor
   });
   const selected = modes.find((item) => item.value === mode.data?.mode);
   const label = mode.isError ? "Unavailable" : selected?.label ?? (mode.isPending ? "Loading" : "Custom rules");
+  const displayLabel = comex ? ({ approve: "Pedir aprobación", default: "Permisos del espacio", "run-everything": "Aprobar automáticamente" })[mode.data?.mode ?? "default"] : label;
   const Icon = mode.data?.supported === false || mode.isError || mode.data?.refreshPending ? ShieldAlert : selected?.icon ?? ShieldCheck;
   const locked = busy || mutation.isPending || mode.isFetching || !mode.data?.supported;
   const select = (value: unknown) => {
@@ -65,9 +70,10 @@ function WorkspaceRunModePicker({ client, workspaceId, busy }: { client: Openwor
           data-testid="workspace-run-mode-trigger"
           aria-label={`Workspace run mode: ${label}${mode.data?.refreshPending ? " (refresh pending)" : ""}`}
           title={`Workspace run mode: ${label}${mode.data?.refreshPending ? " — refresh pending" : ""}`}
-          className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-gray-3 ${mode.data?.mode === "run-everything" || mode.data?.refreshPending ? "text-orange-600 dark:text-orange-400" : "text-gray-10"}`}
+          className={`inline-flex h-9 ${comex ? "max-w-52 gap-1.5 px-1.5" : "w-9"} shrink-0 items-center justify-center rounded-md transition-colors hover:bg-gray-3 ${mode.data?.mode === "run-everything" || mode.data?.refreshPending ? "text-orange-600 dark:text-orange-400" : "text-gray-10"}`}
         >
-          {mutation.isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Icon className="size-4" />}
+          {mutation.isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Icon className="size-4 shrink-0" />}
+          {comex ? <span className="hidden truncate text-sm @min-[560px]/composer:block">{mode.isError ? "Permisos no disponibles" : mode.isPending ? "Consultar permisos" : displayLabel}</span> : null}
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" sideOffset={10} className="w-[min(390px,calc(100vw-32px))] p-2">
           <DropdownMenuGroup>

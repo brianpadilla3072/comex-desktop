@@ -65,6 +65,9 @@ class Generadores(unittest.TestCase):
             self.assertIn("Prueba de integración Comex", text)
             self.assertIn("no hay respuestas reales", text)
             self.assertIn("Fuente: prueba local", text)
+            cached_outline = [node.text for node in doc._element.xpath('.//w:fldSimple//w:t')]
+            self.assertIn("Metodología", cached_outline)
+            self.assertIn("Campo", cached_outline)
             self.assertEqual(len(doc.tables), 1)
             self.assertEqual(doc.tables[0].cell(1, 1).text, "Pendiente")
             self.assertAlmostEqual(doc.sections[0].page_width.cm, 21, places=1)

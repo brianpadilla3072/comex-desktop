@@ -155,7 +155,7 @@ import {
   isDesktopProviderBlocked,
   isSettingsTabAllowed,
 } from "@/app/cloud/desktop-app-restrictions";
-import { useCheckDesktopRestriction, useDesktopConfig } from "@/react-app/domains/cloud/desktop-config-provider";
+import { useCheckDesktopRestriction, useDesktopConfig, useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useRestrictionNotice } from "@/react-app/domains/cloud/restriction-notice-provider";
 import { useCloudProviderAutoSync } from "@/react-app/domains/cloud/use-cloud-provider-auto-sync";
 import {
@@ -467,6 +467,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
   const desktopConfig = useDesktopConfig();
+  const complementsLayout = useComexWorkspaceEnabled();
   const reloadCoordinator = useReloadCoordinator();
   const [embeddedPath, setEmbeddedPath] = useState(props.initialPath ?? "general");
   const route = props.embedded
@@ -2634,7 +2635,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     >
       {props.standaloneExtensions ? (
         <div data-extensions-main-surface className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8">{settingsView}</div>
+          <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto ${complementsLayout ? "[&>section]:h-full [&>section>section]:h-full" : "px-4 py-5 sm:px-8"}`}>{settingsView}</div>
         </div>
       ) : (
         <SettingsShell

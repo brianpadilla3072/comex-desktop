@@ -1,6 +1,15 @@
+import { cn } from "@/lib/utils";
+import { indexSlashOptions, searchSlashOptions } from "../../commands/search-index";
+import { CHAT_COMMAND_ICONS } from "../../commands/icons";
+import { useChatCommands, type ChatCommandTarget } from "../../commands/use-chat-commands";
+import { appCommandForOption, resolveChatCommand } from "../../commands/catalog";
+import { LocalPet } from "../../commands/local-pet";
+import { useWorkspaceMaybe } from "@/react-app/shell/workspace-provider";
+import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { flushSync } from "react-dom";
+import { ComposerSourcesMenu } from "./composer-sources-menu";
+import { createPortal, flushSync } from "react-dom";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
 import { Cloud, Monitor, Check, ChevronDown, FileText, RefreshCw, Terminal, Zap } from "lucide-react";
 import { ComposerSendButton } from "./composer-send-button";
@@ -74,6 +83,8 @@ type MentionItem = {
 
 
 type ComposerProps = {
+  sourcesMenuHost?: HTMLElement | null;
+  chatCommandTarget?: ChatCommandTarget;
   draft: string;
   mentions: Record<string, ComposerMentionKind>;
   onDraftChange: (value: string) => void;
@@ -244,6 +255,8 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   const [pluginsLoading, setPluginsLoading] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
+  const [toolMenuLocation, setToolMenuLocation] = useState<"composer" | "sources">("composer");
+  const sourceFolderInputRef = useRef<HTMLInputElement>(null);
   const [plusMenuQuery, setPlusMenuQuery] = useState("");
   const [workspaceFileResults, setWorkspaceFileResults] = useState<string[]>([]);
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
@@ -287,6 +300,26 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   // compositionstart/compositionend events below.
   const imeComposingRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const compactComposer = useComexWorkspaceEnabled();
+  const workspaceForCommands = useWorkspaceMaybe();
+  const chatCommands = useChatCommands({
+    ...(props.chatCommandTarget ?? { client: workspaceForCommands?.openworkServerClient ?? null, nativeClient: workspaceForCommands?.client ?? null,
+      workspaceId: workspaceForCommands?.workspaceId ?? "", opencodeBaseUrl: workspaceForCommands?.opencodeBaseUrl ?? "", sessionId: props.sessionId }),
+    busy: props.busy || props.submissionPreparing, canAttach: props.attachmentsEnabled, model: props.selectedModel, onAttach: props.onAttachFiles, listMcp: props.listMcp,
+  });
+  const tryAppCommand = () => {
+    if (!chatCommands.enabled) return false;
+    const command = resolveChatCommand(props.draft);
+    if (!command) return false;
+    const name = props.draft.trim().slice(1).toLowerCase();
+    // Engine commands keep ownership of their names, including the native /init.
+    if (name === "init" || commands.some(item => item.name.toLowerCase() === name)) return false;
+    if (command.id === "init") { props.onDraftChange("/init "); return true; }
+    const option = chatCommands.options.find(item => item.appCommand === command.id);
+    if (option?.disabledReason) { toast.error(option.disabledReason); return true; }
+    props.onDraftChange(""); setSlashOpen(false); void chatCommands.run(command.id); return true;
+  };
+
   const nativeDictationEnabled = useNativeDictationFeature();
   const speechDictation = useDesktopSpeechDictation();
   const dictationInput = () => rootRef.current?.querySelector<HTMLElement>("[contenteditable='true']") ?? null;
@@ -374,6 +407,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
 
   // Editor submit (Enter, or Cmd/Ctrl+Enter when `queue` is set).
   const handleEditorSubmit = useCallback((options: { queue: boolean }) => {
+    if (tryAppCommand()) return;
     const current = prepareVoiceSubmission();
     const action = resolveComposerSubmit({
       hasContent: current.draft.trim().length > 0 || current.attachments.length > 0,
@@ -388,7 +422,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
     if (action === "send") void current.onSend();
     else if (action === "steer") void current.onSteer();
     else if (action === "queue") void current.onQueue();
-  }, [props.childConversation, props.busy, props.disabled, props.editing, props.draft, props.attachments, props.onSend, props.onSteer, props.onQueue, props.submissionPreparing, props.stopping]);
+  }, [props.childConversation, props.busy, props.disabled, props.editing, props.draft, props.attachments, props.onSend, props.onSteer, props.onQueue, props.submissionPreparing, props.stopping, tryAppCommand]);
 
   const showStop = props.busy && !props.editing;
 
@@ -729,14 +763,17 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   }, [loadSkills, slashOpen, toolMenuOpen]);
 
   const slashItems = useMemo<ComposerSlashCommandOption[]>(
-    () => [...commands, ...connectSkillSlashCommandOptions(skills)],
-    [commands, skills],
+    () => [...(chatCommands.enabled ? chatCommands.options.map(option => ({ ...option, searchText: option.aliases.join(" "),
+      ...(option.appCommand === "init" && !commands.some(item => item.name === "init") ? { disabledReason: commandsLoaded ? "El motor no ofrece /init en este proyecto." : "Consultando comandos del motor…" } : {}),
+    })) : []), ...commands.filter(command => !chatCommands.enabled || command.name !== "init"), ...connectSkillSlashCommandOptions(skills)],
+    [commands, skills, chatCommands.enabled, chatCommands.options, commandsLoaded],
   );
+  const slashSearchIndex = useMemo(() => chatCommands.enabled ? indexSlashOptions(slashItems) : [], [slashItems, chatCommands.enabled]);
   const slashFiltered = useMemo(() => {
     if (!slashOpen) return [];
-    if (!slashQuery) return slashItems.slice(0, 8);
-    return fuzzysort.go(slashQuery, slashItems, { keys: ["name", "description"], limit: 8 }).map((entry) => entry.obj);
-  }, [slashItems, slashOpen, slashQuery]);
+    if (!slashQuery) return slashItems.slice(0, chatCommands.enabled ? 40 : 8);
+    return chatCommands.enabled ? searchSlashOptions(slashQuery, slashSearchIndex) : fuzzysort.go(slashQuery, slashItems, { keys: ["name", "description"], limit: 8 }).map(entry => entry.obj);
+  }, [slashItems, slashOpen, slashQuery, slashSearchIndex, chatCommands.enabled]);
   const mentionFiltered = useMemo(() => {
     if (!mentionOpen) return [];
     if (!mentionQuery) return mentionItems.slice(0, 8);
@@ -870,6 +907,14 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   }, [menuIndex, activeItems.length]);
 
   const applyCommandSelection = (command: ComposerSlashCommandOption, options?: { replaceSkillDraft?: boolean }) => {
+    const appId = chatCommands.enabled ? appCommandForOption(command) : null;
+    if (appId) {
+      if (command.disabledReason) { toast.error(command.disabledReason); return; }
+      props.onDraftChange(appId === "init" ? "/init " : ""); setSlashOpen(false);
+      if (appId !== "init") void chatCommands.run(appId);
+      return;
+    }
+
     if (command.skill) {
       applySkillSelection(command.skill, options);
       return;
@@ -1252,8 +1297,10 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
     <ComposerSuggestionMenu open={activeMenu === "slash"} anchor={panelRef} onDismiss={() => setSlashOpen(false)}>
       {slashFiltered.length > 0 ? (
         <div role="listbox" aria-label={t("composer.plus_commands")} className="flex flex-col gap-0.5">
-          {slashFiltered.map((command, index) => (
-            <button
+          {slashFiltered.map((command, index) => {
+            const appId = chatCommands.enabled ? appCommandForOption(command) : null;
+            const CommandIcon = appId ? CHAT_COMMAND_ICONS[appId] : Terminal;
+            return <button
               key={command.id}
               ref={(element) => {
                 menuItemRefs.current[index] = element;
@@ -1262,8 +1309,9 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
               role="option"
               aria-selected={index === menuIndex}
               tabIndex={-1}
-              title={command.description || undefined}
-              className={composerSuggestionRowClass(index === menuIndex)}
+              aria-disabled={Boolean(command.disabledReason)}
+              title={command.disabledReason || command.description || undefined}
+              className={cn(composerSuggestionRowClass(index === menuIndex), appId && "items-center gap-2 py-1", command.disabledReason && "opacity-50")}
               // Move, not enter: rows sliding under a resting cursor (the list
               // opening or scrolling) must not steal the keyboard highlight.
               onMouseMove={() => setMenuIndex(index)}
@@ -1276,20 +1324,20 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                 if (event.detail === 0) applyCommandSelection(command, { replaceSkillDraft: true });
               }}
             >
-              <Terminal size={14} className="mt-0.5 shrink-0 text-gray-9" />
-              <span className="min-w-0 flex-1">
+              <CommandIcon size={16} className="shrink-0 text-muted-foreground" />
+              {appId ? <span className="flex min-w-0 flex-1 items-center gap-2"><span className="shrink-0 text-xs font-medium">{command.label}</span><span className="truncate text-xs text-muted-foreground">{command.description}</span></span> : <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-3">
-                  <span className="truncate text-xs font-semibold">/{command.name}</span>
+                  <span className="truncate text-xs font-medium">{command.label ?? `/${command.name}`}</span>
                   {command.source && command.source !== "command" ? (
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${command.source === "skill" ? "bg-violet-3/40 text-violet-11" : "bg-cyan-3/40 text-cyan-11"}`}>
                       {command.source === "skill" ? t("composer.skill_source") : t("composer.mcps_label")}
                     </span>
                   ) : null}
                 </span>
-                {command.description ? <span className="block truncate text-xs text-gray-10">{command.description}</span> : null}
-              </span>
-            </button>
-          ))}
+                {command.description ? <span className="block truncate text-xs text-muted-foreground">{command.description}</span> : null}
+              </span>}
+            </button>;
+          })}
         </div>
       ) : (
         <div role="status" className="px-3 py-2 text-xs text-gray-10">
@@ -1401,6 +1449,8 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
 
   return (
     <DevProfiler id="SessionComposer">
+    {chatCommands.surface}
+    {chatCommands.enabled && !props.chatCommandTarget?.secondary && <LocalPet busy={props.busy} />}
     <div
       ref={rootRef}
       onFocusCapture={() => { lastFocusedComposerRoot = rootRef.current; }}
@@ -1420,7 +1470,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
         <div
           ref={panelRef}
           data-comex-composer
-          className="@container/composer relative overflow-visible rounded-[18px] border border-dls-border bg-dls-surface transition-all"
+          className={`@container/composer relative overflow-visible border border-dls-border bg-dls-surface transition-colors ${compactComposer ? "rounded-[28px]" : "rounded-[18px]"}`}
         >
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
 
@@ -1454,7 +1504,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
               pastedText={pastedTextTokens}
               attachments={attachmentTokens}
               submitDisabled={props.disabled}
-              placeholder={t("composer.placeholder")}
+              placeholder={compactComposer ? "Dime qué quieres hacer" : t("composer.placeholder")}
               onChange={nativeDictationEnabled ? dictation.edit : props.onDraftChange}
               onMentionQueryChange={setActiveMentionQuery}
               onSessionReferenceQueryChange={sessionReferencesEnabled ? handleSessionTriggerChange : undefined}
@@ -1530,7 +1580,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                 {t("composer.escape_to_stop")}
               </div>
             ) : null}
-            <div data-composer-toolbar className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-2 max-lg:flex @min-[560px]/composer:flex">
+            <div data-composer-toolbar className={compactComposer ? "mt-3 flex flex-wrap items-center gap-x-1 gap-y-1" : "mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-2 max-lg:flex @min-[560px]/composer:flex"}>
               <div className="contents">
                 <div className="col-start-1 row-start-2 flex shrink-0 items-center gap-1.5">
                 <input
@@ -1545,9 +1595,10 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   }}
                 />
                 <ComposerPlusMenu
-                  open={toolMenuOpen}
+                  open={toolMenuOpen && toolMenuLocation === "composer"}
                   onOpenChange={(open) => {
                     if (open) {
+                      setToolMenuLocation("composer");
                       setMentionOpen(false);
                       setMentionItems([]);
                       setSlashOpen(false);
@@ -1573,11 +1624,24 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   onQueryChange={setPlusMenuQuery}
                   returnFocus={() => rootRef.current?.querySelector<HTMLElement>("[contenteditable='true']") ?? null}
                 />
+                {props.sourcesMenuHost ? createPortal(<>
+                  <input type="file" multiple hidden ref={node => { sourceFolderInputRef.current = node; node?.setAttribute("webkitdirectory", ""); }} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); if (files.length) void addAttachments(files); event.currentTarget.value = ""; }} />
+                  <ComposerSourcesMenu
+                    open={toolMenuOpen && toolMenuLocation === "sources"}
+                    onOpenChange={open => { if (open) { setToolMenuLocation("sources"); setMentionOpen(false); setSlashOpen(false); } setToolMenuOpen(open); }}
+                    plugins={importedPlugins} connectors={plusMenuConnectors} skills={skillMenuItems}
+                    loading={skillsLoading || pluginsLoading || mcpLoading || (orgMcp.loading && !orgMcp.loaded)}
+                    attachmentsEnabled={props.attachmentsEnabled} attachmentsDisabledReason={props.attachmentsDisabledReason}
+                    onAttach={openFilePicker} onAttachFolder={() => sourceFolderInputRef.current?.click()}
+                    onPick={handlePlusMenuPick} onManage={() => handlePlusMenuManage("plugins")}
+                    onConnect={connector => { if (connector.signIn) void orgMcp.connect(connector.signIn.connectionId, { forceFreshAuthorization: connector.signIn.reconnect }); }}
+                  />
+                </>, props.sourcesMenuHost) : null}
                 {props.runModeControl}
                 {props.agentActivityControl}
                 </div>
 
-                <div data-composer-settings className="col-span-2 row-start-1 flex min-w-0 flex-wrap items-center gap-1 border-b border-dls-border pb-2 max-lg:flex-1 max-lg:flex-nowrap max-lg:border-0 max-lg:pb-0 @min-[560px]/composer:flex-1 @min-[560px]/composer:border-0 @min-[560px]/composer:pb-0">
+                <div data-composer-settings className={compactComposer ? "ml-auto flex min-w-0 max-w-full items-center justify-end gap-0.5" : "col-span-2 row-start-1 flex min-w-0 flex-wrap items-center gap-1 border-b border-dls-border pb-2 max-lg:flex-1 max-lg:flex-nowrap max-lg:border-0 max-lg:pb-0 @min-[560px]/composer:flex-1 @min-[560px]/composer:border-0 @min-[560px]/composer:pb-0"}>
                 {/* Agent picker (#2101/#1971). Only shown once a non-default
                     agent is selected. Switching back to Default agent lives in
                     this menu and in the + tools menu. Selection configures
@@ -1608,6 +1672,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                 </div>
 
                 <ModelSelect
+                  compact={compactComposer}
                   open={props.modelPickerOpen}
                   value={props.selectedModel}
                   hideValue={props.organizationModelsEmpty}
@@ -1662,7 +1727,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                 - Busy follow-up: stop icon in that same slot (Enter still queues;
                   Cmd/Ctrl+Enter still steers).
               */}
-              <div data-composer-actions className="col-start-2 row-start-2 ml-auto flex shrink-0 items-center gap-1.5">
+              <div data-composer-actions className={compactComposer ? "flex shrink-0 items-center gap-1" : "col-start-2 row-start-2 ml-auto flex shrink-0 items-center gap-1.5"}>
                 {nativeDictationEnabled ? <NativeDictationControl dictation={dictation} disabled={props.disabled} text={props.draft} /> : null}
                 <ComposerSendButton
                   mode={props.stopping ? "stopping" : showStop ? "stop" : props.submissionPreparing ? "preparing" : "send"}
@@ -1676,7 +1741,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                       ? () => void props.onStop()
                       : !canSend || props.submissionPreparing
                         ? undefined
-                        : () => void prepareVoiceSubmission().onSend()
+                        : () => { if (!tryAppCommand()) void prepareVoiceSubmission().onSend(); }
                   }
                   disabled={
                     props.disabled

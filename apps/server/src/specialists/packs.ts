@@ -9,7 +9,7 @@ import { INITIAL_MEMORY } from "../comex/seed.js";
 import { specialistDirectory, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
 
-const TOP_DIRECTORIES = new Set(["skills", "agents", "scripts", "references", "templates", "assets", "resources", "tools"]);
+const TOP_DIRECTORIES = new Set(["skills", "agents", "commands", "scripts", "references", "templates", "assets", "resources", "tools"]);
 const SKIP = new Set([".git", "node_modules", ".venv", "venv", "__pycache__", ".DS_Store"]);
 const markerPath = ".opencode/specialist-application.json";
 export const builtInComexPack = () => process.env.OPENWORK_COMEX_PACK_DIR ?? fileURLToPath(new URL("../../../../pack/", import.meta.url));

@@ -7,55 +7,12 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_DEST="${HOME}/.config/opencode/skills"
 AGENTS_DEST="${HOME}/.config/opencode/agents"
-VENV="${HOME}/.comex-pack/venv"
-
-echo "== 1/2 Dependencias de Python (para generar Word, Excel y bajar datos) =="
+echo "== 1/2 Dependencias privadas de Python (Word y Excel) =="
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "AVISO: no se encontró python3. Los scripts del pack lo necesitan."
-  echo "       Instalá Python 3 (python.org) y volvé a correr este instalador."
-else
-  echo "Python encontrado: $(python3 --version 2>&1)"
-  DEPS="python-docx openpyxl"
-  INSTALADO=no
-
-  venv_py() {
-    if [ -x "$VENV/Scripts/python.exe" ]; then echo "$VENV/Scripts/python.exe"; else echo "$VENV/bin/python"; fi
-  }
-
-  # 1) Entorno del pack: preferido, no toca el Python del sistema
-  if [ "$(venv_py)" ] && [ -x "$(venv_py)" ] && "$(venv_py)" -c "import docx, openpyxl" 2>/dev/null; then
-    INSTALADO=venv
-  else
-    rm -rf "$VENV"
-    if python3 -m venv "$VENV" >/dev/null 2>&1 && [ -x "$(venv_py)" ]; then
-      if "$(venv_py)" -m pip install --quiet --upgrade pip >/dev/null 2>&1; then
-        "$(venv_py)" -m pip install --quiet $DEPS >/dev/null 2>&1 || true
-      fi
-      if "$(venv_py)" -c "import docx, openpyxl" 2>/dev/null; then
-        INSTALADO=venv
-      fi
-    fi
-    [ "$INSTALADO" = "venv" ] || rm -rf "$VENV"
-  fi
-
-  # 2) Fallback: instalar en el usuario de Python
-  if [ "$INSTALADO" = "no" ] && python3 -m pip --version >/dev/null 2>&1; then
-    python3 -m pip install --user --quiet $DEPS >/dev/null 2>&1 \
-      || python3 -m pip install --user --break-system-packages --quiet $DEPS >/dev/null 2>&1 || true
-    if python3 -c "import docx, openpyxl" 2>/dev/null; then
-      INSTALADO=usuario
-    fi
-  fi
-
-  case "$INSTALADO" in
-    venv)    echo "Librerías listas en: $VENV" ;;
-    usuario) echo "Librerías listas en el usuario de Python (pip --user)" ;;
-    *)       echo "AVISO: no se pudieron instalar python-docx y openpyxl automáticamente."
-             echo "       Opción A (recomendada):  sudo apt install python3-venv python3-pip   (Debian/Ubuntu)"
-             echo "       Opción B:  python3 -m pip install --user python-docx openpyxl"
-             echo "       y después volvé a correr este instalador." ;;
-  esac
+  echo "ERROR: se necesita Python 3.10 o posterior. Instalá Python y reintentá."
+  exit 1
 fi
+python3 "$DIR/scripts/documents.py" setup
 
 echo ""
 echo "== 2/2 Skills y agentes en OpenCode =="
@@ -70,7 +27,8 @@ if command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
-mkdir -p "$SKILLS_DEST" "$AGENTS_DEST"
+mkdir -p "$SKILLS_DEST" "$AGENTS_DEST" "${HOME}/.config/opencode/scripts"
+cp "$DIR/scripts/documents.py" "$DIR/scripts/requirements.lock.txt" "${HOME}/.config/opencode/scripts/"
 
 for skill in "$DIR"/skills/*/; do
   name="$(basename "$skill")"

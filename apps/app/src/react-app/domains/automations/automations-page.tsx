@@ -55,6 +55,8 @@ import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal"
 import { automationCreationPlacement } from "./automation-availability"
 import { resolveAutomationPlacement } from "./automation-placement"
 import { AutomationEditor } from "./automation-editor"
+import { ScheduledTasksHome } from "./scheduled-tasks-home"
+import { useComexWorkspaceEnabled } from "../cloud/desktop-config-provider"
 import { automationEditChoices, useAutomationEditorSetup } from "./use-automation-editor-setup"
 import {
   ACTIVE_RUN_STATUSES,
@@ -177,6 +179,7 @@ export function AutomationsPage(props: {
   onSignIn?: () => void
 } = {}) {
   const denAuth = useDenAuth()
+  const scheduledTasksLayout = useComexWorkspaceEnabled()
   const platform = usePlatform()
   const navigate = useNavigate()
   const openProviderSettings = () => navigate(props.workspaceId?.trim() ? workspaceSettingsRoute(props.workspaceId.trim(), "ai") : globalSettingsRoute("ai"))
@@ -250,7 +253,23 @@ export function AutomationsPage(props: {
     setRepairingModel(false)
   }
 
+  const createScheduledTask = (preset?: Pick<CreateAutomation, "name" | "instructions" | "schedule">) => {
+    if (!denAuth.isSignedIn) {
+      props.onSignIn?.()
+      return
+    }
+    const next = new URLSearchParams({ create: "1" })
+    if (preset) {
+      next.set("name", preset.name)
+      next.set("instructions", preset.instructions)
+      next.set("schedule", JSON.stringify(preset.schedule))
+    }
+    setSearchParams(next)
+  }
+  const scheduledTasksHome = <ScheduledTasksHome items={filteredItems} query={query} onQueryChange={setQuery} onCreate={createScheduledTask} onOpen={openAutomation} />
+
   if (denAuth.status === "checking") return <LoadingState />
+  if (scheduledTasksLayout && !denAuth.isSignedIn) return scheduledTasksHome
   if (!denAuth.isSignedIn) {
     // Automations live in OpenWork Cloud: signed out, nothing here calls Den,
     // and the page leads with the same sign-in banner as Library.
@@ -752,6 +771,8 @@ export function AutomationsPage(props: {
       </div>
     )
   }
+
+  if (scheduledTasksLayout) return scheduledTasksHome
 
   // The page title lives in the titlebar; New Automation sits beside it there,
   // as Library and Dashboard place their add controls.

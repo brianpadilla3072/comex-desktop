@@ -26,6 +26,14 @@ config:
   #   "false" off for everyone; /admin shows "Set by deployment config"
   # The /admin kill switch still turns a feature off, even when locked on.
   features:
+    taskContinuity: ""            # default off · Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.
+    comexModelGuide: ""           # default off · Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates.
+    comexChatCommands: ""         # default off · Manage chats, inspect status, sketch and review local share copies from the composer command menu.
+    comexScopedMemory: ""         # default off · Remember explicit notes at conversation, project or application scope and manage them locally.
+    comexContinuity: ""           # default off · Save and resume structured session progress, decisions and pending work with conflict detection.
+    comexGitWorkspace: ""         # default off · Review local changes and create isolated Git worktrees from the current committed revision.
+    browserAgentPointer: ""       # default off · Show the agent pointer and click position inside the embedded browser while it is under agent control.
+    specialistIntegrations: ""    # default off · Connect Tavily research and import or safely update portable OCX agent and skill packs for a specialist application.
     agentActivityMap: ""          # default on · Show delegated agents in the composer, with a live task map, their prompts and executed tool calls.
     conversationNavigator: ""     # default on · Jump between conversation turns using a side rail with message previews and keyboard navigation.
     specialistApplications: ""    # default on · Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.
