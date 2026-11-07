@@ -61,6 +61,7 @@
         "openwork-build": "./dist/types/src/agent-context-diagnostics.d.ts",
         "default": "./src/agent-context-diagnostics.ts"
       },
+      "bun": "./src/agent-context-diagnostics.ts",
       "development": "./src/agent-context-diagnostics.ts",
       "default": "./dist/agent-context-diagnostics.js"
     },
@@ -69,6 +70,7 @@
         "openwork-build": "./dist/types/src/openwork-affordance.d.ts",
         "default": "./src/openwork-affordance.ts"
       },
+      "bun": "./src/openwork-affordance.ts",
       "development": "./src/openwork-affordance.ts",
       "default": "./dist/openwork-affordance.js"
     },
@@ -85,6 +87,7 @@
         "openwork-build": "./dist/types/src/openwork-provider.d.ts",
         "default": "./src/openwork-provider.ts"
       },
+      "bun": "./src/openwork-provider.ts",
       "development": "./src/openwork-provider.ts",
       "default": "./dist/openwork-provider.js"
     },
@@ -93,6 +96,7 @@
         "openwork-build": "./dist/types/src/automations.d.ts",
         "default": "./src/automations.ts"
       },
+      "bun": "./src/automations.ts",
       "development": "./src/automations.ts",
       "default": "./dist/automations.js"
     },
@@ -536,6 +540,7 @@
         "openwork-build": "./dist/types/src/model-guide.d.ts",
         "default": "./src/model-guide.ts"
       },
+      "bun": "./src/model-guide.ts",
       "development": "./src/model-guide.ts",
       "default": "./dist/model-guide.js"
     },
@@ -544,6 +549,7 @@
         "openwork-build": "./dist/types/src/permission-modes.d.ts",
         "default": "./src/permission-modes.ts"
       },
+      "bun": "./src/permission-modes.ts",
       "development": "./src/permission-modes.ts",
       "default": "./dist/permission-modes.js"
     },
@@ -552,6 +558,7 @@
         "openwork-build": "./dist/types/src/task-continuity.d.ts",
         "default": "./src/task-continuity.ts"
       },
+      "bun": "./src/task-continuity.ts",
       "development": "./src/task-continuity.ts",
       "default": "./dist/task-continuity.js"
     },
@@ -560,6 +567,7 @@
         "openwork-build": "./dist/types/src/scoped-memory.d.ts",
         "default": "./src/scoped-memory.ts"
       },
+      "bun": "./src/scoped-memory.ts",
       "development": "./src/scoped-memory.ts",
       "default": "./dist/scoped-memory.js"
     }
