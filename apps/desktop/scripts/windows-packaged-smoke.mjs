@@ -190,12 +190,17 @@ async function smoke() {
     // Parent process output goes straight to the log fd (no JS buffering), so a
     // main-process crash message is greppable from disk even while the app runs.
     logFd = openSync(logPath, "w");
+    // The app resolves its DevTools port from OPENWORK_ELECTRON_REMOTE_DEBUG_PORT
+    // (main.mjs) and appends that switch itself; passing --remote-debugging-port
+    // on the CLI is overridden by the appended value, so set the env instead.
     child = spawn(exe, [
-      `--remote-debugging-port=${port}`,
       `--user-data-dir=${profileDir}`,
       "--no-first-run",
       "--no-default-browser-check",
-    ], { detached: true, stdio: ["ignore", logFd, logFd], shell: false });
+    ], {
+      detached: true, stdio: ["ignore", logFd, logFd], shell: false,
+      env: { ...process.env, OPENWORK_ELECTRON_REMOTE_DEBUG_PORT: String(port) },
+    });
 
     await phase("boot", async () => {
       await waitFor(async () => {
@@ -227,6 +232,10 @@ async function smoke() {
     passed = true;
   } catch (error) {
     failure = error instanceof Error ? error.message : String(error);
+    try {
+      const tail = readFileSync(logPath, "utf8").slice(-3000);
+      if (tail) failure += `\n--- ${basename(logPath)} (tail) ---\n${tail}`;
+    } catch { /* no app log yet */ }
   } finally {
     if (child && child.exitCode === null) {
       // TerminateProcess does not fire the app quit event, so an update that

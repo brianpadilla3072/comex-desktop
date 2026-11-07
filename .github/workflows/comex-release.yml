@@ -177,6 +177,8 @@ jobs:
       - name: Smoke-test installed Windows build
         if: matrix.target == 'win'
         timeout-minutes: 10
+        env:
+          OPENWORK_WINDOWS_SMOKE_DIR: ${{ runner.temp }}/openwork-windows-smoke
         run: node apps/desktop/scripts/windows-packaged-smoke.mjs --installer release-assets --version "$RELEASE_VERSION"
       - name: Upload Windows smoke evidence
         if: matrix.target == 'win' && always()

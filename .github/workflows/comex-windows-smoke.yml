@@ -20,6 +20,11 @@ on:
         required: false
         type: string
         default: ""
+      release:
+        description: "Published release to smoke-test instead of building (e.g. v1.0.7). When set, the installer is downloaded and the build steps are skipped."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -54,23 +59,45 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.3.10'
+      - name: Download published installer
+        if: inputs.release != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke-installer
+          gh release download "${{ inputs.release }}" --repo "$GH_REPO" --pattern 'openwork-win-x64-*.exe' --dir smoke-installer
+          ver="${{ inputs.release }}"; ver="${ver#v}"
+          echo "RELEASE_VERSION=${ver}" >> "$GITHUB_ENV"
       - name: Install desktop dependencies
+        if: inputs.release == ''
         run: pnpm --filter @openwork/desktop... --filter @openwork/app... --filter openwork-server... install --frozen-lockfile
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.13.7'
           enable-cache: false
       - name: Prepare and verify relocatable document runtime
+        if: inputs.release == ''
         run: node scripts/release/comex-prepare-python.mjs
       - name: Stamp smoke version
+        if: inputs.release == ''
         run: node scripts/release/stamp-version.mjs --version "$RELEASE_VERSION"
       - name: Build desktop
+        if: inputs.release == ''
         run: pnpm --filter @openwork/desktop build:electron
       - name: Package without publishing
+        if: inputs.release == ''
         run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win --x64 --publish never
       - name: Install and smoke-test the Windows build
         timeout-minutes: 10
-        run: node apps/desktop/scripts/windows-packaged-smoke.mjs --installer apps/desktop/dist-electron --version "$RELEASE_VERSION"
+        run: |
+          if [ "${{ inputs.release }}" != "" ]; then
+            node apps/desktop/scripts/windows-packaged-smoke.mjs --installer smoke-installer --version "$RELEASE_VERSION"
+          else
+            node apps/desktop/scripts/windows-packaged-smoke.mjs --installer apps/desktop/dist-electron --version "$RELEASE_VERSION"
+          fi
       - name: Upload smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
