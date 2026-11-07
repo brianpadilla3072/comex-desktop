@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,13 +36,42 @@ function windowsCompile() {
     .find(dir => existsSync(join(dir, "csc.exe")));
   const metadata = join(systemRoot, "System32", "WinMetadata");
   if (!framework || !existsSync(metadata)) return { error: "The .NET Framework compiler or WinRT metadata is missing" };
+
+  // Awaiting WinRT IAsyncOperation/IAsyncAction needs the GetAwaiter extensions
+  // from the System.Runtime.WindowsRuntime implementation, which lives in the
+  // GAC. The copy next to csc.exe is only a facade: referencing it alone fails
+  // with CS4028 ("await requires a suitable GetAwaiter method").
+  function gacAssembly(name) {
+    const root = join(systemRoot, "Microsoft.NET", "assembly", "GAC_MSIL", name.replace(/\.dll$/i, ""));
+    try {
+      for (const version of readdirSync(root)) {
+        const candidate = join(root, version, name);
+        if (existsSync(candidate)) return candidate;
+      }
+    } catch {
+      // No GAC entry for this assembly; fall back to the compiler folder.
+    }
+    return null;
+  }
+  function runtimeAssembly(name) {
+    if (/^System\.Runtime/.test(name) && name !== "System.Runtime.dll") {
+      const fromGac = gacAssembly(name);
+      if (fromGac) return fromGac;
+    }
+    return join(framework, name);
+  }
+
   const references = [
     ...["System.Runtime.dll", "System.Runtime.WindowsRuntime.dll", "System.Runtime.InteropServices.WindowsRuntime.dll", "System.Threading.Tasks.dll"]
-      .map(name => join(framework, name)),
+      .map(runtimeAssembly),
     ...["Windows.Foundation.winmd", "Windows.Globalization.winmd", "Windows.Media.winmd"].map(name => join(metadata, name)),
   ].filter(existsSync);
+  if (process.env.GITHUB_ACTIONS) {
+    // Visible in the build log: which references the helper actually compiled against.
+    process.stderr.write(`::warning::dictation references: ${references.join(", ")}\n`);
+  }
   return spawnSync(join(framework, "csc.exe"), [
-    "/nologo", "/optimize+", "/target:exe", "/platform:anycpu", `/out:${executable}`,
+    "/nologo", "/optimize+", "/target:exe", "/platform:anycpu", "/langversion:5", `/out:${executable}`,
     ...references.map(reference => `/reference:${reference}`), source,
   ], { stdio: "inherit" });
 }

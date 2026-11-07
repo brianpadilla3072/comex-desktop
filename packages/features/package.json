@@ -39,7 +39,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/registry.ts src/resolve.ts --format esm --clean --target es2022 --external zod --external '@openwork/features' --external '@openwork/features/*' && tsc -p tsconfig.build.json",
+    "build": "tsup && tsc -p tsconfig.build.json",
     "test": "node --conditions=development --test src/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
