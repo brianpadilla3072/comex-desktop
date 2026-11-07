@@ -12,7 +12,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   echo "ERROR: se necesita Python 3.10 o posterior. Instalá Python y reintentá."
   exit 1
 fi
-python3 "$DIR/scripts/documents.py" setup
+python3 -X utf8 "$DIR/scripts/documents.py" setup
 
 echo ""
 echo "== 2/2 Skills y agentes en OpenCode =="

@@ -77,10 +77,19 @@ class RuntimeDocuments(unittest.TestCase):
             # La suite existente acepta librerías del Python del desarrollador.
             # Producción ejecuta smoke mediante managed_worker con venv y -I.
             real_run = subprocess.run
+            seen_commands = []
             def run_with_test_dependencies(command, **kwargs):
+                seen_commands.append(list(command))
                 return real_run([part for part in command if part != "-I"], **kwargs)
             with patch.object(documents.subprocess, "run", side_effect=run_with_test_dependencies):
                 self.assertEqual(documents.smoke(output), 0)
+            # Windows usa cp1252 en stdout: sin -X utf8 los generadores fallan al
+            # imprimir "→" y otros caracteres no ASCII.
+            self.assertTrue(seen_commands)
+            for command in seen_commands:
+                self.assertIn("-I", command)
+                self.assertIn("-X", command)
+                self.assertEqual(command[command.index("-X") + 1], "utf8")
             evidence = json.loads((output / "evidence.json").read_text())
             self.assertEqual(evidence["status"], "passed")
             self.assertFalse(evidence["researchVerified"])

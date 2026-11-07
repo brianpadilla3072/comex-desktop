@@ -10,7 +10,7 @@ const candidates = configuredPython
   : process.platform === "win32" ? [["py", "-3"], ["python"], ["python3"]] : [["python3"], ["python"]];
 let selected;
 for (const [binary, ...prefix] of candidates) {
-  const result = spawnSync(binary, [...prefix, "-I", "-c", "import sys;sys.exit(0 if sys.version_info >= (3,10) else 1)"], { encoding: "utf8", windowsHide: true });
+  const result = spawnSync(binary, [...prefix, "-X", "utf8", "-I", "-c", "import sys;sys.exit(0 if sys.version_info >= (3,10) else 1)"], { encoding: "utf8", windowsHide: true });
   if (!result.error && result.status === 0) { selected = [binary, ...prefix]; break; }
 }
 if (!selected) {
@@ -20,7 +20,7 @@ if (!selected) {
   process.exitCode = 1;
 } else {
   const [binary, ...prefix] = selected;
-  const result = spawnSync(binary, [...prefix, "-I", script, ...process.argv.slice(2)], { stdio: "inherit", windowsHide: true });
+  const result = spawnSync(binary, [...prefix, "-X", "utf8", "-I", script, ...process.argv.slice(2)], { stdio: "inherit", windowsHide: true });
   if (result.error) console.error(result.error.message);
   process.exitCode = result.status ?? 1;
 }

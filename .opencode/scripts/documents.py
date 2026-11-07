@@ -54,7 +54,7 @@ for name in expected:
 print(json.dumps({'versions':found,'pythonVersion':list(sys.version_info[:3])}))
 """
     try:
-        result = subprocess.run([str(executable), "-I", "-c", code, json.dumps(expected)], capture_output=True, text=True, timeout=15)
+        result = subprocess.run([str(executable), "-X", "utf8", "-I", "-c", code, json.dumps(expected)], capture_output=True, text=True, encoding="utf-8", timeout=15)
     except subprocess.TimeoutExpired:
         return {"ready": False, "python": str(executable), "error": "El diagnóstico de Python excedió 15 segundos."}
     if result.returncode:
@@ -178,7 +178,8 @@ def require_runtime():
 
 def managed_worker(command, arguments):
     # El proceso worker usa exclusivamente el entorno privado (-I), sin módulos de usuario.
-    result = subprocess.run([str(require_runtime()), "-I", str(Path(__file__).resolve()), command, *arguments])
+    # -X utf8 evita que stdout/stderr usen la página de códigos local (cp1252 en Windows).
+    result = subprocess.run([str(require_runtime()), "-X", "utf8", "-I", str(Path(__file__).resolve()), command, *arguments])
     return result.returncode
 
 
@@ -204,9 +205,9 @@ Encuestas pendientes; no hay respuestas reales. Fuentes de mercado pendientes.
 | Entregables técnicos | Generados |
 > Fuente: fixture sintético local, sin evidencia de mercado.
 """, encoding="utf-8")
-        subprocess.run([sys.executable, "-I", str(TOOLS["quote"]), "--exw", "100", "--margen-pct", "0", "--unidades", "100", "--flete-internacional-lote", "1000", "--seguro", "2", "--csv", str(root / "costos.csv")], check=True, capture_output=True, text=True)
-        subprocess.run([sys.executable, "-I", str(TOOLS["excel"]), str(root / "costos.csv"), "-o", str(root / "costos.xlsx"), "--title", "Cotización sintética de prueba", "--fuente", "Supuestos sintéticos; no es cotización comercial."], check=True)
-        subprocess.run([sys.executable, "-I", str(TOOLS["word"]), str(root / "informe.md"), "-o", str(root / "informe.docx"), "--toc"], check=True)
+        subprocess.run([sys.executable, "-X", "utf8", "-I", str(TOOLS["quote"]), "--exw", "100", "--margen-pct", "0", "--unidades", "100", "--flete-internacional-lote", "1000", "--seguro", "2", "--csv", str(root / "costos.csv")], check=True, capture_output=True, text=True, encoding="utf-8")
+        subprocess.run([sys.executable, "-X", "utf8", "-I", str(TOOLS["excel"]), str(root / "costos.csv"), "-o", str(root / "costos.xlsx"), "--title", "Cotización sintética de prueba", "--fuente", "Supuestos sintéticos; no es cotización comercial."], check=True)
+        subprocess.run([sys.executable, "-X", "utf8", "-I", str(TOOLS["word"]), str(root / "informe.md"), "-o", str(root / "informe.docx"), "--toc"], check=True)
         artifacts = [verify_file(root / name) for name in ("informe.docx", "costos.xlsx")]
         # Comprobar contenido del recorrido además de poder abrir los archivos.
         from docx import Document
@@ -256,7 +257,7 @@ def main():
         return setup(args.wheelhouse)
     if args.command == "run":
         arguments = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
-        return subprocess.run([str(require_runtime()), "-I", str(TOOLS[args.tool]), *arguments]).returncode
+        return subprocess.run([str(require_runtime()), "-X", "utf8", "-I", str(TOOLS[args.tool]), *arguments]).returncode
     if args.command == "verify":
         return managed_worker("_verify", args.files)
     if args.command == "smoke":
