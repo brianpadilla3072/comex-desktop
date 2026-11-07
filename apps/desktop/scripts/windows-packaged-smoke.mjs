@@ -54,7 +54,10 @@ export function findInstalledExe(installDir) {
 }
 
 export function normalizeVersion(value) {
-  return String(value ?? "").trim().replace(/^v/i, "").replace(/^["']/, "").replace(/["']$/, "");
+  // Windows appends a fourth build component to the product version
+  // (electron-builder stamps x.y.z.0), so drop a trailing ".0" to compare
+  // against the stamped release version x.y.z.
+  return String(value ?? "").trim().replace(/^v/i, "").replace(/^["']/, "").replace(/["']$/, "").replace(/^(\d+\.\d+\.\d+)\.0$/, "$1");
 }
 
 export function scanLogForMainCrash(text) {
@@ -152,16 +155,23 @@ async function smoke() {
   const phases = [];
   const phase = async (name, fn) => {
     const t0 = performance.now();
-    const value = await fn();
-    phases.push({ name, milliseconds: Math.round(performance.now() - t0) });
-    console.log(`[windows-packaged-smoke] ${JSON.stringify(phases[phases.length - 1])}`);
-    return value;
+    try {
+      const value = await fn();
+      phases.push({ name, milliseconds: Math.round(performance.now() - t0) });
+      console.log(`[windows-packaged-smoke] ${JSON.stringify(phases[phases.length - 1])}`);
+      return value;
+    } catch (error) {
+      phases.push({ name, milliseconds: Math.round(performance.now() - t0), failed: true, message: error instanceof Error ? error.message : String(error) });
+      console.log(`[windows-packaged-smoke] ${JSON.stringify(phases[phases.length - 1])}`);
+      throw error;
+    }
   };
 
   let child = null;
   let exe = null;
   let logFd = null;
   let passed = false;
+  let failure = null;
   try {
     if (!existsSync(installer)) throw new Error(`Installer not found: ${installer}`);
     console.log(`[windows-packaged-smoke] installer=${installer} expectedVersion=${expectedVersion || "(any)"} installDir=${installDir} port=${port}`);
@@ -215,6 +225,8 @@ async function smoke() {
     });
 
     passed = true;
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
   } finally {
     if (child && child.exitCode === null) {
       // TerminateProcess does not fire the app quit event, so an update that
@@ -229,13 +241,14 @@ async function smoke() {
       }
     }
   }
-  return { passed, started, phases, logPath, output, installer: basename(installer), expectedVersion: expectedVersion || null };
+  return { passed, failure, started, phases, logPath, output, installer: basename(installer), expectedVersion: expectedVersion || null };
 }
 
 
 function conclude(result) {
   const report = {
     passed: result.passed,
+    failure: result.failure,
     milliseconds: Math.round(performance.now() - result.started),
     phases: result.phases,
     installer: result.installer,
@@ -253,7 +266,12 @@ function conclude(result) {
     );
   }
   console.log(`[windows-packaged-smoke] ${JSON.stringify(report)}`);
-  if (!report.passed) process.exitCode = 1;
+  if (!report.passed) {
+    const message = report.failure ?? "unknown failure";
+    console.error(`[windows-packaged-smoke] FAILED: ${message}`);
+    if (process.env.GITHUB_ACTIONS) console.log(`::error title=Windows packaged smoke::${message.slice(0, 500)}`);
+    process.exit(1);
+  }
 }
 
 const isDirectRun = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -263,6 +281,8 @@ if (isDirectRun) {
       const result = await smoke();
       conclude(result);
     } catch (error) {
+      // smoke() itself failed (e.g. before the output dir existed); still try
+      // to leave a report so the evidence artifact is not empty.
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[windows-packaged-smoke] FAILED: ${message}`);
       if (process.env.GITHUB_ACTIONS) console.log(`::error title=Windows packaged smoke::${message.slice(0, 500)}`);

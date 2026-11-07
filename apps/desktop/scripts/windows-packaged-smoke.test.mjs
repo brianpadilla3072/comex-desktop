@@ -63,10 +63,12 @@ test("findInstalledExe walks subdirectories and throws when absent", () => {
   }
 });
 
-test("normalizeVersion strips quotes and a leading v", () => {
+test("normalizeVersion strips quotes, a leading v, and the Windows .0 build suffix", () => {
   assert.equal(normalizeVersion('"1.0.7"'), "1.0.7");
   assert.equal(normalizeVersion("v1.0.7\n"), "1.0.7");
   assert.equal(normalizeVersion(" 1.0.8 "), "1.0.8");
+  assert.equal(normalizeVersion("1.0.8.0"), "1.0.8");
+  assert.equal(normalizeVersion("9.9.9.1"), "9.9.9.1");
   assert.equal(normalizeVersion(null), "");
 });
 
