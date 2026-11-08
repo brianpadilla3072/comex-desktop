@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versión a publicar, formato 1.0.N (por ejemplo 1.0.13)'
-        required: true
+        description: 'Versión opcional 1.0.N. Si se deja vacío se usa el número de ejecución.'
+        required: false
         type: string
 
 permissions:
@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   prepare:
-    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.release.outputs.version }}
@@ -46,7 +46,8 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         with:
           script: |
-            const version = (process.env.INPUT_VERSION || '').trim().replace(/^v/, '');
+            const input = (process.env.INPUT_VERSION || '').trim().replace(/^v/, '');
+            const version = input || `1.0.${context.runNumber}`;
             if (!/^1\.0\.\d+$/.test(version)) {
               throw new Error(`Invalid release version "${version}"; expected 1.0.N.`);
             }
