@@ -111,3 +111,44 @@
     transition-duration: 0ms;
   }
 }
+
+/* Right context panel: quiet, minimal scrollbars.
+   Thin, round, no arrow buttons; the thumb stays invisible until the person
+   scrolls or hovers the panel. Scoped so nothing else changes. */
+[data-comex-side-panel] * {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--dls-secondary-rgb) / 0.28) transparent;
+}
+
+[data-comex-side-panel] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-comex-side-panel] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-comex-side-panel] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--dls-secondary-rgb) / 0.16);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+[data-comex-side-panel]:hover ::-webkit-scrollbar-thumb {
+  background: rgb(var(--dls-secondary-rgb) / 0.3);
+  background-clip: padding-box;
+}
+
+[data-comex-side-panel] ::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--dls-secondary-rgb) / 0.5);
+  background-clip: padding-box;
+}
+
+[data-comex-side-panel] ::-webkit-scrollbar-button,
+[data-comex-side-panel] ::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+}

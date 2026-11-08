@@ -101,3 +101,7 @@ El usuario pidió que en una conversación la primera pestaña sea la conversaci
 ## División ajustable y ubicación de botones (2026-11-08)
 
 Se agregó divider arrastrable entre la conversación y la página del split (20–80%, se guarda en localStorage, ajustable también con flechas del teclado; columna en pantallas chicas, fila en grandes). A pedido del usuario con captura: el botón del extremo derecho del header pasó a ser SOLO el icono Dividir (sin texto) cuando hay una segunda pestaña; “Open side” (que muestra/oculta el panel derecho de contexto — no divide) se movió como icono chico al final de la barra de pestañas. Sin segunda pestaña, el extremo derecho conserva Open side. Tres pruebas de render actualizadas a la nueva API y typecheck de app sin errores nuevos. Sin instalador ni release. Sin cambios en pendientes académicos.
+
+## Scroll del panel derecho sutil (2026-11-08)
+
+A pedido del usuario con captura: la barra de scroll del panel derecho (Resultados/Fuentes) era la nativa de Chromium, gruesa y con flechas. Se agregaron reglas en comex-shell.css escopadas a [data-comex-side-panel]: delgada (8 px), thumb redondeado casi invisible que se marca al pasar por el panel, sin botones de flecha. No afecta otras barras. Cambios en vivo vía HMR en la ventana de dev. Sin cambios académicos.
