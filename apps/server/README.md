@@ -235,7 +235,7 @@ Token management (collaborator or owner bearer token):
 
 Inbox/outbox:
 
-- `POST /workspace/:id/inbox?path=<path>` (streams the raw body into `.opencode/openwork/inbox/`; multipart is also accepted, up to 250MB)
+- `POST /workspace/:id/inbox?path=<path>` (streams the raw body into `.openwork/inbox/`; multipart is also accepted, up to 250MB)
 - `GET /workspace/:id/artifacts`
 - `GET /workspace/:id/artifacts/:artifactId`
 - `POST /workspace/:id/files/sessions`

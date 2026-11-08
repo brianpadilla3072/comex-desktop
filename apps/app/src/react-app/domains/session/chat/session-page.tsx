@@ -494,6 +494,11 @@ export function SessionPage(props: SessionPageProps) {
   const resourceWorkspace = useResourceWorkspace(workspaceResourceScope);
   const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.extensionsActive;
   const [resourceAssistantOpen, setResourceAssistantOpen] = useState(false);
+  // Split keeps the conversation visible on one side while a tab occupies the
+  // other side; the shared tab bar picks which page goes on that side.
+  const [resourceSplit, setResourceSplit] = useState(false);
+  const resourceSplitActive = resourceVisible && resourceSplit;
+  useEffect(() => { setResourceSplit(false); }, [workspaceResourceScope]);
   const [pendingResourceClose, setPendingResourceClose] = useState<WorkspaceResourceTab | null>(null);
   const closeResource = (tab: WorkspaceResourceTab) => {
     if (tab.kind === "page" && ((tab.draft ?? "") !== (tab.savedDraft ?? "") || (tab.savedPath && tab.savedPath !== tab.path))) { setPendingResourceClose(tab); return; }
@@ -1752,6 +1757,15 @@ export function SessionPage(props: SessionPageProps) {
                 resources={resourceWorkspace.tabs} activeResourceId={resourceWorkspace.activeId}
                 onSelectResource={id => useWorkspaceResources.getState().select(workspaceResourceScope, id)}
                 onCloseResource={closeResource}
+                split={resourceSplitActive} canSplit={referenceLayout && resourceWorkspace.tabs.length > 0}
+                onSplitToggle={() => {
+                  if (!resourceWorkspace.activeId) {
+                    const first = resourceWorkspace.tabs[0];
+                    if (first) { useWorkspaceResources.getState().select(workspaceResourceScope, first.id); setResourceSplit(true); }
+                    return;
+                  }
+                  setResourceSplit(value => !value);
+                }}
                 onClose={tab => {
                   const remaining = sessionTabs.filter(entry => !entry.draftDestination && !isSameWorkbenchSession(entry, tab));
                   useWorkbenchStore.getState().closeTab(tab);
@@ -1999,9 +2013,9 @@ export function SessionPage(props: SessionPageProps) {
             className="min-h-0 flex-1 overflow-hidden"
           >
             <ResizablePanel minSize="180px" className="min-h-0">
-            <div className="relative h-full min-w-0 overflow-hidden bg-dls-surface mac:bg-dls-surface/85">
-              {workspaceResourcesView}
-              <div className="h-full" hidden={resourceVisible} inert={resourceVisible}>
+            <div className={`relative h-full min-w-0 overflow-hidden bg-dls-surface mac:bg-dls-surface/85 ${resourceSplitActive ? "flex flex-col-reverse lg:flex-row-reverse" : ""}`}>
+              {resourceSplitActive ? <div className="min-h-0 min-w-0 flex-1">{workspaceResourcesView}</div> : workspaceResourcesView}
+              <div className={resourceSplitActive ? "min-h-0 min-w-0 flex-1" : "h-full"} hidden={resourceVisible && !resourceSplitActive} inert={resourceVisible && !resourceSplitActive}>
               <SessionFloatingLayer />
               {props.primarySlot && !props.retainedArtifactSlot?.active ? (
                 <div className="h-full overflow-y-auto" data-workspace-primary-slot>

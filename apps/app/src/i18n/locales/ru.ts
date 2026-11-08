@@ -753,7 +753,7 @@ export default {
   "settings.window_appearance_desc": "Настройте внешний вид окна.",
   "settings.worker_id_label": "Воркер {id}",
   "settings.worker_unresolved": "Воркер {runtimeWorkspaceId}",
-  "settings.workspace_config_desc": ".opencode/openwork.json",
+  "settings.workspace_config_desc": ".openwork/openwork.json",
   "settings.workspace_config_title": "Конфигурация workspace",
   "settings.workspace_debug_events_label": "События отладки workspace",
   "den.auto_reconnect_hint": "Завершите авторизацию в браузере, и OpenWork переподключится сюда автоматически.",

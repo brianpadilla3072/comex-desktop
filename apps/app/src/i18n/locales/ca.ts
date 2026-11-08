@@ -645,7 +645,7 @@ export default {
   "settings.window_appearance_desc": "Personalitza l'aspecte de la finestra.",
   "settings.worker_id_label": "worker {id}",
   "settings.worker_unresolved": "worker {runtimeWorkspaceId}",
-  "settings.workspace_config_desc": ".opencode/openwork.json",
+  "settings.workspace_config_desc": ".openwork/openwork.json",
   "settings.workspace_config_title": "Configuració del workspace",
   "settings.workspace_debug_events_label": "Esdeveniments de depuració del workspace",
   "sidebar.collapse": "Replega",

@@ -65,7 +65,7 @@ describe("uploadInbox", () => {
 })
 
 describe("attachment note", () => {
-  const video = { filename: "result.mp4", workspacePath: ".opencode/openwork/inbox/result.mp4", url: "file:///w/result.mp4" }
+  const video = { filename: "result.mp4", workspacePath: ".openwork/inbox/result.mp4", url: "file:///w/result.mp4" }
 
   test("points the model at command-line tools only when a file cannot be viewed", () => {
     expect(attachmentNoteText([video], { hasBinaryFiles: true })).toContain(MEDIA_HINT)

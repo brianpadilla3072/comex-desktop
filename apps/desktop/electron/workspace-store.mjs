@@ -677,8 +677,14 @@ export function createWorkspaceStore({
   }
 
   async function readWorkspaceOpenworkConfig(workspacePath) {
-    const openworkPath = path.join(workspacePath, ".opencode", "openwork.json");
+    const openworkPath = path.join(workspacePath, ".openwork", "openwork.json");
     if (!(await pathExists(openworkPath))) {
+      // Older workspaces kept this file inside the engine folder; read-only.
+      const legacyPath = path.join(workspacePath, ".opencode", "openwork.json");
+      if (await pathExists(legacyPath)) {
+        const legacyRaw = await readFile(legacyPath, "utf8");
+        return JSON.parse(legacyRaw);
+      }
       return defaultWorkspaceOpenworkConfig(workspacePath);
     }
     const raw = await readFile(openworkPath, "utf8");
@@ -686,7 +692,7 @@ export function createWorkspaceStore({
   }
 
   async function writeWorkspaceOpenworkConfig(workspacePath, config) {
-    const openworkPath = path.join(workspacePath, ".opencode", "openwork.json");
+    const openworkPath = path.join(workspacePath, ".openwork", "openwork.json");
     await mkdir(path.dirname(openworkPath), { recursive: true });
     await writeFile(openworkPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     return execResult(true, `Wrote ${openworkPath}`);
@@ -844,8 +850,11 @@ export function createWorkspaceStore({
       preset,
       workspaceType: "local",
     });
-    await mkdir(path.join(folderPath, ".opencode"), { recursive: true });
-    if (!(await pathExists(path.join(folderPath, ".opencode", "openwork.json")))) {
+    await mkdir(path.join(folderPath, ".openwork"), { recursive: true });
+    if (
+      !(await pathExists(path.join(folderPath, ".openwork", "openwork.json"))) &&
+      !(await pathExists(path.join(folderPath, ".opencode", "openwork.json")))
+    ) {
       await writeWorkspaceOpenworkConfig(folderPath, defaultWorkspaceOpenworkConfig(folderPath, preset));
     }
 

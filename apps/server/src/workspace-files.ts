@@ -6,6 +6,11 @@ export function opencodeConfigPath(workspaceRoot: string): string {
 }
 
 export function openworkConfigPath(workspaceRoot: string): string {
+  return join(workspaceRoot, ".openwork", "openwork.json");
+}
+
+/** OpenWork state used to live inside the engine's `.opencode` folder; it is only read for migration. */
+export function legacyOpenworkConfigPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "openwork.json");
 }
 

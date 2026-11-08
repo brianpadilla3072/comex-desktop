@@ -11,7 +11,7 @@ import { registerFileRoutes } from "../src/routes/files.js";
 import { serve, type ServeResult } from "../src/serve-node.js";
 import type { ServerConfig, WorkspaceInfo } from "../src/types.js";
 
-const INBOX = ".opencode/openwork/inbox";
+const INBOX = ".openwork/inbox";
 const CAP = 1024;
 
 let root = "";

@@ -2518,7 +2518,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             {platform.capabilities.localRuntimeControl ? (
               <RecoveryView
                 anyActiveRuns={false}
-                workspaceConfigPath={selectedWorkspaceRoot ? `${selectedWorkspaceRoot}/.opencode/openwork.json` : ""}
+                workspaceConfigPath={selectedWorkspaceRoot ? `${selectedWorkspaceRoot}/.openwork/openwork.json` : ""}
                 resetConfigBusy={resetConfigBusy}
                 onResetAppConfigDefaults={() => {}}
                 configActionStatus={configActionStatus}

@@ -779,7 +779,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
       const typed = result as { ok: boolean; stderr?: string; stdout?: string };
       if (!typed.ok) {
         throw new Error(
-          typed.stderr || typed.stdout || "Failed to write .opencode/openwork.json",
+          typed.stderr || typed.stdout || "Failed to write .openwork/openwork.json",
         );
       }
       return true;

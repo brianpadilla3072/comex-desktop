@@ -1176,6 +1176,7 @@ export function createEngineV2Preview(options: {
       ...(providerSessionBridge ? { providerSession: providerSessionBridge } : {}),
       bin: resolved.bin,
       rootDir,
+      cwd: workspaceDir,
       instanceId: engineInstanceId(),
       env: { OPENCODE_MODELS_URL: opencodeModelsUrl },
       permissions: async () => {

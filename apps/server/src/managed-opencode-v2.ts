@@ -51,6 +51,12 @@ export interface OpencodeV2ProviderSpec {
 export interface ManagedOpencodeV2ServerOptions {
   bin: string;
   rootDir: string;
+  /**
+   * Process folder for the engine. OpenCode treats its cwd as a project, so
+   * without one it inherits the host's launch folder and writes engine state
+   * into that project's `.opencode`. Callers pass a private scratch folder.
+   */
+  cwd?: string;
   /** A history path already selected by the owning host. */
   historyDatabase?: string;
   /**
@@ -473,6 +479,7 @@ async function createManagedOpencodeV2ServerInner(
   await writeConfig();
   const historyDatabase = options.historyDatabase ?? await resolveOpencodeHistoryDatabase(options.rootDir);
   const child = spawn(options.bin, ["serve", "--hostname", hostname, "--port", String(port)], {
+    cwd: options.cwd,
     env: {
       ...inherited,
       ...(options.env?.OPENCODE_DISABLE_MODELS_FETCH ? { OPENCODE_DISABLE_MODELS_FETCH: options.env.OPENCODE_DISABLE_MODELS_FETCH } : {}),

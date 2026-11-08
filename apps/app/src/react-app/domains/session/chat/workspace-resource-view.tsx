@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePlatform } from "../../../kernel/platform"
+import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider"
 import { openTargetFromWorkspaceFile, type OpenTarget } from "../artifacts/open-target"
 import { WorkspaceFileTree } from "../artifacts/workspace-file-tree"
 import { ArtifactPanel } from "../artifacts/artifact-panel"
@@ -69,13 +70,17 @@ function ResourceBrowser({ tab, scope, active, onClose }: { tab: WorkspaceResour
   return nativeTab ? <div className="flex h-full min-h-0 flex-col"><BrowserPanelContent sessionId={getSidePanelSessionKey(tab.ownerSessionId ?? null)} tab={nativeTab} onClose={onClose} /></div> : <div role="status" aria-label="Abriendo sitio" className="p-4"><Skeleton className="h-8 w-full" /></div>
 }
 
-function WorkspacePage({ tab, scope, client, workspaceId }: { tab: WorkspaceResourceTab; scope: string; client: OpenworkServerClient | null; workspaceId: string }) {
+function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: WorkspaceResourceTab; scope: string; client: OpenworkServerClient | null; workspaceId: string; sessionId: string | null }) {
+  const comexLayout = useComexWorkspaceEnabled()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const update = (patch: Partial<WorkspaceResourceTab>) => useWorkspaceResources.getState().update(scope, tab.id, patch)
   const save = async () => {
-    const path = resourcePagePath(tab.path ?? "")
+    let path = resourcePagePath(tab.path ?? "")
     if (!path) { setError("Elegí una ruta relativa del proyecto, por ejemplo paginas/Notas.md."); return }
+    // Codex-style control: a bare file name created inside a conversation is
+    // filed under the session folder of this project, never somewhere else.
+    if (comexLayout && sessionId && !path.includes("/")) path = `comex/proyecto/${sessionId}/${path}`
     if (!client || !workspaceId || saving) return
     const draft = tab.draft ?? ""
     setSaving(true); setError("")
@@ -188,7 +193,7 @@ export function WorkspaceResourceView(props: ResourceViewProps) {
           {tab.kind === "sources" ? <WorkspaceSourcesView scope={props.scope} sessionId={tab.ownerSessionId ?? null} endpoint={props.sourceEndpoint} visible={props.visible && tab.id === active.id} onOpen={target => { if (tab.ownerSessionId) props.onOpenSource?.(target, tab.ownerSessionId); }} /> : null}
           {tab.kind === "files" && props.client ? <div className="h-full [&_[data-workspace-file-tree]]:w-full [&_[data-workspace-file-tree]]:border-r-0"><WorkspaceFileTree cacheScope={props.scope} client={props.client} workspaceId={props.workspaceId} workspaceName={props.workspaceRoot.split("/").pop() ?? "Proyecto"} selectedPath="" onOpenFile={file => open("artifact", file.path)} /></div> : null}
           {tab.kind === "terminal" ? <TerminalDock workspaceRoot={props.workspaceRoot} onClose={() => props.onClose(tab)} /> : null}
-          {tab.kind === "page" ? <WorkspacePage tab={tab} scope={props.scope} client={props.client} workspaceId={props.workspaceId} /> : null}
+          {tab.kind === "page" ? <WorkspacePage tab={tab} scope={props.scope} client={props.client} workspaceId={props.workspaceId} sessionId={tab.ownerSessionId ?? props.sessionId} /> : null}
           {tab.kind === "artifact" && tab.path ? <ResourceArtifact scope={props.scope} tab={tab} client={props.client} workspaceId={props.workspaceId} workspaceRoot={props.workspaceRoot} sessionId={tab.ownerSessionId ?? props.sessionId} onOpenFile={path => open("artifact", path)} onClose={() => props.onClose(tab)} /> : null}
           {tab.kind === "browser" ? <ResourceBrowser tab={tab} scope={props.scope} active={props.visible && tab.id === active.id} onClose={() => props.onClose(tab)} /> : null}
         </div>)}

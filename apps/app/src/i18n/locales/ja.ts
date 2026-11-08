@@ -645,7 +645,7 @@ export default {
   "settings.window_appearance_desc": "ウィンドウの外観をカスタマイズします。",
   "settings.worker_id_label": "ワーカー{id}",
   "settings.worker_unresolved": "ワーカー{runtimeWorkspaceId}",
-  "settings.workspace_config_desc": ".opencode/openwork.json",
+  "settings.workspace_config_desc": ".openwork/openwork.json",
   "settings.workspace_config_title": "ワークスペース設定",
   "settings.workspace_debug_events_label": "ワークスペースデバッグイベント",
   "sidebar.collapse": "折りたたむ",

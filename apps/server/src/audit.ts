@@ -12,6 +12,10 @@ export function auditLogPath(workspaceId: string): string {
   return join(resolveOpenworkDataDir(), "audit", `${workspaceId}.jsonl`);
 }
 
+export function openworkAuditLogPath(workspaceRoot: string): string {
+  return join(workspaceRoot, ".openwork", "audit.jsonl");
+}
+
 export function legacyAuditLogPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "openwork", "audit.jsonl");
 }
@@ -19,6 +23,8 @@ export function legacyAuditLogPath(workspaceRoot: string): string {
 async function resolveReadableAuditPath(workspaceRoot: string, workspaceId: string): Promise<string | null> {
   const primary = auditLogPath(workspaceId);
   if (await exists(primary)) return primary;
+  const local = openworkAuditLogPath(workspaceRoot);
+  if (await exists(local)) return local;
   const legacy = legacyAuditLogPath(workspaceRoot);
   if (await exists(legacy)) return legacy;
   return null;
@@ -27,7 +33,7 @@ async function resolveReadableAuditPath(workspaceRoot: string, workspaceId: stri
 export async function recordAudit(workspaceRoot: string, entry: AuditEntry): Promise<void> {
   const workspaceId = entry.workspaceId?.trim();
   if (!workspaceId) {
-    const path = legacyAuditLogPath(workspaceRoot);
+    const path = openworkAuditLogPath(workspaceRoot);
     await ensureDir(dirname(path));
     await appendFile(path, JSON.stringify(entry) + "\n", "utf8");
     return;

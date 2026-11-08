@@ -227,7 +227,11 @@ function workspaceOpenworkStatePaths(workspacePaths, paths) {
   for (const workspacePath of workspacePaths) {
     const value = String(workspacePath ?? "").trim();
     if (!value) continue;
-    const opencodeDir = paths.join(paths.resolve(value), ".opencode");
+    const root = paths.resolve(value);
+    const opencodeDir = paths.join(root, ".opencode");
+    // OpenWork state lives in `.openwork`; older workspaces kept it inside the
+    // engine's `.opencode` folder. Reset removes both so nothing survives.
+    output.push(paths.join(root, ".openwork"));
     output.push(paths.join(opencodeDir, "openwork"), paths.join(opencodeDir, "openwork.json"));
   }
   return output;

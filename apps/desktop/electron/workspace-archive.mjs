@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import zlib from "node:zlib";
 
@@ -80,6 +80,13 @@ async function collectWorkspaceEntries(workspaceRoot) {
       }
       entries.push(file);
     }
+  }
+
+  // OpenWork's own workspace state lives in `.openwork`; only the config file
+  // belongs to an archive — inbox/outbox payloads stay with the folder.
+  const openworkConfig = path.join(workspaceRoot, ".openwork", "openwork.json");
+  if (await pathExists(openworkConfig)) {
+    entries.push({ absolute: openworkConfig, rel: ".openwork/openwork.json" });
   }
 
   return { entries, excluded };
@@ -297,7 +304,7 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   for (const entry of listZipEntries(buffer)) {
     if (entry.name === "manifest.json" || entry.name.endsWith("/")) continue;
     if (!isSafeArchivePath(entry.name)) throw new Error("Archive contains an unsafe path");
-    if (!(entry.name === "opencode.json" || entry.name.startsWith(".opencode/"))) continue;
+    if (!(entry.name === "opencode.json" || entry.name.startsWith(".opencode/") || entry.name.startsWith(".openwork/"))) continue;
     if (isSecretName(path.basename(entry.name))) continue;
     const outPath = path.join(targetDir, ...entry.name.split("/"));
     await mkdir(path.dirname(outPath), { recursive: true });
@@ -305,9 +312,21 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   }
 
   const opencodeDir = path.join(targetDir, ".opencode");
-  if (!(await pathExists(opencodeDir))) throw new Error("Archive is missing .opencode config");
+  const openworkDir = path.join(targetDir, ".openwork");
+  if (!(await pathExists(opencodeDir)) && !(await pathExists(openworkDir))) {
+    throw new Error("Archive is missing .opencode config");
+  }
 
-  const openworkPath = path.join(opencodeDir, "openwork.json");
+  let openworkPath = path.join(openworkDir, "openwork.json");
+  const legacyOpenworkPath = path.join(opencodeDir, "openwork.json");
+  if (!(await pathExists(openworkPath)) && (await pathExists(legacyOpenworkPath))) {
+    // Older archives carried the config inside the engine folder; move it to
+    // OpenWork's own folder on restore.
+    const raw = await readFile(legacyOpenworkPath, "utf8");
+    await mkdir(openworkDir, { recursive: true });
+    await writeFile(openworkPath, raw, "utf8");
+    await rm(legacyOpenworkPath, { force: true });
+  }
   let preset = "starter";
   let workspaceName = typeof name === "string" && name.trim() ? name.trim() : null;
 
@@ -329,6 +348,7 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
     }
   } else {
     const config = defaultOpenworkConfig(targetDir, preset);
+    await mkdir(openworkDir, { recursive: true });
     await writeFile(openworkPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
   }
 

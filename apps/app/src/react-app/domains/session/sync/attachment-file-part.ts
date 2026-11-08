@@ -44,7 +44,10 @@ type UploadedChatAttachment = {
   file: AttachmentFile;
 };
 
-const WORKSPACE_INBOX_ROOT = ".opencode/openwork/inbox";
+const WORKSPACE_INBOX_ROOT = ".openwork/inbox";
+// Workspaces that attached files before OpenWork moved its state out of the
+// engine folder keep `file://` URLs pointing here; treat them as attachments.
+const LEGACY_WORKSPACE_INBOX_ROOT = ".opencode/openwork/inbox";
 const MAX_PATH_COMPONENT_BYTES = 255;
 const UTF8_ENCODER = new TextEncoder();
 
@@ -285,7 +288,11 @@ export function buildChatAttachmentInboxPath(input: { sessionId: string; filenam
 
 /** True for a file the person attached to a message, as opposed to a workspace file they mentioned. */
 export function isChatAttachmentUrl(url: string) {
-  return url.startsWith("file://") && url.includes(`/${WORKSPACE_INBOX_ROOT}/chat-attachments/`);
+  if (!url.startsWith("file://")) return false;
+  return (
+    url.includes(`/${WORKSPACE_INBOX_ROOT}/chat-attachments/`) ||
+    url.includes(`/${LEGACY_WORKSPACE_INBOX_ROOT}/chat-attachments/`)
+  );
 }
 
 export function workspaceInboxPath(inboxRelativePath: string) {
