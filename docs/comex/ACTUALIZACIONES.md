@@ -6,12 +6,13 @@ catálogo de versiones y la recuperación apuntan al mismo repositorio.
 
 ## Publicar un cambio
 
-1. Integrar el cambio y subirlo a `dev`, la rama principal del repositorio.
-2. El workflow **Comex release** valida el pack y el actualizador, y compila
-   Windows x64 (NSIS `.exe`) y Linux x64 (`.AppImage`). También puede ejecutarse
-   manualmente desde Actions, seleccionando `dev`.
-3. Cada ejecución recibe la versión `1.0.N`, donde `N` es el número de ejecución
-   de este workflow. No hay que editar versiones ni crear tags a mano.
+1. Integrar el cambio y subirlo a `main`, la rama de producción del repositorio.
+   Los pushes a `main` solo validan el pack y el actualizador; no publican.
+2. Para publicar, ejecutar manualmente el workflow **Comex release** desde
+   Actions sobre `main` e indicar la versión `1.0.N` (por ejemplo `1.0.13`).
+   Compila Windows x64 (NSIS `.exe`) y Linux x64 (`.AppImage`).
+3. La versión se elige a mano en cada ejecución y debe ser mayor que la última
+   publicada. El tag `v1.0.N` se crea automáticamente; no hace falta crearlo a mano.
 4. Los dos builds suben artefactos internos de Actions. Se comprueba que cada
    manifiesto tenga la versión esperada y que sus instaladores coincidan en
    tamaño y SHA-512. Windows incluye el blockmap de NSIS.
