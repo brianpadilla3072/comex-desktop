@@ -15,7 +15,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import { DesktopUpdateButton } from "../../settings/state/desktop-updater-provider";
-import { ArrowLeft, CheckCheck, Cloud, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
+import { ArrowLeft, CheckCheck, Cloud, Columns2, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
 
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { t } from "../../../../i18n";
@@ -499,6 +499,38 @@ export function SessionPage(props: SessionPageProps) {
   const [resourceSplit, setResourceSplit] = useState(false);
   const resourceSplitActive = resourceVisible && resourceSplit;
   useEffect(() => { setResourceSplit(false); }, [workspaceResourceScope]);
+  // Split panes are adjustable like Codex/OpenCode side panels: a draggable
+  // separator sets the conversation share (percent) and it survives restarts.
+  const [resourceSplitPct, setResourceSplitPct] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem("openwork.workspace-split-size"));
+      return Number.isFinite(stored) && stored >= 20 && stored <= 80 ? stored : 50;
+    } catch { return 50; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("openwork.workspace-split-size", String(resourceSplitPct)); } catch { /* In-memory only. */ }
+  }, [resourceSplitPct]);
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const [splitDragging, setSplitDragging] = useState(false);
+  const resourceSplitCapable = referenceLayout && resourceWorkspace.tabs.length > 0;
+  const toggleResourceSplit = useCallback(() => {
+    if (!resourceWorkspace.activeId) {
+      const first = resourceWorkspace.tabs[0];
+      if (first) { useWorkspaceResources.getState().select(workspaceResourceScope, first.id); setResourceSplit(true); }
+      return;
+    }
+    setResourceSplit(value => !value);
+  }, [resourceWorkspace.activeId, resourceWorkspace.tabs, workspaceResourceScope]);
+  const applySplitPointer = useCallback((event: { clientX: number; clientY: number }) => {
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const horizontal = window.matchMedia("(min-width: 1024px)").matches;
+    const ratio = horizontal
+      ? ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 100
+      : ((event.clientY - rect.top) / Math.max(rect.height, 1)) * 100;
+    setResourceSplitPct(Math.min(80, Math.max(20, Math.round(ratio))));
+  }, []);
   const [pendingResourceClose, setPendingResourceClose] = useState<WorkspaceResourceTab | null>(null);
   const closeResource = (tab: WorkspaceResourceTab) => {
     if (tab.kind === "page" && ((tab.draft ?? "") !== (tab.savedDraft ?? "") || (tab.savedPath && tab.savedPath !== tab.path))) { setPendingResourceClose(tab); return; }
@@ -1757,15 +1789,10 @@ export function SessionPage(props: SessionPageProps) {
                 resources={resourceWorkspace.tabs} activeResourceId={resourceWorkspace.activeId}
                 onSelectResource={id => useWorkspaceResources.getState().select(workspaceResourceScope, id)}
                 onCloseResource={closeResource}
-                split={resourceSplitActive} canSplit={referenceLayout && resourceWorkspace.tabs.length > 0}
-                onSplitToggle={() => {
-                  if (!resourceWorkspace.activeId) {
-                    const first = resourceWorkspace.tabs[0];
-                    if (first) { useWorkspaceResources.getState().select(workspaceResourceScope, first.id); setResourceSplit(true); }
-                    return;
-                  }
-                  setResourceSplit(value => !value);
-                }}
+                split={resourceSplitActive}
+                extraAction={referenceLayout && resourceWorkspace.tabs.length > 0 ? (
+                  <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label={sidePanelOpen ? "Cerrar panel lateral" : "Abrir panel lateral"} aria-pressed={sidePanelOpen} onClick={() => { if (sidePanelOpen) closeRightPane(); else openGeneralSidePanel(); }}><PanelRight className="size-3.5" /></Button>
+                ) : null}
                 onClose={tab => {
                   const remaining = sessionTabs.filter(entry => !entry.draftDestination && !isSameWorkbenchSession(entry, tab));
                   useWorkbenchStore.getState().closeTab(tab);
@@ -1930,6 +1957,28 @@ export function SessionPage(props: SessionPageProps) {
               </DropdownMenu>
               {!isElectronRuntime() && computerUseFeature && remoteComputersFeature && props.openworkServerClient ? <CloudComputerControl client={props.openworkServerClient} /> : null}
               {computerUse && props.selectedSessionId ? <ComputerControl key={props.selectedSessionId} sessionId={props.selectedSessionId} /> : null}
+              {resourceSplitCapable ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className={cn(
+                          "hidden rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
+                          resourceSplitActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                        )}
+                        aria-label={resourceSplitActive ? "Dejar de dividir la pantalla" : "Dividir la pantalla con la conversación"}
+                        aria-pressed={resourceSplitActive}
+                        onClick={toggleResourceSplit}
+                      >
+                        <Columns2 size={16} />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>{resourceSplitActive ? "Dejar de dividir" : "Dividir con la conversación"}</TooltipContent>
+                </Tooltip>
+              ) : (
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -1956,6 +2005,7 @@ export function SessionPage(props: SessionPageProps) {
                 />
                 <TooltipContent>{sidePanelOpen ? "Close side panel" : "Open side panel"}</TooltipContent>
               </Tooltip>
+              )}
             </div>}
           </header>}
 
@@ -2013,9 +2063,28 @@ export function SessionPage(props: SessionPageProps) {
             className="min-h-0 flex-1 overflow-hidden"
           >
             <ResizablePanel minSize="180px" className="min-h-0">
-            <div className={`relative h-full min-w-0 overflow-hidden bg-dls-surface mac:bg-dls-surface/85 ${resourceSplitActive ? "flex flex-col-reverse lg:flex-row-reverse" : ""}`}>
-              {resourceSplitActive ? <div className="min-h-0 min-w-0 flex-1">{workspaceResourcesView}</div> : workspaceResourcesView}
-              <div className={resourceSplitActive ? "min-h-0 min-w-0 flex-1" : "h-full"} hidden={resourceVisible && !resourceSplitActive} inert={resourceVisible && !resourceSplitActive}>
+            <div ref={splitContainerRef} className={`relative h-full min-w-0 overflow-hidden bg-dls-surface mac:bg-dls-surface/85 ${resourceSplitActive ? "flex flex-col-reverse lg:flex-row-reverse" : ""}`}>
+              {resourceSplitActive ? <div className="min-h-0 min-w-0" style={{ flex: `0 0 ${100 - resourceSplitPct}%` }}>{workspaceResourcesView}</div> : workspaceResourcesView}
+              {resourceSplitActive ? (
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Ajustar el tamaño de los paneles"
+                  aria-valuenow={resourceSplitPct}
+                  aria-valuemin={20}
+                  aria-valuemax={80}
+                  tabIndex={0}
+                  className="z-10 shrink-0 touch-none select-none bg-border/60 transition-colors hover:bg-border active:bg-border max-lg:h-1.5 max-lg:w-full max-lg:cursor-row-resize lg:h-full lg:w-1.5 lg:cursor-col-resize"
+                  onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setSplitDragging(true); }}
+                  onPointerMove={event => { if (splitDragging) applySplitPointer(event); }}
+                  onPointerUp={event => { setSplitDragging(false); event.currentTarget.releasePointerCapture(event.pointerId); }}
+                  onKeyDown={event => {
+                    if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); setResourceSplitPct(value => Math.max(20, value - 5)); }
+                    if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); setResourceSplitPct(value => Math.min(80, value + 5)); }
+                  }}
+                />
+              ) : null}
+              <div className={resourceSplitActive ? "min-h-0 min-w-0" : "h-full"} style={resourceSplitActive ? { flex: `0 0 ${resourceSplitPct}%` } : undefined} hidden={resourceVisible && !resourceSplitActive} inert={resourceVisible && !resourceSplitActive}>
               <SessionFloatingLayer />
               {props.primarySlot && !props.retainedArtifactSlot?.active ? (
                 <div className="h-full overflow-y-auto" data-workspace-primary-slot>

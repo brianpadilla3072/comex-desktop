@@ -12,23 +12,21 @@ const resources = [
 
 const base = { tabs: sessionTabs, workspaceId: "ws1", sessionId: "ses1", onSelect: () => {}, onClose: () => {}, onNew: () => {}, resources }
 
-test("the split toggle only appears when a second page exists beside the conversation", () => {
+test("no split text button lives in the strip anymore; the extra slot renders the passed action", () => {
   const plain = renderToStaticMarkup(createElement(ConversationTabs, base))
   assert.ok(!plain.includes("Dividir"))
-  const shown = renderToStaticMarkup(createElement(ConversationTabs, { ...base, canSplit: true, split: false, onSplitToggle: () => {} }))
-  assert.ok(shown.includes("Dividir"))
-  assert.ok(shown.includes('aria-pressed="false"'))
+  const withExtra = renderToStaticMarkup(createElement(ConversationTabs, { ...base, extraAction: createElement("button", { "aria-label": "Abrir panel lateral" }) }))
+  assert.ok(withExtra.includes("Abrir panel lateral"))
 })
 
 test("split keeps the conversation and the chosen side tab both marked current", () => {
-  const split = renderToStaticMarkup(createElement(ConversationTabs, { ...base, canSplit: true, split: true, activeResourceId: "t1", onSelectResource: () => {}, onSplitToggle: () => {} }))
-  assert.ok(split.includes('aria-pressed="true"'))
+  const split = renderToStaticMarkup(createElement(ConversationTabs, { ...base, split: true, activeResourceId: "t1", onSelectResource: () => {} }))
   const current = split.match(/aria-current="page"/g) ?? []
   assert.equal(current.length, 2, "conversation + side page highlighted together")
 })
 
 test("without split the conversation loses its highlight when a page is active", () => {
-  const swapped = renderToStaticMarkup(createElement(ConversationTabs, { ...base, canSplit: true, split: false, activeResourceId: "t2", onSelectResource: () => {}, onSplitToggle: () => {} }))
+  const swapped = renderToStaticMarkup(createElement(ConversationTabs, { ...base, split: false, activeResourceId: "t2", onSelectResource: () => {} }))
   const current = swapped.match(/aria-current="page"/g) ?? []
   assert.equal(current.length, 1)
 })

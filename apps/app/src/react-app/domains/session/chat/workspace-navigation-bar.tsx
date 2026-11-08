@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
-import { Bot, ArrowLeft, ArrowRight, Columns2, FileText, FolderOpen, Globe, Link, PanelLeft, Plus, TerminalSquare, X } from "lucide-react"
+import type { ReactNode } from "react"
+import { Bot, ArrowLeft, ArrowRight, FileText, FolderOpen, Globe, Link, PanelLeft, Plus, TerminalSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePlatform } from "../../../kernel/platform"
@@ -42,10 +43,8 @@ export function ConversationTabs(props: {
   onNew: () => void
   resources?: WorkspaceResourceTab[]; activeResourceId?: string | null
   onSelectResource?: (id: string | null) => void; onCloseResource?: (tab: WorkspaceResourceTab) => void
-  split?: boolean; canSplit?: boolean; onSplitToggle?: () => void
+  split?: boolean; extraAction?: ReactNode
 }) {
-  // While a second page exists beside the conversation, a split toggle keeps
-  // the conversation visible and the selected page goes on the other side.
   return <nav aria-label="Conversaciones abiertas" data-conversation-tabs className="titlebar-no-drag flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [scrollbar-width:thin]">
     {props.tabs.map(tab => <div key={`${tab.workspaceId}:${tab.sessionId}`} className={`group flex h-8 max-w-64 shrink-0 items-center gap-1 rounded-lg border px-1 ${(!props.activeResourceId || props.split) && tab.workspaceId === props.workspaceId && tab.sessionId === props.sessionId ? "border-border bg-muted" : "border-transparent text-muted-foreground"}`}>
       <Button variant="ghost" size="sm" className="min-w-0 justify-start px-2 font-normal" aria-current={(!props.activeResourceId || props.split) && tab.workspaceId === props.workspaceId && tab.sessionId === props.sessionId ? "page" : undefined} onClick={() => { props.onSelectResource?.(null); props.onSelect(tab) }} title={tab.title || "Nuevo chat"}><span className="truncate">{tab.title || "Nuevo chat"}</span></Button>
@@ -59,7 +58,7 @@ export function ConversationTabs(props: {
         <Button variant="ghost" size="icon-xs" aria-label={`Cerrar pestaña ${tab.title}`} onClick={() => props.onCloseResource?.(tab)}><X className="size-3" /></Button>
       </div>
     })}
-    {props.canSplit ? <Button variant="ghost" size="sm" className={`h-8 shrink-0 gap-2 rounded-lg border px-2 font-normal ${props.split ? "border-border bg-muted" : "border-transparent text-muted-foreground"}`} aria-pressed={Boolean(props.split)} title="Dividir la vista con la conversación" onClick={props.onSplitToggle}><Columns2 className="size-3.5" />Dividir</Button> : null}
+    {props.extraAction}
     <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Abrir nueva pestaña" onClick={props.onNew}><Plus className="size-4" /></Button>
   </nav>
 }
