@@ -268,7 +268,7 @@ if (shouldDownloadOpencode) {
     const psQuote = (value) => `'${value.replace(/'/g, "''")}'`;
     const psScript = [
       "$ErrorActionPreference = 'Stop'",
-      `Invoke-WebRequest -Uri ${psQuote(opencodeUrl)} -OutFile ${psQuote(archivePath)}`,
+      `Invoke-WebRequest -Uri ${psQuote(opencodeUrl)} -OutFile ${psQuote(archivePath)} -MaximumRetryCount 5 -RetryIntervalSec 5`,
       `Expand-Archive -Path ${psQuote(archivePath)} -DestinationPath ${psQuote(extractDir)} -Force`,
     ].join("; ");
 
@@ -280,7 +280,9 @@ if (shouldDownloadOpencode) {
       process.exit(result.status ?? 1);
     }
   } else {
-    const downloadResult = spawnSync("curl", ["-fsSL", "-o", archivePath, opencodeUrl], {
+    // GitHub release assets intermittently answer 504; without retries the
+    // Linux build job fails on a transient CDN hiccup.
+    const downloadResult = spawnSync("curl", ["-fsSL", "--retry", "5", "--retry-all-errors", "--retry-delay", "5", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
       stdio: "inherit",
     });
     if (downloadResult.status !== 0) {

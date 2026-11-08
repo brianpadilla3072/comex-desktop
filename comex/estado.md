@@ -105,3 +105,7 @@ Se agregó divider arrastrable entre la conversación y la página del split (20
 ## Scroll del panel derecho sutil (2026-11-08)
 
 A pedido del usuario con captura: la barra de scroll del panel derecho (Resultados/Fuentes) era la nativa de Chromium, gruesa y con flechas. Se agregaron reglas en comex-shell.css escopadas a [data-comex-side-panel]: delgada (8 px), thumb redondeado casi invisible que se marca al pasar por el panel, sin botones de flecha. No afecta otras barras. Cambios en vivo vía HMR en la ventana de dev. Sin cambios académicos.
+
+## Release desde main con builds Linux y Windows (2026-11-08)
+
+El usuario pidió subir a main y que pasen las dos compilaciones, incluida Linux. La corrida 1.0.16 en dev falló en Linux por un 504 intermitente de GitHub Releases al descargar el sidecar OpenCode (curl sin reintentos; mismo 504 que se vio localmente). prepare-sidecar.mjs ahora reintenta 5 veces en curl y usa MaximumRetryCount en PowerShell, así Windows y Linux son tolerantes al CDN. Se canonicé comex-release.yml a la versión de main (dispara con push a main, versión 1.0.<run> o input explícito, jobs prepare/validate/build linux+win/publish); dev mantiene el mismo archivo, por lo que las corridas por dev dejan de publicar y la publicación vive solo en main. main recibe el merge de dev (estado.md, workflows y docs consolidados). Release esperado: v1.0.<run> con artefactos linux y win. Sin cambios en pendientes académicos.

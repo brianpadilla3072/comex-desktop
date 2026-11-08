@@ -2,7 +2,7 @@ name: Comex release
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
     paths:
       - 'apps/**'
       - 'packages/**'
@@ -17,6 +17,11 @@ on:
       - '.npmrc'
       - '.github/workflows/comex-release.yml'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión opcional 1.0.N. Si se deja vacío se usa el número de ejecución.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -28,7 +33,7 @@ concurrency:
 
 jobs:
   prepare:
-    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/dev'
+    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.release.outputs.version }}
@@ -37,9 +42,15 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         id: release
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         with:
           script: |
-            const version = `1.0.${context.runNumber}`;
+            const input = (process.env.INPUT_VERSION || '').trim().replace(/^v/, '');
+            const version = input || `1.0.${context.runNumber}`;
+            if (!/^1\.0\.\d+$/.test(version)) {
+              throw new Error(`Invalid release version "${version}"; expected 1.0.N.`);
+            }
             const tag = `v${version}`;
             core.setOutput('version', version);
             core.setOutput('tag', tag);
@@ -57,7 +68,7 @@ jobs:
             try {
               const latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
               const match = /^v1\.0\.(\d+)$/.exec(latest.tag_name);
-              if (match && Number(match[1]) >= context.runNumber) {
+              if (match && Number(match[1]) >= Number(version.split('.')[2])) {
                 throw new Error(`Refusing to replace newer release ${latest.tag_name} with ${tag}.`);
               }
             } catch (error) {
@@ -65,7 +76,7 @@ jobs:
             }
 
   validate:
-    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/dev'
+    if: github.repository == 'brianpadilla3072/comex-desktop' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
