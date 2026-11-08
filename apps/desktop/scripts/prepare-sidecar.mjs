@@ -266,18 +266,26 @@ if (shouldDownloadOpencode) {
 
   if (process.platform === "win32") {
     const psQuote = (value) => `'${value.replace(/'/g, "''")}'`;
-    const psScript = [
-      "$ErrorActionPreference = 'Stop'",
-      `Invoke-WebRequest -Uri ${psQuote(opencodeUrl)} -OutFile ${psQuote(archivePath)} -MaximumRetryCount 5 -RetryIntervalSec 5`,
-      `Expand-Archive -Path ${psQuote(archivePath)} -DestinationPath ${psQuote(extractDir)} -Force`,
-    ].join("; ");
-
-    const result = spawnSync("powershell", ["-NoProfile", "-Command", psScript], {
+    // The Windows runner ships curl.exe, which retries 504s from GitHub
+    // releases. Invoke-WebRequest on the runner's PowerShell 5.1 has no
+    // retry interval (PowerShell 7 only), so it stays as a plain fallback.
+    const curlResult = spawnSync("curl.exe", ["-fsSL", "--retry", "5", "--retry-all-errors", "--retry-delay", "5", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
       stdio: "inherit",
     });
+    if (curlResult.status !== 0) {
+      const fallback = spawnSync("powershell", ["-NoProfile", "-Command", `$ErrorActionPreference = 'Stop'; Invoke-WebRequest -Uri ${psQuote(opencodeUrl)} -OutFile ${psQuote(archivePath)}`], {
+        stdio: "inherit",
+      });
+      if (fallback.status !== 0) {
+        process.exit(fallback.status ?? 1);
+      }
+    }
 
-    if (result.status !== 0) {
-      process.exit(result.status ?? 1);
+    const expandResult = spawnSync("powershell", ["-NoProfile", "-Command", `$ErrorActionPreference = 'Stop'; Expand-Archive -Path ${psQuote(archivePath)} -DestinationPath ${psQuote(extractDir)} -Force`], {
+      stdio: "inherit",
+    });
+    if (expandResult.status !== 0) {
+      process.exit(expandResult.status ?? 1);
     }
   } else {
     // GitHub release assets intermittently answer 504; without retries the

@@ -113,3 +113,7 @@ El usuario pidió subir a main y que pasen las dos compilaciones, incluida Linux
 ## Distribución de escritorio y actualizaciones (2026-11-07)
 
 El release automático pasó de `dev` a `main`. Cada push a `main` que toque `apps/`, `packages/`, `pack/`, `scripts/` o la configuración de build compila y publica Windows x64 (NSIS `openwork-win-x64-<versión>.exe`) y Linux x64 (AppImage), con versión `1.0.<número de ejecución>`. El workflow manual permite forzar otra versión `1.0.N`. Se publicó la versión 1.0.14 (run 42432159410): `latest.yml` apunta a `1.0.14` y `comex-release.json` informa `latestAppVersion: 1.0.14`. La app instalada consulta `releases/latest/download` cada 15 minutos y se actualiza sola. Los binarios siguen sin firma de código (`SIGN_WINDOWS=false`), por lo que Windows puede mostrar el aviso de SmartScreen. Pendiente: fijar `main` como default branch y, si se desea, configurar firma (Azure Trusted Signing ya cableado, o certificado PFX). No cambia los pendientes académicos ni el estado de la encuesta.
+
+## Fix Windows: descarga del sidecar sin parámetros incompatibles (2026-11-08)
+
+El run de main 1.0.18 pasó Linux (los reintentos de curl funcionaron) pero falló Windows: mi `-RetryIntervalSec` no existe en PowerShell 5.1 del runner (NamedParameterNotFound). El fallback ahora usa curl.exe con los mismos reintentos en Windows y deja Invoke-WebRequest clásico como último recurso; la extracción quedó separada en su propia llamada. Se vuelve a subir a main para publicar con las dos plataformas. Sin cambios académicos.
