@@ -758,7 +758,16 @@ function ProposalsSection({ app, client, enabled, onChanged }: { app: Specialist
   if (!enabled) return null;
   if (query.isPending) return <section className="grid gap-2"><Skeleton className="h-12 w-full" /></section>;
   if (query.isError) return <section className="grid gap-2"><p role="alert" className="text-sm text-destructive">No se pudieron leer las propuestas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></section>;
-  if (!proposals.length) return null;
+  // F-1: the per-piece accept result must survive even when the inbox became empty after accepting.
+  if (!proposals.length && !notice) return null;
+  if (!proposals.length && notice) return <section className="grid gap-2">
+    <div role="status" className="grid gap-1 rounded-md border p-2 text-xs">
+      <p className="font-medium">Resultado de la propuesta aceptada</p>
+      {notice.map((entry, index) => <p key={`${entry.piece}-${index}`} className={entry.ok ? "text-muted-foreground" : "text-destructive"}>
+        {entry.ok ? "✓" : "✗"} {entry.piece}{entry.detail ? ` — ${entry.detail}` : ""}
+      </p>)}
+    </div>
+  </section>;
   return <section className="grid gap-2">
     <h3 className="text-sm font-medium">Propuestas pendientes ({proposals.length})</h3>
     <p className="text-xs text-muted-foreground">El asistente te aprendió estos procedimientos y propone guardarlos. Nada existe hasta que lo confirmes acá.</p>
