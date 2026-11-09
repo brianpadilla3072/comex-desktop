@@ -244,9 +244,21 @@ export function appendRun(config: Pick<ServerConfig, "configPath">, id: string, 
   });
 }
 
-/** Close the dispatched entry created at exactly `at` (never an older orphan). */
-export function finishRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, at: number, patch: { status: "ok" | "failed" | "blocked" | "skipped_overlap"; detail?: string }) {
+/** Record which engine session a dispatched entry belongs to (the log must never stay sessionId-less). */
+export function identifyRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, at: number, sessionId: string) {
   return serialize(id, async () => {
+    const runs = await listRuns(config, id, taskId);
+    const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
+    if (index >= 0) {
+      runs[index] = { ...runs[index]!, sessionId };
+      await writeJson(runLogFile(config, id, taskId), runs);
+    }
+    return runs;
+  });
+}
+
+/** Close the dispatched entry created at exactly `at` (never an older orphan). */
+export function finishRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, at: number, patch: { status: "ok" | "failed" | "blocked" | "skipped_overlap"; detail?: string }) {  return serialize(id, async () => {
     const runs = await listRuns(config, id, taskId);
     const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
     if (index >= 0) {

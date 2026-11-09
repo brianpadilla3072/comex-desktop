@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ApiError } from "../errors.js";
 import { scheduledTasksEnabled } from "../comex/features.js";
 import { specialistStore } from "./store.js";
-import { appendRun, finishRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
+import { appendRun, finishRun, identifyRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
 import type { ServerConfig } from "../types.js";
 
 /** The local recurring-run loop. Mirrors task-continuity's rules: a single in-flight tick,
@@ -97,6 +97,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       await appendRun(config, applicationId, task.id, record("dispatched", null));
       const created = await call(project.workspaceId, "/session", { title: `Tarea programada: ${task.name}` });
       sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
+      if (sessionId) await identifyRun(config, applicationId, task.id, startedAt, sessionId);
       evidencePath = await writeEvidence(project.rootPath, task.id, stamp, record("dispatched", null));
       await patchTask(config, applicationId, task.id, t => ({ ...t, running: t.running ? { ...t.running, sessionId, evidencePath } : t.running }));
       if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");

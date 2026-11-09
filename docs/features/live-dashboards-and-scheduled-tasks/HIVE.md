@@ -18,7 +18,10 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `1ee8323` | — |
 | F1 | Sources locales | ✅ wiring: `registerLocalSource` (snapshot en comex/fuentes/local/, containment+symlink), ruta/tool `source_add`, UI "Registrar archivo" · ✅ server 122/122 | ee8f94e90d | — |
 | F5 | Generador OpenAPI | ✅ wiring: `specialist_openapi_propose` (skill+dataset openapi+panel como plan) + doctrina en instructions.ts [5] | `b6afffa` | ✅ front-test (F) + F-1 corregida |
-| TEST-F | Front-test F1/F3/F4/F5 | ✅ 9/9 (`specialist-live-f-user.test.tsx`) + F-1 corregida | d72447196c | — |
+| TEST-F | Front-test F1/F3/F4/F5 | ✅ 9/9 (`specialist-live-f-user.test.tsx`) + F-1 corregida | `d724471` | — |
+| TEST-SESSION | Sesión tool-bridge completa | ✅ 1 sesión 9 pasos (`specialist-session-journey.test.ts`), sin trabas | `SESFIX` | — |
+| TEST-FULLUI | Sesión UI completa (write flows) | ✅ 1 sesión 7 pasos (`specialist-full-ui-session.test.tsx`) · U-1/U-2 corregidas | `SESFIX` | — |
+| TEST-SCHED | Sesión scheduler completa | ✅ 8/8 (`specialist-scheduler-session.test.ts`) · T-1 corregida | `SESFIX` | — |
 | D | [4] MCP Apps local | ⬜ | | |
 | F3 | Ensayo de tareas | ✅ wiring: `dryRun` en scheduler (sin claim/cola/evidencia), ruta + botón "Ensayar" con flag taskDryRun · ✅ server + UI | `0358d8f` | — |
 | F4 | Presupuesto de corrida | ✅ wiring: `estimateTaskBudget` (tiempo/espacio local) en create/update + estimado en vivo en el form | a53117cb8a | — |

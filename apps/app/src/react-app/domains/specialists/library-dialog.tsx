@@ -343,7 +343,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
             <span className="block truncate text-xs text-muted-foreground">{dataset.question}</span>
           </span>
         </button>
-        {dataset.provider === "tavily" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
+        {dataset.provider === "tavily" || dataset.provider === "openapi" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} aria-label={`Eliminar ${dataset.name}`} onClick={() => setPendingDelete({ id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })}><Trash2 className="size-4" /></Button>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -488,6 +488,7 @@ function PanelsView({ app, client, onBack }: { app: SpecialistApplication; clien
   const queryClient = useQueryClient();
   const [openName, setOpenName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ name: string; title: string } | null>(null);
   async function remove(name: string) {
     setError(null);
     try { await client.deleteSpecialistPanel(app.id, name); await queryClient.invalidateQueries({ queryKey: PANELS_KEY(client, app) }); }
@@ -501,12 +502,17 @@ function PanelsView({ app, client, onBack }: { app: SpecialistApplication; clien
     <h3 className="text-sm font-medium">Paneles de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Vistas declarativas sobre los datasets: se redibujan solas cuando llega un snapshot nuevo. Si algo no se puede dibujar, el panel lo dice en vez de quedar en blanco.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación del panel ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+      <span className="min-w-0 flex-1">¿Eliminar el panel "{pendingDelete.title}"? Dejará de dibujarse en los proyectos.</span>
+      <Button size="sm" variant="destructive" onClick={() => { const target = pendingDelete; setPendingDelete(null); void remove(target.name); }}>Eliminar</Button>
+      <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
+    </div> : null}
     {panels.length ? panels.map(panel => <div key={panel.name} className="grid gap-2 rounded-md border p-3 text-sm">
       <div className="flex items-center gap-2">
         <LayoutDashboard className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{panel.title}</span>
         <Button size="sm" variant="ghost" aria-expanded={openName === panel.name} onClick={() => setOpenName(openName === panel.name ? null : panel.name)}>{openName === panel.name ? "Ocultar" : "Ver"}</Button>
-        <Button size="sm" variant="ghost" aria-label={`Eliminar panel ${panel.title}`} onClick={() => void remove(panel.name)}><Trash2 className="size-4" /></Button>
+        <Button size="sm" variant="ghost" aria-label={`Eliminar panel ${panel.title}`} onClick={() => setPendingDelete({ name: panel.name, title: panel.title })}><Trash2 className="size-4" /></Button>
       </div>
       {openName === panel.name ? <PanelCanvas key={panel.name} app={app} client={client} name={panel.name} /> : null}
     </div>) : <p className="text-xs text-muted-foreground">Sin paneles todavía. Pedile al asistente "mostrame los datos en un panel" y te propondrá crear uno.</p>}
@@ -684,6 +690,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
   const queryClient = useQueryClient();
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<SpecialistOutput | null>(null);
   async function remove(output: SpecialistOutput) {
     setError(null);
     try { await client.deleteSpecialistOutput(app.id, output.id, output.workspaceId); await queryClient.invalidateQueries({ queryKey: OUTPUTS_KEY(client, app) }); }
@@ -698,13 +705,18 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
     <h3 className="text-sm font-medium">Salidas del mini-Studio de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Un dataset, muchas formas de digerirlo. Cada salida es un archivo del proyecto (versionable en git) y declara si está anclada a sus fuentes.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de la salida ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+      <span className="min-w-0 flex-1">¿Eliminar la salida "{pendingDelete.title}"? Se quitan sus archivos del proyecto.</span>
+      <Button size="sm" variant="destructive" onClick={() => { const target = pendingDelete; setPendingDelete(null); void remove(target); }}>Eliminar</Button>
+      <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
+    </div> : null}
     {outputs.length ? outputs.map(output => <div key={`${output.workspaceId}/${output.id}`} className="grid gap-2 rounded-md border p-3 text-sm">
       <div className="flex items-center gap-2">
         <ScanSearch className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
         <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
         <Button size="sm" variant="ghost" aria-expanded={openId === output.id} onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
-        <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => void remove(output)}><Trash2 className="size-4" /></Button>
+        <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => setPendingDelete(output)}><Trash2 className="size-4" /></Button>
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}
       {openId === output.id ? <OutputDetail key={output.id} app={app} client={client} output={output} /> : null}
@@ -814,6 +826,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
   const [notice, setNotice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [runsFor, setRunsFor] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const runs = useQuery({ queryKey: runsFor ? RUNS_KEY(client, app, runsFor.id) : ["specialist-task-runs", client.baseUrl, app.id, "idle"], queryFn: () => runsFor ? client.getSpecialistTaskRuns(app.id, runsFor.id) : Promise.resolve({ runs: [] }), retry: false, enabled: runsFor !== null });
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -879,6 +892,11 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
     </form> : null}
     {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de la tarea ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+      <span className="min-w-0 flex-1">¿Eliminar la tarea "{pendingDelete.name}"? Se quita también su historial de corridas.</span>
+      <Button size="sm" variant="destructive" disabled={busy} onClick={() => { const target = pendingDelete; setPendingDelete(null); setRunsFor(current => current?.id === target.id ? null : current); void run(() => client.deleteSpecialistTask(app.id, target.id)); }}>Eliminar</Button>
+      <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
+    </div> : null}
     {tasks.length ? tasks.map(task => <div key={task.id} className="grid gap-2 rounded-md border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
@@ -892,7 +910,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
         {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mirá el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
         <Button size="sm" variant="ghost" aria-expanded={runsFor?.id === task.id} onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
-        <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => void run(() => client.deleteSpecialistTask(app.id, task.id))}><Trash2 className="size-4" /></Button>
+        <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => setPendingDelete({ id: task.id, name: task.name })}><Trash2 className="size-4" /></Button>
       </div>
       {runsFor?.id === task.id ? <div className="grid gap-1 border-t pt-2 text-xs text-muted-foreground">
         {runs.isError ? <span role="alert" className="text-destructive">No se pudo leer el historial. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void runs.refetch()}>Volver a intentar</Button></span>
