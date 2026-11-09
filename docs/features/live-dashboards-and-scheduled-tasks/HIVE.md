@@ -17,7 +17,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | REV-ui | Revisor UI (ses_e3eb290d) | ✅ blockers 1-4 + imp 6,7,9-11,19 aplicados · diferidos: #5 shells, #12, #15, #17 (#13 no aplica: paths relativos) | `1ee8323` | — |
 | TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `1ee8323` | — |
 | F1 | Sources locales | ✅ wiring: `registerLocalSource` (snapshot en comex/fuentes/local/, containment+symlink), ruta/tool `source_add`, UI "Registrar archivo" · ✅ server 122/122 | ee8f94e90d | — |
-| F5 | Generador OpenAPI | ✅ wiring: `specialist_openapi_propose` (skill+dataset openapi+panel como plan) + doctrina en instructions.ts [5] | `F5FIX` | — |
+| F5 | Generador OpenAPI | ✅ wiring: `specialist_openapi_propose` (skill+dataset openapi+panel como plan) + doctrina en instructions.ts [5] | b6afffa78b | — |
 | D | [4] MCP Apps local | ⬜ | | |
 | F3 | Ensayo de tareas | ✅ wiring: `dryRun` en scheduler (sin claim/cola/evidencia), ruta + botón "Ensayar" con flag taskDryRun · ✅ server + UI | `0358d8f` | — |
 | F4 | Presupuesto de corrida | ✅ wiring: `estimateTaskBudget` (tiempo/espacio local) en create/update + estimado en vivo en el form | a53117cb8a | — |
