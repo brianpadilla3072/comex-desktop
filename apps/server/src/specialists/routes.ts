@@ -20,7 +20,7 @@ import { applySpecialistLibraryChange } from "./sync.js";
 import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
 import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
-import { writePanel } from "./panels.js";
+import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
 import { ensureChunks, listSources, readCitation } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
@@ -393,5 +393,45 @@ export function registerSpecialistRoutes(options: {
       return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
     }
     throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en los proyectos de esta aplicación.");
+  });
+
+  /** Declarative panels ([3]): the spec lives per application; resolution paints each bound
+   *  workspace's own snapshot. `?workspace=` pins one project; without it every bound project
+   *  resolves and the response carries one entry per project (failures stay per-project). */
+  function requirePanels(write = false) {
+    requireFeature(write);
+    if (!specialistPanelsEnabled()) throw new ApiError(404, "specialist_panels_disabled", "Los paneles están desactivados.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/panels", "client", async ctx => {
+    requirePanels();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ panels: await listPanels(config, app.id) });
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/panels/:name", "host", async ctx => {
+    requirePanels(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const result = await writePanel(config, app.id, ctx.params.name, await readJsonBody(ctx.request));
+    return jsonResponse(result);
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/panels/:name", "host", async ctx => {
+    requirePanels(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const deleted = await deletePanel(config, app.id, ctx.params.name);
+    return jsonResponse({ deleted });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/panels/:name/resolve", "client", async ctx => {
+    requirePanels();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const spec = await readPanelSpec(config, app.id, ctx.params.name);
+    const targets = await datasetWorkspaces(app.id, ctx.url.searchParams.get("workspace"));
+    const resolutions = await Promise.all(targets.map(async target => ({
+      workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath),
+      ...(await resolvePanel(config, app.id, ctx.params.name, target.workspacePath)),
+    })));
+    return jsonResponse({ spec, resolutions });
   });
 }

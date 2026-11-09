@@ -234,6 +234,27 @@ export function registerDatasetQuery(directory: string, input: { name: string; q
   });
 }
 
+/** F2 snapshot diffs: one file per refresh that changed something, auditably in the workspace. */
+const DIFF_LIMIT = 30;
+const diffsDir = (directory: string, id: string) => join(datasetDir(directory, id), "diffs");
+
+export async function writeDatasetDiff(directory: string, id: string, diff: unknown) {
+  const dir = await ensureFolder(diffsDir(directory, id));
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  await writeFile(join(dir, `${stamp}.json`), JSON.stringify(diff, null, 2), { mode: 0o600 });
+  const entries = (await readdir(dir)).filter(name => name.endsWith(".json")).sort();
+  for (const name of entries.slice(0, Math.max(0, entries.length - DIFF_LIMIT))) await rm(join(dir, name), { force: true });
+  return stamp;
+}
+
+export async function readLatestDiff(directory: string, id: string): Promise<unknown | null> {
+  try {
+    const entries = (await readdir(diffsDir(directory, id))).filter(name => name.endsWith(".json")).sort().reverse();
+    if (!entries[0]) return null;
+    return JSON.parse(await readFile(join(diffsDir(directory, id), entries[0]), "utf8")) as unknown;
+  } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
+}
+
 /** The dataset a query belongs to, without registering a run (read-side lookup). */
 export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
   const datasets = await readIndex(directory);

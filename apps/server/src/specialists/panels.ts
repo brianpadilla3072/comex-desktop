@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { specialistDirectory } from "./store.js";
-import { listDatasets, readLatestSnapshot } from "./datasets.js";
+import { listDatasets, readLatestDiff, readLatestSnapshot } from "./datasets.js";
 import { statOrNull } from "./digest.js";
 import type { ServerConfig } from "../types.js";
 
@@ -25,6 +25,7 @@ const blockSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("bar"), x: z.string().min(1).max(120), y: z.array(z.string().min(1).max(120)).min(1).max(8), title: z.string().max(120).optional() }).strict(),
   z.object({ type: z.literal("table"), limit: z.number().int().min(1).max(500).default(50), sort: z.object({ by: z.string().min(1).max(120), desc: z.boolean().default(false) }).optional(), columns: z.array(z.string().min(1).max(120)).max(40).optional() }).strict(),
   z.object({ type: z.literal("markdown"), text: z.string().min(1).max(2000) }).strict(),
+  z.object({ type: z.literal("changes"), title: z.string().max(120).optional() }).strict(),
 ]);
 
 /** The authored part of a panel (what a person or the AI sends); `panel` is set from the file
@@ -141,7 +142,7 @@ export async function deletePanel(config: Pick<ServerConfig, "configPath">, id: 
 }
 
 export type PanelResolution =
-  | { ok: true; spec: SpecialistPanelSpec; data: unknown; sourceLabel: string }
+  | { ok: true; spec: SpecialistPanelSpec; data: unknown; sourceLabel: string; diff: unknown }
   | { ok: false; error: string; spec?: SpecialistPanelSpec };
 
 /** Resolve a panel against ONE project: datasets via their LATEST snapshot, files by relative
@@ -158,7 +159,9 @@ export async function resolvePanel(config: Pick<ServerConfig, "configPath">, id:
     if (match.lastSnapshotAt === null) return { ok: false, spec, error: `El dataset "${match.name}" nunca tuvo una corrida.` };
     try {
       const data = await readLatestSnapshot(directory, match.id);
-      return { ok: true, spec, data, sourceLabel: `dataset:${match.id}` };
+      // The "cambios" block reads the latest F2 diff of this dataset (null = no refresh yet).
+      const diff = await readLatestDiff(directory, match.id).catch(() => null);
+      return { ok: true, spec, data, sourceLabel: `dataset:${match.id}`, diff };
     } catch {
       return { ok: false, spec, error: "El snapshot del dataset está dañado." };
     }
@@ -180,10 +183,10 @@ export async function resolvePanel(config: Pick<ServerConfig, "configPath">, id:
   const raw = await readFile(realTarget, "utf8").catch(() => null);
   if (raw === null) return { ok: false, spec, error: "El archivo no se pudo leer como texto." };
   if (spec.source.file.endsWith(".json")) {
-    try { return { ok: true, spec, data: JSON.parse(raw) as unknown, sourceLabel: `file:${spec.source.file}` }; }
+    try { return { ok: true, spec, data: JSON.parse(raw) as unknown, sourceLabel: `file:${spec.source.file}`, diff: null }; }
     catch { return { ok: false, spec, error: "El archivo .json no es JSON válido." }; }
   }
-  return { ok: true, spec, data: raw, sourceLabel: `file:${spec.source.file}` };
+  return { ok: true, spec, data: raw, sourceLabel: `file:${spec.source.file}`, diff: null };
 }
 
 /** Extract one rows-array out of a payload that panels can plot. Tolerant: the FIRST object

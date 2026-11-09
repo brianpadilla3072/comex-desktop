@@ -48,6 +48,11 @@ const datasetDeriveSchema = z.object({
   payload: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).describe("Datos limpios o transformados: un arreglo de filas o un objeto con las series; hasta 1 MB"),
 });
 
+const panelWriteSchema = z.object({
+  name: z.string().describe("kebab-case, 1-64 caracteres (nombre del panel)"),
+  spec: z.record(z.string(), z.unknown()).describe("Especificación declarativa: {title, source:{dataset|file}, refresh?:{watch:'latest'}, blocks:[stat|line|bar|table|markdown|changes]}. Sin campos desconocidos."),
+});
+const panelNameSchemaTool = z.object({ name: z.string().describe("kebab-case del panel, visible en specialist_panel_list") });
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
   { name: "specialist_library_read", description: "Leer un archivo de la biblioteca de la aplicación (agents/*.md, skills/*/SKILL.md o recursos).", schema: readSchema },
@@ -66,6 +71,10 @@ const TOOLS = [
   { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, decilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
   { name: "specialist_dataset_derive", description: "Registrar un dataset DERIVADO de otro: una vista limpia o transformada (sin consulta re-ejecutable, con linaje al origen). Usarla proactivamente cuando convertiste los datos de una investigación en algo reutilizable para el proyecto.", schema: datasetDeriveSchema },
   { name: "specialist_source_read", description: "Leer una FUENTE citable del proyecto: sin chunk devuelve el índice de pasajes; con chunk devuelve el texto exacto del pasaje. Obligatorio antes de citar [fuente:<id>#<n>] en una respuesta: nunca cites de memoria ni inventes un ancla.", schema: sourceReadSchema },
+  { name: "specialist_panel_list", description: "Listar los paneles declarativos de la aplicación (vistas vivas sobre datasets).", schema: listSchema },
+  { name: "specialist_panel_write", description: "Crear o editar un panel declarativo (stat/line/bar/table/markdown/changes sobre un dataset o archivo). El render es determinista y se repinta solo cuando cambia el snapshot; nunca incluye código propio.", schema: panelWriteSchema },
+  { name: "specialist_panel_read", description: "Leer la especificación de un panel y resolverla contra este proyecto (datos del último snapshot o el error exacto si no se puede dibujar).", schema: panelNameSchemaTool },
+  { name: "specialist_panel_delete", description: "Eliminar un panel de la aplicación, a pedido explícito de la persona.", schema: panelNameSchemaTool },
 ] as const;
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */

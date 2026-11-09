@@ -9,10 +9,10 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front ✅ fixes de las 5 trabas aplicados | `f850096` `ca474c2` `fd3c2dbe` | — (celda cerrada) |
 | B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `1ea7aa9` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
 | B2 | [6] Fuentes y citas | ✅ core + wiring: registro automático en research, ruta /sources, tool source_read, UI lector de pasajes · ✅ server 56/56 ✅ UI 21/21 | `0ef3fd8` | revisor + test-front |
-| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front |
+| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes ✅ wiring: rutas/tools + renderer SVG determinista, multi-proyecto con fallo local · ✅ server 104/104 · ✅ UI 24/24 | `C1FIX` | revisor + test-front |
 | C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `fcad758` | revisor + test-front |
 | C3 | [7] Salidas mini-Studio | ✅ core: validación por tipo + auditoría de citas | `ffd07a7` | wiring |
-| F2 | Diff de snapshot | ✅ diffs.ts puro (filas por identidad, escalar, shape honesto) | `4d3387c` | wiring: runner lo llama tras cada refresh; bloque de panel "cambios" |
+| F2 | Diff de snapshot | ✅ core + wiring: el runner difunde antes/después de cada refresh (`comex/datasets/<id>/diffs/`), bloque "cambios" del panel | `C1FIX` | (incluye C1) |
 | D | [4] MCP Apps local | ⬜ | | |
 | F1–F5 | Backlog alineado | ⬜ | | |
 
