@@ -88,11 +88,11 @@ function apiHarness(config: Record<string, unknown>) {
     jsonResponse: (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
     ensureWritable: () => {}, createWorkspace: async () => "ws_new",
   });
-  return async (method: string, path: string, body?: unknown) => {
+  return async (method: string, path: string, body?: unknown, headers?: Record<string, string>) => {
     const match = matchRoute(routes, method, path);
     assert.ok(match, `no route for ${method} ${path}`);
     const url = new URL(`http://127.0.0.1:1${path}`);
-    const request = new Request(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+    const request = new Request(url, { method, body: body === undefined ? undefined : JSON.stringify(body), headers });
     try {
       const response = await match.handler({ request, url, params: match.params, config } as unknown as RequestContext);
       return { status: response.status, json: await response.json() as Record<string, unknown> };
@@ -130,7 +130,7 @@ test("task routes live and die with the scheduledTasks flag", async () => {
   } finally { await rmAll(root); }
 });
 
-type EngineState = { completed: boolean; calls: string[]; prompted?: Record<string, unknown> };
+type EngineState = { completed: boolean; calls: string[]; prompted?: Record<string, unknown>; history?: Array<Record<string, unknown>> };
 
 function fakeEngine(state: EngineState) {
   return async (request: Request) => {
@@ -140,8 +140,11 @@ function fakeEngine(state: EngineState) {
     if (request.method === "POST" && path === "/session") return new Response(JSON.stringify({ id: "ses_auto_1" }), { status: 200, headers: { "content-type": "application/json" } });
     if (request.method === "POST" && path.startsWith("/session/")) { state.prompted = await request.json() as Record<string, unknown>; return new Response("{}", { status: 200 }); }
     if (path.startsWith("/session/")) {
-      const messages = state.completed ? [{ type: "assistant", time: { completed: 1_700_000_000_000 } }] : [];
-      return new Response(JSON.stringify(messages), { status: 200, headers: { "content-type": "application/json" } });
+      // Newest first, like the engine's order=desc pages.
+      const history = state.history ?? (state.completed
+        ? [{ type: "assistant", time: { completed: 1_700_000_000_000 } }, { type: "user", time: { created: 1 } }]
+        : []);
+      return new Response(JSON.stringify(history), { status: 200, headers: { "content-type": "application/json" } });
     }
     return new Response("{}", { status: 200 });
   };
@@ -181,11 +184,40 @@ test("the scheduler claims before dispatch, records the run and finalizes it", a
       const done = (await listTasks(config, app.id)).find(t => t.id === task.id)!;
       assert.equal(done.lastStatus, "ok");
       assert.equal(done.running, null);
+      // The run left auditable evidence inside the project, not just in the config dir.
+      const { readdir } = await import("node:fs/promises");
+      const runFiles = await readdir(join(project, "comex", "tareas", task.id, "runs"));
+      assert.equal(runFiles.length, 1);
+      assert.match(runFiles[0]!, /\.json$/);
+      const evidence = JSON.parse(await readFile(join(project, "comex", "tareas", task.id, "runs", runFiles[0]!), "utf8")) as { status: string; sessionId: string | null };
+      assert.equal(evidence.status, "ok");
+      assert.equal(evidence.sessionId, "ses_auto_1");
       const runs = await listRuns(config, app.id, task.id);
       assert.equal(runs[0]?.status, "ok");
       assert.equal(runs[0]?.missed, 2);
+      // Review regressions (Celda A): engine pages arrive newest-first — an unfinished top assistant
+      // must NOT finalize the run by finding an older completed one — and a due claim logs one overlap line.
+      await patchTask(config, app.id, task.id, t => ({ ...t, nextRunAt: Date.now() - 1000 }));
+      state.history = [
+        { type: "assistant", time: {} },
+        { type: "user", time: { created: 1 } },
+        { type: "assistant", time: { completed: 1 } },
+      ];
+      await scheduler.tick(); // dispatches run #2
+      assert.equal((await listTasks(config, app.id)).find(t => t.id === task.id)!.lastStatus, "running");
+      await scheduler.tick(); // observe: top assistant unfinished → stays open (the old bug finalized it)
+      assert.equal((await listTasks(config, app.id)).find(t => t.id === task.id)!.lastStatus, "running");
+      await patchTask(config, app.id, task.id, t => ({ ...t, nextRunAt: Date.now() - 1000 }));
+      await scheduler.tick();
+      await scheduler.tick();
+      const overlaps = (await listRuns(config, app.id, task.id)).filter(entry => entry.status === "skipped_overlap");
+      assert.equal(overlaps.length, 1);
+      state.history = [{ type: "assistant", time: { completed: 2 } }];
+      await scheduler.tick();
+      assert.equal((await listTasks(config, app.id)).find(t => t.id === task.id)!.lastStatus, "ok");
       // Manual trigger from the route runs outside the schedule and does not move it.
-      const nextBefore = done.nextRunAt;
+      const beforeManual = (await listTasks(config, app.id)).find(t => t.id === task.id)!;
+      const nextBefore = beforeManual.nextRunAt;
       const call = apiHarness(config);
       const started = await call("POST", `/specialist-applications/${app.id}/tasks/${task.id}/run-now`);
       assert.equal(started.json.started, true);
@@ -227,8 +259,7 @@ test("a task without any bound project blocks with backoff instead of spinning",
   } finally { await rmAll(root); }
 });
 
-test("chat can create and manage tasks through the scoped tool bridge", async () => {
-  const { root, config, app, store } = await fixture();
+test("chat can create and manage tasks through the scoped tool bridge", async () => {  const { root, config, app, store } = await fixture();
   try {
     const project = join(root, "project-bridge");
     await mkdir(project, { recursive: true });
@@ -249,6 +280,17 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
     });
     await withFlag("false", async () => {
       await assert.rejects(runLibraryTool(config, project, "specialist_task_create", { name: "apagado", prompt: "p", schedule: { kind: "interval", everyMinutes: 5 } }), (error) => failureStatus(error, "scheduled_tasks_disabled"));
+    });
+    // Review regression B1: the route-level tool schema accepts the task names (they used to 422 there).
+    const call = apiHarness(config);
+    const { readdir } = await import("node:fs/promises");
+    const toolFiles = await readdir(join(root, "specialists", "tool"));
+    const descriptor = JSON.parse(await readFile(join(root, "specialists", "tool", toolFiles[0]!), "utf8")) as { token: string };
+    await withFlag("true", async () => {
+      const listed = await call("POST", "/specialist-tool", { name: "specialist_task_list", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
+      assert.equal(listed.status, 200);
+      assert.equal((listed.json.result as { tasks: unknown[] }).tasks.length, 1);
+      await assert.rejects(call("POST", "/specialist-tool", { name: "specialist_task_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" }));
     });
   } finally { await rmAll(root); }
 });

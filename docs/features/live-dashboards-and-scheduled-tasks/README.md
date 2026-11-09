@@ -108,10 +108,13 @@ acción estructurada) que corre cada N minutos/horas/días, o a una hora dada.
 
 - **Granularidad en minutos** — a diferencia de Automations de cloud (mínimo 1
   hora), soportar `{ every: 20, unit: "minutes" }`, además de daily/weekly/once.
-- **Durable**: estado en tabla KV nueva `scheduled_tasks` (mismo patrón que
-  `task_continuity`). Un reinicio del server **retoma** las tareas activas:
-  calcula ocurrencias perdidas y corre la más reciente (nunca todas en ráfaga —
-  coalescing, igual que `recoverableAutomationOccurrence`).
+- **Durable (implementado, enmendado tras revisión)**: el *estado* de tareas vive en
+  `specialists/<app>/tasks.json` (patrón proposals.ts, serializado por aplicación, claim
+  CAS antes de despachar) en vez de la tabla KV — no gana nada con SQLite aquí; la
+  *evidencia* de cada corrida es un archivo del proyecto: `comex/tareas/<taskId>/runs/<ts>.json`
+  (auditable, git-eable). Un reinicio del server retoma: si `nextRunAt` quedó atrás,
+  corre una vez y registra `missed` (coalescing, nunca ráfaga); una corrida que pisa a
+  otra en curso queda como `skipped_overlap` (una línea por claim).
 - **Honesto sobre el apagado**: si la PC estuvo apagada, la próxima corrida es
   ya; no se finge cumplimiento. UI muestra "última corrida / próxima / errores".
 - **Contexto de corrida**: cada corrida crea (o reusa, según política) una

@@ -247,6 +247,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  specialistDatasets: {
+    label: "Specialist research datasets",
+    description: "Give each research query an identity: a re-runnable query.json plus timestamped snapshots under comex/datasets/ in the project, so tasks and panels can re-consult the same sources.",
+    category: "experience",
+    added: "2026-11-09",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/live-dashboards-and-scheduled-tasks/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   openworkPromotions: {
     label: "OpenWork promotions",
     description: "Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.",

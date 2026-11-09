@@ -6,13 +6,18 @@ import { ApiError } from "../errors.js";
 import { specialistDirectory } from "./store.js";
 import type { ServerConfig } from "../types.js";
 
-/** Recurring work per specialist application. Storage and rules mirror proposals.ts:
- *  one JSON file per application, atomic writes, strict validation, hard limits. */
+/** Recurring work per specialist application. Storage mirrors proposals.ts (one JSON file per
+ *  application, atomic writes, strict validation, hard limits); full run evidence goes to the
+ *  project workspace (comex/tareas/) from scheduler.ts. Every read-modify-write here is
+ *  serialized per application: bun is single-threaded but the awaits between read and write are
+ *  exactly where a concurrent route/scheduler/tool mutation would otherwise lose updates. */
+
+const uniqueDays = z.array(z.number().int().min(0).max(6)).min(1).max(7).refine(days => new Set(days).size === days.length, "daysOfWeek no puede tener días repetidos");
 
 export const scheduleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("interval"), everyMinutes: z.number().int().min(1).max(43_200) }),
   z.object({ kind: z.literal("daily"), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
-  z.object({ kind: z.literal("weekly"), daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1).max(7), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
+  z.object({ kind: z.literal("weekly"), daysOfWeek: uniqueDays, hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
   z.object({ kind: z.literal("once"), at: z.number().int() }),
 ]);
 export type SpecialistSchedule = z.infer<typeof scheduleSchema>;
@@ -38,6 +43,10 @@ export const taskSchema = z.object({
     mode: z.enum(["scheduled", "manual"]),
     /** Occurrences skipped by a restart or a long pause; coalesced into this one run. */
     missed: z.number().int().nonnegative(),
+    /** Workspace-relative evidence file for this run; written once dispatched. */
+    evidencePath: z.string().nullable().default(null),
+    /** One "skipped_overlap" log line per claimed run, not one per tick. */
+    skippedLogged: z.boolean().default(false),
   }).nullable(),
 });
 export type SpecialistTask = z.infer<typeof taskSchema>;
@@ -48,7 +57,7 @@ export const runSchema = z.object({
   missed: z.number().int().nonnegative(),
   workspaceId: z.string(),
   sessionId: z.string().nullable(),
-  status: z.enum(["dispatched", "ok", "failed", "blocked"]),
+  status: z.enum(["dispatched", "ok", "failed", "blocked", "skipped_overlap"]),
   detail: z.string().max(2000).nullable(),
 });
 export type SpecialistTaskRun = z.infer<typeof runSchema>;
@@ -67,9 +76,17 @@ const failure = (message: string) => new ApiError(422, "invalid_task", message);
 const tasksFile = (config: Pick<ServerConfig, "configPath">, id: string) => join(specialistDirectory(config), id, "tasks.json");
 const runLogFile = (config: Pick<ServerConfig, "configPath">, id: string, taskId: string) => join(specialistDirectory(config), id, "tasks", `${taskId}.json`);
 
-async function readJson<T>(path: string, schema: { parse: (value: unknown) => T }, fallback: T): Promise<T> {
-  try { return schema.parse(JSON.parse(await readFile(path, "utf8"))); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback; return fallback; }
+const chains = new Map<string, Promise<unknown>>();
+function serialize<T>(id: string, work: () => Promise<T>): Promise<T> {
+  const previous = chains.get(id) ?? Promise.resolve();
+  const current = previous.then(work, work);
+  chains.set(id, current.then(() => undefined, () => undefined));
+  return current;
+}
+
+async function readJson<T>(path: string, fallback: T): Promise<T> {
+  try { const value: unknown = JSON.parse(await readFile(path, "utf8")); return value as T; }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback; throw error; }
 }
 
 async function writeJson(path: string, value: unknown) {
@@ -98,23 +115,26 @@ export function missedOccurrences(schedule: SpecialistSchedule, due: number, now
   return Math.max(0, Math.floor((now - due) / (schedule.everyMinutes * 60_000)));
 }
 
-export async function listTasks(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistTask[]> {
-  const value = await readJson<unknown[]>(tasksFile(config, id), { parse: (v: unknown) => { if (!Array.isArray(v)) throw new Error("shape"); return v; } }, []);
+async function loadTasks(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistTask[]> {
+  const value = await readJson<unknown>(tasksFile(config, id), []);
+  if (!Array.isArray(value)) return [];
   return value.flatMap(entry => { try { return [taskSchema.parse(entry)]; } catch { return []; } });
 }
 
-async function saveTasks(config: Pick<ServerConfig, "configPath">, id: string, tasks: SpecialistTask[]) {
-  await writeJson(tasksFile(config, id), tasks);
+export function listTasks(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistTask[]> {
+  return loadTasks(config, id);
 }
 
-/** Atomic read-modify-write by id; the editor receives the stored draft and the patch lands with a fresh updatedAt. */
-async function mutate(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, edit: (task: SpecialistTask) => SpecialistTask): Promise<SpecialistTask> {
-  const tasks = await listTasks(config, id);
-  const current = tasks.find(task => task.id === taskId);
-  if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
-  const next = taskSchema.parse({ ...edit(current), updatedAt: Date.now() });
-  await saveTasks(config, id, tasks.map(task => task.id === taskId ? next : task));
-  return next;
+/** Atomic read-modify-write by id under the application's serialization chain. */
+function mutate(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, edit: (task: SpecialistTask) => SpecialistTask): Promise<SpecialistTask> {
+  return serialize(id, async () => {
+    const tasks = await loadTasks(config, id);
+    const current = tasks.find(task => task.id === taskId);
+    if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
+    const next = taskSchema.parse({ ...edit(current), updatedAt: Date.now() });
+    await writeJson(tasksFile(config, id), tasks.map(task => task.id === taskId ? next : task));
+    return next;
+  });
 }
 
 export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown) {
@@ -122,76 +142,89 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
   if (!parsed.success) throw failure("Revisá el nombre (1-120), el prompt (1-8000) y el horario de la tarea.");
   const value = parsed.data;
   if (value.schedule.kind === "once" && value.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
-  const tasks = await listTasks(config, id);
-  if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borrá alguna antes de crear otra.`);
-  const duplicate = tasks.find(task => task.name === value.name);
-  if (duplicate) throw new ApiError(409, "task_exists", "Ya existe una tarea con ese nombre en esta aplicación.");
-  const task: SpecialistTask = {
-    id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule,
-    enabled: true, createdAt: Date.now(), updatedAt: Date.now(),
-    nextRunAt: nextRun(value.schedule, Date.now()), lastRunAt: null, lastStatus: null, runs: 0, running: null,
-  };
-  await saveTasks(config, id, [task, ...tasks]);
-  return task;
+  return serialize(id, async () => {
+    const tasks = await loadTasks(config, id);
+    if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borrá alguna antes de crear otra.`);
+    if (tasks.some(task => task.name === value.name)) throw new ApiError(409, "task_exists", "Ya existe una tarea con ese nombre en esta aplicación.");
+    const task: SpecialistTask = {
+      id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule,
+      enabled: true, createdAt: Date.now(), updatedAt: Date.now(),
+      nextRunAt: nextRun(value.schedule, Date.now()), lastRunAt: null, lastStatus: null, runs: 0, running: null,
+    };
+    await writeJson(tasksFile(config, id), [task, ...tasks]);
+    return task;
+  });
 }
 
 export async function updateTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, input: Partial<SpecialistTaskInput> & { enabled?: boolean }) {
-  const current = (await listTasks(config, id)).find(task => task.id === taskId);
-  if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
   const parsed = taskInputSchema.partial().safeParse(input);
   if (!parsed.success) throw failure("Revisá los campos de la tarea.");
   const patch = parsed.data;
-  if (patch.name !== undefined && patch.name !== current.name) {
-    const tasks = await listTasks(config, id);
-    if (tasks.some(task => task.id !== taskId && task.name === patch.name)) throw new ApiError(409, "task_exists", "Otra tarea de esta aplicación ya usa ese nombre.");
-  }
-  if (patch.schedule?.kind === "once") {
-    const reprogrammed = current.schedule.kind !== "once" || patch.schedule.at !== current.schedule.at;
-    if (reprogrammed && patch.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
-  }
-  const schedule = patch.schedule ?? current.schedule;
-  const enabled = input.enabled ?? current.enabled;
-  // Editing the schedule or re-enabling recalculates; pausing keeps the claim untouched for finalize.
-  const reschedule = patch.schedule !== undefined || (enabled !== current.enabled && enabled);
-  return mutate(config, id, taskId, task => ({
-    ...task, ...patch, schedule, enabled,
-    nextRunAt: reschedule ? nextRun(schedule, Date.now()) : task.nextRunAt,
-  }));
+  return serialize(id, async () => {
+    const tasks = await loadTasks(config, id);
+    const current = tasks.find(task => task.id === taskId);
+    if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
+    if (patch.name !== undefined && patch.name !== current.name && tasks.some(task => task.id !== taskId && task.name === patch.name)) {
+      throw new ApiError(409, "task_exists", "Otra tarea de esta aplicación ya usa ese nombre.");
+    }
+    if (patch.schedule?.kind === "once" && (current.schedule.kind !== "once" || patch.schedule.at !== current.schedule.at) && patch.schedule.at <= Date.now()) {
+      throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
+    }
+    const schedule = patch.schedule ?? current.schedule;
+    const enabled = input.enabled ?? current.enabled;
+    // Editing the schedule or re-enabling recalculates; pausing leaves the claim for finalize.
+    const reschedule = patch.schedule !== undefined || (enabled !== current.enabled && enabled);
+    const next = taskSchema.parse({
+      ...current, ...patch, schedule, enabled,
+      nextRunAt: reschedule ? nextRun(schedule, Date.now()) : current.nextRunAt,
+      updatedAt: Date.now(),
+    });
+    await writeJson(tasksFile(config, id), tasks.map(task => task.id === taskId ? next : task));
+    return next;
+  });
 }
 
-export async function deleteTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string) {
-  const tasks = await listTasks(config, id);
-  const current = tasks.find(task => task.id === taskId);
-  if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
-  if (current.running) throw new ApiError(409, "task_running", "La tarea tiene una corrida en curso; esperá a que termine o pausala.");
-  await saveTasks(config, id, tasks.filter(task => task.id !== taskId));
-  await rm(runLogFile(config, id, taskId), { force: true }).catch(() => undefined);
-  return current;
+export function deleteTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string) {
+  return serialize(id, async () => {
+    const tasks = await loadTasks(config, id);
+    const current = tasks.find(task => task.id === taskId);
+    if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
+    if (current.running) throw new ApiError(409, "task_running", "La tarea tiene una corrida en curso; esperá a que termine o pausala.");
+    await writeJson(tasksFile(config, id), tasks.filter(task => task.id !== taskId));
+    await rm(runLogFile(config, id, taskId), { force: true }).catch(() => undefined);
+    return current;
+  });
 }
 
-/** The scheduler's only mutation entry: claim/advance/finish. Everything else goes through the routes. */
+/** The scheduler's mutation entry (claim/advance/finish), serialized like the rest. */
 export function patchTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, edit: (task: SpecialistTask) => SpecialistTask) {
   return mutate(config, id, taskId, edit);
 }
 
 export async function listRuns(config: Pick<ServerConfig, "configPath">, id: string, taskId: string): Promise<SpecialistTaskRun[]> {
-  const value = await readJson<unknown[]>(runLogFile(config, id, taskId), { parse: (v: unknown) => { if (!Array.isArray(v)) throw new Error("shape"); return v; } }, []);
+  const value = await readJson<unknown>(runLogFile(config, id, taskId), []);
+  if (!Array.isArray(value)) return [];
   return value.flatMap(entry => { try { return [runSchema.parse(entry)]; } catch { return []; } });
 }
 
-export async function appendRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, run: SpecialistTaskRun) {
-  const runs = await listRuns(config, id, taskId);
-  const next = [run, ...runs].slice(0, RUN_LOG_LIMIT);
-  await writeJson(runLogFile(config, id, taskId), next);
-  return next;
+export function appendRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, run: SpecialistTaskRun) {
+  return serialize(id, async () => {
+    const runs = await listRuns(config, id, taskId);
+    const next = [run, ...runs].slice(0, RUN_LOG_LIMIT);
+    await writeJson(runLogFile(config, id, taskId), next);
+    return next;
+  });
 }
 
-export async function finishRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, sessionId: string | null, patch: { status: "ok" | "failed" | "blocked"; detail?: string }) {
-  const runs = await listRuns(config, id, taskId);
-  const index = runs.findIndex(run => run.sessionId === sessionId || (sessionId === null && run.status === "dispatched"));
-  if (index >= 0 && runs[index]!.status === "dispatched") {
-    runs[index] = { ...runs[index]!, status: patch.status, detail: (patch.detail ?? "").slice(0, 2000) || null };
-    await writeJson(runLogFile(config, id, taskId), runs);
-  }
-  return runs;
+/** Close the dispatched entry created at exactly `at` (never an older orphan). */
+export function finishRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, at: number, patch: { status: "ok" | "failed" | "blocked" | "skipped_overlap"; detail?: string }) {
+  return serialize(id, async () => {
+    const runs = await listRuns(config, id, taskId);
+    const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
+    if (index >= 0) {
+      runs[index] = { ...runs[index]!, status: patch.status, detail: (patch.detail ?? "").slice(0, 2000) || null };
+      await writeJson(runLogFile(config, id, taskId), runs);
+    }
+    return runs;
+  });
 }

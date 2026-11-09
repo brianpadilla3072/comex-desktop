@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BookText, Bot, CalendarClock, FileText, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, BookText, Bot, CalendarClock, FileText, History, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,25 +44,25 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, scheduled, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; scheduled: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
-  const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false });
+  const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
       <DialogHeader><DialogTitle>Contexto, agentes y skills de {app.name}</DialogTitle></DialogHeader>
-      {view.kind === "home" ? <Home app={app} client={client} query={query} scheduled={scheduled} onOpen={setView} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
   </Dialog>;
 }
 
-function Home({ app, client, query, scheduled, onOpen, onChanged }: {
+function Home({ app, client, query, libraryEnabled, scheduled, onOpen, onChanged }: {
   app: SpecialistApplication; client: OpenworkServerClient;
   query: ReturnType<typeof useQuery<SpecialistLibrary | null, Error>>;
-  scheduled: boolean;
+  libraryEnabled: boolean; scheduled: boolean;
   onOpen(view: View): void; onChanged(): Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -76,10 +76,9 @@ function Home({ app, client, query, scheduled, onOpen, onChanged }: {
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar."); }
     finally { setBusy(false); }
   }
-  if (query.isPending) return <div className="grid gap-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
-  if (query.isError) return <p role="alert" className="text-sm text-destructive">No se pudo leer la biblioteca. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
-  const library = query.data;
-  if (!library) return null;
+  if (libraryEnabled && query.isPending) return <div className="grid gap-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
+  if (libraryEnabled && query.isError) return <p role="alert" className="text-sm text-destructive">No se pudo leer la biblioteca. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
+  const library = libraryEnabled ? query.data : null;
   const row = (entry: SpecialistLibraryEntry, name: string, icon: ReactNode, onOpenRow: () => void) => <div
     key={entry.path}
     className="flex w-full items-start gap-3 rounded-md border p-3">
@@ -107,7 +106,7 @@ function Home({ app, client, query, scheduled, onOpen, onChanged }: {
       </div>
       <TasksSummary app={app} client={client} />
     </section> : null}
-    <section className="grid gap-2">
+    {library ? <><section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Contexto</h3>
         <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "context" })}><FileText className="size-4" />{library.context.exists ? "Editar" : "Definir"}</Button>
@@ -132,7 +131,7 @@ function Home({ app, client, query, scheduled, onOpen, onChanged }: {
         : <p className="text-xs text-muted-foreground">Todavía no hay skills. Cuando le enseñás un procedimiento al asistente, él te propondrá guardarla acá.</p>}
       {library.files.length ? <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Otros archivos de la biblioteca ({library.files.length})</summary>
         <ul className="mt-2 grid gap-1">{library.files.map(file => <li key={file.path} className="flex items-center gap-2"><Wrench className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{file.path}</span><Badge variant="outline">{ORIGIN_LABEL[file.origin]}</Badge></li>)}</ul></details> : null}
-    </section>
+    </section></> : null}
     {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
   </div>;
@@ -221,6 +220,8 @@ function NewItem({ app, client, type, onBack, onChanged }: { app: SpecialistAppl
   </form>;
 }
 
+const TASKS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-tasks", client.baseUrl, app.id] as const;
+
 function ProposalsSection({ app, client, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; onChanged(): Promise<void> }) {
   const query = useQuery({ queryKey: ["specialist-proposals", client.baseUrl, app.id], queryFn: () => client.getSpecialistProposals(app.id), retry: false });
   const [busy, setBusy] = useState(false);
@@ -254,7 +255,7 @@ function ProposalsSection({ app, client, onChanged }: { app: SpecialistApplicati
 }
 
 function TasksSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
-  const query = useQuery({ queryKey: ["specialist-tasks-summary", client.baseUrl, app.id], queryFn: () => client.getSpecialistTasks(app.id), retry: false });
+  const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
   if (query.isPending) return <Skeleton className="h-8 w-full" />;
   const tasks = query.data?.tasks ?? [];
   if (!tasks.length) return <p className="text-xs text-muted-foreground">Sin tareas programadas. El asistente puede crearlas si le pedís que revise algo periódicamente.</p>;
@@ -265,11 +266,13 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
 }
 
 function TasksView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
-  const query = useQuery({ queryKey: ["specialist-tasks", client.baseUrl, app.id], queryFn: () => client.getSpecialistTasks(app.id), retry: false });
+  const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [runsFor, setRunsFor] = useState<{ id: string; name: string } | null>(null);
+  const runs = useQuery({ queryKey: ["specialist-task-runs", client.baseUrl, app.id, runsFor?.id ?? ""], queryFn: () => client.getSpecialistTaskRuns(app.id, runsFor!.id), retry: false, enabled: runsFor !== null });
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<SpecialistTaskSchedule["kind"]>("interval");
@@ -313,7 +316,7 @@ function TasksView({ app, client, onBack }: { app: SpecialistApplication; client
       {kind !== "interval" && kind !== "once" ? <div className="grid gap-1.5"><Label htmlFor="task-clock">Hora</Label><Input id="task-clock" type="time" value={clock} onChange={event => setClock(event.target.value)} className="max-w-40" /></div> : null}
       {kind === "weekly" ? <div className="flex flex-wrap gap-1">{DAY_LABELS.map((label, day) => <Button key={label} type="button" size="sm" variant={days.includes(day) ? "default" : "outline"} onClick={() => setDays(current => current.includes(day) ? current.filter(entry => entry !== day) : [...current, day])}>{label}</Button>)}</div> : null}
       {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
-      <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim()}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
+      <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim() || (kind === "once" && !once)}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
     </form> : null}
     {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
@@ -328,8 +331,18 @@ function TasksView({ app, client, onBack }: { app: SpecialistApplication; client
       <div className="flex gap-2">
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
         <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => void run(() => client.deleteSpecialistTask(app.id, task.id))}><Trash2 className="size-4" /></Button>
       </div>
+      {runsFor?.id === task.id ? <div className="grid gap-1 border-t pt-2 text-xs text-muted-foreground">
+        {runs.isPending || runs.isError ? <span>{runs.isError ? "No se pudo leer el historial." : "…"}</span>
+          : (runs.data?.runs.length ?? 0) ? (runs.data?.runs ?? []).map(entry => <div key={`${entry.at}-${entry.status}`} className="flex items-center gap-2">
+            <span>{formatWhen(entry.at)}</span>
+            <Badge variant={entry.status === "ok" ? "outline" : entry.status === "dispatched" ? "secondary" : "destructive"}>{entry.status === "ok" ? "ok" : entry.status === "dispatched" ? "corriendo" : entry.status === "failed" ? "falló" : entry.status === "blocked" ? "bloqueada" : "solapada"}</Badge>
+            <span>{entry.mode === "manual" ? "a pedido" : "programada"}{entry.missed ? ` · ${entry.missed} perdidas` : ""}</span>
+            {entry.detail ? <span className="truncate">{entry.detail}</span> : null}
+          </div>) : <span>Sin corridas todavía.</span>}
+      </div> : null}
     </div>) : <p className="text-xs text-muted-foreground">Todavía no hay tareas.</p>}
   </div>;
 }

@@ -169,7 +169,7 @@ export interface SpecialistTask {
 }
 export interface SpecialistTaskRun {
   at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
-  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked"; detail: string | null;
+  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap"; detail: string | null;
 }
 export interface SpecialistProposal {
   id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number;

@@ -112,7 +112,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   return <Context.Provider value={value}>
     {children}
     {integrationApplication && query.data && catalog?.integrationsEnabled ? <SpecialistIntegrationsDialog app={integrationApplication} client={query.data.client} onClose={() => setIntegrationApplication(null)} onChanged={query.refetch} /> : null}
-    {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} scheduled={catalog?.scheduledTasksEnabled === true} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
+    {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} library={catalog?.libraryEnabled === true} scheduled={catalog?.scheduledTasksEnabled === true} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
     {catalog?.enabled && query.data && form ? <ApplicationForm key={typeof form === "string" ? "create" : form.id} client={query.data.client} catalog={catalog} existing={form === "create" ? null : form} preferredWorkspaceId={workspaceId}
       onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }} /> : null}
     <Dialog open={newProject} onOpenChange={open => { if (!open) setProjectApplication(null); }}>

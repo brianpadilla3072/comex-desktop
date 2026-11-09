@@ -11,7 +11,7 @@ import {
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { addProposal } from "./proposals.js";
-import { createTask, deleteTask, listTasks, taskInputSchema, updateTask } from "./tasks.js";
+import { createTask, deleteTask, listTasks, updateTask } from "./tasks.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
@@ -21,6 +21,7 @@ const descriptorSchema = z.object({ directory: z.string(), token: z.string().min
 const toolCallSchema = z.object({ name: z.enum([
   "specialist_library_list", "specialist_library_read", "specialist_library_write", "specialist_library_delete",
   "specialist_agent_create", "specialist_skill_create", "specialist_context_write", "specialist_propose",
+  "specialist_task_create", "specialist_task_list", "specialist_task_pause", "specialist_task_delete",
 ]), input: z.record(z.string(), z.unknown()) });
 
 const toolDirectory = (config: Pick<ServerConfig, "configPath">) => join(specialistDirectory(config), "tool");
@@ -44,7 +45,7 @@ export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPa
   const canonical = resolve(directory);
   const existing = await readDescriptor(config, canonical);
   const target = existing?.file ?? join(toolDirectory(config), createHash("sha256").update(canonical).digest("hex") + ".json");
-  if (!app || !specialistLibraryEnabled() || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
+  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
     if (existing) await writeDescriptor(target, { directory: canonical, token: "00000000000000000000000000000000", url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
     return;
   }
@@ -89,6 +90,10 @@ const proposalInput = z.object({
 
 export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "workspaces">, directory: string, name: string, input: Record<string, unknown>) {
   const app = await resolveApp(config, directory);
+  // One gate per family: the plugin registers both sets, but each rides on its own feature flag.
+  if (name.startsWith("specialist_task_")) {
+    if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
+  } else if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
   switch (name) {
     case "specialist_library_list": {
       const listing = await listSpecialistLibrary(config, app.id);
@@ -123,7 +128,6 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       return { proposal: proposals[0], total: proposals.length, replaced, note: "Avisá a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; vos no la guardás." };
     }
     case "specialist_task_create": {
-      if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
       const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule });
       return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. Avisá a la persona que la tarea quedó en "Tareas programadas" de su aplicación.` };
     }
@@ -149,7 +153,7 @@ export function registerSpecialistToolRoutes(options: {
 }) {
   const { routes, config, readJsonBody, jsonResponse } = options;
   addRoute(routes, "POST", "/specialist-tool", "none", async (ctx: RequestContext) => {
-    if (!specialistApplicationsEnabled() || !specialistLibraryEnabled()) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
+    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
     const bearer = ctx.request.headers.get("authorization") ?? "";
     const token = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
     if (token.length < 16) throw new ApiError(401, "library_tool_unauthorized", "Falta la credencial de la biblioteca.");

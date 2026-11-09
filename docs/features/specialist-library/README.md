@@ -35,11 +35,12 @@ Cada cambio en la biblioteca se propaga a los proyectos vivos de la aplicación:
 
 ## Herramientas de la IA (biblioteca propia)
 
-Cada proyecto de una aplicación recibe un plugin nativo en `.opencode/plugins/comex-library/server.js` (instalación idempotente, solo con su marker; se conserva cualquier archivo modificado). El plugin registra ocho herramientas que reenvían al server con una credencial local exclusiva del proyecto:
+Cada proyecto de una aplicación recibe un plugin nativo en `.opencode/plugins/comex-library/server.js` (instalación idempotente, solo con su marker; se conserva cualquier archivo modificado). El plugin registra doce herramientas que reenvían al server con una credencial local exclusiva del proyecto:
 
 - `specialist_library_list` / `specialist_library_read` — ver contexto, agentes y skills; leer archivos.
 - `specialist_library_write` / `specialist_library_delete` / `specialist_agent_create` / `specialist_skill_create` / `specialist_context_write` — crear y editar **solo a pedido explícito** de la persona; aplican directo por la misma API (misma validación y propagación).
 - `specialist_propose` — auto-captura: cuando la persona enseñó un procedimiento que se va a repetir y no pidió guardarlo, la IA deja una **propuesta** (`specialists/<id>/proposals.json`, máx. 20). Nunca se aplica sola: la persona la ve en "Contexto, agentes y skills" y decide (Guardar crea el elemento con sus reglas; Descartar lo elimina). Si falta el encabezado YAML, la skill se arma con el nombre y la descripción de la propuesta.
+- `specialist_task_create` / `specialist_task_list` / `specialist_task_pause` / `specialist_task_delete` — tareas programadas locales (flag `scheduledTasks`, ver `docs/features/live-dashboards-and-scheduled-tasks/`), creadas solo a pedido explícito de la persona.
 
 La credencial es un token por proyecto en `<runtime>/specialists/tool/<hash>.json` (0600): la ruta `/specialist-tool` solo autoriza llamadas cuyo token coincide con un descriptor y cuya carpeta está atada a una aplicación. Un proyecto no puede editar la biblioteca de otro. Si `specialistLibrary` está apagado, los descriptores se anulan (token inutilizable) y las herramientas dan un error claro.
 
