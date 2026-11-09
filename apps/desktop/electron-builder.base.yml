@@ -5,7 +5,11 @@ toolsets:
 files:
   - electron/**/*
   - server/**/*
-  - "!server/dist/opencode-plugins/**"
+  # The server's module graph statically imports the plugin JS, so they must
+  # live inside the asar; extraResources keeps real-file copies for the engine
+  # (which cannot read through the virtual asar path) and only the wasm blobs
+  # stay out of the asar.
+  - "!server/dist/opencode-plugins/*.wasm"
   - package.json
   - from: .electron-runtime/node_modules
     to: node_modules
