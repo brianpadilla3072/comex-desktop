@@ -38,6 +38,37 @@ describe("OpenCode v2 slash commands", () => {
     ]);
   });
 
+  test("the engine's desktop-app browser built-in stays out of the composer catalog", () => {
+    expect(mergeV2CommandCatalog(
+      [],
+      [
+        { id: "browser", name: "Browser", path: "/builtin/browser.md" },
+        { id: "opencode", name: "OpenCode", path: "/builtin/opencode.md" },
+        { id: "datos-comex", name: "Datos", path: "/home/user/ws/.opencode/skills/datos-comex/SKILL.md" },
+      ],
+    )).toEqual([
+      { name: "opencode", source: "skill" },
+      { name: "datos-comex", source: "skill" },
+    ]);
+  });
+
+  test("an old draft that picked the browser built-in reports it as unavailable instead of hanging on permissions", async () => {
+    serve((request) => {
+      const path = new URL(request.url).pathname;
+      if (path.endsWith("/api/skill")) return Response.json({ location: {}, data: [{ id: "browser", name: "Browser", path: "/builtin/browser.md", content: "" }] });
+      if (path.endsWith("/api/command")) return Response.json({ location: {}, data: [] });
+      return new Response(null, { status: 404 });
+    });
+    const client = createClientV2(base, "/tmp/ws", { token: "t" });
+    const result = await client.session.promptAsync({
+      sessionID: "ses_1",
+      model: { providerID: "p", modelID: "m" },
+      parts: [{ type: "text", text: "", synthetic: true, metadata: { openworkSelectedSkill: { name: "Browser" } } }],
+    });
+    expect(result.response.status).toBe(501);
+    expect(String(result.error?.message ?? "")).toContain("Selected skill Browser is not available");
+  });
+
   test("the composer list reads the engine's commands instead of an empty stub", async () => {
     const requests = serve((request) => {
       const path = new URL(request.url).pathname;

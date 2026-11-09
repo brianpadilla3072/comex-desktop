@@ -2305,9 +2305,24 @@ export function mergeV2CommandCatalog(commands: readonly unknown[], skills: read
   for (const skill of skills) {
     const id = readString(skill, "id");
     if (id?.startsWith("openwork-cloud-")) continue;
+    if (isOpenWorkUnavailableEngineSkill(skill)) continue;
     add(id, readString(skill, "description"), "skill");
   }
   return items;
+}
+
+/**
+ * The engine lists its built-in desktop `browser` skill even in headless
+ * `serve` runs, where its `tools.browser.*` surface has no OpenCode desktop
+ * app attached and the engine's own permission check denies it on send.
+ * OpenWork drives pages through its own bridge instead, so this dead entry
+ * never reaches the composer registry and old drafts that picked it read as
+ * simply unavailable rather than as a permission the person must grant.
+ */
+export function isOpenWorkUnavailableEngineSkill(item: unknown): boolean {
+  if (!isRecord(item)) return false;
+  const path = readString(item, "path");
+  return path !== undefined && path.startsWith("/builtin/") && readString(item, "id") === "browser";
 }
 
 function localResult<T>(baseUrl: string, path: string, data: T): FieldsResult<T> {
@@ -2798,7 +2813,7 @@ export function createClientV2(
           if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
           const catalog = await request("GET", "/api/skill", undefined, options?.signal);
           if (!catalog.response.ok) return failedResult(catalog);
-          resolution = resolveSelectedSkills(selections, responseItems(catalog.payload));
+          resolution = resolveSelectedSkills(selections, responseItems(catalog.payload).filter((item) => !isOpenWorkUnavailableEngineSkill(item)));
           if (!("missing" in resolution)) break;
         }
         if ("missing" in resolution) {
