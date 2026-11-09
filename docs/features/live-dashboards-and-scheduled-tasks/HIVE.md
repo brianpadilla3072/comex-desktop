@@ -7,7 +7,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | Celda | Pieza | Estado | Commits | Pendientes |
 |---|---|---|---|---|
 | A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front ✅ fixes de las 5 trabas aplicados | `f850096` `ca474c2` `fd3c2dbe` | — (celda cerrada) |
-| B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) · 🔬 test-front EN VUELO | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` | aplicar HIVE-B-TEST.md |
+| B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `B-FIX` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
 | B2 | [6] Fuentes y citas | ✅ core + 3/3 | `c144aff` | wiring tras tester B (mismos archivos) |
 | C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front |
 | C2 | [5] Captura ampliada | ✅ core: kinds task/plan con validación at-rest + tests | `094028b` | wiring: enum propose, accept route (task nace PAUSADA), UI kinds |
@@ -24,7 +24,14 @@ Orquestador: sesión principal. Cada hito se commitea separado.
   (3) propuestas piden 404 cuando library off + invisibles; (4) menú/título mentiroso con solo
   tareas; (5) validación de formulario (minutos vacío/0/decimal → 422 genérico; semanal sin días
   cae en lunes silencioso). ⚠️ los fixes tocan library-dialog/provider → ESPERAR al agente B.
-- Revisor C1 (panels.ts core): EN VUELO (read-only sobre panels.ts/tests; sin solapamiento con B).
+- **Test-front B: COMPLETO.** `specialist-datasets-user.test.tsx` (5 tests / 38 asserts) contra el
+  server real + UI headless: (B-1) el resumen de home mostraba "Sin datasets todavía" cuando el GET
+  fallaba → ahora rama `isError` con "No se pudieron leer los datasets" + "Volver a intentar";
+  (B-2) un fallo del proveedor al refrescar salía como 500 "Unexpected server error" → ahora
+  `ApiError(502, "dataset_refresh_provider", mensaje legible)`. Ambos con test de regresión.
+- Revisor C1 (panels.ts core): COMPLETO. 3 blockers (JSON.parse lanzaba en vez de `ok:false`;
+  prefijo de rutas Windows) + importantes (serialización del índice, esquema estricto, symlink
+  intermedio, agregado compartido). Aplicados en `cd38ddee` con 8/8 tests.
 - Revisor A (ses_e3fb899…): COMPLETO. 2 blockers (enum de tools sin names de tareas → casos
   muertos en producción; read-modify-write de tasks.json sin serializar → perder claims/pauses),
   5 importantes (finalize sobre el mensaje ASISTENTE MÁS VIEJO por order=desc; readJson se tragaba
@@ -32,9 +39,19 @@ Orquestador: sesión principal. Cada hito se commitea separado.
   workspace; sin refetch → estados viejos). **Todos aplicados** en `ca474c2` + tests de regresión
   (ruta-level tools, newest-first, skipped_overlap, evidencia comex/tareas/). El revisor recomendó
   enmendar el spec (estado en JSON por aplicación, no KV) — hecho en el doc [1].
-- Wiring B (ses_e3f9db9…): EN VUELO — rutas datasets por aplicación (agregadas por workspace),
+- Wiring B (ses_e3f9db9…): COMPLETO — rutas datasets por aplicación (agregadas por workspace),
   4 tools de motor (list/read/refresh/derive), gating de descriptor con las 3 flags, UI "Datos de
   investigación", tests de rutas + puente + React.
+
+## Próxima ola (wiring sobre archivos ya libres)
+
+| Celda | Qué falta cablear |
+|---|---|
+| C2 | `specialist_propose` con kinds `task`/`plan`; ruta `accept` que crea la tarea **pausada**; UI de propuestas con el kind |
+| B2 | la captura de research registra `sources`; ruta `/sources`; tool `specialist_source_read`; chips de cita en el panel |
+| C1 | rutas `specialist_panel_*` + tools + renderer (agregado compartido con `panelAggregate`) |
+| C3 | tools/UI de salidas (mindmap/report/flashcards/quiz/table) con auditoría de citas |
+| F2 | el runner llama `diff` tras cada refresh; bloque "cambios" del panel |
 
 ## Reglas del enjambre (autoimpuestas)
 

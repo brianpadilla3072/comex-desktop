@@ -21,8 +21,15 @@ export async function refreshDatasetThroughResearch(config: Pick<ServerConfig, "
   if (query.provider !== "tavily" || !isResearchOperation(query.operation)) {
     throw new ApiError(409, "dataset_not_rerunnable", "La consulta guardada no corresponde a una investigación con Tavily que se pueda repetir.");
   }
-  const runtime = await createResearchProvider("tavily", config).runtime();
-  const result = await executeTavily(runtime, query.operation, query.input, directory, signal);
+  let result: Awaited<ReturnType<typeof executeTavily>>;
+  try {
+    const runtime = await createResearchProvider("tavily", config).runtime();
+    result = await executeTavily(runtime, query.operation, query.input, directory, signal);
+  } catch (error) {
+    // Honest provider failures must reach the person as a readable 502 — never a 500 "Unexpected server error".
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(502, "dataset_refresh_provider", error instanceof Error ? error.message : "El proveedor de investigación no está disponible; conectalo desde Herramientas y fuentes.");
+  }
   // Trust the dataset the capture itself recorded; re-matching the raw stored query could
   // silently point at (or create) a different dataset when query.json drifted from canonical.
   const refreshed = result.dataset ? (await listDatasets(directory)).find(entry => entry.id === result.dataset?.id) : await findDatasetForQuery(directory, query);

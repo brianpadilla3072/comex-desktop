@@ -123,9 +123,11 @@ test("dataset routes live and die with the specialistDatasets flag and aggregate
       // Refresh refuses datasets without a re-runnable Tavily query (derived and local).
       const derived = await registerDerivedDataset(pathA, datasetA.id, "Vista limpia", { rows: [1] });
       assert.equal((await call("POST", `/specialist-applications/${app.id}/datasets/${derived.id}/refresh`)).json.error, "dataset_not_rerunnable");
-      // A tavily dataset whose stored input is invalid surfaces the research error (never a fake success).
+      // A tavily dataset whose stored input is invalid surfaces a readable provider error (502, never a bare 500 or a fake success).
       const broken = await seed(pathA, "evidencia-rota", { provider: "tavily", operation: "extract", input: { urls: [] } }, { empty: true });
-      await assert.rejects(call("POST", `/specialist-applications/${app.id}/datasets/${broken.id}/refresh?workspace=${idA}`));
+      const brokenRefresh = await call("POST", `/specialist-applications/${app.id}/datasets/${broken.id}/refresh?workspace=${idA}`);
+      assert.equal(brokenRefresh.status, 502);
+      assert.equal(brokenRefresh.json.error, "dataset_refresh_provider");
       // Delete removes the folder and its index entry; unknown ids 404.
       assert.equal((await call("DELETE", `/specialist-applications/${app.id}/datasets/${datasetB.id}?workspace=${idB}`)).json.deleted, datasetB.id);
       assert.equal((await listDatasets(pathB)).length, 0);

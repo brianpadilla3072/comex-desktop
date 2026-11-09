@@ -252,6 +252,7 @@ type DatasetRef = { id: string; workspaceId: string; name: string };
 function DatasetsSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
   const query = useQuery(datasetsQuery(client, app));
   if (query.isPending) return <Skeleton className="h-8 w-full" />;
+  if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer los datasets. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
   const datasets = query.data?.datasets ?? [];
   if (!datasets.length) return <p className="text-xs text-muted-foreground">Sin datasets todavía. Cada investigación que responde el asistente deja su consulta guardada acá, lista para volver a ejecutar.</p>;
   const workspaces = new Set(datasets.map(dataset => dataset.workspaceId));
