@@ -137,19 +137,22 @@ function mutate(config: Pick<ServerConfig, "configPath">, id: string, taskId: st
   });
 }
 
-export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown) {
+export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown, options: { enabled?: boolean } = {}) {
   const parsed = taskInputSchema.safeParse(input);
   if (!parsed.success) throw failure("Revisá el nombre (1-120), el prompt (1-8000) y el horario de la tarea.");
   const value = parsed.data;
   if (value.schedule.kind === "once" && value.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
+  const enabled = options.enabled ?? true;
   return serialize(id, async () => {
     const tasks = await loadTasks(config, id);
     if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borrá alguna antes de crear otra.`);
     if (tasks.some(task => task.name === value.name)) throw new ApiError(409, "task_exists", "Ya existe una tarea con ese nombre en esta aplicación.");
     const task: SpecialistTask = {
       id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule,
-      enabled: true, createdAt: Date.now(), updatedAt: Date.now(),
-      nextRunAt: nextRun(value.schedule, Date.now()), lastRunAt: null, lastStatus: null, runs: 0, running: null,
+      // Accepted proposals are born PAUSED (the plan's rule): a task that runs unseen once is the
+      // recipe for ghost data. Re-enabling recalculates nextRunAt from the current instant.
+      enabled, createdAt: Date.now(), updatedAt: Date.now(),
+      nextRunAt: enabled ? nextRun(value.schedule, Date.now()) : null, lastRunAt: null, lastStatus: null, runs: 0, running: null,
     };
     await writeJson(tasksFile(config, id), [task, ...tasks]);
     return task;

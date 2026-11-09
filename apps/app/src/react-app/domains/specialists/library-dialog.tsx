@@ -102,7 +102,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, onOpen,
     </div> : null}
     {libraryEnabled && query.isError ? <p role="alert" className="text-sm text-destructive">No se pudo leer la biblioteca; el resto (propuestas, tareas, datos) sigue disponible. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p> : null}
     {libraryEnabled && query.isPending ? <div className="grid gap-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : null}
-    <ProposalsSection app={app} client={client} enabled={libraryEnabled} onChanged={onChanged} />
+    <ProposalsSection app={app} client={client} enabled={libraryEnabled || scheduled || datasets} onChanged={onChanged} />
     {scheduled ? <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Tareas programadas</h3>
@@ -332,15 +332,36 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
   </div>;
 }
 
+const PROPOSAL_LABEL: Record<SpecialistProposal["kind"], string> = { skill: "Skill", agent: "Agente", context: "Contexto", task: "Tarea", plan: "Plan" };
+
+/** Human summary of the JSON payload of task/plan proposals. Never throws: a hand-edited
+ *  proposal shows only its description and the accept call fails loud with the real reason. */
+function proposalSummary(proposal: SpecialistProposal): string | null {
+  if (proposal.kind !== "task" && proposal.kind !== "plan") return null;
+  try {
+    const value = JSON.parse(proposal.content) as Record<string, unknown>;
+    if (proposal.kind === "task") {
+      const schedule = value.schedule as SpecialistTaskSchedule | undefined;
+      return `Se crea PAUSADA${schedule ? ` · ${describeSchedule(schedule)}` : ""}`;
+    }
+    const pieces = (["skill", "dataset", "panel", "task"] as const).filter(piece => value[piece] !== undefined)
+      .map(piece => piece === "task" ? "tarea pausada" : piece === "skill" ? "skill" : piece === "dataset" ? "dataset" : "panel");
+    return pieces.length ? `Al aceptar se aplican: ${pieces.join(" + ")}` : null;
+  } catch { return null; }
+}
+
 function ProposalsSection({ app, client, enabled, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; enabled: boolean; onChanged(): Promise<void> }) {
   const query = useQuery({ queryKey: ["specialist-proposals", client.baseUrl, app.id], queryFn: () => client.getSpecialistProposals(app.id), retry: false, enabled });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Array<{ piece: string; ok: boolean; detail?: string }> | null>(null);
   async function act(kind: "accept" | "dismiss", proposal: SpecialistProposal) {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setNotice(null);
     try {
-      if (kind === "accept") await client.acceptSpecialistProposal(app.id, proposal.id);
-      else await client.dismissSpecialistProposal(app.id, proposal.id);
+      if (kind === "accept") {
+        const result = await client.acceptSpecialistProposal(app.id, proposal.id);
+        if (result.applied?.length) setNotice(result.applied);
+      } else await client.dismissSpecialistProposal(app.id, proposal.id);
       await query.refetch(); await onChanged();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo procesar la propuesta."); }
     finally { setBusy(false); }
@@ -351,15 +372,22 @@ function ProposalsSection({ app, client, enabled, onChanged }: { app: Specialist
     <h3 className="text-sm font-medium">Propuestas pendientes ({proposals.length})</h3>
     <p className="text-xs text-muted-foreground">El asistente te aprendió estos procedimientos y propone guardarlos. Nada existe hasta que lo confirmes acá.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {notice ? <div role="status" className="grid gap-1 rounded-md border p-2 text-xs">
+      <p className="font-medium">Resultado de la propuesta aceptada</p>
+      {notice.map((entry, index) => <p key={`${entry.piece}-${index}`} className={entry.ok ? "text-muted-foreground" : "text-destructive"}>
+        {entry.ok ? "✓" : "✗"} {entry.piece}{entry.detail ? ` — ${entry.detail}` : ""}
+      </p>)}
+    </div> : null}
     {proposals.map(proposal => <div key={proposal.id} className="grid gap-2 rounded-md border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{proposal.kind === "skill" ? "Skill" : proposal.kind === "agent" ? "Agente" : "Contexto"}</Badge>
+        <Badge variant="outline">{PROPOSAL_LABEL[proposal.kind]}</Badge>
         <span className="min-w-0 flex-1 truncate font-medium">{proposal.name}</span>
         <span className="text-xs text-muted-foreground">{formatWhen(proposal.createdAt)}</span>
       </div>
       <p className="text-xs text-muted-foreground">{proposal.description}</p>
+      {proposalSummary(proposal) ? <p className="text-xs">{proposalSummary(proposal)}</p> : null}
       {proposal.reason ? <p className="text-xs text-muted-foreground">Motivo: {proposal.reason}</p> : null}
-      <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void act("accept", proposal)}>Guardar</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("dismiss", proposal)}>Descartar</Button></div>
+      <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void act("accept", proposal)}>{proposal.kind === "task" || proposal.kind === "plan" ? "Aceptar" : "Guardar"}</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("dismiss", proposal)}>Descartar</Button></div>
     </div>)}
   </section>;
 }

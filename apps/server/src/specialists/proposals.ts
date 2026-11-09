@@ -32,18 +32,19 @@ const planContentSchema = z.object({
   panel: z.object({ name: z.string().trim().min(1).max(64), spec: panelBodySchema }).optional(),
   dataset: z.object({ name: z.string().trim().min(1).max(64), query: z.object({ provider: z.string().min(1).max(40), operation: z.string().min(1).max(40), input: z.record(z.string(), z.unknown()) }) }).optional(),
 }).strict().refine(plan => plan.skill || plan.task || plan.panel || plan.dataset, "Un plan debe proponer al menos una pieza (skill, dataset, tarea o panel).");
+export type TaskProposalContent = z.infer<typeof taskContentSchema>;
+export type PlanProposalContent = z.infer<typeof planContentSchema>;
 
-const validateProposalContent = (kind: SpecialistProposal["kind"], content: string) => {
-  if (kind === "task") {
-    try { return taskContentSchema.parse(JSON.parse(content)); }
-    catch { throw failure("Una propuesta de tarea necesita JSON {prompt, schedule}."); }
-  }
-  if (kind === "plan") {
-    try { return planContentSchema.parse(JSON.parse(content)); }
-    catch (error) { throw failure(error instanceof z.ZodError ? `El plan propuesto no valida: ${error.issues[0]?.message ?? "estructura inválida"}` : "Una propuesta de plan necesita JSON con skill/task/panel/dataset."); }
-  }
-  return null;
-};
+/** Parse the JSON payload of a task/plan proposal. Accepting a proposal must never trust the
+ *  stored string blindly (it was validated when written, but files can be edited by hand). */
+export function parseTaskProposalContent(content: string): TaskProposalContent {
+  try { return taskContentSchema.parse(JSON.parse(content)); }
+  catch { throw failure("Una propuesta de tarea necesita JSON {prompt, schedule}."); }
+}
+export function parsePlanProposalContent(content: string): PlanProposalContent {
+  try { return planContentSchema.parse(JSON.parse(content)); }
+  catch (error) { throw failure(error instanceof z.ZodError ? `El plan propuesto no valida: ${error.issues[0]?.message ?? "estructura inválida"}` : "Una propuesta de plan necesita JSON con skill/task/panel/dataset."); }
+}
 
 const LIMIT = 20;
 
@@ -73,7 +74,8 @@ export async function addProposal(config: Pick<ServerConfig, "configPath">, id: 
   if (!input.description.trim() || input.description.length > 1024) throw failure("La descripción propuesta debe tener entre 1 y 1024 caracteres.");
   if (!input.content.trim() || input.content.length > 200_000) throw failure("El contenido propuesto está vacío o supera 200 KB.");
   if (input.reason.length > 500) throw failure("El motivo propuesto supera 500 caracteres.");
-  validateProposalContent(input.kind, input.content);
+  if (input.kind === "task") parseTaskProposalContent(input.content);
+  else if (input.kind === "plan") parsePlanProposalContent(input.content);
   const existing = await listProposals(config, id);
   const duplicate = existing.find(proposal => proposal.kind === input.kind && proposal.name === name);
   const proposal: SpecialistProposal = { ...input, name, reason: input.reason.trim(), id: `prop_${randomUUID()}`, createdAt: Date.now() };

@@ -86,3 +86,21 @@ export function specialistDatasetsEnabled(env: NodeJS.ProcessEnv = process.env):
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("specialistDatasets", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+export function specialistSourcesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistSources", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function specialistPanelsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistPanels", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function studioOutputsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("studioOutputs", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

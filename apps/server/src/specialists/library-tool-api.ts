@@ -84,8 +84,8 @@ async function resolveApp(config: Pick<ServerConfig, "configPath">, directory: s
 }
 
 const proposalInput = z.object({
-  kind: z.enum(["skill", "agent", "context"]),
-  name: z.string().trim().min(1).max(80),
+  kind: z.enum(["skill", "agent", "context", "task", "plan"]),
+  name: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(1024),
   content: z.string().min(1).max(200_000),
   reason: z.string().trim().max(500).default(""),
@@ -129,8 +129,15 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       return { content: await writeSpecialistContext(config, app.id, contextInput.parse(input.content ?? "")) };
     case "specialist_propose": {
       const parsed = proposalInput.parse(input);
+      // Task/plan payloads are JSON strings; keep them as text in the proposal so the inbox stays
+      // a simple file and the accept route re-validates before anything runs.
       const { proposals, replaced } = await addProposal(config, app.id, parsed.kind === "context" ? { ...parsed, name: "contexto" } : parsed);
-      return { proposal: proposals[0], total: proposals.length, replaced, note: "Avisá a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; vos no la guardás." };
+      const note = parsed.kind === "task"
+        ? "Avisá a la persona que la tarea propuesta quedó en el menú de su aplicación; si la acepta, se crea PAUSADA para que la revise antes de dejarla correr."
+        : parsed.kind === "plan"
+          ? "Avisá a la persona que el plan quedó en el menú de su aplicación; al aceptarlo se aplican sus piezas (skill, dataset, tarea pausada, panel) y se informa cuáles fallaron."
+          : "Avisá a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; vos no la guardás.";
+      return { proposal: proposals[0], total: proposals.length, replaced, note };
     }
     case "specialist_task_create": {
       const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule });

@@ -43,7 +43,7 @@ type FakeTask = {
   createdAt: number; updatedAt: number; nextRunAt: number | null; lastRunAt: number | null;
   lastStatus: "ok" | "failed" | "blocked" | "running" | null; runs: number; running: null;
 };
-let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean };
+let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean; datasetsEnabled?: boolean };
 let proposals: Array<{ id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number }>;
 let tasks: FakeTask[];
 let taskRequests: Array<{ method: string; path: string; body: unknown }> = [];
@@ -98,7 +98,8 @@ beforeEach(() => {
       return Response.json(libraryPayload());
     }
     if (/^\/specialist-applications\/app_test\/library\/proposals$/.test(path) && method === "GET") {
-      if (!flags.libraryEnabled) return Response.json({ code: "specialist_library_disabled", message: "La biblioteca de la aplicación está desactivada." }, { status: 404 });
+      // Server (requireCapture): el inbox vive mientras alguna familia esté encendida.
+      if (!flags.libraryEnabled && !flags.scheduledTasksEnabled && !flags.datasetsEnabled) return Response.json({ code: "specialist_library_disabled", message: "La biblioteca de la aplicación está desactivada." }, { status: 404 });
       return Response.json({ proposals });
     }
     const accept = path.match(/^\/specialist-applications\/app_test\/library\/proposals\/([^/]+)\/accept$/);
@@ -287,11 +288,13 @@ test("library=false y scheduledTasks=true: el diálogo abre sobre tareas sin el 
   expect(hasText("No se pudo leer la biblioteca")).toBe(false);
   expect(hasText("Tareas programadas")).toBe(true);
   expect(hasText("Gestionar")).toBe(true);
-  // Trabas 1 y 3 arregladas: la sección de propuestas se deshabilita con la flag de biblioteca,
-  // así que ya no se desperdicia un GET /library/proposals que el server responde 404.
-  expect(allRequests.filter(entry => entry.method === "GET" && entry.path.endsWith("/library/proposals")).length).toBe(0);
+  // La sección de propuestas vive con la captura (C2): con tareas encendidas el inbox se lee
+  // (el server responde 200, no 404) — la biblioteca en sí no se pide.
+  expect(allRequests.filter(entry => entry.method === "GET" && entry.path.endsWith("/library/proposals")).length).toBe(1);
   expect(allRequests.filter(entry => entry.method === "GET" && /\/library$/.test(entry.path)).length).toBe(0); // la biblioteca no se pide (bien)
-  expect(hasText("Propuestas pendientes")).toBe(false);
+  // El fixture tiene una propuesta skill: con tareas encendidas también se ve (cada pieza la
+  // confirma o no su propia flag al aceptar).
+  expect(hasText("Propuestas pendientes (1)")).toBe(true);
   // Y el título del diálogo describe lo que hay: tareas, no contexto/agentes/skills.
   expect(hasText("Tareas de Taller")).toBe(true);
 });

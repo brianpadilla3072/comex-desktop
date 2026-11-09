@@ -127,6 +127,9 @@ export interface SpecialistCatalog {
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
   datasetsEnabled?: boolean;
+  panelsEnabled?: boolean;
+  sourcesEnabled?: boolean;
+  outputsEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
   applications: SpecialistApplication[];
@@ -183,8 +186,9 @@ export interface SpecialistDatasetDetail {
   latest: unknown;
 }
 export interface SpecialistProposal {
-  id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number;
+  id: string; kind: "skill" | "agent" | "context" | "task" | "plan"; name: string; description: string; content: string; reason: string; createdAt: number;
 }
+export interface SpecialistAppliedPiece { piece: string; ok: boolean; id?: string; detail?: string }
 export interface SpecialistIntegrationCatalog {
   providers: Array<{ id: string; label: string; enabled: boolean; installed: boolean; authenticated: boolean; version?: string; loginPending: boolean; error: string | null }>;
   packFactories: Array<{ id: string; name: string; version?: string }>;
@@ -2517,7 +2521,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     getSpecialistContext: (id: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken }),
     putSpecialistContext: (id: string, content: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken, method: "PUT", body: { content } }),
     getSpecialistProposals: (id: string) => requestJson<{ proposals: SpecialistProposal[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals`, { token, hostToken }),
-    acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; applied?: SpecialistAppliedPiece[]; counts?: { agents: number; skills: number }; sync?: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     dismissSpecialistProposal: (id: string, proposalId: string) => requestJson<{ dismissed: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}`, { token, hostToken, method: "DELETE" }),
     getSpecialistTasks: (id: string) => requestJson<{ tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken }),
     createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),

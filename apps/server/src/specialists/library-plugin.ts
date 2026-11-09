@@ -17,10 +17,10 @@ const createSchema = z.object({
 });
 const contextSchema = z.object({ content: z.string().describe("Instrucciones propias de la aplicación, hasta 8000 caracteres") });
 const proposeSchema = z.object({
-  kind: z.enum(["skill", "agent", "context"]),
+  kind: z.enum(["skill", "agent", "context", "task", "plan"]),
   name: createSchema.shape.name,
   description: createSchema.shape.description,
-  content: z.string().describe("Procedimiento destilado de la conversación, en Markdown"),
+  content: z.string().describe("Para skill/agent/context: el procedimiento en Markdown. Para task: JSON {prompt, schedule}. Para plan: JSON {skill?, dataset?, task?, panel?} con las piezas que se aplican juntas al aceptar"),
   reason: z.string().describe("Por qué vale la pena guardarlo y en qué se notó que se va a repetir"),
 });
 const scheduleSchema = z.object({
@@ -52,7 +52,7 @@ const TOOLS = [
   { name: "specialist_agent_create", description: "Crear un agente nuevo en la biblioteca de la aplicación, a pedido explícito de la persona.", schema: createSchema },
   { name: "specialist_skill_create", description: "Crear una skill nueva en la biblioteca de la aplicación, a pedido explícito de la persona.", schema: createSchema },
   { name: "specialist_context_write", description: "Escribir el contexto propio de la aplicación (instrucciones que se agregan a cada conversación), a pedido explícito de la persona.", schema: contextSchema },
-  { name: "specialist_propose", description: "Guardar una PROPUESTA de skill o agente cuando la persona te enseñó un procedimiento que se va a repetir y no pidió explícitamente guardarlo. La persona revisa la propuesta en el menú de su aplicación antes de que exista. Nunca la apliques vos.", schema: proposeSchema },
+  { name: "specialist_propose", description: "Guardar una PROPUESTA (skill, agente, contexto, tarea o plan compuesto) cuando la persona te enseñó un procedimiento que se va a repetir y no pidió explícitamente guardarlo. La persona revisa la propuesta en el menú de su aplicación antes de que exista; una tarea propuesta se crea PAUSADA al aceptarla. Nunca la apliques vos.", schema: proposeSchema },
   { name: "specialist_task_create", description: "Crear una tarea programada para la aplicación (cada N minutos, diaria, semanal o una vez), solo cuando la persona lo pidió explícitamente. El prompt guardado es lo que hará el agente en cada corrida.", schema: taskCreateSchema },
   { name: "specialist_task_list", description: "Listar las tareas programadas de la aplicación con su próxima corrida y último estado.", schema: listSchema },
   { name: "specialist_task_pause", description: "Pausar una tarea programada (no se borra; retoma la persona desde la app o con specialist_task_create de reemplazo).", schema: taskIdSchema },

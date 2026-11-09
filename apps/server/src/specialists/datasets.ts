@@ -206,6 +206,34 @@ export function registerDerivedDataset(directory: string, sourceId: string, name
   });
 }
 
+/** Register a query-only dataset (no evidence yet, zero snapshots). Used when a plan/proposal
+ *  captures "this query should live as data" before anything has run: the dataset exists, is
+ *  re-runnable, and every consumer (panel, detail view) must say "nunca tuvo una corrida". */
+export function registerDatasetQuery(directory: string, input: { name: string; query: SpecialistDatasetQuery }) {
+  return serialize(datasetsRoot(directory), async () => {
+    const datasets = await readIndex(directory);
+    const hash = datasetQueryHash(input.query);
+    const existing = datasets.find(entry => entry.queryHash === hash);
+    if (existing) return existing;
+    const slug = slugify(input.name) || "consulta";
+    if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
+    const id = `ds-${slug}-${randomUUID().slice(0, 8)}`;
+    const dir = await ensureFolder(datasetDir(directory, id));
+    const now = Date.now();
+    const question = typeof (input.query.input as { query?: string }).query === "string"
+      ? String((input.query.input as { query?: string }).query)
+      : typeof (input.query.input as { url?: string }).url === "string" ? String((input.query.input as { url?: string }).url) : input.query.operation;
+    const meta: SpecialistDatasetMeta = {
+      id, name: slug, question, provider: input.query.provider, operation: input.query.operation, queryHash: hash,
+      createdAt: now, updatedAt: now, lastSnapshotAt: null, snapshots: 0, derivedFrom: null,
+    };
+    await writeFile(join(dir, "dataset.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
+    await writeFile(join(dir, "query.json"), JSON.stringify(input.query, null, 2), { mode: 0o600 });
+    await writeIndex(directory, [meta, ...datasets]);
+    return meta;
+  });
+}
+
 /** The dataset a query belongs to, without registering a run (read-side lookup). */
 export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
   const datasets = await readIndex(directory);

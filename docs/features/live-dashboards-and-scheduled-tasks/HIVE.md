@@ -10,7 +10,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `1ea7aa9` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
 | B2 | [6] Fuentes y citas | ✅ core + 3/3 | `c144aff` | wiring tras tester B (mismos archivos) |
 | C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front |
-| C2 | [5] Captura ampliada | ✅ core: kinds task/plan con validación at-rest + tests | `094028b` | wiring: enum propose, accept route (task nace PAUSADA), UI kinds |
+| C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `C2FIX` | revisor + test-front |
 | C3 | [7] Salidas mini-Studio | ✅ core: validación por tipo + auditoría de citas | `ffd07a7` | wiring |
 | F2 | Diff de snapshot | ✅ diffs.ts puro (filas por identidad, escalar, shape honesto) | `4d3387c` | wiring: runner lo llama tras cada refresh; bloque de panel "cambios" |
 | D | [4] MCP Apps local | ⬜ | | |

@@ -4,13 +4,13 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
 import { registerSpecialistToolRoutes } from "./library-tool-api.js";
-import { listProposals, removeProposal, proposalSchema } from "./proposals.js";
+import { listProposals, parsePlanProposalContent, parseTaskProposalContent, removeProposal, proposalSchema } from "./proposals.js";
 import {
   agentInput, createLibraryAgent, createLibrarySkill, contextInput, deleteLibraryFile,
   libraryFileInput, listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput,
@@ -18,8 +18,9 @@ import {
 } from "./library.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
-import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot } from "./datasets.js";
+import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
+import { writePanel } from "./panels.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
@@ -47,11 +48,11 @@ export function registerSpecialistRoutes(options: {
     return applySpecialistLibraryChange(config, app);
   }
   const catalog = async () => {
-    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, scheduledTasksEnabled: false, datasetsEnabled: false, user: null, applications: [] };
+    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, scheduledTasksEnabled: false, datasetsEnabled: false, panelsEnabled: false, sourcesEnabled: false, outputsEnabled: false, user: null, applications: [] };
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), datasetsEnabled: specialistDatasetsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), sourcesEnabled: specialistSourcesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -176,24 +177,71 @@ export function registerSpecialistRoutes(options: {
     const content = await writeSpecialistContext(config, app.id, parsed.data.content);
     return jsonResponse({ content });
   });
+  /** Proposals are the capture seam for every family (library, tasks, datasets, panels): the inbox
+   *  stays reachable while at least one of them is on, and each accepted piece is gated by its own
+   *  flag so a plan can report exactly which part could not be applied. */
+  function requireCapture(write = false) {
+    requireFeature(write);
+    if (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistPanelsEnabled()) {
+      throw new ApiError(404, "specialist_library_disabled", "La captura de la aplicación está desactivada.");
+    }
+  }
   addRoute(routes, "GET", "/specialist-applications/:id/library/proposals", "client", async ctx => {
-    requireLibrary();
+    requireCapture();
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     return jsonResponse({ proposals: await listProposals(config, app.id) });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/library/proposals/:proposalId/accept", "host", async ctx => {
-    requireLibrary(true);
+    requireCapture(true);
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
-    const proposal = proposalSchema.parse(await removeProposal(config, app.id, ctx.params.proposalId));
-    if (proposal.kind === "context") await writeSpecialistContext(config, app.id, proposal.content);
-    else if (proposal.kind === "agent") await createLibraryAgent(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content });
-    else await createLibrarySkill(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content });
-    return jsonResponse({ accepted: proposal.id, ...(await applyLibraryChange(app)), catalog: await catalog() });
+    // Validate BEFORE removing it from the inbox: a hand-edited proposal must fail with the
+    // proposal still there, not vanish and leave the person wondering what happened.
+    const proposal = proposalSchema.parse(await listProposals(config, app.id).then(list => {
+      const found = list.find(entry => entry.id === ctx.params.proposalId);
+      if (!found) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
+      return found;
+    }));
+    const taskContent = proposal.kind === "task" ? parseTaskProposalContent(proposal.content) : null;
+    const planContent = proposal.kind === "plan" ? parsePlanProposalContent(proposal.content) : null;
+    await removeProposal(config, app.id, proposal.id);
+    type AppliedPiece = { piece: string; ok: boolean; id?: string; detail?: string };
+    const applied: AppliedPiece[] = [];
+    const attempt = async (piece: string, work: () => Promise<{ id?: string } | void>) => {
+      try { const result = await work(); applied.push({ piece, ok: true, ...(result?.id ? { id: result.id } : {}) }); }
+      catch (error) { applied.push({ piece, ok: false, detail: error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Falló sin detalle." }); }
+    };
+    const needLibrary = (piece: string) => { if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", `La pieza ${piece} necesita la biblioteca, que está desactivada.`); };
+    const needTasks = () => { if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas."); };
+    const needDatasets = () => { if (!specialistDatasetsEnabled()) throw new ApiError(409, "specialist_datasets_disabled", "Los datasets están desactivados."); };
+    const needPanels = () => { if (!specialistPanelsEnabled()) throw new ApiError(409, "specialist_panels_disabled", "Los paneles están desactivados."); };
+
+    if (proposal.kind === "context") {
+      await attempt("contexto", async () => { needLibrary("contexto"); await writeSpecialistContext(config, app.id, proposal.content); });
+    } else if (proposal.kind === "agent") {
+      await attempt("agente", async () => { needLibrary("agente"); const item = await createLibraryAgent(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content }); return { id: item.path }; });
+    } else if (proposal.kind === "skill") {
+      await attempt("skill", async () => { needLibrary("skill"); const item = await createLibrarySkill(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content }); return { id: item.path }; });
+    } else if (proposal.kind === "task" && taskContent) {
+      await attempt("tarea", async () => { needTasks(); const task = await createTask(config, app.id, { name: proposal.name, prompt: taskContent.prompt, schedule: taskContent.schedule }, { enabled: false }); return { id: task.id }; });
+    } else if (proposal.kind === "plan" && planContent) {
+      if (planContent.skill) await attempt("skill", async () => { needLibrary("skill"); const item = await createLibrarySkill(config, app.id, planContent.skill!); return { id: item.path }; });
+      if (planContent.dataset) await attempt("dataset", async () => {
+        needDatasets();
+        const target = (await datasetWorkspaces(app.id, null))[0];
+        if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar el dataset.");
+        const dataset = await registerDatasetQuery(target.workspacePath, planContent.dataset!);
+        return { id: `${target.workspaceId}/${dataset.id}` };
+      });
+      if (planContent.panel) await attempt("panel", async () => { needPanels(); const panel = await writePanel(config, app.id, planContent.panel!.name, planContent.panel!.spec); return { id: panel.name }; });
+      if (planContent.task) await attempt("tarea", async () => { needTasks(); const task = await createTask(config, app.id, { name: proposal.name, prompt: planContent.task!.prompt, schedule: planContent.task!.schedule }, { enabled: false }); return { id: task.id }; });
+    }
+    const libraryChanged = applied.some(entry => entry.ok && ["contexto", "agente", "skill"].includes(entry.piece));
+    return jsonResponse({ accepted: proposal.id, applied, ...(libraryChanged ? await applyLibraryChange(app) : {}), catalog: await catalog() });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/library/proposals/:proposalId", "host", async ctx => {
-    requireLibrary(true);
+    requireCapture(true);
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     await removeProposal(config, app.id, ctx.params.proposalId);
@@ -291,15 +339,14 @@ export function registerSpecialistRoutes(options: {
   addRoute(routes, "GET", "/specialist-applications/:id/datasets/:datasetId", "client", async ctx => {
     requireDatasets();
     const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
-    const [snapshots, latest] = await Promise.all([
-      listSnapshotDates(found.workspacePath, ctx.params.datasetId),
-      readLatestSnapshot(found.workspacePath, ctx.params.datasetId),
-    ]);
-    const size = Buffer.byteLength(JSON.stringify(latest), "utf8");
+    const snapshots = await listSnapshotDates(found.workspacePath, ctx.params.datasetId);
+    // A query-only dataset (registered from a proposal) has no LATEST yet: say so, don't throw.
+    const latest = found.meta.lastSnapshotAt === null ? null : await readLatestSnapshot(found.workspacePath, ctx.params.datasetId);
+    const size = latest === null ? 0 : Buffer.byteLength(JSON.stringify(latest), "utf8");
     return jsonResponse({
       dataset: { ...found.meta, workspaceId: found.workspaceId, workspaceName: workspaceName(found.workspacePath) },
       snapshots,
-      latest: size <= 200_000 ? latest : { tooLarge: true },
+      latest: latest !== null && size <= 200_000 ? latest : latest !== null ? { tooLarge: true } : null,
     });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/datasets/:datasetId/refresh", "host", async ctx => {
