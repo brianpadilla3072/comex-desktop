@@ -13,9 +13,9 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `fcad758` | ✅ front-test (C) |
 | C3 | [7] Salidas mini-Studio | ✅ core + wiring: rutas/tools, generate devuelve auditoría de citas, UI lector con estado de anclas · ✅ server 106/106 · ✅ UI 26/26 | `e46e0a5` | ✅ front-test (C) |
 | F2 | Diff de snapshot | ✅ core + wiring: el runner difunde antes/después de cada refresh (`comex/datasets/<id>/diffs/`), bloque "cambios" del panel | `4da9b06` | ✅ front-test (C) |
-| REV | Revisor server (ses_e3ebb3ff) | ✅ 6 blockers + 8 importantes + 5 menores → aplicados (`specialist-reviewer-fixes.test.ts`, 10) | `REV1` | — |
-| REV-ui | Revisor UI (ses_e3eb290d) | ✅ blockers 1-4 + imp 6,7,9-11,19 aplicados · diferidos: #5 shells, #12, #15, #17 (#13 no aplica: paths relativos) | `REV1` | — |
-| TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `REV1` | — |
+| REV | Revisor server (ses_e3ebb3ff) | ✅ 6 blockers + 8 importantes + 5 menores → aplicados (`specialist-reviewer-fixes.test.ts`, 10) | `1ee8323` | — |
+| REV-ui | Revisor UI (ses_e3eb290d) | ✅ blockers 1-4 + imp 6,7,9-11,19 aplicados · diferidos: #5 shells, #12, #15, #17 (#13 no aplica: paths relativos) | `1ee8323` | — |
+| TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `1ee8323` | — |
 | D | [4] MCP Apps local | ⬜ | | |
 | F1–F5 | Backlog alineado | ⬜ | | |
 
