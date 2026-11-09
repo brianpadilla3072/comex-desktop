@@ -199,6 +199,31 @@ export function deleteTask(config: Pick<ServerConfig, "configPath">, id: string,
   });
 }
 
+/** F4 run budget: an honest local estimate in time/space (not cloud quota) shown when a person
+ *  creates or activates a task — the "AI Usage bar" adapted: the cost here is model time and
+ *  snapshot space on this machine. Pure math over the schedule + prompt length. */
+export type TaskBudget = {
+  runsPerDay: number;
+  /** Rough per-run token estimate: prompt size × a few back-and-forth turns of context. */
+  estTokensPerRun: number;
+  estTokensPerDay: number;
+  /** Snapshot growth estimate in MB/day, assuming each run's output is ~2× the prompt size. */
+  estSnapshotsMBPerDay: number;
+  note: string;
+};
+export function estimateTaskBudget(task: Pick<SpecialistTask, "prompt" | "schedule">): TaskBudget {
+  const runsPerDay = task.schedule.kind === "interval" ? 1440 / task.schedule.everyMinutes
+    : task.schedule.kind === "daily" ? 1
+    : task.schedule.kind === "weekly" ? 1 / 7
+    : task.schedule.kind === "once" ? 0 : 0;
+  const estTokensPerRun = Math.round((task.prompt.length / 4) * 8);
+  const estSnapshotsMBPerDay = Math.round(((task.prompt.length * 2) * runsPerDay / 1_000_000) * 10) / 10;
+  const note = task.schedule.kind === "once"
+    ? "Una sola corrida: sin costo recurrente."
+    : `≈ ${Math.round(runsPerDay * 10) / 10} corridas/día · ≈ ${(estTokensPerRun * runsPerDay / 1000).toFixed(0)}k tokens/día · ≈ ${estSnapshotsMBPerDay} MB/día de snapshots en el proyecto.`;
+  return { runsPerDay: Math.round(runsPerDay * 100) / 100, estTokensPerRun, estTokensPerDay: Math.round(estTokensPerRun * runsPerDay), estSnapshotsMBPerDay, note };
+}
+
 /** The scheduler's mutation entry (claim/advance/finish), serialized like the rest. */
 export function patchTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, edit: (task: SpecialistTask) => SpecialistTask) {
   return mutate(config, id, taskId, edit);

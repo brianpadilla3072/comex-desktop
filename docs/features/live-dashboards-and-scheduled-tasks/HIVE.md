@@ -18,6 +18,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `1ee8323` | — |
 | D | [4] MCP Apps local | ⬜ | | |
 | F3 | Ensayo de tareas | ✅ wiring: `dryRun` en scheduler (sin claim/cola/evidencia), ruta + botón "Ensayar" con flag taskDryRun · ✅ server + UI | `0358d8f` | — |
+| F4 | Presupuesto de corrida | ✅ wiring: `estimateTaskBudget` (tiempo/espacio local) en create/update + estimado en vivo en el form | `F4FIX` | — |
 
 ## Agentes desplegados
 

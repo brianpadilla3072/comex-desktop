@@ -17,7 +17,7 @@ import {
   writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { applySpecialistLibraryChange } from "./sync.js";
-import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
+import { createTask, deleteTask, estimateTaskBudget, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
 import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
@@ -278,7 +278,7 @@ export function registerSpecialistRoutes(options: {
     const parsed = taskInputSchema.safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá el nombre, el prompt y el horario de la tarea.");
     const task = await createTask(config, app.id, parsed.data);
-    return jsonResponse({ task, tasks: await listTasks(config, app.id) });
+    return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
   addRoute(routes, "PUT", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {
     requireTasks(true);
@@ -287,7 +287,7 @@ export function registerSpecialistRoutes(options: {
     const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá los campos de la tarea.");
     const task = await updateTask(config, app.id, ctx.params.taskId, parsed.data);
-    return jsonResponse({ task, tasks: await listTasks(config, app.id) });
+    return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {
     requireTasks(true);

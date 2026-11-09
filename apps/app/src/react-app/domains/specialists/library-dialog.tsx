@@ -807,6 +807,15 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
   const scheduleProblem = kind === "interval" && (!Number.isInteger(minutesValue) || minutesValue < 1 || minutesValue > 43_200)
     ? "Indicá cada cuántos minutos: un entero entre 1 y 43200."
     : kind === "weekly" && !days.length ? "Elegí al menos un día de la semana." : null;
+  // F4 live estimate (mirrors the server's estimateTaskBudget): time/space cost in local terms.
+  const budgetEstimate = (() => {
+    if (!prompt.trim() || scheduleProblem) return null;
+    const runsPerDay = kind === "interval" && Number.isInteger(minutesValue) && minutesValue >= 1 ? 1440 / minutesValue : kind === "daily" ? 1 : kind === "weekly" ? 1 / 7 : 0;
+    if (kind === "once") return "Una sola corrida: sin costo recurrente.";
+    const tokens = Math.round(((prompt.length / 4) * 8) * runsPerDay / 1000);
+    const mb = Math.round(((prompt.length * 2) * runsPerDay / 1_000_000) * 10) / 10;
+    return `≈ ${Math.round(runsPerDay * 10) / 10} corridas/día · ≈ ${tokens}k tokens/día · ≈ ${mb} MB/día de snapshots en el proyecto.`;
+  })();
   if (query.isPending) return <div className="grid gap-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las tareas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
   const tasks = query.data?.tasks ?? [];
@@ -827,6 +836,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
       <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim() || (kind === "once" && !once) || scheduleProblem !== null}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
       {scheduleProblem ? <p role="alert" className="text-xs text-destructive">{scheduleProblem}</p> : null}
+      {budgetEstimate ? <p role="status" className="text-xs text-muted-foreground">Costo estimado: {budgetEstimate}</p> : null}
     </form> : null}
     {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
