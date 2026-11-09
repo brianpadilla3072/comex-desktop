@@ -7,7 +7,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | Celda | Pieza | Estado | Commits | Pendientes |
 |---|---|---|---|---|
 | A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front ✅ fixes de las 5 trabas aplicados | `f850096` `ca474c2` `fd3c2dbe` | — (celda cerrada) |
-| B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `B-FIX` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
+| B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `1ea7aa9` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
 | B2 | [6] Fuentes y citas | ✅ core + 3/3 | `c144aff` | wiring tras tester B (mismos archivos) |
 | C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front |
 | C2 | [5] Captura ampliada | ✅ core: kinds task/plan con validación at-rest + tests | `094028b` | wiring: enum propose, accept route (task nace PAUSADA), UI kinds |
