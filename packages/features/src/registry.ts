@@ -225,6 +225,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  specialistLibrary: {
+    label: "Specialist library",
+    description: "Edit, create and delete each specialist application's context, agents and skills from the app or on request in chat, and materialize them into the application's projects.",
+    category: "experience",
+    added: "2026-11-09",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/specialist-library/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   openworkPromotions: {
     label: "OpenWork promotions",
     description: "Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.",

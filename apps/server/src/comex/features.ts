@@ -68,3 +68,9 @@ export function comexChatCommandsEnabled(env: NodeJS.ProcessEnv = process.env): 
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("comexChatCommands", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+export function specialistLibraryEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistLibrary", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

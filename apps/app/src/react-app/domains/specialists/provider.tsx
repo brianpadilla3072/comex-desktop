@@ -2,7 +2,7 @@
 import { createContext, use, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
-import { ChevronDown, FolderPlus, Plus, Settings2 } from "lucide-react";
+import { BookText, ChevronDown, FolderPlus, Plus, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { pickDirectory, workspaceSetRuntimeActive, workspaceSetSelected } from "
 import { isDesktopRuntime } from "@/app/utils";
 import { resolveOpenworkConnection } from "@/react-app/shell/openwork-connection";
 import { SpecialistIntegrationsDialog } from "./integrations-dialog";
+import { SpecialistLibraryDialog } from "./library-dialog";
 
 const DEFAULT_PERSONALITY = "Sos una asistente metódica, clara y amable. Explicá en castellano simple, verificá las fuentes y señalá lo que falte. Priorizá que la persona entienda y pueda defender el resultado.";
 const COMEX_SPECIALTY = "Comercio Exterior: investigaciones, cotizaciones y trabajos académicos con fuentes verificables.";
@@ -28,6 +29,7 @@ type State = {
   open: (application: SpecialistApplication) => Promise<void>;
   createProject: () => void;
   integrations: () => void;
+  library: () => void;
   refresh: () => Promise<unknown>;
 };
 const Context = createContext<State | null>(null);
@@ -39,6 +41,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const [form, setForm] = useState<"create" | SpecialistApplication | null>(null);
   const [projectApplication, setProjectApplication] = useState<SpecialistApplication | null>(null);
   const [integrationApplication, setIntegrationApplication] = useState<SpecialistApplication | null>(null);
+  const [libraryApplication, setLibraryApplication] = useState<SpecialistApplication | null>(null);
   const newProject = projectApplication !== null;
   const [projectName, setProjectName] = useState("");
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("specialists.onboarding-dismissed") === "1"; } catch { return false; } });
@@ -105,10 +108,11 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     finally { setBusy(false); }
   }
   const value: State = { catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
-    createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), refresh: query.refetch };
+    createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active), refresh: query.refetch };
   return <Context.Provider value={value}>
     {children}
     {integrationApplication && query.data && catalog?.integrationsEnabled ? <SpecialistIntegrationsDialog app={integrationApplication} client={query.data.client} onClose={() => setIntegrationApplication(null)} onChanged={query.refetch} /> : null}
+    {libraryApplication && query.data && catalog?.libraryEnabled ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
     {catalog?.enabled && query.data && form ? <ApplicationForm key={typeof form === "string" ? "create" : form.id} client={query.data.client} catalog={catalog} existing={form === "create" ? null : form} preferredWorkspaceId={workspaceId}
       onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }} /> : null}
     <Dialog open={newProject} onOpenChange={open => { if (!open) setProjectApplication(null); }}>
@@ -198,7 +202,7 @@ export function SpecialistApplicationSwitcher({ fallbackName }: { fallbackName: 
       {state.catalog.applications.map(app => <DropdownMenuItem key={app.id} onClick={() => void state.open(app)}><span className="min-w-0"><span className="block truncate">{app.name}{app.id === state.active?.id ? " ✓" : ""}</span><span className="block truncate text-xs text-muted-foreground">{app.specialty}</span></span></DropdownMenuItem>)}
       {state.catalog.applications.length ? <DropdownMenuSeparator /> : null}
       <DropdownMenuItem onClick={state.create}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem>
-      {state.active ? <><DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem><DropdownMenuItem onClick={state.createProject}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem></> : null}
+      {state.active ? <><DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem><DropdownMenuItem onClick={state.library}><BookText className="size-4" />Contexto, agentes y skills</DropdownMenuItem><DropdownMenuItem onClick={state.createProject}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem></> : null}
       {state.active && state.catalog.integrationsEnabled ? <DropdownMenuItem onClick={state.integrations}><Settings2 className="size-4" />Herramientas y fuentes</DropdownMenuItem> : null}
       {state.error ? <p role="alert" className="px-2 py-1 text-xs text-destructive">{state.error}</p> : null}
     </DropdownMenuContent>

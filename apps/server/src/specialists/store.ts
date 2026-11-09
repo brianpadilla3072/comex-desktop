@@ -126,6 +126,10 @@ export async function openSpecialistStore(path: string) {
       if (current && projectSchema.parse(current).applicationId !== applicationId) throw new ApiError(409, "project_already_bound", "Ese proyecto pertenece a otra aplicación.");
       sql.run("INSERT INTO specialist_projects(workspace_id, application_id, root_path) VALUES (?, ?, ?) ON CONFLICT(workspace_id) DO NOTHING", [workspaceId, applicationId, rootPath]);
     },
+    projectsFor: (id: string) => {
+      application(id);
+      return sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects WHERE application_id = ?", [id]).map(value => projectSchema.parse(value));
+    },
     forWorkspace: (workspaceId: string) => {
       const row = sql.get("SELECT application_id AS applicationId FROM specialist_projects WHERE workspace_id = ?", [workspaceId]);
       if (!row) return null;

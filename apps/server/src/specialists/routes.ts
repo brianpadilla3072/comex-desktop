@@ -4,12 +4,21 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistIntegrationsEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
+import { registerSpecialistToolRoutes } from "./library-tool-api.js";
+import { listProposals, removeProposal, proposalSchema } from "./proposals.js";
+import {
+  agentInput, createLibraryAgent, createLibrarySkill, contextInput, deleteLibraryFile,
+  libraryFileInput, listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput,
+  writeLibraryFile, writeSpecialistContext,
+} from "./library.js";
+import { applySpecialistLibraryChange } from "./sync.js";
 import type { ServerConfig } from "../types.js";
+import type { SpecialistApplication } from "./store.js";
 
 export function registerSpecialistRoutes(options: {
   routes: Route[]; config: ServerConfig;
@@ -20,16 +29,25 @@ export function registerSpecialistRoutes(options: {
 }) {
   const { routes, config, readJsonBody, jsonResponse, ensureWritable, createWorkspace } = options;
   registerIntegrationRoutes(options);
+  registerSpecialistToolRoutes(options);
   function requireFeature(write = false) {
     if (!specialistApplicationsEnabled()) throw new ApiError(404, "specialists_disabled", "Los perfiles especialistas están desactivados.");
     if (write) ensureWritable(config);
   }
+  function requireLibrary(write = false) {
+    requireFeature(write);
+    if (!specialistLibraryEnabled()) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
+  }
+  /** After any library change: refresh SQLite counts and materialize into the application's live projects. */
+  async function applyLibraryChange(app: SpecialistApplication) {
+    return applySpecialistLibraryChange(config, app);
+  }
   const catalog = async () => {
-    if (!specialistApplicationsEnabled()) return { enabled: false, user: null, applications: [] };
+    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, user: null, applications: [] };
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -91,5 +109,90 @@ export function registerSpecialistRoutes(options: {
     const workspaceId = await createWorkspace(ctx, { folderPath, name: parsed.data.name, preset: "specialist", applicationId: app.id });
     store.activate(app.id);
     return jsonResponse({ workspaceId, catalog: await catalog() }, 201);
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/library", "client", async ctx => {
+    requireLibrary();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ application: { id: app.id, name: app.name }, ...(await listSpecialistLibrary(config, app.id)) });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/library/file", "client", async ctx => {
+    requireLibrary();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const path = ctx.url.searchParams.get("path") ?? "";
+    return jsonResponse(await readLibraryFile(config, app.id, path));
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/library/file", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = z.object({ path: libraryFileInput.shape.path, content: libraryFileInput.shape.content }).safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_library_file", "Revisá la ruta y el contenido del archivo.");
+    const item = await writeLibraryFile(config, app.id, parsed.data.path, parsed.data.content);
+    return jsonResponse({ item, ...(await applyLibraryChange(app)) });
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/library/file", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const deleted = await deleteLibraryFile(config, app.id, ctx.url.searchParams.get("path") ?? "");
+    return jsonResponse({ deleted, ...(await applyLibraryChange(app)), catalog: await catalog() });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/library/agents", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = agentInput.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_agent", "El nombre debe ser kebab-case y la descripción tener entre 1 y 1024 caracteres.");
+    const item = await createLibraryAgent(config, app.id, parsed.data);
+    return jsonResponse({ item, ...(await applyLibraryChange(app)), catalog: await catalog() }, 201);
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/library/skills", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = skillInput.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_skill", "El nombre debe ser kebab-case y la descripción tener entre 1 y 1024 caracteres.");
+    const item = await createLibrarySkill(config, app.id, parsed.data);
+    return jsonResponse({ item, ...(await applyLibraryChange(app)), catalog: await catalog() }, 201);
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/context", "client", async ctx => {
+    requireLibrary();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ content: await readSpecialistContext(config, app.id) });
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/context", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = z.object({ content: contextInput }).safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_context", "El contexto no puede superar 8.000 caracteres.");
+    const content = await writeSpecialistContext(config, app.id, parsed.data.content);
+    return jsonResponse({ content });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/library/proposals", "client", async ctx => {
+    requireLibrary();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ proposals: await listProposals(config, app.id) });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/library/proposals/:proposalId/accept", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const proposal = proposalSchema.parse(await removeProposal(config, app.id, ctx.params.proposalId));
+    if (proposal.kind === "context") await writeSpecialistContext(config, app.id, proposal.content);
+    else if (proposal.kind === "agent") await createLibraryAgent(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content });
+    else await createLibrarySkill(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content });
+    return jsonResponse({ accepted: proposal.id, ...(await applyLibraryChange(app)), catalog: await catalog() });
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/library/proposals/:proposalId", "host", async ctx => {
+    requireLibrary(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    await removeProposal(config, app.id, ctx.params.proposalId);
+    return jsonResponse({ dismissed: ctx.params.proposalId });
   });
 }
