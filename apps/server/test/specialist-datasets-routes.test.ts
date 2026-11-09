@@ -16,12 +16,13 @@ const input = (name: string) => applicationInput.parse({ userName: "Usuario de p
 
 const failureStatus = (error: unknown, code: string) => error instanceof ApiError && error.code === code;
 
-type Flags = { library?: "true" | "false"; tasks?: "true" | "false"; datasets?: "true" | "false" };
+type Flags = { library?: "true" | "false"; tasks?: "true" | "false"; datasets?: "true" | "false"; sources?: "true" | "false" };
 function withFlags(flags: Flags, run: () => Promise<void>) {
   const pairs: Array<[string, "true" | "false" | undefined]> = [
     ["DEN_FEATURE_SPECIALIST_LIBRARY", flags.library],
     ["DEN_FEATURE_SCHEDULED_TASKS", flags.tasks],
     ["DEN_FEATURE_SPECIALIST_DATASETS", flags.datasets],
+    ["DEN_FEATURE_SPECIALIST_SOURCES", flags.sources],
   ];
   const before = new Map(pairs.map(([name]) => [name, process.env[name]]));
   for (const [name, value] of pairs) { if (value !== undefined) process.env[name] = value; }
@@ -202,8 +203,8 @@ test("a project with only datasets enabled still gets a working library descript
       assert.equal(locked.status, 409);
       assert.equal(locked.json.error, "specialist_library_disabled");
     });
-    // All three flags off: the bridge itself closes (sentinel descriptor).
-    await withFlags({ library: "false", tasks: "false", datasets: "false" }, async () => {
+    // All four flags off: the bridge itself closes (sentinel descriptor).
+    await withFlags({ library: "false", tasks: "false", datasets: "false", sources: "false" }, async () => {
       await syncLibraryToolPlugin(config as unknown as ServerConfig, idA, pathA);
       const toolFiles = await readdir(join(root, "specialists", "tool"));
       const descriptor = JSON.parse(await readFile(join(root, "specialists", "tool", toolFiles[0]!), "utf8")) as { token: string };

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, specialistSourcesEnabled, scheduledTasksEnabled } from "../comex/features.js";
 import {
   agentInput, contextInput, createLibraryAgent, createLibrarySkill, deleteLibraryFile, libraryFileInput,
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
@@ -14,6 +14,7 @@ import { addProposal } from "./proposals.js";
 import { createTask, deleteTask, listTasks, updateTask } from "./tasks.js";
 import { listDatasets, listSnapshotDates, readLatestSnapshot, registerDerivedDataset } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
+import { ensureChunks, readCitation } from "./sources.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
@@ -25,6 +26,7 @@ const toolCallSchema = z.object({ name: z.enum([
   "specialist_agent_create", "specialist_skill_create", "specialist_context_write", "specialist_propose",
   "specialist_task_create", "specialist_task_list", "specialist_task_pause", "specialist_task_delete",
   "specialist_dataset_list", "specialist_dataset_read", "specialist_dataset_refresh", "specialist_dataset_derive",
+  "specialist_source_read",
 ]), input: z.record(z.string(), z.unknown()) });
 
 const toolDirectory = (config: Pick<ServerConfig, "configPath">) => join(specialistDirectory(config), "tool");
@@ -48,7 +50,7 @@ export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPa
   const canonical = resolve(directory);
   const existing = await readDescriptor(config, canonical);
   const target = existing?.file ?? join(toolDirectory(config), createHash("sha256").update(canonical).digest("hex") + ".json");
-  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
+  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
     if (existing) await writeDescriptor(target, { directory: canonical, token: "00000000000000000000000000000000", url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
     return;
   }
@@ -98,6 +100,8 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
     if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
   } else if (name.startsWith("specialist_dataset_")) {
     if (!specialistDatasetsEnabled()) throw new ApiError(409, "specialist_datasets_disabled", "Los datasets de investigación están desactivados en este server.");
+  } else if (name.startsWith("specialist_source_")) {
+    if (!specialistSourcesEnabled()) throw new ApiError(409, "specialist_sources_disabled", "Las fuentes citables están desactivadas en este server.");
   } else if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
   switch (name) {
     case "specialist_library_list": {
@@ -184,6 +188,17 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       const dataset = await registerDerivedDataset(directory, parsed.sourceId, parsed.name, parsed.payload);
       return { dataset, note: "Quedó registrado como dataset derivado, con linaje a su origen. La persona lo ve en Contexto, agentes y skills → Datos." };
     }
+    case "specialist_source_read": {
+      const parsed = z.object({ id: z.string().min(1), chunk: z.number().int().min(0).optional() }).parse(input);
+      if (parsed.chunk === undefined) {
+        // Index first: the model only ever cites an anchor it has seen.
+        const { source, chunks } = await ensureChunks(directory, parsed.id);
+        return { source, totalChunks: chunks.length, chunks: chunks.slice(0, 30), note: "Citá como [fuente:<id>#<n>] donde n es el índice del pasaje. Antes de citar un dato, verificá el pasaje con especialist_source_read {id, chunk:n}; nunca cites de memoria." };
+      }
+      const resolved = await readCitation(directory, parsed.id, parsed.chunk);
+      if (!resolved.ok) return { ok: false, error: resolved.error, note: "El ancla no existe: no cites este pasaje como si existiera; decilo o elegí otro." };
+      return { ok: true, source: resolved.source, chunk: resolved.chunk, text: resolved.text };
+    }
     default: throw new ApiError(404, "library_tool_unknown", "Esa herramienta de biblioteca no existe.");
   }
 }
@@ -196,7 +211,7 @@ export function registerSpecialistToolRoutes(options: {
 }) {
   const { routes, config, readJsonBody, jsonResponse } = options;
   addRoute(routes, "POST", "/specialist-tool", "none", async (ctx: RequestContext) => {
-    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
+    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
     const bearer = ctx.request.headers.get("authorization") ?? "";
     const token = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
     if (token.length < 16) throw new ApiError(401, "library_tool_unauthorized", "Falta la credencial de la biblioteca.");

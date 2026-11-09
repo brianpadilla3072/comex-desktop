@@ -38,6 +38,10 @@ const taskCreateSchema = z.object({
 });
 const taskIdSchema = z.object({ taskId: z.string().describe("Id de la tarea (task_…), visible en specialist_task_list") });
 const datasetIdSchema = z.object({ id: z.string().describe("id del dataset, visible en specialist_dataset_list") });
+const sourceReadSchema = z.object({
+  id: z.string().describe("id de la fuente (src_…), visible en el registro de fuentes del proyecto"),
+  chunk: z.number().int().min(0).describe("Nº de pasaje a leer (el de la cita [fuente:id#n]). Sin este campo se devuelve el índice de pasajes.").optional(),
+});
 const datasetDeriveSchema = z.object({
   sourceId: z.string().describe("id del dataset del que derivás estos datos, visible en specialist_dataset_list"),
   name: z.string().describe("Nombre legible del dataset derivado, 1-120 caracteres"),
@@ -61,6 +65,7 @@ const TOOLS = [
   { name: "specialist_dataset_read", description: "Leer un dataset: su consulta, las fechas de sus snapshots y el último snapshot. Usarla proactivamente después de investigar, para responder con los datos ya guardados en vez de volver a consultar.", schema: datasetIdSchema },
   { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, decilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
   { name: "specialist_dataset_derive", description: "Registrar un dataset DERIVADO de otro: una vista limpia o transformada (sin consulta re-ejecutable, con linaje al origen). Usarla proactivamente cuando convertiste los datos de una investigación en algo reutilizable para el proyecto.", schema: datasetDeriveSchema },
+  { name: "specialist_source_read", description: "Leer una FUENTE citable del proyecto: sin chunk devuelve el índice de pasajes; con chunk devuelve el texto exacto del pasaje. Obligatorio antes de citar [fuente:<id>#<n>] en una respuesta: nunca cites de memoria ni inventes un ancla.", schema: sourceReadSchema },
 ] as const;
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */

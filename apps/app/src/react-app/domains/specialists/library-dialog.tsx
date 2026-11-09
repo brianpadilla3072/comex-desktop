@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, LibraryBig, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistProposal, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
+import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -32,7 +32,8 @@ type View =
   | { kind: "file"; path: string; name: string }
   | { kind: "new"; type: "agent" | "skill" }
   | { kind: "tasks" }
-  | { kind: "datasets" };
+  | { kind: "datasets" }
+  | { kind: "sources" };
 
 function syncNotice(sync: SpecialistSyncResult[]) {
   if (!sync.length) return null;
@@ -45,28 +46,29 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, datasets, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; datasets: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, datasets, sources, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; datasets: boolean; sources: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   // El título describe lo que realmente hay adentro, no la feature original.
-  const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null].filter(Boolean).join(" · ");
+  const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null, sources ? "Fuentes" : null].filter(Boolean).join(" · ");
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
       <DialogHeader><DialogTitle>{sections} de {app.name}</DialogTitle></DialogHeader>
-      {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} datasets={datasets} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} datasets={datasets} sources={sources} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
   </Dialog>;
 }
 
-function Home({ app, client, query, libraryEnabled, scheduled, datasets, onOpen, onChanged }: {
+function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources, onOpen, onChanged }: {
   app: SpecialistApplication; client: OpenworkServerClient;
   query: ReturnType<typeof useQuery<SpecialistLibrary | null, Error>>;
-  libraryEnabled: boolean; scheduled: boolean; datasets: boolean;
+  libraryEnabled: boolean; scheduled: boolean; datasets: boolean; sources: boolean;
   onOpen(view: View): void; onChanged(): Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -102,7 +104,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, onOpen,
     </div> : null}
     {libraryEnabled && query.isError ? <p role="alert" className="text-sm text-destructive">No se pudo leer la biblioteca; el resto (propuestas, tareas, datos) sigue disponible. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p> : null}
     {libraryEnabled && query.isPending ? <div className="grid gap-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : null}
-    <ProposalsSection app={app} client={client} enabled={libraryEnabled || scheduled || datasets} onChanged={onChanged} />
+    <ProposalsSection app={app} client={client} enabled={libraryEnabled || scheduled || datasets || sources} onChanged={onChanged} />
     {scheduled ? <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Tareas programadas</h3>
@@ -116,6 +118,13 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, onOpen,
         <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "datasets" })}><Database className="size-4" />Gestionar</Button>
       </div>
       <DatasetsSummary app={app} client={client} />
+    </section> : null}
+    {sources ? <section className="grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Fuentes citables</h3>
+        <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "sources" })}><LibraryBig className="size-4" />Gestionar</Button>
+      </div>
+      <SourcesSummary app={app} client={client} />
     </section> : null}
     {library ? <><section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -348,6 +357,63 @@ function proposalSummary(proposal: SpecialistProposal): string | null {
       .map(piece => piece === "task" ? "tarea pausada" : piece === "skill" ? "skill" : piece === "dataset" ? "dataset" : "panel");
     return pieces.length ? `Al aceptar se aplican: ${pieces.join(" + ")}` : null;
   } catch { return null; }
+}
+
+const SOURCES_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-sources", client.baseUrl, app.id] as const;
+function sourcesQuery(client: OpenworkServerClient, app: SpecialistApplication) {
+  return { queryKey: SOURCES_KEY(client, app), queryFn: () => client.getSpecialistSources(app.id), retry: false } as const;
+}
+function SourcesSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
+  const query = useQuery(sourcesQuery(client, app));
+  if (query.isPending) return <Skeleton className="h-8 w-full" />;
+  if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer las fuentes. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
+  const sources = query.data?.sources ?? [];
+  if (!sources.length) return <p className="text-xs text-muted-foreground">Sin fuentes todavía. Cada investigación deja su evidencia como fuente citable ([fuente:…]) lista para citar con pasaje exacto.</p>;
+  return <ul className="grid gap-1 text-xs text-muted-foreground">{sources.slice(0, 4).map(source => <li key={`${source.workspaceId}/${source.id}`} className="flex items-center gap-2">
+    <LibraryBig className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{source.title}</span><span className="shrink-0">{source.workspaceName}</span>
+  </li>)}</ul>;
+}
+
+function SourcesView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+  const query = useQuery(sourcesQuery(client, app));
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
+  if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las fuentes. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
+  const sources = query.data?.sources ?? [];
+  const workspaces = new Set(sources.map(source => source.workspaceId));
+  return <div className="grid gap-3">
+    <Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
+    <h3 className="text-sm font-medium">Fuentes citables de {app.name}</h3>
+    <p className="text-xs text-muted-foreground">Cada pieza de material recuperado tiene un id y se cita como [fuente:id#n], donde n es el nº de pasaje. Abrir una fuente muestra sus pasajes tal como están en el proyecto.</p>
+    {sources.length ? sources.map(source => <SourceRow key={`${source.workspaceId}/${source.id}`} app={app} client={client} source={source} open={openId === source.id} onToggle={() => setOpenId(openId === source.id ? null : source.id)} multi={workspaces.size > 1} />)
+      : <p className="text-xs text-muted-foreground">Sin fuentes todavía. Cuando el asistente investigue algo, la evidencia quedará registrada acá.</p>}
+  </div>;
+}
+
+function SourceRow({ app, client, source, open, onToggle, multi }: { app: SpecialistApplication; client: OpenworkServerClient; source: SpecialistSource; open: boolean; onToggle(): void; multi: boolean }) {
+  const detail = useQuery({
+    queryKey: [...SOURCES_KEY(client, app), source.workspaceId, source.id],
+    queryFn: () => client.getSpecialistSource(app.id, source.id, source.workspaceId),
+    enabled: open, retry: false,
+  });
+  return <div className="grid gap-2 rounded-md border p-3 text-sm">
+    <div className="flex items-center gap-2">
+      <LibraryBig className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate font-medium">{source.title}</span>
+      <Badge variant="outline">{source.provider}</Badge>
+    </div>
+    <p className="text-xs text-muted-foreground">
+      {source.id}{multi ? ` · ${source.workspaceName}` : ""} · {source.chunks ? `${source.chunks} pasajes` : "sin pasajes indexados todavía"} · {formatWhen(source.retrievedAt)}
+      {source.url ? <> · <a href={source.url} target="_blank" rel="noreferrer" className="underline">{source.url}</a></> : null}
+    </p>
+    <Button size="sm" variant="ghost" className="justify-self-start" onClick={onToggle}>{open ? "Ocultar pasajes" : "Ver pasajes"}</Button>
+    {open ? detail.isPending ? <Skeleton className="h-16 w-full" />
+      : detail.isError ? <p role="alert" className="text-xs text-destructive">No se pudo leer la fuente. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void detail.refetch()}>Volver a intentar</Button></p>
+      : detail.data && !detail.data.ok ? <p role="alert" className="text-xs text-destructive">{detail.data.error ?? "La fuente no se pudo leer."}</p>
+      : detail.data?.chunks ? <ol className="grid gap-2">{detail.data.chunks.map((text, index) => <li key={index} className="grid gap-0.5 rounded bg-muted/40 p-2 text-xs">
+        <span className="font-medium">[fuente:{source.id}#{index}]</span><span>{text}</span></li>)}</ol>
+      : <p className="text-xs text-muted-foreground">Sin pasajes: la evidencia guardada no tiene texto largo para dividir.</p> : null}
+  </div>;
 }
 
 function ProposalsSection({ app, client, enabled, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; enabled: boolean; onChanged(): Promise<void> }) {

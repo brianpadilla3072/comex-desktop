@@ -21,6 +21,7 @@ import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTas
 import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { writePanel } from "./panels.js";
+import { ensureChunks, listSources, readCitation } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
@@ -360,5 +361,37 @@ export function registerSpecialistRoutes(options: {
     const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
     await deleteDataset(found.workspacePath, ctx.params.datasetId);
     return jsonResponse({ deleted: ctx.params.datasetId });
+  });
+
+  /** Citable sources ([6]): the same per-workspace aggregation as datasets. Chunks are built
+   *  lazily; the detail returns the passage list so the app can show the cited text (and the
+   *  model resolves anchors through specialist_source_read instead of inventing them). */
+  function requireSources(write = false) {
+    requireFeature(write);
+    if (!specialistSourcesEnabled()) throw new ApiError(404, "specialist_sources_disabled", "Las fuentes citables están desactivadas.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/sources", "client", async ctx => {
+    requireSources();
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const listings = await Promise.all(targets.map(async target => ({ target, entries: await listSources(target.workspacePath) })));
+    const sources = listings
+      .flatMap(({ target, entries }) => entries.map(source => ({ ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
+      .sort((left, right) => right.retrievedAt - left.retrievedAt);
+    return jsonResponse({ sources });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/sources/:sourceId", "client", async ctx => {
+    requireSources();
+    const requested = ctx.url.searchParams.get("workspace");
+    for (const target of await datasetWorkspaces(ctx.params.id, requested)) {
+      const meta = (await listSources(target.workspacePath)).find(entry => entry.id === ctx.params.sourceId);
+      if (!meta) continue;
+      const { chunks } = await ensureChunks(target.workspacePath, meta.id);
+      const chunkParam = ctx.url.searchParams.get("chunk");
+      const chunkIndex = chunkParam === null ? null : Number(chunkParam);
+      const result = chunkIndex === null ? { ok: true as const, source: meta, chunk: null as number | null, text: null as string | null, chunks: chunks.slice(0, 50), totalChunks: chunks.length }
+        : { ...(await readCitation(target.workspacePath, meta.id, chunkIndex)), source: meta };
+      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+    }
+    throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en los proyectos de esta aplicación.");
   });
 }
