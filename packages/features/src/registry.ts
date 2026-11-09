@@ -236,6 +236,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  scheduledTasks: {
+    label: "Specialist scheduled tasks",
+    description: "Recurring and one-shot tasks per specialist application: the local server runs the saved prompt on schedule (every N minutes, daily, weekly or once), records each run, and survives restarts by coalescing missed occurrences.",
+    category: "experience",
+    added: "2026-11-09",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/live-dashboards-and-scheduled-tasks/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   openworkPromotions: {
     label: "OpenWork promotions",
     description: "Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.",

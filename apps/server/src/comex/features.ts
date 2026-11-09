@@ -74,3 +74,9 @@ export function specialistLibraryEnabled(env: NodeJS.ProcessEnv = process.env): 
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("specialistLibrary", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+export function scheduledTasksEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("scheduledTasks", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

@@ -125,6 +125,7 @@ export interface SpecialistCatalog {
   enabled: boolean;
   integrationsEnabled?: boolean;
   libraryEnabled?: boolean;
+  scheduledTasksEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
   applications: SpecialistApplication[];
@@ -152,6 +153,27 @@ export interface SpecialistSyncResult {
   conflicts: string[]; nuevo: string[]; error?: string;
 }
 export interface SpecialistLibraryWriteResult { item: SpecialistLibraryFile; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }
+export interface SpecialistTaskSchedule {
+  kind: "interval" | "daily" | "weekly" | "once";
+  everyMinutes?: number;
+  hour?: number;
+  minute?: number;
+  daysOfWeek?: number[];
+  at?: number;
+}
+export interface SpecialistTask {
+  id: string; name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean;
+  createdAt: number; updatedAt: number; nextRunAt: number | null; lastRunAt: number | null;
+  lastStatus: "ok" | "failed" | "blocked" | "running" | null; runs: number;
+  running: { workspaceId: string; sessionId: string | null; startedAt: number; mode: "scheduled" | "manual"; missed: number } | null;
+}
+export interface SpecialistTaskRun {
+  at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
+  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked"; detail: string | null;
+}
+export interface SpecialistProposal {
+  id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number;
+}
 export interface SpecialistIntegrationCatalog {
   providers: Array<{ id: string; label: string; enabled: boolean; installed: boolean; authenticated: boolean; version?: string; loginPending: boolean; error: string | null }>;
   packFactories: Array<{ id: string; name: string; version?: string }>;
@@ -2483,6 +2505,15 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     createSpecialistSkill: (id: string, payload: { name: string; description: string; content?: string }) => requestJson<SpecialistLibraryWriteResult>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/skills`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     getSpecialistContext: (id: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken }),
     putSpecialistContext: (id: string, content: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken, method: "PUT", body: { content } }),
+    getSpecialistProposals: (id: string) => requestJson<{ proposals: SpecialistProposal[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals`, { token, hostToken }),
+    acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    dismissSpecialistProposal: (id: string, proposalId: string) => requestJson<{ dismissed: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}`, { token, hostToken, method: "DELETE" }),
+    getSpecialistTasks: (id: string) => requestJson<{ tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken }),
+    createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
+    updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
+    deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
+    runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
     getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
     putComexCheckpoint: (workspaceId: string, sessionId: string, body: { expectedRevision: number; checkpoint: ComexCheckpointInput }) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body }),
     getComexGitReview: (workspaceId: string, sessionId?: string) => requestJson<ComexGitReview>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/review${sessionId ? `?codeOnly=true&session=${encodeURIComponent(sessionId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 }),

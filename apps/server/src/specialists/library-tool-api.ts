@@ -5,12 +5,13 @@ import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { specialistApplicationsEnabled, specialistLibraryEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
 import {
   agentInput, contextInput, createLibraryAgent, createLibrarySkill, deleteLibraryFile, libraryFileInput,
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { addProposal } from "./proposals.js";
+import { createTask, deleteTask, listTasks, taskInputSchema, updateTask } from "./tasks.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
@@ -120,6 +121,21 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       const parsed = proposalInput.parse(input);
       const { proposals, replaced } = await addProposal(config, app.id, parsed.kind === "context" ? { ...parsed, name: "contexto" } : parsed);
       return { proposal: proposals[0], total: proposals.length, replaced, note: "Avisá a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; vos no la guardás." };
+    }
+    case "specialist_task_create": {
+      if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
+      const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule });
+      return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. Avisá a la persona que la tarea quedó en "Tareas programadas" de su aplicación.` };
+    }
+    case "specialist_task_list":
+      return { tasks: await listTasks(config, app.id) };
+    case "specialist_task_pause": {
+      const task = await updateTask(config, app.id, z.string().parse(input.taskId), { enabled: false });
+      return { task };
+    }
+    case "specialist_task_delete": {
+      const deleted = await deleteTask(config, app.id, z.string().parse(input.taskId));
+      return { deleted: deleted.id };
     }
     default: throw new ApiError(404, "library_tool_unknown", "Esa herramienta de biblioteca no existe.");
   }

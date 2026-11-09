@@ -23,6 +23,20 @@ const proposeSchema = z.object({
   content: z.string().describe("Procedimiento destilado de la conversación, en Markdown"),
   reason: z.string().describe("Por qué vale la pena guardarlo y en qué se notó que se va a repetir"),
 });
+const scheduleSchema = z.object({
+  kind: z.enum(["interval", "daily", "weekly", "once"]),
+  everyMinutes: z.number().int().min(1).describe("Para kind=interval: cada cuántos minutos (1..43200)").optional(),
+  hour: z.number().int().min(0).max(23).describe("Para daily/weekly: hora local").optional(),
+  minute: z.number().int().min(0).max(59).describe("Para daily/weekly: minuto local").optional(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).describe("Para weekly: 0=domingo … 6=sábado").optional(),
+  at: z.number().int().describe("Para once: epoch ms de la ejecución").optional(),
+});
+const taskCreateSchema = z.object({
+  name: z.string().describe("Nombre legible de la tarea, 1-120 caracteres"),
+  prompt: z.string().describe("Instrucción que recibirá el agente en cada corrida, 1-8000 caracteres"),
+  schedule: scheduleSchema,
+});
+const taskIdSchema = z.object({ taskId: z.string().describe("Id de la tarea (task_…), visible en specialist_task_list") });
 
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
@@ -33,6 +47,10 @@ const TOOLS = [
   { name: "specialist_skill_create", description: "Crear una skill nueva en la biblioteca de la aplicación, a pedido explícito de la persona.", schema: createSchema },
   { name: "specialist_context_write", description: "Escribir el contexto propio de la aplicación (instrucciones que se agregan a cada conversación), a pedido explícito de la persona.", schema: contextSchema },
   { name: "specialist_propose", description: "Guardar una PROPUESTA de skill o agente cuando la persona te enseñó un procedimiento que se va a repetir y no pidió explícitamente guardarlo. La persona revisa la propuesta en el menú de su aplicación antes de que exista. Nunca la apliques vos.", schema: proposeSchema },
+  { name: "specialist_task_create", description: "Crear una tarea programada para la aplicación (cada N minutos, diaria, semanal o una vez), solo cuando la persona lo pidió explícitamente. El prompt guardado es lo que hará el agente en cada corrida.", schema: taskCreateSchema },
+  { name: "specialist_task_list", description: "Listar las tareas programadas de la aplicación con su próxima corrida y último estado.", schema: listSchema },
+  { name: "specialist_task_pause", description: "Pausar una tarea programada (no se borra; retoma la persona desde la app o con specialist_task_create de reemplazo).", schema: taskIdSchema },
+  { name: "specialist_task_delete", description: "Eliminar una tarea programada, a pedido explícito de la persona.", schema: taskIdSchema },
 ] as const;
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */

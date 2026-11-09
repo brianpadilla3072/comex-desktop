@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BookText, Bot, FileText, Plus, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, BookText, Bot, CalendarClock, FileText, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,15 +10,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { OpenworkServerClient, SpecialistApplication, SpecialistLibrary, SpecialistLibraryEntry, SpecialistSyncResult } from "@/app/lib/openwork-server";
+import type { OpenworkServerClient, SpecialistApplication, SpecialistLibrary, SpecialistLibraryEntry, SpecialistProposal, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
+
+const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function describeSchedule(schedule: SpecialistTaskSchedule): string {
+  const clock = (hour?: number, minute?: number) => `${String(hour ?? 0).padStart(2, "0")}:${String(minute ?? 0).padStart(2, "0")}`;
+  if (schedule.kind === "interval") return `Cada ${schedule.everyMinutes && schedule.everyMinutes >= 60 ? `${Math.round(schedule.everyMinutes / 60 * 10) / 10} h` : `${schedule.everyMinutes} min`}`;
+  if (schedule.kind === "daily") return `Todos los días a las ${clock(schedule.hour, schedule.minute)}`;
+  if (schedule.kind === "weekly") return `${(schedule.daysOfWeek ?? []).map(day => DAY_LABELS[day] ?? "?").join(", ")} a las ${clock(schedule.hour, schedule.minute)}`;
+  return `Una vez: ${schedule.at ? new Date(schedule.at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "—"}`;
+}
+
+const formatWhen = (value: number | null) => value === null ? "—" : new Date(value).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
 
 type View =
   | { kind: "home" }
   | { kind: "context" }
   | { kind: "file"; path: string; name: string }
-  | { kind: "new"; type: "agent" | "skill" };
+  | { kind: "new"; type: "agent" | "skill" }
+  | { kind: "tasks" };
 
 function syncNotice(sync: SpecialistSyncResult[]) {
   if (!sync.length) return null;
@@ -31,23 +44,25 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, scheduled, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; scheduled: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false });
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
       <DialogHeader><DialogTitle>Contexto, agentes y skills de {app.name}</DialogTitle></DialogHeader>
-      {view.kind === "home" ? <Home app={app} client={client} query={query} onOpen={setView} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "home" ? <Home app={app} client={client} query={query} scheduled={scheduled} onOpen={setView} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
   </Dialog>;
 }
 
-function Home({ app, client, query, onOpen, onChanged }: {
+function Home({ app, client, query, scheduled, onOpen, onChanged }: {
   app: SpecialistApplication; client: OpenworkServerClient;
   query: ReturnType<typeof useQuery<SpecialistLibrary | null, Error>>;
+  scheduled: boolean;
   onOpen(view: View): void; onChanged(): Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -84,6 +99,14 @@ function Home({ app, client, query, onOpen, onChanged }: {
       <Button size="sm" variant="destructive" disabled={busy} onClick={() => void remove(pendingDelete)}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
     </div> : null}
+    <ProposalsSection app={app} client={client} onChanged={onChanged} />
+    {scheduled ? <section className="grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Tareas programadas</h3>
+        <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "tasks" })}><CalendarClock className="size-4" />Gestionar</Button>
+      </div>
+      <TasksSummary app={app} client={client} />
+    </section> : null}
     <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Contexto</h3>
@@ -196,4 +219,117 @@ function NewItem({ app, client, type, onBack, onChanged }: { app: SpecialistAppl
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !description.trim()}>{busy ? "Creando…" : `Crear ${type === "agent" ? "agente" : "skill"}`}</Button><Button type="button" variant="ghost" onClick={onBack}>Cancelar</Button></div>
   </form>;
+}
+
+function ProposalsSection({ app, client, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; onChanged(): Promise<void> }) {
+  const query = useQuery({ queryKey: ["specialist-proposals", client.baseUrl, app.id], queryFn: () => client.getSpecialistProposals(app.id), retry: false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function act(kind: "accept" | "dismiss", proposal: SpecialistProposal) {
+    setBusy(true); setError(null);
+    try {
+      if (kind === "accept") await client.acceptSpecialistProposal(app.id, proposal.id);
+      else await client.dismissSpecialistProposal(app.id, proposal.id);
+      await query.refetch(); await onChanged();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo procesar la propuesta."); }
+    finally { setBusy(false); }
+  }
+  const proposals = query.data?.proposals ?? [];
+  if (!query.isSuccess || !proposals.length) return null;
+  return <section className="grid gap-2">
+    <h3 className="text-sm font-medium">Propuestas pendientes ({proposals.length})</h3>
+    <p className="text-xs text-muted-foreground">El asistente te aprendió estos procedimientos y propone guardarlos. Nada existe hasta que lo confirmes acá.</p>
+    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {proposals.map(proposal => <div key={proposal.id} className="grid gap-2 rounded-md border p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{proposal.kind === "skill" ? "Skill" : proposal.kind === "agent" ? "Agente" : "Contexto"}</Badge>
+        <span className="min-w-0 flex-1 truncate font-medium">{proposal.name}</span>
+        <span className="text-xs text-muted-foreground">{formatWhen(proposal.createdAt)}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">{proposal.description}</p>
+      {proposal.reason ? <p className="text-xs text-muted-foreground">Motivo: {proposal.reason}</p> : null}
+      <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void act("accept", proposal)}>Guardar</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("dismiss", proposal)}>Descartar</Button></div>
+    </div>)}
+  </section>;
+}
+
+function TasksSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
+  const query = useQuery({ queryKey: ["specialist-tasks-summary", client.baseUrl, app.id], queryFn: () => client.getSpecialistTasks(app.id), retry: false });
+  if (query.isPending) return <Skeleton className="h-8 w-full" />;
+  const tasks = query.data?.tasks ?? [];
+  if (!tasks.length) return <p className="text-xs text-muted-foreground">Sin tareas programadas. El asistente puede crearlas si le pedís que revise algo periódicamente.</p>;
+  return <ul className="grid gap-1 text-xs text-muted-foreground">{tasks.slice(0, 4).map(task => <li key={task.id} className="flex items-center gap-2">
+    <CalendarClock className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{task.name}</span>
+    <span>{task.enabled ? `Próxima: ${formatWhen(task.nextRunAt)}` : "Pausada"}</span>
+  </li>)}</ul>;
+}
+
+function TasksView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+  const query = useQuery({ queryKey: ["specialist-tasks", client.baseUrl, app.id], queryFn: () => client.getSpecialistTasks(app.id), retry: false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [kind, setKind] = useState<SpecialistTaskSchedule["kind"]>("interval");
+  const [every, setEvery] = useState("20");
+  const [clock, setClock] = useState("09:00");
+  const [days, setDays] = useState<number[]>([1]);
+  const [once, setOnce] = useState("");
+  async function run(action: () => Promise<unknown>, message?: string) {
+    if (busy) return;
+    setBusy(true); setError(null); setNotice(null);
+    try { await action(); await query.refetch(); if (message) setNotice(message); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
+    finally { setBusy(false); }
+  }
+  async function create() {
+    const hour = Number(clock.slice(0, 2)); const minute = Number(clock.slice(3, 5));
+    let schedule: SpecialistTaskSchedule;
+    if (kind === "interval") schedule = { kind, everyMinutes: Number(every) };
+    else if (kind === "daily") schedule = { kind, hour, minute };
+    else if (kind === "weekly") schedule = { kind, daysOfWeek: days.length ? days : [1], hour, minute };
+    else schedule = { kind, at: once ? new Date(once).getTime() : 0 };
+    await run(async () => {
+      await client.createSpecialistTask(app.id, { name: name.trim(), prompt: prompt.trim(), schedule });
+      setName(""); setPrompt(""); setCreating(false);
+    }, "Tarea creada y activada.");
+  }
+  if (query.isPending) return <div className="grid gap-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
+  const tasks = query.data?.tasks ?? [];
+  return <div className="grid gap-3">
+    <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
+    <div className="flex items-center justify-between gap-2">
+      <h3 className="font-medium">Tareas programadas de {app.name}</h3>
+      {!creating ? <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="size-4" />Nueva tarea</Button> : null}
+    </div>
+    <p className="text-xs text-muted-foreground">Cada corrida abre un chat propio en el proyecto de la aplicación con el prompt guardado. Si la PC estuvo apagada, la próxima corrida corre ya (las perdidas se consolidan en una).</p>
+    {creating ? <form className="grid gap-2 rounded-md border p-3" onSubmit={event => { event.preventDefault(); void create(); }}>
+      <div className="grid gap-1.5"><Label htmlFor="task-name">Nombre</Label><Input id="task-name" autoFocus value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder="por ejemplo: actualizar precios" required /></div>
+      <div className="grid gap-1.5"><Label htmlFor="task-prompt">Qué debe hacer el agente en cada corrida</Label><Textarea id="task-prompt" rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} required placeholder="Consultá las fuentes de costo de flete y actualizá la planilla del proyecto." /></div>
+      <div className="flex flex-wrap gap-1">{(["interval", "daily", "weekly", "once"] as const).map(option => <Button key={option} type="button" size="sm" variant={kind === option ? "default" : "outline"} onClick={() => setKind(option)}>{option === "interval" ? "Cada X tiempo" : option === "daily" ? "Diaria" : option === "weekly" ? "Semanal" : "Una vez"}</Button>)}</div>
+      {kind === "interval" ? <div className="grid gap-1.5"><Label htmlFor="task-every">Cada cuántos minutos</Label><Input id="task-every" type="number" min={1} max={43200} value={every} onChange={event => setEvery(event.target.value)} className="max-w-40" /></div> : null}
+      {kind !== "interval" && kind !== "once" ? <div className="grid gap-1.5"><Label htmlFor="task-clock">Hora</Label><Input id="task-clock" type="time" value={clock} onChange={event => setClock(event.target.value)} className="max-w-40" /></div> : null}
+      {kind === "weekly" ? <div className="flex flex-wrap gap-1">{DAY_LABELS.map((label, day) => <Button key={label} type="button" size="sm" variant={days.includes(day) ? "default" : "outline"} onClick={() => setDays(current => current.includes(day) ? current.filter(entry => entry !== day) : [...current, day])}>{label}</Button>)}</div> : null}
+      {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
+      <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim()}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
+    </form> : null}
+    {notice ? <p role="status" className="text-sm">{notice}</p> : null}
+    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {tasks.length ? tasks.map(task => <div key={task.id} className="grid gap-2 rounded-md border p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-medium">{task.name}</span>
+        {task.running ? <Badge variant="secondary">Corriendo…</Badge> : !task.enabled ? <Badge variant="outline">Pausada</Badge> : task.lastStatus ? <Badge variant={task.lastStatus === "ok" ? "outline" : "destructive"}>{task.lastStatus === "ok" ? "Última: ok" : task.lastStatus === "failed" ? "Última: falló" : task.lastStatus === "blocked" ? "Última: bloqueada" : "Última: corriendo"}</Badge> : null}
+      </div>
+      <p className="text-xs text-muted-foreground">{describeSchedule(task.schedule)} · próxima {task.enabled ? formatWhen(task.nextRunAt) : "—"} · {task.runs} corrida{task.runs === 1 ? "" : "s"}{task.running?.missed ? ` · ${task.running.missed} perdidas consolidadas` : ""}</p>
+      <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
+        <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => void run(() => client.deleteSpecialistTask(app.id, task.id))}><Trash2 className="size-4" /></Button>
+      </div>
+    </div>) : <p className="text-xs text-muted-foreground">Todavía no hay tareas.</p>}
+  </div>;
 }

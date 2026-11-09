@@ -12,6 +12,7 @@ import { registerComexGitRoutes } from "./comex/git-routes.js";
 import { registerContinuityRoutes } from "./comex/continuity-routes.js";
 import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
+import { createSpecialistScheduler } from "./specialists/scheduler.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
 import { ensureComexSession, readComexMemory, sessionMemoryPath } from "./comex/seed.js";
 import { comexWorkspaceEnabled } from "./comex/features.js";
@@ -817,6 +818,7 @@ export async function startServer(
   let stopped = false;
   let continuity: Awaited<ReturnType<typeof createTaskContinuity>> | undefined;
   let taskRecovery: Awaited<ReturnType<typeof createTaskRecovery>> | undefined;
+  let specialistScheduler: Awaited<ReturnType<typeof createSpecialistScheduler>> | undefined;
   const approvals = new ApprovalService(config.approval);
   const uiControl = new UiControlMailbox();
   const reloadEvents = new ReloadEventStore();
@@ -1260,12 +1262,14 @@ export async function startServer(
       setTaskRecovery(config, taskRecovery);
     }
     continuity = await createTaskContinuity(config, async request => serverOptions.fetch(request), () => managedDesktopPolicy(config).assert("sync"));
+    specialistScheduler = await createSpecialistScheduler(config, async request => serverOptions.fetch(request));
     server = await serve({
       ...serverOptions,
       idleTimeout: 120,
     });
   } catch (error) {
     await continuity?.stop().catch(() => undefined);
+    await specialistScheduler?.stop().catch(() => undefined);
     await taskRecovery?.stop().catch(() => undefined);
     captureServerException(error, { method: "START", route: "startServer" });
     anonymousInference.stop();
@@ -1385,6 +1389,7 @@ export async function startServer(
       if (startupAuthRetryTimer) clearTimeout(startupAuthRetryTimer);
       let recoveryError: unknown;
       await continuity?.stop();
+      await specialistScheduler?.stop().catch(() => undefined);
       try { await taskRecovery?.stop(); } catch (error) { recoveryError = error; }
       managedDesktopPolicy(config).onChange = undefined;
       anonymousInference.stop();

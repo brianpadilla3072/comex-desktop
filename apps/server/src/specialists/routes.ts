@@ -4,7 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
@@ -17,6 +17,8 @@ import {
   writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { applySpecialistLibraryChange } from "./sync.js";
+import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
+import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
 
@@ -43,11 +45,11 @@ export function registerSpecialistRoutes(options: {
     return applySpecialistLibraryChange(config, app);
   }
   const catalog = async () => {
-    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, user: null, applications: [] };
+    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, scheduledTasksEnabled: false, user: null, applications: [] };
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -194,5 +196,57 @@ export function registerSpecialistRoutes(options: {
     const app = store.application(ctx.params.id);
     await removeProposal(config, app.id, ctx.params.proposalId);
     return jsonResponse({ dismissed: ctx.params.proposalId });
+  });
+
+  /** Scheduled tasks: recurring local runs of a saved prompt (feature: scheduledTasks). */
+  function requireTasks(write = false) {
+    requireFeature(write);
+    if (!scheduledTasksEnabled()) throw new ApiError(404, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/tasks", "client", async ctx => {
+    requireTasks();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ tasks: await listTasks(config, app.id) });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/tasks/:taskId/runs", "client", async ctx => {
+    requireTasks();
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    return jsonResponse({ runs: await listRuns(config, app.id, ctx.params.taskId) });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/tasks", "host", async ctx => {
+    requireTasks(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = taskInputSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá el nombre, el prompt y el horario de la tarea.");
+    const task = await createTask(config, app.id, parsed.data);
+    return jsonResponse({ task, tasks: await listTasks(config, app.id) });
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {
+    requireTasks(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá los campos de la tarea.");
+    const task = await updateTask(config, app.id, ctx.params.taskId, parsed.data);
+    return jsonResponse({ task, tasks: await listTasks(config, app.id) });
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {
+    requireTasks(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    await deleteTask(config, app.id, ctx.params.taskId);
+    return jsonResponse({ deleted: ctx.params.taskId, tasks: await listTasks(config, app.id) });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/tasks/:taskId/run-now", "host", async ctx => {
+    requireTasks(true);
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const scheduler = currentSpecialistScheduler();
+    if (!scheduler) throw new ApiError(503, "scheduler_unavailable", "El planificador no está corriendo en este server.");
+    const result = await scheduler.trigger(app.id, ctx.params.taskId);
+    return jsonResponse({ started: result.ok, detail: result.detail ?? null, tasks: await listTasks(config, app.id) });
   });
 }
