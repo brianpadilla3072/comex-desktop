@@ -48,7 +48,7 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, localFiles, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; localFiles: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   // El título describe lo que realmente hay adentro, no la feature original.
@@ -62,7 +62,7 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRu
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
-      {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} localFiles={localFiles} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "outputs" ? <OutputsView key="outputs" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
@@ -396,9 +396,26 @@ function SourcesSummary({ app, client }: { app: SpecialistApplication; client: O
   </li>)}</ul>;
 }
 
-function SourcesView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+function SourcesView({ app, client, localFiles, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; localFiles: boolean; onBack(): void }) {
   const query = useQuery(sourcesQuery(client, app));
+  const queryClient = useQueryClient();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [localPath, setLocalPath] = useState("");
+  const [localBusy, setLocalBusy] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
+  async function addLocal() {
+    if (!localPath.trim() || localBusy) return;
+    setLocalBusy(true); setLocalError(null); setLocalNotice(null);
+    try {
+      const result = await client.addSpecialistLocalSource(app.id, localPath.trim());
+      setLocalNotice(`Fuente registrada: ${result.source.title}. Ya se puede citar como [fuente:${result.source.id}#n].`);
+      setLocalPath(""); setAdding(false);
+      await queryClient.invalidateQueries({ queryKey: SOURCES_KEY(client, app) });
+    } catch (cause) { setLocalError(cause instanceof Error ? cause.message : "No se pudo registrar la fuente local."); }
+    finally { setLocalBusy(false); }
+  }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las fuentes. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
   const sources = query.data?.sources ?? [];
@@ -407,6 +424,19 @@ function SourcesView({ app, client, onBack }: { app: SpecialistApplication; clie
     <Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <h3 className="text-sm font-medium">Fuentes citables de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Cada pieza de material recuperado tiene un id y se cita como [fuente:id#n], donde n es el nº de pasaje. Abrir una fuente muestra sus pasajes tal como están en el proyecto.</p>
+    {localFiles ? <div className="grid gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium">Archivo local</p>
+        <Button size="sm" variant="outline" onClick={() => setAdding(!adding)}>{adding ? "Cancelar" : "Registrar archivo"}</Button>
+      </div>
+      {adding ? <form className="grid gap-2" onSubmit={event => { event.preventDefault(); void addLocal(); }}>
+        <Label htmlFor="source-local-path">Ruta en el proyecto (texto, CSV, Markdown o HTML)</Label>
+        <Input id="source-local-path" value={localPath} onChange={event => setLocalPath(event.target.value)} placeholder="datos/informe.md" autoFocus />
+        <div><Button size="sm" type="submit" disabled={localBusy || !localPath.trim()}>{localBusy ? "Registrando…" : "Registrar como fuente"}</Button></div>
+        {localError ? <p role="alert" className="text-xs text-destructive">{localError}</p> : null}
+      </form> : null}
+      {localNotice ? <p role="status" className="text-xs">{localNotice}</p> : null}
+    </div> : null}
     {sources.length ? sources.map(source => <SourceRow key={`${source.workspaceId}/${source.id}`} app={app} client={client} source={source} open={openId === source.id} onToggle={() => setOpenId(openId === source.id ? null : source.id)} multi={workspaces.size > 1} />)
       : <p className="text-xs text-muted-foreground">Sin fuentes todavía. Cuando el asistente investigue algo, la evidencia quedará registrada acá.</p>}
   </div>;

@@ -280,6 +280,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  sourcesLocalFiles: {
+    label: "Specialist local file sources",
+    description: "Register local workspace files (text, CSV, Markdown, HTML) as citable sources with the same [fuente:id#n] anchors as research evidence — local grounding without a cloud.",
+    category: "experience",
+    added: "2026-11-09",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/live-dashboards-and-scheduled-tasks/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistPanels: {
     label: "Specialist data panels",
     description: "Declarative *.panel.json views over datasets or workspace files: deterministic stat/line/bar/table/markdown blocks that repaint when the latest snapshot changes, with no AI code in the render path.",

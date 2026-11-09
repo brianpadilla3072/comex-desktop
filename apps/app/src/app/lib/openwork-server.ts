@@ -130,6 +130,7 @@ export interface SpecialistCatalog {
   datasetsEnabled?: boolean;
   panelsEnabled?: boolean;
   sourcesEnabled?: boolean;
+  sourcesLocalFilesEnabled?: boolean;
   outputsEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
@@ -2575,6 +2576,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     deleteSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     getSpecialistSources: (id: string, workspaceId?: string) => requestJson<{ sources: SpecialistSource[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getSpecialistSource: (id: string, sourceId: string, workspaceId?: string, chunk?: number) => requestJson<SpecialistSourceDetail>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources/${encodeURIComponent(sourceId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}${chunk !== undefined ? `${workspaceId ? "&" : "?"}chunk=${chunk}` : ""}`, { token, hostToken }),
+    addSpecialistLocalSource: (id: string, path: string, title?: string, workspaceId?: string) => requestJson<{ source: SpecialistSource }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources/local${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: { path, title }, timeoutMs: 60_000 }),
     getSpecialistPanels: (id: string) => requestJson<{ panels: SpecialistPanelEntry[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels`, { token, hostToken }),
     putSpecialistPanel: (id: string, name: string, spec: unknown) => requestJson<{ name: string; spec: SpecialistPanelSpec; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "PUT", body: spec, timeoutMs: 60_000 }),
     deleteSpecialistPanel: (id: string, name: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),

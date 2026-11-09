@@ -4,7 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
@@ -22,7 +22,7 @@ import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, reg
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
 import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, readOutput, writeOutput } from "./outputs.js";
-import { ensureChunks, listSources, readCitation } from "./sources.js";
+import { ensureChunks, listSources, readCitation, registerLocalSource } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
@@ -54,7 +54,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), sourcesEnabled: specialistSourcesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -409,6 +409,18 @@ export function registerSpecialistRoutes(options: {
       return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
     }
     throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en los proyectos de esta aplicación.");
+  });
+  /** F1: a local workspace file becomes a citable source (snapshotted at registration). */
+  addRoute(routes, "POST", "/specialist-applications/:id/sources/local", "host", async ctx => {
+    requireSources(true);
+    if (!sourcesLocalFilesEnabled()) throw new ApiError(404, "sources_local_files_disabled", "Las fuentes locales están desactivadas.");
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible.");
+    const parsed = z.object({ path: z.string().trim().min(1).max(500), title: z.string().trim().max(200).optional() }).safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_source", "Revisá la ruta del archivo local.");
+    const source = await registerLocalSource(target.workspacePath, parsed.data);
+    return jsonResponse({ source: { ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) } }, 201);
   });
 
   /** Declarative panels ([3]): the spec lives per application; resolution paints each bound

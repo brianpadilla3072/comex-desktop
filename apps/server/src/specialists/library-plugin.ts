@@ -63,6 +63,10 @@ const outputGenerateSchema = z.object({
   id: z.string().describe("id de una salida existente para regenerarla/actualizarla; sin id se crea una nueva").optional(),
 });
 const outputIdSchema = z.object({ id: z.string().describe("id de la salida (out-…), visible en specialist_output_list") });
+const sourceAddSchema = z.object({
+  path: z.string().describe("Ruta relativa en el proyecto de un archivo de texto (.md/.txt/.csv/.json/.html) que pasa a ser fuente citable"),
+  title: z.string().describe("Título legible opcional").optional(),
+});
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
   { name: "specialist_library_read", description: "Leer un archivo de la biblioteca de la aplicación (agents/*.md, skills/*/SKILL.md o recursos).", schema: readSchema },
@@ -81,6 +85,7 @@ const TOOLS = [
   { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, decilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
   { name: "specialist_dataset_derive", description: "Registrar un dataset DERIVADO de otro: una vista limpia o transformada (sin consulta re-ejecutable, con linaje al origen). Usarla proactivamente cuando convertiste los datos de una investigación en algo reutilizable para el proyecto.", schema: datasetDeriveSchema },
   { name: "specialist_source_read", description: "Leer una FUENTE citable del proyecto: sin chunk devuelve el índice de pasajes; con chunk devuelve el texto exacto del pasaje. Obligatorio antes de citar [fuente:<id>#<n>] en una respuesta: nunca cites de memoria ni inventes un ancla.", schema: sourceReadSchema },
+  { name: "specialist_source_add", description: "Registrar un archivo LOCAL del proyecto (texto, CSV, Markdown, HTML) como fuente citable con sus [fuente:<id>#<n>] — a pedido explícito de la persona. El contenido se copia al registro (snapshot) para que la cita no se mueva.", schema: sourceAddSchema },
   { name: "specialist_panel_list", description: "Listar los paneles declarativos de la aplicación (vistas vivas sobre datasets).", schema: listSchema },
   { name: "specialist_panel_write", description: "Crear o editar un panel declarativo (stat/line/bar/table/markdown/changes sobre un dataset o archivo). El render es determinista y se repinta solo cuando cambia el snapshot; nunca incluye código propio.", schema: panelWriteSchema },
   { name: "specialist_panel_read", description: "Leer la especificación de un panel y resolverla contra este proyecto (datos del último snapshot o el error exacto si no se puede dibujar).", schema: panelNameSchemaTool },

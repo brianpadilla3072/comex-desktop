@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled } from "../comex/features.js";
 import {
   agentInput, contextInput, createLibraryAgent, createLibrarySkill, deleteLibraryFile, libraryFileInput,
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
@@ -14,7 +14,7 @@ import { addProposal } from "./proposals.js";
 import { createTask, deleteTask, listTasks, updateTask } from "./tasks.js";
 import { listDatasets, listSnapshotDates, readLatestSnapshot, registerDerivedDataset } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
-import { ensureChunks, readCitation } from "./sources.js";
+import { ensureChunks, readCitation, registerLocalSource } from "./sources.js";
 import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
 import { auditOutputCitations, listOutputs, readOutput, writeOutput } from "./outputs.js";
 import { applySpecialistLibraryChange } from "./sync.js";
@@ -28,7 +28,7 @@ const toolCallSchema = z.object({ name: z.enum([
   "specialist_agent_create", "specialist_skill_create", "specialist_context_write", "specialist_propose",
   "specialist_task_create", "specialist_task_list", "specialist_task_pause", "specialist_task_delete",
   "specialist_dataset_list", "specialist_dataset_read", "specialist_dataset_refresh", "specialist_dataset_derive",
-  "specialist_source_read",
+  "specialist_source_read", "specialist_source_add",
   "specialist_panel_list", "specialist_panel_write", "specialist_panel_read", "specialist_panel_delete",
   "specialist_output_generate", "specialist_output_list", "specialist_output_read",
 ]), input: z.record(z.string(), z.unknown()) });
@@ -226,6 +226,12 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const resolved = await readCitation(directory, parsed.id, parsed.chunk);
       if (!resolved.ok) return { ok: false, error: resolved.error, note: "El ancla no existe: no cites este pasaje como si existiera; decilo o elegí otro." };
       return { ok: true, source: resolved.source, chunk: resolved.chunk, text: resolved.text };
+    }
+    case "specialist_source_add": {
+      if (!sourcesLocalFilesEnabled()) throw new ApiError(409, "sources_local_files_disabled", "Las fuentes locales están desactivadas en este server.");
+      const parsed = z.object({ path: z.string().trim().min(1).max(500), title: z.string().trim().max(200).optional() }).parse(input);
+      const source = await registerLocalSource(directory, parsed);
+      return { source, note: "Quedó registrada como fuente citable (provider file). La persona la ve en el menú de su aplicación, en Fuentes; citaila con [fuente:<id>#<n>] tras leer el pasaje con specialist_source_read." };
     }
     case "specialist_panel_list":
       return { panels: await listPanels(config, app.id) };

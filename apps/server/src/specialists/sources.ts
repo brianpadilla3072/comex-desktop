@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
+import { statOrNull } from "./digest.js";
 
 /** Sources ([6] del plan): every piece of retrieved material gets an identity so a citation like
  *  [fuente:<id>#<chunk>] can jump to the exact passage. Registry and chunk files live in the
@@ -55,8 +56,7 @@ export async function listSources(directory: string) {
 }
 
 /** Register evidence as a citable source; idempotent by evidencePath (re-register refreshes meta). */
-export async function registerSource(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {
-  if (!input.evidencePath.startsWith("comex/fuentes/") || input.evidencePath.includes("..")) throw failure("La evidencia debe vivir bajo comex/fuentes/.");
+export async function registerSource(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {  if (!input.evidencePath.startsWith("comex/fuentes/") || input.evidencePath.includes("..")) throw failure("La evidencia debe vivir bajo comex/fuentes/.");
   await ensureFolder(fuentesRoot(directory));
   const stat = await lstat(join(directory, input.evidencePath)).catch(() => null);
   if (!stat || !stat.isFile() || stat.isSymbolicLink()) throw failure("El archivo de evidencia no existe o es un enlace.");
@@ -118,6 +118,37 @@ export async function ensureChunks(directory: string, id: string) {
   await rename(temporary, chunkFile);
   await writeIndex(directory, (await readIndex(directory)).map(entry => entry.id === id ? { ...entry, chunks: chunks.length } : entry));
   return { source, chunks };
+}
+
+/** F1 local files: a file the person already has in the workspace becomes a citable source.
+ *  The bytes are snapshotted into comex/fuentes/local/ at registration (the citation must not
+ *  move when the original file changes). Only text-shaped formats chunk honestly; binary
+ *  (PDF/XLSX) fails loud until a real extractor lands. */
+const LOCAL_FORMATS = new Set([".md", ".txt", ".csv", ".tsv", ".json", ".html", ".htm", ".xml"]);
+export async function registerLocalSource(directory: string, input: { path: string; title?: string }) {
+  const relativePath = input.path.replace(/^\.\//, "");
+  if (!relativePath || relativePath.startsWith("/") || relativePath.includes("..") || relativePath.startsWith("comex/fuentes/") || relativePath.startsWith("comex/datasets/")) {
+    throw failure("La fuente local debe ser un archivo del proyecto, fuera de comex/fuentes y comex/datasets.");
+  }
+  const extension = (relativePath.split(".").pop() ?? "").toLowerCase().replace(/^/, ".");
+  if (!LOCAL_FORMATS.has(extension)) throw failure(`El formato ${extension} todavía no se puede indexar como fuente (PDF/XLSX pendientes de extractor).`);
+  const root = resolve(directory);
+  const target = resolve(root, relativePath);
+  const rel = relative(root, target);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) throw failure("La ruta del archivo sale del proyecto.");
+  const realRoot = await realpath(root).catch(() => null);
+  const realTarget = await realpath(target).catch(() => null);
+  if (realRoot === null || realTarget === null) throw failure("Ese archivo no existe en este proyecto.");
+  const realRel = relative(realRoot, realTarget);
+  if (!realRel || realRel.startsWith("..") || isAbsolute(realRel)) throw failure("El archivo sale del proyecto por un enlace simbólico.");
+  const info = await statOrNull(realTarget);
+  if (!info || !info.isFile()) throw failure("Esa ruta no es un archivo regular.");
+  if (info.size > 8_000_000) throw failure("El archivo supera 8 MB; achicalo o subí el extracto en texto.");
+  const localDir = await ensureFolder(join(fuentesRoot(directory), "local"));
+  const stamped = `${Date.now()}-${randomUUID().slice(0, 8)}-${relativePath.split("/").pop()!.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+  const evidencePath = `comex/fuentes/local/${stamped}`;
+  await writeFile(join(localDir, stamped), await readFile(realTarget, "utf8"), { mode: 0o600 });
+  return registerSource(directory, { provider: "file", evidencePath, title: input.title ?? relativePath.split("/").pop() ?? relativePath, url: null });
 }
 
 /** Resolve one citation anchor. Fails loud — never substitutes model memory ([6]/[3]). */
