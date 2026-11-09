@@ -141,3 +141,7 @@ Con el asar arreglado, la app empaquetada ya no crashea pero el modo "OpenCode i
 ## Resiliencia de descargas CI ante incidentes de GitHub (2026-11-09)
 
 El release 1.0.23 (puente estable) falló dos veces seguidas en CI por 504 de GitHub en sus release-assets (sidecars de sst/opencode y toolset AppImage de electron-builder) — incidente que también se vio en local durante todo el día. No es un bug del código: validate/prepare verdes, publish skipped, tag inexistente. prepare-sidecar ahora reintenta 10 veces cada 20s (curl y curl.exe) para sobrevivir cortes cortos. El release queda pendiente de una corrida verde; el puente estable ya está en main listo para publicar. Sin cambios académicos.
+
+## Resiliencia de descargas CI ante incidentes de GitHub (2026-11-09)
+
+El release 1.0.23 (puente estable) falló dos veces seguidas en CI por 504 de GitHub en sus release-assets (sidecars de sst/opencode y toolset AppImage de electron-builder) — incidente que también se vio en local durante todo el día. No es un bug del código: validate/prepare verdes, publish skipped, tag inexistente. prepare-sidecar ahora reintenta 10 veces cada 20s para sobrevivir cortes cortos. El release queda pendiente de una corrida verde; el puente estable ya está en main listo para publicar. Sin cambios académicos.
