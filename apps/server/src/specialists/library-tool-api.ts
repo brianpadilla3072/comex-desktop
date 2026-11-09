@@ -30,6 +30,7 @@ const toolCallSchema = z.object({ name: z.enum([
   "specialist_dataset_list", "specialist_dataset_read", "specialist_dataset_refresh", "specialist_dataset_derive",
   "specialist_source_read", "specialist_source_add",
   "specialist_panel_list", "specialist_panel_write", "specialist_panel_read", "specialist_panel_delete",
+  "specialist_openapi_propose",
   "specialist_output_generate", "specialist_output_list", "specialist_output_read",
 ]), input: z.record(z.string(), z.unknown()) });
 
@@ -249,6 +250,38 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
     case "specialist_panel_delete": {
       const deleted = await deletePanel(config, app.id, z.string().min(1).parse(input.name));
       return { deleted };
+    }
+    case "specialist_openapi_propose": {
+      if (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistPanelsEnabled()) {
+        throw new ApiError(409, "specialist_library_disabled", "La captura de propuestas está desactivada en este server.");
+      }
+      // F5: the person pasted an OpenAPI spec — pack it as a PLAN proposal the person accepts:
+      // a query skill, a re-runnable dataset bound to the endpoint, and a table panel over it.
+      // Credentials never ride along: the skill says auth goes through an integration, never embedded.
+      const parsed = z.object({ spec: z.string().min(2).max(200_000), title: z.string().trim().max(120).optional() }).parse(input);
+      let raw: unknown;
+      try { raw = JSON.parse(parsed.spec); }
+      catch { throw new ApiError(422, "invalid_openapi", "El spec OpenAPI debe ser JSON válido (pegá el documento completo)."); }
+      if (typeof raw !== "object" || raw === null || !("paths" in raw)) throw new ApiError(422, "invalid_openapi", "El spec no tiene el objeto `paths`: ¿es un documento OpenAPI?");
+      const paths = (raw as { paths: Record<string, unknown> }).paths;
+      const operations = Object.entries(paths).flatMap(([path, item]) => {
+        if (typeof item !== "object" || item === null) return [];
+        return Object.entries(item as Record<string, unknown>)
+          .filter(([method]) => method.toLowerCase() === "get")
+          .map(([method, operation]) => ({ path, method, operation: (typeof operation === "object" && operation !== null && "operationId" in operation ? String((operation as { operationId: unknown }).operationId) : `${method.toUpperCase()} ${path}`) }));
+      });
+      if (!operations.length) throw new ApiError(422, "invalid_openapi", "El spec no expone ningún GET: el pack mínimo propone consultas de lectura.");
+      const [first] = operations;
+      const baseUrl = (raw as { servers?: Array<{ url?: string }> }).servers?.[0]?.url ?? "";
+      const name = (parsed.title ?? (raw as { info?: { title?: string } }).info?.title ?? "api").toString().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "api";
+      const skillContent = `# Consultar ${name}\n\nUsa el endpoint \`${(first?.path ?? "/")}\` de la API para responder consultas. Los datos quedan como dataset re-ejecutable \`${name}\`.\n\n## Pasos\n1. Llamá al endpoint con los parámetros que pida la persona (autenticación: las credenciales viven en la integración del usuario, NUNCA embebidas en este skill ni en el dataset).\n2. Guardá la respuesta como snapshot del dataset y citá [fuente:<id>#<n>] tras leer cada pasaje con specialist_source_read.\n3. Si la API falla, decilo en voz alta: nunca inventes cifras.`;
+      const planContent = JSON.stringify({
+        skill: { name: `consultar-${name}`.slice(0, 64), description: `Consulta la API de ${name} y deja sus datos como dataset re-ejecutable.`, content: skillContent },
+        dataset: { name, query: { provider: "openapi", operation: "fetch", input: { url: `${baseUrl}${first?.path ?? ""}`, method: "GET", operationId: first?.operation ?? null, specNote: "Consulta re-ejecutable sobre la API; autenticación vía integración del usuario, nunca embebida." } } },
+        panel: { name: `${name}-panel`.slice(0, 64), spec: { title: name, source: { dataset: name }, refresh: { watch: "latest" }, blocks: [{ type: "table", limit: 50 }] } },
+      });
+      const { proposals, replaced } = await addProposal(config, app.id, { kind: "plan", name: `api-${name}`.slice(0, 120), description: `Pack de consulta para la API de ${name} (${operations.length} GET).`, content: planContent, reason: parsed.title ? "La persona pegó el spec OpenAPI." : "Propuesto desde el spec OpenAPI." });
+      return { proposal: proposals[0], total: proposals.length, replaced, operations: operations.length, note: `La persona ve el plan en el menú de su aplicación; al aceptarlo se aplican skill + dataset (provider openapi, re-ejecutable) + panel de tabla. Las credenciales de la API NO quedaron guardadas: el skill indica que van por la integración del usuario.` };
     }
     case "specialist_output_generate": {
       const parsed = z.object({

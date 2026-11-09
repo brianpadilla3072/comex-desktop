@@ -67,6 +67,10 @@ const sourceAddSchema = z.object({
   path: z.string().describe("Ruta relativa en el proyecto de un archivo de texto (.md/.txt/.csv/.json/.html) que pasa a ser fuente citable"),
   title: z.string().describe("Título legible opcional").optional(),
 });
+const openapiProposeSchema = z.object({
+  spec: z.string().describe("Documento OpenAPI completo en JSON (lo que pegó la persona)"),
+  title: z.string().describe("Nombre legible del pack (opcional; si no, se usa info.title del spec)").optional(),
+});
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
   { name: "specialist_library_read", description: "Leer un archivo de la biblioteca de la aplicación (agents/*.md, skills/*/SKILL.md o recursos).", schema: readSchema },
@@ -90,6 +94,7 @@ const TOOLS = [
   { name: "specialist_panel_write", description: "Crear o editar un panel declarativo (stat/line/bar/table/markdown/changes sobre un dataset o archivo). El render es determinista y se repinta solo cuando cambia el snapshot; nunca incluye código propio.", schema: panelWriteSchema },
   { name: "specialist_panel_read", description: "Leer la especificación de un panel y resolverla contra este proyecto (datos del último snapshot o el error exacto si no se puede dibujar).", schema: panelNameSchemaTool },
   { name: "specialist_panel_delete", description: "Eliminar un panel de la aplicación, a pedido explícito de la persona.", schema: panelNameSchemaTool },
+  { name: "specialist_openapi_propose", description: "Proponer un pack de consulta desde un spec OpenAPI pegado por la persona: skill de consulta + dataset re-ejecutable (endpoint GET) + panel de tabla, como propuesta plan para que revise. Nunca embebe credenciales.", schema: openapiProposeSchema },
   { name: "specialist_output_generate", description: "Generar una SALIDA del mini-Studio (mindmap, informe, flashcards, quiz o tabla) sobre los datasets/fuentes del proyecto. El contenido se valida según el kind y la herramienta devuelve la auditoría de citas: avisá lo que dice (sin anclas o con citas rotas) en vez de ignorarlo.", schema: outputGenerateSchema },
   { name: "specialist_output_list", description: "Listar las salidas del mini-Studio guardadas en este proyecto.", schema: listSchema },
   { name: "specialist_output_read", description: "Leer una salida con su contenido y la auditoría de sus citas (qué anclas resuelven y cuáles no).", schema: outputIdSchema },
