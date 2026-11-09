@@ -1,5 +1,5 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
@@ -12,29 +12,34 @@ import type { ServerConfig } from "../types.js";
  *  over a dataset or a workspace file. Deterministic render — the panel never runs AI-authored
  *  code and never queries sources itself; it reads what datasets already saved. Storage lives
  *  beside the library (specialists/<app>/panels/); resolution happens per project so each
- *  project paints its own snapshots. */
+ *  project paints its own snapshots. Mutations are serialized per application (same doctrine
+ *  as tasks.ts: the awaits between read and write are where concurrency would lose updates). */
 
 const PANEL_LIMIT = 20;
 const SPEC_LIMIT = 64 * 1024;
 const DATA_LIMIT = 2 * 1024 * 1024;
 
 const blockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("stat"), field: z.string().min(1).max(120), agg: z.enum(["last", "first", "sum", "avg", "count", "min", "max"]).default("last"), title: z.string().max(120).optional(), format: z.enum(["number", "percent", "currency"]).optional() }),
-  z.object({ type: z.literal("line"), x: z.string().min(1).max(120), y: z.array(z.string().min(1).max(120)).min(1).max(8), title: z.string().max(120).optional() }),
-  z.object({ type: z.literal("bar"), x: z.string().min(1).max(120), y: z.array(z.string().min(1).max(120)).min(1).max(8), title: z.string().max(120).optional() }),
-  z.object({ type: z.literal("table"), limit: z.number().int().min(1).max(500).default(50), sort: z.object({ by: z.string().min(1).max(120), desc: z.boolean().default(false) }).optional(), columns: z.array(z.string().min(1).max(120)).max(40).optional() }),
-  z.object({ type: z.literal("markdown"), text: z.string().min(1).max(2000) }),
+  z.object({ type: z.literal("stat"), field: z.string().min(1).max(120), agg: z.enum(["last", "first", "sum", "avg", "count", "min", "max"]).default("last"), title: z.string().max(120).optional(), format: z.enum(["number", "percent", "currency"]).optional() }).strict(),
+  z.object({ type: z.literal("line"), x: z.string().min(1).max(120), y: z.array(z.string().min(1).max(120)).min(1).max(8), title: z.string().max(120).optional() }).strict(),
+  z.object({ type: z.literal("bar"), x: z.string().min(1).max(120), y: z.array(z.string().min(1).max(120)).min(1).max(8), title: z.string().max(120).optional() }).strict(),
+  z.object({ type: z.literal("table"), limit: z.number().int().min(1).max(500).default(50), sort: z.object({ by: z.string().min(1).max(120), desc: z.boolean().default(false) }).optional(), columns: z.array(z.string().min(1).max(120)).max(40).optional() }).strict(),
+  z.object({ type: z.literal("markdown"), text: z.string().min(1).max(2000) }).strict(),
 ]);
 
-/** The authored part of a panel (what a person or the AI sends); `panel` is set from the file name. */
+/** The authored part of a panel (what a person or the AI sends); `panel` is set from the file
+ *  name. STRICT on purpose: an unknown field (a typo, or a future option the local app does
+ *  not render yet) fails loudly instead of being silently dropped by zod. */
 export const panelBodySchema = z.object({
   title: z.string().min(1).max(200),
   source: z.union([
     z.object({ dataset: z.string().min(1).max(120) }),
     z.object({ file: z.string().min(1).max(500) }),
   ]),
+  /** Live repaint when the source snapshot changes (the renderer's watch contract). */
+  refresh: z.object({ watch: z.literal("latest") }).optional(),
   blocks: z.array(blockSchema).min(1).max(12),
-});
+}).strict();
 
 export const panelSpecSchema = panelBodySchema.extend({ panel: z.string().min(1).max(64) });
 export type SpecialistPanelSpec = z.infer<typeof panelSpecSchema>;
@@ -45,23 +50,38 @@ const failure = (message: string) => new ApiError(422, "invalid_panel", message)
 const panelsRoot = (config: Pick<ServerConfig, "configPath">, id: string) => join(specialistDirectory(config), id, "panels");
 const panelPath = (config: Pick<ServerConfig, "configPath">, id: string, name: string) => join(panelsRoot(config, id), `${name}.panel.json`);
 
+const chains = new Map<string, Promise<unknown>>();
+function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = chains.get(key) ?? Promise.resolve();
+  const current = previous.then(work, work);
+  chains.set(key, current.then(() => undefined, () => undefined));
+  return current;
+}
+
 export type SpecialistPanelEntry = { name: string; title: string; source: string; updatedAt: number; bytes: number };
 
+/** Lists every spec (budget: PANEL_LIMIT × SPEC_LIMIT ≈ 1.3 MB worst case, read in parallel;
+ *  an index.json like datasets.ts is the natural upgrade if limits grow an order). */
 export async function listPanels(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistPanelEntry[]> {
   let names: string[] = [];
-  try { const { readdir } = await import("node:fs/promises"); names = (await readdir(panelsRoot(config, id))).filter(name => name.endsWith(".panel.json")); }
+  try { names = (await readdir(panelsRoot(config, id))).filter(name => name.endsWith(".panel.json")); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
   const entries = await Promise.all(names.map(async name => {
     const file = join(panelsRoot(config, id), name);
     try {
       const [info, raw] = await Promise.all([stat(file), readFile(file, "utf8")]);
-      const spec = panelSpecSchema.safeParse(JSON.parse(raw));
-      return {
-        name: name.slice(0, -".panel.json".length),
-        title: spec.success ? spec.data.title : "(inválido)",
-        source: spec.success ? ("dataset" in spec.data.source ? `dataset:${spec.data.source.dataset}` : `file:${spec.data.source.file}`) : "?",
-        updatedAt: info.mtimeMs, bytes: info.size,
-      };
+      let parsed: unknown = null;
+      try { parsed = JSON.parse(raw); } catch { /* ilegible → "(ilegible)" abajo */ }
+      let title = "(ilegible)";
+      let source = "?";
+      if (parsed !== null) {
+        const spec = panelSpecSchema.safeParse(parsed);
+        if (spec.success) {
+          title = spec.data.title;
+          source = "dataset" in spec.data.source ? `dataset:${spec.data.source.dataset}` : `file:${spec.data.source.file}`;
+        } else title = "(inválido)";
+      }
+      return { name: name.slice(0, -".panel.json".length), title, source, updatedAt: info.mtimeMs, bytes: info.size };
     } catch { return { name: name.slice(0, -".panel.json".length), title: "(ilegible)", source: "?", updatedAt: 0, bytes: 0 }; }
   }));
   return entries.sort((left, right) => right.updatedAt - left.updatedAt);
@@ -79,34 +99,45 @@ export async function readPanelSpec(config: Pick<ServerConfig, "configPath">, id
     if (error.code === "ENOENT") throw new ApiError(404, "panel_not_found", "Ese panel no existe.");
     throw error;
   });
-  const spec = panelSpecSchema.safeParse(JSON.parse(raw));
+  let payload: unknown;
+  try { payload = JSON.parse(raw); }
+  catch { throw failure("El panel guardado está dañado (no es JSON); reescribilo."); }
+  const spec = panelSpecSchema.safeParse(payload);
   if (!spec.success) throw failure("El panel guardado no valida contra el esquema; reescribilo.");
   return spec.data;
 }
 
 export async function writePanel(config: Pick<ServerConfig, "configPath">, id: string, name: string, specInput: unknown) {
   const parsed = parsePanelName(name);
-  const file = panelPath(config, id, parsed);
-  const existing = await statOrNull(file);
   if (Buffer.byteLength(JSON.stringify(specInput)) > SPEC_LIMIT) throw failure("La especificación del panel supera 64 KB.");
   const spec = panelBodySchema.safeParse(specInput);
-  if (!spec.success) throw failure("Revisá title, source (dataset o file) y blocks (stat|line|bar|table|markdown).");
-  const panels = await listPanels(config, id);
-  if (!existing && panels.length >= PANEL_LIMIT) throw new ApiError(409, "panel_limit", `Hay ${PANEL_LIMIT} paneles; borrá alguno antes de crear otro.`);
-  const final = { ...spec.data, panel: parsed };
-  await mkdir(dirname(file), { recursive: true });
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temporary, JSON.stringify(final, null, 2), { mode: 0o600 });
-  await rename(temporary, file);
-  return { name: parsed, spec: final, created: !existing };
+  if (!spec.success) throw failure("Revisá title, source (dataset o file), refresh y blocks (stat|line|bar|table|markdown); no se aceptan campos desconocidos.");
+  return serialize(id, async () => {
+    const file = panelPath(config, id, parsed);
+    const existing = await statOrNull(file);
+    if (!existing) {
+      const names = await readdir(panelsRoot(config, id)).catch(() => [] as string[]);
+      if (names.filter(name => name.endsWith(".panel.json")).length >= PANEL_LIMIT) {
+        throw new ApiError(409, "panel_limit", `Hay ${PANEL_LIMIT} paneles; borrá alguno antes de crear otro.`);
+      }
+    }
+    const final = { ...spec.data, panel: parsed };
+    await mkdir(dirname(file), { recursive: true });
+    const temporary = `${file}.${randomUUID()}.tmp`;
+    await writeFile(temporary, JSON.stringify(final, null, 2), { mode: 0o600 });
+    await rename(temporary, file);
+    return { name: parsed, spec: final, created: !existing };
+  });
 }
 
 export async function deletePanel(config: Pick<ServerConfig, "configPath">, id: string, name: string) {
   const parsed = parsePanelName(name);
-  const file = panelPath(config, id, parsed);
-  if (!(await statOrNull(file))) throw new ApiError(404, "panel_not_found", "Ese panel no existe.");
-  await rm(file, { force: true });
-  return parsed;
+  return serialize(id, async () => {
+    const file = panelPath(config, id, parsed);
+    if (!(await statOrNull(file))) throw new ApiError(404, "panel_not_found", "Ese panel no existe.");
+    await rm(file, { force: true });
+    return parsed;
+  });
 }
 
 export type PanelResolution =
@@ -132,19 +163,31 @@ export async function resolvePanel(config: Pick<ServerConfig, "configPath">, id:
       return { ok: false, spec, error: "El snapshot del dataset está dañado." };
     }
   }
-  const target = resolve(directory, spec.source.file);
-  if (!target.startsWith(resolve(directory) + "/")) return { ok: false, spec, error: "La ruta del archivo sale del proyecto." };
-  const info = await statOrNull(target);
-  if (!info || !info.isFile()) return { ok: false, spec, error: `El archivo "${spec.source.file}" no existe en este proyecto.` };
+  // Lexical containment that is correct on every OS, then physical containment: an intermediate
+  // directory symlink (datos -> /etc) must not smuggle the read outside the project.
+  const root = resolve(directory);
+  const target = resolve(root, spec.source.file);
+  const rel = relative(root, target);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return { ok: false, spec, error: "La ruta del archivo sale del proyecto." };
+  const realRoot = await realpath(root).catch(() => null);
+  const realTarget = await realpath(target).catch(() => null);
+  if (realRoot === null || realTarget === null) return { ok: false, spec, error: `El archivo "${spec.source.file}" no existe en este proyecto.` };
+  const realRel = relative(realRoot, realTarget);
+  if (!realRel || realRel.startsWith("..") || isAbsolute(realRel)) return { ok: false, spec, error: "La ruta del archivo sale del proyecto (enlace simbólico intermedio)." };
+  const info = await statOrNull(realTarget);
+  if (!info || !info.isFile()) return { ok: false, spec, error: `El archivo "${spec.source.file}" no es un archivo regular.` };
   if (info.size > DATA_LIMIT) return { ok: false, spec, error: `El archivo supera 2 MB; achicalo o derivá un dataset.` };
-  const raw = await readFile(target, "utf8").catch(() => null);
+  const raw = await readFile(realTarget, "utf8").catch(() => null);
   if (raw === null) return { ok: false, spec, error: "El archivo no se pudo leer como texto." };
-  const data = spec.source.file.endsWith(".json") ? (JSON.parse(raw) as unknown) : raw;
-  return { ok: true, spec, data, sourceLabel: `file:${spec.source.file}` };
+  if (spec.source.file.endsWith(".json")) {
+    try { return { ok: true, spec, data: JSON.parse(raw) as unknown, sourceLabel: `file:${spec.source.file}` }; }
+    catch { return { ok: false, spec, error: "El archivo .json no es JSON válido." }; }
+  }
+  return { ok: true, spec, data: raw, sourceLabel: `file:${spec.source.file}` };
 }
 
-/** Extract one rows-array out of a payload that panels can plot. Tolerant: arrays pass, records
- *  with a single object-array field use it (typical provider shapes). */
+/** Extract one rows-array out of a payload that panels can plot. Tolerant: the FIRST object
+ *  array found (arrays pass directly; records are searched breadth-first in key order). */
 export function panelRows(data: unknown): { rows: Array<Record<string, unknown>>; error?: string } {
   if (Array.isArray(data) && data.every(entry => typeof entry === "object" && entry !== null && !Array.isArray(entry))) {
     return { rows: data as Array<Record<string, unknown>> };
@@ -157,4 +200,19 @@ export function panelRows(data: unknown): { rows: Array<Record<string, unknown>>
     }
   }
   return { rows: [], error: "Los datos no tienen forma de tabla (array de objetos)." };
+}
+
+/** The ONE aggregation semantics the app renderer and the future ui:// compiler must share —
+ *  exported pure so the two implementations can never diverge ([3]/[4] determinism rule). */
+export function panelAggregate(rows: Array<Record<string, unknown>>, field: string, agg: "last" | "first" | "sum" | "avg" | "count" | "min" | "max"): number | string | null {
+  const column = rows.map(row => row[field]);
+  if (agg === "count") return column.length;
+  if (agg === "last") return (column.at(-1) ?? null) as number | string | null;
+  if (agg === "first") return (column[0] ?? null) as number | string | null;
+  const numbers = column.map(entry => typeof entry === "number" ? entry : typeof entry === "string" && entry.trim() !== "" && Number.isFinite(Number(entry)) ? Number(entry) : null).filter((entry): entry is number => entry !== null);
+  if (!numbers.length) return null; // non-numeric column: null renders as "—" (loud in the UI, never a fabricated 0)
+  if (agg === "sum") return numbers.reduce((total, value) => total + value, 0);
+  if (agg === "avg") return numbers.reduce((total, value) => total + value, 0) / numbers.length;
+  if (agg === "min") return Math.min(...numbers);
+  return Math.max(...numbers);
 }
