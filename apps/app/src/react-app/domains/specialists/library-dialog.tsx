@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, LayoutDashboard, LibraryBig, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, LayoutDashboard, LibraryBig, Pause, Play, Plus, ScanSearch, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistPanelBlock, SpecialistPanelResolution, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
+import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistOutput, SpecialistOutputAudit, SpecialistPanelBlock, SpecialistPanelResolution, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -34,7 +34,8 @@ type View =
   | { kind: "tasks" }
   | { kind: "datasets" }
   | { kind: "sources" }
-  | { kind: "panels" };
+  | { kind: "panels" }
+  | { kind: "outputs" };
 
 function syncNotice(sync: SpecialistSyncResult[]) {
   if (!sync.length) return null;
@@ -47,15 +48,15 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, datasets, sources, panels, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; datasets: boolean; sources: boolean; panels: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, datasets, sources, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; datasets: boolean; sources: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   // El título describe lo que realmente hay adentro, no la feature original.
-  const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null, sources ? "Fuentes" : null, panels ? "Paneles" : null].filter(Boolean).join(" · ");
+  const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null, sources ? "Fuentes" : null, panels ? "Paneles" : null, outputs ? "Salidas" : null].filter(Boolean).join(" · ");
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
       <DialogHeader><DialogTitle>{sections} de {app.name}</DialogTitle></DialogHeader>
-      {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} datasets={datasets} sources={sources} panels={panels} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
+      {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} datasets={datasets} sources={sources} panels={panels} outputs={outputs} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
@@ -63,14 +64,15 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, datas
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "outputs" ? <OutputsView key="outputs" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
   </Dialog>;
 }
 
-function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources, panels, onOpen, onChanged }: {
+function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources, panels, outputs, onOpen, onChanged }: {
   app: SpecialistApplication; client: OpenworkServerClient;
   query: ReturnType<typeof useQuery<SpecialistLibrary | null, Error>>;
-  libraryEnabled: boolean; scheduled: boolean; datasets: boolean; sources: boolean; panels: boolean;
+  libraryEnabled: boolean; scheduled: boolean; datasets: boolean; sources: boolean; panels: boolean; outputs: boolean;
   onOpen(view: View): void; onChanged(): Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -106,7 +108,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
     </div> : null}
     {libraryEnabled && query.isError ? <p role="alert" className="text-sm text-destructive">No se pudo leer la biblioteca; el resto (propuestas, tareas, datos) sigue disponible. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p> : null}
     {libraryEnabled && query.isPending ? <div className="grid gap-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : null}
-    <ProposalsSection app={app} client={client} enabled={libraryEnabled || scheduled || datasets || sources || panels} onChanged={onChanged} />
+    <ProposalsSection app={app} client={client} enabled={libraryEnabled || scheduled || datasets || sources || panels || outputs} onChanged={onChanged} />
     {scheduled ? <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Tareas programadas</h3>
@@ -120,6 +122,13 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
         <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "datasets" })}><Database className="size-4" />Gestionar</Button>
       </div>
       <DatasetsSummary app={app} client={client} />
+    </section> : null}
+    {outputs ? <section className="grid gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Salidas del mini-Studio</h3>
+        <Button variant="ghost" size="sm" onClick={() => onOpen({ kind: "outputs" })}><ScanSearch className="size-4" />Gestionar</Button>
+      </div>
+      <OutputsSummary app={app} client={client} />
     </section> : null}
     {panels ? <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -591,6 +600,81 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
         default: return null;
       }
     })}
+  </div>;
+}
+
+const OUTPUTS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-outputs", client.baseUrl, app.id] as const;
+function outputsQuery(client: OpenworkServerClient, app: SpecialistApplication) {
+  return { queryKey: OUTPUTS_KEY(client, app), queryFn: () => client.getSpecialistOutputs(app.id), retry: false } as const;
+}
+const OUTPUT_LABEL: Record<SpecialistOutput["kind"], string> = { mindmap: "Mapa mental", report: "Informe", flashcards: "Flashcards", quiz: "Quiz", table: "Tabla" };
+function OutputsSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
+  const query = useQuery(outputsQuery(client, app));
+  if (query.isPending) return <Skeleton className="h-8 w-full" />;
+  if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer las salidas. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
+  const outputs = query.data?.outputs ?? [];
+  if (!outputs.length) return <p className="text-xs text-muted-foreground">Sin salidas todavía. El asistente convierte un dataset en mapa mental, informe, tarjetas o tabla, con sus citas auditadas.</p>;
+  return <ul className="grid gap-1 text-xs text-muted-foreground">{outputs.slice(0, 4).map(output => <li key={`${output.workspaceId}/${output.id}`} className="flex items-center gap-2">
+    <ScanSearch className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{output.title}</span><span className="shrink-0">{OUTPUT_LABEL[output.kind]}{outputs.length > 1 ? ` · ${output.workspaceName}` : ""}</span>
+  </li>)}</ul>;
+}
+
+function OutputsView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+  const query = useQuery(outputsQuery(client, app));
+  const queryClient = useQueryClient();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function remove(output: SpecialistOutput) {
+    setError(null);
+    try { await client.deleteSpecialistOutput(app.id, output.id, output.workspaceId); await queryClient.invalidateQueries({ queryKey: OUTPUTS_KEY(client, app) }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar la salida."); }
+  }
+  if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
+  if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las salidas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
+  const outputs = query.data?.outputs ?? [];
+  const multi = new Set(outputs.map(output => output.workspaceId)).size > 1;
+  return <div className="grid gap-3">
+    <Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
+    <h3 className="text-sm font-medium">Salidas del mini-Studio de {app.name}</h3>
+    <p className="text-xs text-muted-foreground">Un dataset, muchas formas de digerirlo. Cada salida es un archivo del proyecto (versionable en git) y declara si está anclada a sus fuentes.</p>
+    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    {outputs.length ? outputs.map(output => <div key={`${output.workspaceId}/${output.id}`} className="grid gap-2 rounded-md border p-3 text-sm">
+      <div className="flex items-center gap-2">
+        <ScanSearch className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
+        <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
+        <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
+        <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => void remove(output)}><Trash2 className="size-4" /></Button>
+      </div>
+      {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}
+      {openId === output.id ? <OutputDetail key={output.id} app={app} client={client} output={output} /> : null}
+    </div>) : <p className="text-xs text-muted-foreground">Sin salidas todavía. Pedile "haceme un mapa mental de esto" y el asistente lo generará acá.</p>}
+  </div>;
+}
+
+function OutputDetail({ app, client, output }: { app: SpecialistApplication; client: OpenworkServerClient; output: SpecialistOutput }) {
+  const detail = useQuery({
+    queryKey: [...OUTPUTS_KEY(client, app), output.workspaceId, output.id],
+    queryFn: () => client.getSpecialistOutput(app.id, output.id, output.workspaceId),
+    retry: false,
+  });
+  const auditQuery = useQuery({
+    queryKey: [...OUTPUTS_KEY(client, app), output.workspaceId, output.id, "audit"],
+    queryFn: () => client.getSpecialistOutputAudit(app.id, output.id, output.workspaceId),
+    retry: false,
+  });
+  if (detail.isPending) return <Skeleton className="h-16 w-full" />;
+  if (detail.isError) return <p role="alert" className="text-xs text-destructive">No se pudo leer la salida. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void detail.refetch()}>Volver a intentar</Button></p>;
+  const audit: SpecialistOutputAudit | undefined = auditQuery.data?.audit;
+  return <div className="grid gap-2">
+    <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">{detail.data.content}</pre>
+    {auditQuery.isPending ? <Skeleton className="h-6 w-full" />
+      : audit ? <div className="grid gap-1 text-xs" role="status">
+        {audit.total === 0 ? <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2">Sin anclas: esta salida no está anclada a fuentes del proyecto.</p>
+          : audit.invalid.length ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-2">{audit.invalid.length} cita{audit.invalid.length === 1 ? "" : "s"} no resuelven: {audit.invalid.map(entry => `[fuente:${entry.sourceId}#${entry.chunk}]`).join(", ")}. No la des por buena sin revisarlas.</p>
+          : <p className="text-muted-foreground">✓ {audit.valid}/{audit.total} citas resuelven a pasajes reales del proyecto.</p>}
+      </div>
+      : <p role="alert" className="text-xs text-destructive">No se pudo auditar la salida. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void auditQuery.refetch()}>Volver a intentar</Button></p>}
   </div>;
 }
 

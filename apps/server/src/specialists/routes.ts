@@ -21,6 +21,7 @@ import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTas
 import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
+import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, readOutput, writeOutput } from "./outputs.js";
 import { ensureChunks, listSources, readCitation } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
@@ -433,5 +434,76 @@ export function registerSpecialistRoutes(options: {
       ...(await resolvePanel(config, app.id, ctx.params.name, target.workspacePath)),
     })));
     return jsonResponse({ spec, resolutions });
+  });
+
+  /** Studio outputs ([7]): workspace files under comex/salidas/<id>/, aggregated per bound
+   *  workspace like datasets. Every write is shape-validated; the audit endpoint re-checks that
+   *  each [fuente:id#n] actually resolves (or says so). */
+  function requireOutputs(write = false) {
+    requireFeature(write);
+    if (!studioOutputsEnabled()) throw new ApiError(404, "studio_outputs_disabled", "Las salidas del mini-Studio están desactivadas.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/outputs", "client", async ctx => {
+    requireOutputs();
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const listings = await Promise.all(targets.map(async target => ({ target, entries: await listOutputs(target.workspacePath) })));
+    const outputs = listings
+      .flatMap(({ target, entries }) => entries.map(output => ({ ...output, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    return jsonResponse({ outputs });
+  });
+  const outputInputSchema = z.object({
+    kind: outputKindSchema, title: z.string().trim().min(1).max(200), content: z.string().min(1),
+    fromDatasets: z.array(z.string()).max(20).default([]), fromSources: z.array(z.string()).max(20).default([]),
+    focus: z.string().max(500).default(""),
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/outputs", "host", async ctx => {
+    requireOutputs(true);
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar la salida.");
+    const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
+    const result = await writeOutput(target.workspacePath, parsed.data);
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) }, 201);
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/outputs/:outputId", "host", async ctx => {
+    requireOutputs(true);
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar la salida.");
+    const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
+    const result = await writeOutput(target.workspacePath, { ...parsed.data, id: ctx.params.outputId });
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/outputs/:outputId", "client", async ctx => {
+    requireOutputs();
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
+      if (!meta) continue;
+      const { content } = await readOutput(target.workspacePath, meta.id);
+      return jsonResponse({ output: { ...meta, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) }, content: content.slice(0, 60_000), truncated: content.length > 60_000 });
+    }
+    throw new ApiError(404, "output_not_found", "Esa salida no existe.");
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/outputs/:outputId/audit", "client", async ctx => {
+    requireOutputs();
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
+      if (!meta) continue;
+      return jsonResponse({ audit: await auditOutputCitations(target.workspacePath, meta.id), workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+    }
+    throw new ApiError(404, "output_not_found", "Esa salida no existe.");
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/outputs/:outputId", "host", async ctx => {
+    requireOutputs(true);
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
+      if (!meta) continue;
+      await deleteOutput(target.workspacePath, meta.id);
+      return jsonResponse({ deleted: meta.id });
+    }
+    throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   });
 }

@@ -53,6 +53,16 @@ const panelWriteSchema = z.object({
   spec: z.record(z.string(), z.unknown()).describe("Especificación declarativa: {title, source:{dataset|file}, refresh?:{watch:'latest'}, blocks:[stat|line|bar|table|markdown|changes]}. Sin campos desconocidos."),
 });
 const panelNameSchemaTool = z.object({ name: z.string().describe("kebab-case del panel, visible en specialist_panel_list") });
+const outputGenerateSchema = z.object({
+  kind: z.enum(["mindmap", "report", "flashcards", "quiz", "table"]).describe("Tipo de salida"),
+  title: z.string().describe("Título legible, 1-200 caracteres"),
+  content: z.string().describe("Contenido según el kind: mindmap/report en Markdown (mindmap con fence mindmap/graph), table = array JSON de filas, flashcards = [{front,back}], quiz = [{question,options[2..6],answer}]. Incluí citas [fuente:<id>#<n>] verificadas con specialist_source_read."),
+  fromDatasets: z.array(z.string()).describe("ids de datasets usados (de specialist_dataset_list)").default([]),
+  fromSources: z.array(z.string()).describe("ids de fuentes citadas").default([]),
+  focus: z.string().describe("Foco opcional de la salida (qué se preguntó)").default(""),
+  id: z.string().describe("id de una salida existente para regenerarla/actualizarla; sin id se crea una nueva").optional(),
+});
+const outputIdSchema = z.object({ id: z.string().describe("id de la salida (out-…), visible en specialist_output_list") });
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
   { name: "specialist_library_read", description: "Leer un archivo de la biblioteca de la aplicación (agents/*.md, skills/*/SKILL.md o recursos).", schema: readSchema },
@@ -75,6 +85,9 @@ const TOOLS = [
   { name: "specialist_panel_write", description: "Crear o editar un panel declarativo (stat/line/bar/table/markdown/changes sobre un dataset o archivo). El render es determinista y se repinta solo cuando cambia el snapshot; nunca incluye código propio.", schema: panelWriteSchema },
   { name: "specialist_panel_read", description: "Leer la especificación de un panel y resolverla contra este proyecto (datos del último snapshot o el error exacto si no se puede dibujar).", schema: panelNameSchemaTool },
   { name: "specialist_panel_delete", description: "Eliminar un panel de la aplicación, a pedido explícito de la persona.", schema: panelNameSchemaTool },
+  { name: "specialist_output_generate", description: "Generar una SALIDA del mini-Studio (mindmap, informe, flashcards, quiz o tabla) sobre los datasets/fuentes del proyecto. El contenido se valida según el kind y la herramienta devuelve la auditoría de citas: avisá lo que dice (sin anclas o con citas rotas) en vez de ignorarlo.", schema: outputGenerateSchema },
+  { name: "specialist_output_list", description: "Listar las salidas del mini-Studio guardadas en este proyecto.", schema: listSchema },
+  { name: "specialist_output_read", description: "Leer una salida con su contenido y la auditoría de sus citas (qué anclas resuelven y cuáles no).", schema: outputIdSchema },
 ] as const;
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */

@@ -11,7 +11,7 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | B2 | [6] Fuentes y citas | ✅ core + wiring: registro automático en research, ruta /sources, tool source_read, UI lector de pasajes · ✅ server 56/56 ✅ UI 21/21 | `0ef3fd8` | revisor + test-front |
 | C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes ✅ wiring: rutas/tools + renderer SVG determinista, multi-proyecto con fallo local · ✅ server 104/104 · ✅ UI 24/24 | `4da9b06` | revisor + test-front |
 | C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `fcad758` | revisor + test-front |
-| C3 | [7] Salidas mini-Studio | ✅ core: validación por tipo + auditoría de citas | `ffd07a7` | wiring |
+| C3 | [7] Salidas mini-Studio | ✅ core + wiring: rutas/tools, generate devuelve auditoría de citas, UI lector con estado de anclas · ✅ server 106/106 · ✅ UI 26/26 | `C3FIX` | revisor + test-front |
 | F2 | Diff de snapshot | ✅ core + wiring: el runner difunde antes/después de cada refresh (`comex/datasets/<id>/diffs/`), bloque "cambios" del panel | `4da9b06` | (incluye C1) |
 | D | [4] MCP Apps local | ⬜ | | |
 | F1–F5 | Backlog alineado | ⬜ | | |
