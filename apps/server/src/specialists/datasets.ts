@@ -141,3 +141,37 @@ export async function deleteDataset(directory: string, id: string) {
   await rm(datasetDir(directory, id), { recursive: true, force: true });
   await writeIndex(directory, datasets.filter(entry => entry.id !== id));
 }
+
+/** A cleaned/transformed view of a source dataset: no re-runnable query (the derivation is the
+ *  script the person's agent keeps in the project), one snapshot per regeneration, lineage kept. */
+export async function registerDerivedDataset(directory: string, sourceId: string, name: string, payload: unknown) {
+  const datasets = await readIndex(directory);
+  const source = datasets.find(entry => entry.id === sourceId);
+  if (!source) throw new ApiError(404, "dataset_not_found", "El dataset de origen no existe.");
+  const slug = slugify(name);
+  if (!slug) throw failure("Dale un nombre legible al dataset derivado.");
+  const id = `ds-${slug}-${randomUUID().slice(0, 8)}`;
+  if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
+  const dir = datasetDir(directory, id);
+  const snapshotFolder = await ensureFolder(join(dir, "snapshots"));
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  await writeFile(join(snapshotFolder, `${stamp}.json`), JSON.stringify(payload), { mode: 0o600 });
+  await writeFile(join(dir, "LATEST"), `${stamp}.json\n`, { mode: 0o600 });
+  const meta: SpecialistDatasetMeta = {
+    id, name: slug, question: `Derivado de ${source.question}`, provider: "local", operation: "derived",
+    createdAt: Date.now(), updatedAt: Date.now(), lastSnapshotAt: Date.now(), snapshots: 1, derivedFrom: sourceId,
+  };
+  await writeFile(join(dir, "dataset.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
+  await writeIndex(directory, [meta, ...datasets]);
+  return meta;
+}
+
+/** The dataset a query belongs to, without registering a run (read-side lookup). */
+export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
+  const datasets = await readIndex(directory);
+  for (const meta of datasets) {
+    try { if (sameQuery(datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, meta.id), "query.json"), "utf8"))), query)) return meta; }
+    catch { /* unreadable query: skip like recordDatasetRun does */ }
+  }
+  return null;
+}

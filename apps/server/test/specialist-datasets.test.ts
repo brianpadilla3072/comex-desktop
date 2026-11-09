@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
 import {
-  deleteDataset, listDatasets, listSnapshotDates, readDatasetQuery, readLatestSnapshot, recordDatasetRun, refreshDataset,
+  deleteDataset, findDatasetForQuery, listDatasets, listSnapshotDates, readDatasetQuery, readLatestSnapshot,
+  recordDatasetRun, refreshDataset, registerDerivedDataset,
 } from "../src/specialists/datasets.js";
 
 async function workspace() {
@@ -68,6 +69,23 @@ test("a dataset re-runs through an injected runner without importing providers",
     assert.equal(refreshed.dataset.snapshots, 2);
     assert.deepEqual(await readLatestSnapshot(root, recorded.dataset.id), { results: [2] });
     await assert.rejects(refreshDataset(root, "ds_inventado", async () => ({ evidencePath: "x" })), (error) => error instanceof Error);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("derived datasets keep lineage and findDatasetForQuery resolves without registering", async () => {
+  const root = await workspace();
+  try {
+    const source = await recordDatasetRun(root, query, await evidence(root, "a", { results: [1] }));
+    const derived = await registerDerivedDataset(root, source.dataset.id, "Precios limpiados", { rows: [{ precio: 1 }] });
+    assert.equal(derived.derivedFrom, source.dataset.id);
+    assert.equal(derived.operation, "derived");
+    assert.deepEqual(await readLatestSnapshot(root, derived.id), { rows: [{ precio: 1 }] });
+    await assert.rejects(registerDerivedDataset(root, "ds_noexiste", "x", {}), (error) => error instanceof ApiError && error.code === "dataset_not_found");
+    assert.equal((await findDatasetForQuery(root, query))?.id, source.dataset.id);
+    assert.equal(await findDatasetForQuery(root, { provider: "tavily", operation: "search", input: { query: "nada" } }), null);
+    await deleteDataset(root, source.dataset.id);
+    // The derived snapshot survives its source: lineage points at an id that no longer answers.
+    assert.equal((await listDatasets(root)).length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
