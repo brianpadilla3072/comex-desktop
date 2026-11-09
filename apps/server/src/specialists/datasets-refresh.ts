@@ -1,6 +1,6 @@
 import { ApiError } from "../errors.js";
 import { diffSnapshots } from "./diffs.js";
-import { findDatasetForQuery, listDatasets, readDatasetQuery, readLatestSnapshot, writeDatasetDiff, type SpecialistDatasetMeta } from "./datasets.js";
+import { findDatasetForQuery, listDatasets, readDatasetQuery, readLatestSnapshot, serializeDatasetRefresh, writeDatasetDiff, type SpecialistDatasetMeta } from "./datasets.js";
 import { createResearchProvider, executeTavily, isResearchOperation } from "./integrations/research-factory.js";
 import type { ServerConfig } from "../types.js";
 
@@ -10,6 +10,10 @@ import type { ServerConfig } from "../types.js";
  *  so datasets.ts stays runner-agnostic. If the provider isn't ready the error bubbles: the refresh
  *  fails out loud and never invents data. */
 export async function refreshDatasetThroughResearch(config: Pick<ServerConfig, "configPath">, directory: string, id: string, signal?: AbortSignal): Promise<SpecialistDatasetMeta> {
+  return serializeDatasetRefresh(directory, id, () => refreshInner(config, directory, id, signal));
+}
+
+async function refreshInner(config: Pick<ServerConfig, "configPath">, directory: string, id: string, signal?: AbortSignal): Promise<SpecialistDatasetMeta> {
   const known = (await listDatasets(directory)).find(entry => entry.id === id);
   if (!known) throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
   // Only queries captured from Tavily can re-run; derived and local datasets have no query to repeat.

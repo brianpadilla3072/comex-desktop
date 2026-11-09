@@ -8,7 +8,7 @@ const rowSchema = z.record(z.string(), z.unknown());
 const rowsSchema = z.array(rowSchema);
 
 export type SnapshotDiff = {
-  kind: "rows" | "scalar" | "shape" | "unknown";
+  kind: "rows" | "scalar" | "shape";
   added: number;
   removed: number;
   changed: number;

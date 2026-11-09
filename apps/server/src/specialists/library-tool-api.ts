@@ -98,9 +98,25 @@ const proposalInput = z.object({
 });
 
 export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "workspaces">, directory: string, name: string, input: Record<string, unknown>) {
+  try {
+    return await runLibraryToolInner(config, directory, name, input);
+  } catch (error) {
+    // A model that sends a slightly-off input must get a readable 422 it can self-correct from —
+    // never a bare "Unexpected server error" (doctrine: fails loud but readable).
+    if (error instanceof z.ZodError) throw new ApiError(422, "invalid_library_tool", "La llamada a la herramienta no trae los campos esperados; revisá el schema del tool y reintentá.");
+    throw error;
+  }
+}
+async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "workspaces">, directory: string, name: string, input: Record<string, unknown>) {
   const app = await resolveApp(config, directory);
-  // One gate per family: the plugin registers both sets, but each rides on its own feature flag.
-  if (name.startsWith("specialist_task_")) {
+  // One gate per family: the plugin registers all sets, but each rides on its own feature flag.
+  // Proposals are the capture seam shared by EVERY family, so they ride on "any family on" —
+  // the same condition the proposals routes use (requireCapture).
+  if (name === "specialist_propose") {
+    if (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistPanelsEnabled()) {
+      throw new ApiError(409, "specialist_library_disabled", "La captura de propuestas está desactivada en este server.");
+    }
+  } else if (name.startsWith("specialist_task_")) {
     if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
   } else if (name.startsWith("specialist_dataset_")) {
     if (!specialistDatasetsEnabled()) throw new ApiError(409, "specialist_datasets_disabled", "Los datasets de investigación están desactivados en este server.");
@@ -172,6 +188,10 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       const dataset = (await listDatasets(directory)).find(entry => entry.id === id);
       if (!dataset) throw new ApiError(404, "dataset_not_found", "Ese dataset no existe en este proyecto.");
       const snapshots = await listSnapshotDates(directory, id);
+      // Query-only datasets (registered by a plan) have no snapshot yet: say so instead of ENOENT.
+      if (dataset.lastSnapshotAt === null) {
+        return { dataset, snapshots, latest: null, truncated: false, note: "El dataset todavía no tuvo una corrida: su consulta está guardada y es re-ejecutable, pero no hay snapshot que leer." };
+      }
       const preview = JSON.stringify(await readLatestSnapshot(directory, id));
       // Same guard as the research tools: a huge snapshot arrives as a bounded preview, never as a flood.
       const truncated = preview.length > 40_000;
@@ -271,8 +291,9 @@ export function registerSpecialistToolRoutes(options: {
     if (token.length < 16) throw new ApiError(401, "library_tool_unauthorized", "Falta la credencial de la biblioteca.");
     const directory = await findDescriptorDirectory(config, token);
     if (!directory) throw new ApiError(401, "library_tool_unauthorized", "La credencial de la biblioteca no corresponde a este proyecto.");
-    const call = toolCallSchema.parse(await readJsonBody(ctx.request));
-    const result = await runLibraryTool(config, directory, call.name, call.input);
+    const parsedCall = toolCallSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsedCall.success) throw new ApiError(422, "invalid_library_tool", "La llamada no trae un nombre de herramienta válido ni el input esperado.");
+    const result = await runLibraryTool(config, directory, parsedCall.data.name, parsedCall.data.input);
     return jsonResponse({ ok: true, result });
   });
 }

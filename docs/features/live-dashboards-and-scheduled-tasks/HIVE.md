@@ -8,11 +8,14 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 |---|---|---|---|---|
 | A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front ✅ fixes de las 5 trabas aplicados | `f850096` `ca474c2` `fd3c2dbe` | — (celda cerrada) |
 | B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) ✅ test-front ✅ fixes B-1/B-2 | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` `1ea7aa9` | — (celda cerrada; ver `HIVE-B-TEST.md`) |
-| B2 | [6] Fuentes y citas | ✅ core + wiring: registro automático en research, ruta /sources, tool source_read, UI lector de pasajes · ✅ server 56/56 ✅ UI 21/21 | `0ef3fd8` | revisor + test-front |
-| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes ✅ wiring: rutas/tools + renderer SVG determinista, multi-proyecto con fallo local · ✅ server 104/104 · ✅ UI 24/24 | `4da9b06` | revisor + test-front |
-| C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `fcad758` | revisor + test-front |
-| C3 | [7] Salidas mini-Studio | ✅ core + wiring: rutas/tools, generate devuelve auditoría de citas, UI lector con estado de anclas · ✅ server 106/106 · ✅ UI 26/26 | `e46e0a5` | revisor + test-front |
-| F2 | Diff de snapshot | ✅ core + wiring: el runner difunde antes/después de cada refresh (`comex/datasets/<id>/diffs/`), bloque "cambios" del panel | `4da9b06` | (incluye C1) |
+| B2 | [6] Fuentes y citas | ✅ core + wiring: registro automático en research, ruta /sources, tool source_read, UI lector de pasajes · ✅ server 56/56 ✅ UI 21/21 | `0ef3fd8` | ✅ revisor ✅ front-test (C) |
+| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes ✅ wiring: rutas/tools + renderer SVG determinista, multi-proyecto con fallo local · ✅ server 104/104 · ✅ UI 24/24 | `4da9b06` | ✅ front-test (C) |
+| C2 | [5] Captura ampliada | ✅ core + wiring: enum propose task/plan, accept por pieza (task nace PAUSADA), UI kinds · ✅ server 43/43 ✅ UI 18/18 | `fcad758` | ✅ front-test (C) |
+| C3 | [7] Salidas mini-Studio | ✅ core + wiring: rutas/tools, generate devuelve auditoría de citas, UI lector con estado de anclas · ✅ server 106/106 · ✅ UI 26/26 | `e46e0a5` | ✅ front-test (C) |
+| F2 | Diff de snapshot | ✅ core + wiring: el runner difunde antes/después de cada refresh (`comex/datasets/<id>/diffs/`), bloque "cambios" del panel | `4da9b06` | ✅ front-test (C) |
+| REV | Revisor server (ses_e3ebb3ff) | ✅ 6 blockers + 8 importantes + 5 menores → aplicados (`specialist-reviewer-fixes.test.ts`, 10) | `REV1` | — |
+| REV-ui | Revisor UI (ses_e3eb290d) | ✅ blockers 1-4 + imp 6,7,9-11,19 aplicados · diferidos: #5 shells, #12, #15, #17 (#13 no aplica: paths relativos) | `REV1` | — |
+| TEST-C | Front-test recorrido completo | ✅ 15/15 (`specialist-live-user.test.tsx`) + trabas C-1/C-2 corregidas | `REV1` | — |
 | D | [4] MCP Apps local | ⬜ | | |
 | F1–F5 | Backlog alineado | ⬜ | | |
 

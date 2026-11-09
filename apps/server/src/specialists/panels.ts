@@ -70,7 +70,9 @@ export async function listPanels(config: Pick<ServerConfig, "configPath">, id: s
   const entries = await Promise.all(names.map(async name => {
     const file = join(panelsRoot(config, id), name);
     try {
-      const [info, raw] = await Promise.all([stat(file), readFile(file, "utf8")]);
+      const info = await stat(file);
+      if (!info.isFile()) return null; // never follow a symlinked panel into an unread entry
+      const raw = await readFile(file, "utf8");
       let parsed: unknown = null;
       try { parsed = JSON.parse(raw); } catch { /* ilegible → "(ilegible)" abajo */ }
       let title = "(ilegible)";
@@ -85,7 +87,7 @@ export async function listPanels(config: Pick<ServerConfig, "configPath">, id: s
       return { name: name.slice(0, -".panel.json".length), title, source, updatedAt: info.mtimeMs, bytes: info.size };
     } catch { return { name: name.slice(0, -".panel.json".length), title: "(ilegible)", source: "?", updatedAt: 0, bytes: 0 }; }
   }));
-  return entries.sort((left, right) => right.updatedAt - left.updatedAt);
+  return entries.filter((entry): entry is SpecialistPanelEntry => entry !== null).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 const parsePanelName = (name: string) => {
@@ -206,12 +208,14 @@ export function panelRows(data: unknown): { rows: Array<Record<string, unknown>>
 }
 
 /** The ONE aggregation semantics the app renderer and the future ui:// compiler must share —
- *  exported pure so the two implementations can never diverge ([3]/[4] determinism rule). */
+ *  exported pure so the two implementations can never diverge ([3]/[4] determinism rule).
+ *  MUST MATCH apps/app library-dialog.tsx panelAggregate: change both together. */
 export function panelAggregate(rows: Array<Record<string, unknown>>, field: string, agg: "last" | "first" | "sum" | "avg" | "count" | "min" | "max"): number | string | null {
   const column = rows.map(row => row[field]);
   if (agg === "count") return column.length;
-  if (agg === "last") return (column.at(-1) ?? null) as number | string | null;
-  if (agg === "first") return (column[0] ?? null) as number | string | null;
+  // last/first pass scalars only: an object/array renders "—" downstream, never a crash.
+  if (agg === "last") { const value = column.at(-1); return typeof value === "number" || typeof value === "string" ? value : null; }
+  if (agg === "first") { const value = column[0]; return typeof value === "number" || typeof value === "string" ? value : null; }
   const numbers = column.map(entry => typeof entry === "number" ? entry : typeof entry === "string" && entry.trim() !== "" && Number.isFinite(Number(entry)) ? Number(entry) : null).filter((entry): entry is number => entry !== null);
   if (!numbers.length) return null; // non-numeric column: null renders as "—" (loud in the UI, never a fabricated 0)
   if (agg === "sum") return numbers.reduce((total, value) => total + value, 0);

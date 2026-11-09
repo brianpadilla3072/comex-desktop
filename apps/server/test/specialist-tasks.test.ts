@@ -290,7 +290,9 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
       const listed = await call("POST", "/specialist-tool", { name: "specialist_task_list", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
       assert.equal(listed.status, 200);
       assert.equal((listed.json.result as { tasks: unknown[] }).tasks.length, 1);
-      await assert.rejects(call("POST", "/specialist-tool", { name: "specialist_task_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" }));
+      const unknownTool = await call("POST", "/specialist-tool", { name: "specialist_task_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
+      assert.equal(unknownTool.status, 422);
+      assert.equal(unknownTool.json.error, "invalid_library_tool");
     });
   } finally { await rmAll(root); }
 });

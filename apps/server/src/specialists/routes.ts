@@ -10,7 +10,7 @@ import { addRoute, type RequestContext, type Route } from "../routes/registry.js
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
 import { registerSpecialistToolRoutes } from "./library-tool-api.js";
-import { listProposals, parsePlanProposalContent, parseTaskProposalContent, removeProposal, proposalSchema } from "./proposals.js";
+import { listProposals, parsePlanProposalContent, parseTaskProposalContent, rawProposal, removeProposal, restoreProposal, proposalSchema } from "./proposals.js";
 import {
   agentInput, createLibraryAgent, createLibrarySkill, contextInput, deleteLibraryFile,
   libraryFileInput, listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput,
@@ -199,12 +199,13 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     // Validate BEFORE removing it from the inbox: a hand-edited proposal must fail with the
-    // proposal still there, not vanish and leave the person wondering what happened.
-    const proposal = proposalSchema.parse(await listProposals(config, app.id).then(list => {
-      const found = list.find(entry => entry.id === ctx.params.proposalId);
-      if (!found) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
-      return found;
-    }));
+    // proposal still there, not vanish and leave the person wondering what happened. Removal is
+    // serialized in proposals.ts, so two concurrent accepts can't both take the same id.
+    const found = await rawProposal(config, app.id, ctx.params.proposalId);
+    if (!found) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
+    const parsedProposal = proposalSchema.safeParse(found);
+    if (!parsedProposal.success) throw new ApiError(422, "invalid_proposal", "La propuesta guardada está dañada; revisala con el asistente o descartala.");
+    const proposal = parsedProposal.data;
     const taskContent = proposal.kind === "task" ? parseTaskProposalContent(proposal.content) : null;
     const planContent = proposal.kind === "plan" ? parsePlanProposalContent(proposal.content) : null;
     await removeProposal(config, app.id, proposal.id);
@@ -240,7 +241,10 @@ export function registerSpecialistRoutes(options: {
       if (planContent.task) await attempt("tarea", async () => { needTasks(); const task = await createTask(config, app.id, { name: proposal.name, prompt: planContent.task!.prompt, schedule: planContent.task!.schedule }, { enabled: false }); return { id: task.id }; });
     }
     const libraryChanged = applied.some(entry => entry.ok && ["contexto", "agente", "skill"].includes(entry.piece));
-    return jsonResponse({ accepted: proposal.id, applied, ...(libraryChanged ? await applyLibraryChange(app) : {}), catalog: await catalog() });
+    // If EVERY piece failed (flags off, limits…), put the proposal back: the captured work stays
+    // in the inbox so the person can fix the cause and accept again, instead of losing it.
+    const kept = applied.length > 0 && applied.every(entry => !entry.ok) ? await restoreProposal(config, app.id, proposal) : false;
+    return jsonResponse({ accepted: proposal.id, applied, ...(kept ? { kept: true } : {}), ...(libraryChanged ? await applyLibraryChange(app) : {}), catalog: await catalog() });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/library/proposals/:proposalId", "host", async ctx => {
     requireCapture(true);
@@ -322,10 +326,10 @@ export function registerSpecialistRoutes(options: {
     return config.workspaces.filter(workspace => bound.includes(workspace.id)).map(workspace => ({ workspaceId: workspace.id, workspacePath: workspace.path }));
   }
   async function datasetTarget(appId: string, requested: string | null, datasetId: string) {
-    for (const target of await datasetWorkspaces(appId, requested)) {
-      const meta = (await listDatasets(target.workspacePath)).find(entry => entry.id === datasetId);
-      if (meta) return { ...target, meta };
-    }
+    const targets = await datasetWorkspaces(appId, requested);
+    const found = await Promise.all(targets.map(async target => ({ target, meta: (await listDatasets(target.workspacePath)).find(entry => entry.id === datasetId) ?? null })));
+    const hit = found.find(entry => entry.meta);
+    if (hit?.meta) return { ...hit.target, meta: hit.meta };
     throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
   }
   const workspaceName = (path: string) => path.split("/").pop() ?? path;
@@ -388,6 +392,7 @@ export function registerSpecialistRoutes(options: {
       if (!meta) continue;
       const { chunks } = await ensureChunks(target.workspacePath, meta.id);
       const chunkParam = ctx.url.searchParams.get("chunk");
+      if (chunkParam !== null && !/^\d+$/.test(chunkParam)) throw new ApiError(422, "invalid_chunk", "El número de pasaje no es válido.");
       const chunkIndex = chunkParam === null ? null : Number(chunkParam);
       const result = chunkIndex === null ? { ok: true as const, source: meta, chunk: null as number | null, text: null as string | null, chunks: chunks.slice(0, 50), totalChunks: chunks.length }
         : { ...(await readCitation(target.workspacePath, meta.id, chunkIndex)), source: meta };
@@ -469,13 +474,15 @@ export function registerSpecialistRoutes(options: {
   });
   addRoute(routes, "PUT", "/specialist-applications/:id/outputs/:outputId", "host", async ctx => {
     requireOutputs(true);
-    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
-    const target = targets[0];
-    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar la salida.");
     const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
-    const result = await writeOutput(target.workspacePath, { ...parsed.data, id: ctx.params.outputId });
-    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
+      if (!meta) continue;
+      const result = await writeOutput(target.workspacePath, { ...parsed.data, id: ctx.params.outputId });
+      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+    }
+    throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   });
   addRoute(routes, "GET", "/specialist-applications/:id/outputs/:outputId", "client", async ctx => {
     requireOutputs();

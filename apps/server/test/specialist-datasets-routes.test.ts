@@ -179,7 +179,9 @@ test("chat can list, read, refresh-guard and derive datasets through the scoped 
       assert.equal(listedCall.status, 200);
       // datasetA + fat + derived + broken: all four registrations are visible to the chat.
       assert.equal((listedCall.json.result as { datasets: unknown[] }).datasets.length, 4);
-      await assert.rejects(call("POST", "/specialist-tool", { name: "specialist_dataset_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" }));
+      const unknownTool = await call("POST", "/specialist-tool", { name: "specialist_dataset_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
+      assert.equal(unknownTool.status, 422);
+      assert.equal(unknownTool.json.error, "invalid_library_tool");
     });
     await withFlags({ datasets: "false" }, async () => {
       await assert.rejects(runLibraryTool(config, pathA, "specialist_dataset_list", {}), (error) => failureStatus(error, "specialist_datasets_disabled"));

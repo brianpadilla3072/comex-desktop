@@ -188,6 +188,7 @@ function ContextEditor({ app, client, onBack, onChanged }: { app: SpecialistAppl
     finally { setBusy(false); }
   }
   if (query.isPending) return <Skeleton className="h-40 w-full" />;
+  if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudo leer el contexto. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
   return <form className="grid gap-3" onSubmit={event => { event.preventDefault(); void save(); }}>
     <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <Label htmlFor="specialist-context">Contexto de la aplicación</Label>
@@ -195,7 +196,7 @@ function ContextEditor({ app, client, onBack, onChanged }: { app: SpecialistAppl
     <Textarea id="specialist-context" rows={12} spellCheck={false} value={value} onChange={event => setContent(event.target.value)} maxLength={8000} placeholder="Por ejemplo: Entregá siempre los informes en Word y las planillas en Excel. Usá unidades métricas. Confirmá antes de enviar algo a un cliente." />
     <p className="text-xs text-muted-foreground">{value.length} / 8000 caracteres. Vaciarlo y guardar lo elimina.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-    <div className="flex gap-2"><Button type="submit" disabled={busy || query.isError}>{busy ? "Guardando…" : "Guardar contexto"}</Button><Button type="button" variant="ghost" onClick={onBack}>Cancelar</Button></div>
+    <div className="flex gap-2"><Button type="submit" disabled={busy}>{busy ? "Guardando…" : "Guardar contexto"}</Button><Button type="button" variant="ghost" onClick={onBack}>Cancelar</Button></div>
   </form>;
 }
 
@@ -335,7 +336,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     {datasets.length ? datasets.map(dataset => <div key={`${dataset.workspaceId}/${dataset.id}`} className="grid gap-2 rounded-md border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={busy} aria-label={`Ver snapshots de ${dataset.name}`} onClick={() => setOpen(isOpen(dataset) ? null : { id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+        <button type="button" disabled={busy} aria-label={`Ver snapshots de ${dataset.name}`} aria-expanded={isOpen(dataset)} onClick={() => setOpen(isOpen(dataset) ? null : { id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })} className="flex min-w-0 flex-1 items-start gap-3 text-left">
           <Database className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium">{dataset.name}</span>
@@ -352,6 +353,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
       {isOpen(dataset) ? <div className="grid gap-1 border-t pt-2 text-xs">
         {detail.isPending ? <span className="text-muted-foreground">…</span>
           : detail.isError ? <span role="alert" className="text-destructive">No se pudo leer el último snapshot.</span>
+          : detail.data?.latest === null ? <span className="text-muted-foreground">El dataset todavía no tuvo una corrida: su consulta está guardada y es re-ejecutable, pero no hay snapshot que leer.</span>
           : <><span className="text-muted-foreground">{detail.data?.snapshots.length ?? 0} snapshots en el proyecto:</span>
             <pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 font-mono text-[11px]">{previewText(detail.data?.latest)}</pre></>}
       </div> : null}
@@ -379,7 +381,8 @@ function proposalSummary(proposal: SpecialistProposal): string | null {
 
 const SOURCES_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-sources", client.baseUrl, app.id] as const;
 function sourcesQuery(client: OpenworkServerClient, app: SpecialistApplication) {
-  return { queryKey: SOURCES_KEY(client, app), queryFn: () => client.getSpecialistSources(app.id), retry: false } as const;
+  // Lists repaint while the dialog is open (matches datasets rhythm): new sources arrive from chat.
+  return { queryKey: SOURCES_KEY(client, app), queryFn: () => client.getSpecialistSources(app.id), retry: false, refetchInterval: 30_000 } as const;
 }
 function SourcesSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
   const query = useQuery(sourcesQuery(client, app));
@@ -387,8 +390,9 @@ function SourcesSummary({ app, client }: { app: SpecialistApplication; client: O
   if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer las fuentes. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
   const sources = query.data?.sources ?? [];
   if (!sources.length) return <p className="text-xs text-muted-foreground">Sin fuentes todavía. Cada investigación deja su evidencia como fuente citable ([fuente:…]) lista para citar con pasaje exacto.</p>;
+  const multi = new Set(sources.map(source => source.workspaceId)).size > 1;
   return <ul className="grid gap-1 text-xs text-muted-foreground">{sources.slice(0, 4).map(source => <li key={`${source.workspaceId}/${source.id}`} className="flex items-center gap-2">
-    <LibraryBig className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{source.title}</span><span className="shrink-0">{source.workspaceName}</span>
+    <LibraryBig className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{source.title}</span>{multi ? <span className="shrink-0">{source.workspaceName}</span> : null}
   </li>)}</ul>;
 }
 
@@ -424,11 +428,11 @@ function SourceRow({ app, client, source, open, onToggle, multi }: { app: Specia
       {source.id}{multi ? ` · ${source.workspaceName}` : ""} · {source.chunks ? `${source.chunks} pasajes` : "sin pasajes indexados todavía"} · {formatWhen(source.retrievedAt)}
       {source.url ? <> · <a href={source.url} target="_blank" rel="noreferrer" className="underline">{source.url}</a></> : null}
     </p>
-    <Button size="sm" variant="ghost" className="justify-self-start" onClick={onToggle}>{open ? "Ocultar pasajes" : "Ver pasajes"}</Button>
+    <Button size="sm" variant="ghost" className="justify-self-start" aria-expanded={open} onClick={onToggle}>{open ? "Ocultar pasajes" : "Ver pasajes"}</Button>
     {open ? detail.isPending ? <Skeleton className="h-16 w-full" />
       : detail.isError ? <p role="alert" className="text-xs text-destructive">No se pudo leer la fuente. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void detail.refetch()}>Volver a intentar</Button></p>
       : detail.data && !detail.data.ok ? <p role="alert" className="text-xs text-destructive">{detail.data.error ?? "La fuente no se pudo leer."}</p>
-      : detail.data?.chunks ? <ol className="grid gap-2">{detail.data.chunks.map((text, index) => <li key={index} className="grid gap-0.5 rounded bg-muted/40 p-2 text-xs">
+      : detail.data?.chunks?.length ? <ol className="grid gap-2">{detail.data.chunks.map((text, index) => <li key={index} className="grid gap-0.5 rounded bg-muted/40 p-2 text-xs">
         <span className="font-medium">[fuente:{source.id}#{index}]</span><span>{text}</span></li>)}</ol>
       : <p className="text-xs text-muted-foreground">Sin pasajes: la evidencia guardada no tiene texto largo para dividir.</p> : null}
   </div>;
@@ -436,7 +440,7 @@ function SourceRow({ app, client, source, open, onToggle, multi }: { app: Specia
 
 const PANELS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-panels", client.baseUrl, app.id] as const;
 function panelsQuery(client: OpenworkServerClient, app: SpecialistApplication) {
-  return { queryKey: PANELS_KEY(client, app), queryFn: () => client.getSpecialistPanels(app.id), retry: false } as const;
+  return { queryKey: PANELS_KEY(client, app), queryFn: () => client.getSpecialistPanels(app.id), retry: false, refetchInterval: 30_000 } as const;
 }
 function PanelsSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
   const query = useQuery(panelsQuery(client, app));
@@ -471,7 +475,7 @@ function PanelsView({ app, client, onBack }: { app: SpecialistApplication; clien
       <div className="flex items-center gap-2">
         <LayoutDashboard className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{panel.title}</span>
-        <Button size="sm" variant="ghost" onClick={() => setOpenName(openName === panel.name ? null : panel.name)}>{openName === panel.name ? "Ocultar" : "Ver"}</Button>
+        <Button size="sm" variant="ghost" aria-expanded={openName === panel.name} onClick={() => setOpenName(openName === panel.name ? null : panel.name)}>{openName === panel.name ? "Ocultar" : "Ver"}</Button>
         <Button size="sm" variant="ghost" aria-label={`Eliminar panel ${panel.title}`} onClick={() => void remove(panel.name)}><Trash2 className="size-4" /></Button>
       </div>
       {openName === panel.name ? <PanelCanvas key={panel.name} app={app} client={client} name={panel.name} /> : null}
@@ -480,12 +484,16 @@ function PanelsView({ app, client, onBack }: { app: SpecialistApplication; clien
 }
 
 /** Same aggregation the server's panelAggregate shares with the future ui:// compiler:
- *  last/first verbatim, sum/avg/min/max over the numeric column only, non-numeric → "—". */
-function panelAggregate(rows: Array<Record<string, unknown>>, field: string, agg: string): number | string | null {
+ *  last/first verbatim, sum/avg/min/max over the numeric column only, non-numeric → "—".
+ *  MUST MATCH apps/server/src/specialists/panels.ts (panelAggregate): change both together.
+ *  `agg` is the server union — an unknown value would silently become max (reviewer finding).
+ *  last/first pass through scalars only; objects/arrays render "—" instead of crashing formatStat.
+ *  format "percent" means FRACTION (0.25 → "25.0 %"); a pre-scaled 25 column would be wrong. */
+function panelAggregate(rows: Array<Record<string, unknown>>, field: string, agg: "last" | "first" | "sum" | "avg" | "count" | "min" | "max"): number | string | null {
   const column = rows.map(row => row[field]);
   if (agg === "count") return column.length;
-  if (agg === "last") return (column.at(-1) ?? null) as number | string | null;
-  if (agg === "first") return (column[0] ?? null) as number | string | null;
+  if (agg === "last") { const value = column.at(-1); return typeof value === "number" || typeof value === "string" ? value : null; }
+  if (agg === "first") { const value = column[0]; return typeof value === "number" || typeof value === "string" ? value : null; }
   const numbers = column.map(entry => typeof entry === "number" ? entry : typeof entry === "string" && entry.trim() !== "" && Number.isFinite(Number(entry)) ? Number(entry) : null).filter((entry): entry is number => entry !== null);
   if (!numbers.length) return null;
   if (agg === "sum") return numbers.reduce((total, value) => total + value, 0);
@@ -566,7 +574,8 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
             return block.sort!.desc ? -cmp : cmp;
           }) : rows;
           return <div key={index} className="overflow-x-auto"><table className="w-full text-xs">
-            <thead><tr>{columns.map(column => <th key={column} className="border-b p-1 text-left font-medium">{column}</th>)}</tr></thead>
+            <caption className="sr-only">Tabla del panel</caption>
+            <thead><tr>{columns.map(column => <th key={column} scope="col" className="border-b p-1 text-left font-medium">{column}</th>)}</tr></thead>
             <tbody>{sorted.slice(0, block.limit ?? 50).map((row, rowIndex) => <tr key={rowIndex}>{columns.map(column => <td key={column} className="border-b p-1">{String(row[column] ?? "")}</td>)}</tr>)}</tbody>
           </table></div>;
         }
@@ -574,23 +583,43 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
         case "bar": {
           const xs = rows.map(row => String(row[block.x] ?? ""));
           const series = block.y.map(field => ({ field, values: rows.map(row => { const n = Number(row[field]); return Number.isFinite(n) ? n : null; }) }));
-          const max = Math.max(1, ...series.flatMap(entry => entry.values.filter((v): v is number => v !== null)));
+          const flat = series.flatMap(entry => entry.values.filter((v): v is number => v !== null));
+          // A chart that can't draw must SAY so, never render a silent blank ([3] fails loud).
+          if (!flat.length) return <p key={index} role="alert" className="rounded-md border p-2 text-xs text-muted-foreground">Este gráfico no tiene valores numéricos para dibujar (columna ausente o no numérica).</p>;
+          // Signed scale: negatives plot below the axis instead of clipping off-canvas.
+          const max = Math.max(...flat, 0) || 1;
+          const min = Math.min(...flat, 0);
+          const span = max - min || 1;
           if (block.type === "bar") {
-            return <div key={index} className="grid gap-1 text-xs">
+            return <div key={index} className="grid gap-1 text-xs" role="img" aria-label={`Gráfico de barras: ${block.title ?? block.y.join(", ")}`}>
               <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
               {rows.slice(0, 20).map((row, rowIndex) => <div key={rowIndex} className="flex items-center gap-2">
                 <span className="w-20 shrink-0 truncate text-muted-foreground">{xs[rowIndex]}</span>
-                {series.map(entry => <span key={entry.field} title={`${entry.field}: ${entry.values[rowIndex] ?? "—"}`} className="h-3 shrink-0 rounded-sm bg-primary/70" style={{ width: `${Math.max(0, (entry.values[rowIndex] ?? 0) / max * 100)}%` }} />)}
+                {series.map(entry => {
+                  const value = entry.values[rowIndex] ?? null;
+                  return <span key={entry.field} title={`${entry.field}: ${value ?? "—"}`} aria-label={`${entry.field}: ${value ?? "sin dato"}`} className={value === null ? "h-3 w-2 shrink-0 border border-dashed" : "h-3 shrink-0 rounded-sm bg-primary/70"} style={value === null ? undefined : { width: `${Math.abs(value) / span * 100}%` }} />;
+                })}
               </div>)}
             </div>;
           }
+          const yFor = (value: number) => 80 - ((value - min) / span) * 74 - 3;
           return <div key={index} className="grid gap-1 text-xs">
             <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
             <svg viewBox={`0 0 300 80`} className="h-20 w-full" role="img" aria-label={`Gráfico de líneas: ${block.title ?? block.y.join(", ")}`}>
+              {min < 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="#9ca3af" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
               {series.map((entry, seriesIndex) => {
-                const points = entry.values.map((value, pointIndex) => value === null ? null : `${(pointIndex / Math.max(1, entry.values.length - 1)) * 300},${80 - (value / max) * 74 - 3}`);
-                const path = points.filter((point): point is string => point !== null).join(" ");
-                return <polyline key={entry.field} points={path} fill="none" stroke={["#2563eb", "#dc2626", "#059669", "#d97706"][seriesIndex % 4]} strokeWidth="1.5" />;
+                const color = ["#2563eb", "#dc2626", "#059669", "#d97706"][seriesIndex % 4];
+                const coords = entry.values.map((value, pointIndex) => value === null ? null : { x: (pointIndex / Math.max(1, entry.values.length - 1)) * 300, y: yFor(value) });
+                // Split on gaps: interpolation across missing data would be a lie.
+                const segments: Array<Array<{ x: number; y: number }>> = [];
+                let current: Array<{ x: number; y: number }> = [];
+                for (const point of coords) { if (point) current.push(point); else if (current.length) { segments.push(current); current = []; } }
+                if (current.length) segments.push(current);
+                return <g key={entry.field}>
+                  {segments.map((segment, segmentIndex) => segment.length === 1
+                    ? <circle key={segmentIndex} cx={segment[0]!.x} cy={segment[0]!.y} r="2.5" fill={color} />
+                    : <polyline key={segmentIndex} points={segment.map(point => `${point.x},${point.y}`).join(" ")} fill="none" stroke={color} strokeWidth="1.5" />)}
+                </g>;
               })}
             </svg>
             <div className="flex flex-wrap gap-2">{series.map((entry, seriesIndex) => <span key={entry.field} className="flex items-center gap-1 text-muted-foreground">
@@ -605,7 +634,7 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
 
 const OUTPUTS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-outputs", client.baseUrl, app.id] as const;
 function outputsQuery(client: OpenworkServerClient, app: SpecialistApplication) {
-  return { queryKey: OUTPUTS_KEY(client, app), queryFn: () => client.getSpecialistOutputs(app.id), retry: false } as const;
+  return { queryKey: OUTPUTS_KEY(client, app), queryFn: () => client.getSpecialistOutputs(app.id), retry: false, refetchInterval: 30_000 } as const;
 }
 const OUTPUT_LABEL: Record<SpecialistOutput["kind"], string> = { mindmap: "Mapa mental", report: "Informe", flashcards: "Flashcards", quiz: "Quiz", table: "Tabla" };
 function OutputsSummary({ app, client }: { app: SpecialistApplication; client: OpenworkServerClient }) {
@@ -614,8 +643,9 @@ function OutputsSummary({ app, client }: { app: SpecialistApplication; client: O
   if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer las salidas. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
   const outputs = query.data?.outputs ?? [];
   if (!outputs.length) return <p className="text-xs text-muted-foreground">Sin salidas todavía. El asistente convierte un dataset en mapa mental, informe, tarjetas o tabla, con sus citas auditadas.</p>;
+  const multi = new Set(outputs.map(output => output.workspaceId)).size > 1;
   return <ul className="grid gap-1 text-xs text-muted-foreground">{outputs.slice(0, 4).map(output => <li key={`${output.workspaceId}/${output.id}`} className="flex items-center gap-2">
-    <ScanSearch className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{output.title}</span><span className="shrink-0">{OUTPUT_LABEL[output.kind]}{outputs.length > 1 ? ` · ${output.workspaceName}` : ""}</span>
+    <ScanSearch className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{output.title}</span><span className="shrink-0">{OUTPUT_LABEL[output.kind]}{multi ? ` · ${output.workspaceName}` : ""}</span>
   </li>)}</ul>;
 }
 
@@ -643,7 +673,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
         <ScanSearch className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
         <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
-        <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
+        <Button size="sm" variant="ghost" aria-expanded={openId === output.id} onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
         <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => void remove(output)}><Trash2 className="size-4" /></Button>
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}
@@ -695,7 +725,10 @@ function ProposalsSection({ app, client, enabled, onChanged }: { app: Specialist
     finally { setBusy(false); }
   }
   const proposals = query.data?.proposals ?? [];
-  if (!enabled || !query.isSuccess || !proposals.length) return null;
+  if (!enabled) return null;
+  if (query.isPending) return <section className="grid gap-2"><Skeleton className="h-12 w-full" /></section>;
+  if (query.isError) return <section className="grid gap-2"><p role="alert" className="text-sm text-destructive">No se pudieron leer las propuestas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></section>;
+  if (!proposals.length) return null;
   return <section className="grid gap-2">
     <h3 className="text-sm font-medium">Propuestas pendientes ({proposals.length})</h3>
     <p className="text-xs text-muted-foreground">El asistente te aprendió estos procedimientos y propone guardarlos. Nada existe hasta que lo confirmes acá.</p>
@@ -732,14 +765,17 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
   </li>)}</ul>;
 }
 
+const RUNS_KEY = (client: OpenworkServerClient, app: SpecialistApplication, taskId: string) => ["specialist-task-runs", client.baseUrl, app.id, taskId] as const;
+
 function TasksView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
   const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [runsFor, setRunsFor] = useState<{ id: string; name: string } | null>(null);
-  const runs = useQuery({ queryKey: ["specialist-task-runs", client.baseUrl, app.id, runsFor?.id ?? ""], queryFn: () => client.getSpecialistTaskRuns(app.id, runsFor!.id), retry: false, enabled: runsFor !== null });
+  const runs = useQuery({ queryKey: runsFor ? RUNS_KEY(client, app, runsFor.id) : ["specialist-task-runs", client.baseUrl, app.id, "idle"], queryFn: () => runsFor ? client.getSpecialistTaskRuns(app.id, runsFor.id) : Promise.resolve({ runs: [] }), retry: false, enabled: runsFor !== null });
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<SpecialistTaskSchedule["kind"]>("interval");
@@ -750,7 +786,7 @@ function TasksView({ app, client, onBack }: { app: SpecialistApplication; client
   async function run(action: () => Promise<unknown>, message?: string) {
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
-    try { await action(); await query.refetch(); if (message) setNotice(message); }
+    try { await action(); await query.refetch(); await queryClient.invalidateQueries({ queryKey: ["specialist-task-runs", client.baseUrl, app.id] }); if (message) setNotice(message); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
     finally { setBusy(false); }
   }
@@ -805,11 +841,12 @@ function TasksView({ app, client, onBack }: { app: SpecialistApplication; client
       <div className="flex gap-2">
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
-        <Button size="sm" variant="ghost" onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
+        <Button size="sm" variant="ghost" aria-expanded={runsFor?.id === task.id} onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
         <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => void run(() => client.deleteSpecialistTask(app.id, task.id))}><Trash2 className="size-4" /></Button>
       </div>
       {runsFor?.id === task.id ? <div className="grid gap-1 border-t pt-2 text-xs text-muted-foreground">
-        {runs.isPending || runs.isError ? <span>{runs.isError ? "No se pudo leer el historial." : "…"}</span>
+        {runs.isError ? <span role="alert" className="text-destructive">No se pudo leer el historial. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void runs.refetch()}>Volver a intentar</Button></span>
+          : runs.isPending ? <span>…</span>
           : (runs.data?.runs.length ?? 0) ? (runs.data?.runs ?? []).map(entry => <div key={`${entry.at}-${entry.status}`} className="flex items-center gap-2">
             <span>{formatWhen(entry.at)}</span>
             <Badge variant={entry.status === "ok" ? "outline" : entry.status === "dispatched" ? "secondary" : "destructive"}>{entry.status === "ok" ? "ok" : entry.status === "dispatched" ? "corriendo" : entry.status === "failed" ? "falló" : entry.status === "blocked" ? "bloqueada" : "solapada"}</Badge>

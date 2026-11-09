@@ -107,15 +107,7 @@ export function recordDatasetRun(directory: string, query: SpecialistDatasetQuer
   const hash = datasetQueryHash(query);
   // The index hash answers the "same query" question without reading every query.json; entries
   // predating the hash fall back to one file comparison (they gain the hash on this very write).
-  let meta = datasets.find(entry => entry.queryHash === hash)
-    ?? (await (async () => {
-      for (const entry of datasets) {
-        if (entry.queryHash !== undefined || entry.provider !== query.provider || entry.operation !== query.operation) continue;
-        try { if (sameQuery(datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, entry.id), "query.json"), "utf8"))), query)) return entry; }
-        catch { /* unreadable query: never matches */ }
-      }
-      return undefined;
-    })());
+  let meta = (await findByQuery(directory, query)) ?? undefined;
   const id = meta?.id ?? `ds-${slugify(`${query.operation}-${(query.input as { query?: string; url?: string }).query ?? (query.input as { query?: string; url?: string }).url ?? "consulta"}`) || "consulta"}-${randomUUID().slice(0, 8)}`;
   const created = meta === undefined;
   const dir = await ensureFolder(datasetDir(directory, id));
@@ -238,13 +230,35 @@ export function registerDatasetQuery(directory: string, input: { name: string; q
 const DIFF_LIMIT = 30;
 const diffsDir = (directory: string, id: string) => join(datasetDir(directory, id), "diffs");
 
-export async function writeDatasetDiff(directory: string, id: string, diff: unknown) {
-  const dir = await ensureFolder(diffsDir(directory, id));
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  await writeFile(join(dir, `${stamp}.json`), JSON.stringify(diff, null, 2), { mode: 0o600 });
-  const entries = (await readdir(dir)).filter(name => name.endsWith(".json")).sort();
-  for (const name of entries.slice(0, Math.max(0, entries.length - DIFF_LIMIT))) await rm(join(dir, name), { force: true });
-  return stamp;
+/** Every ancestor must be a real directory inside the project: a symlinked dataset folder would
+ *  otherwise turn every refresh into a write outside the workspace (panels.ts containment rule). */
+async function ensureDatasetChain(directory: string, id: string) {
+  const root = join(directory, "comex", "datasets");
+  const chain = [root, datasetDir(directory, id), diffsDir(directory, id)];
+  for (const part of chain) {
+    await mkdir(part, { recursive: true });
+    const stat = await lstat(part);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw failure("La carpeta de datasets no puede ser un enlace simbólico.");
+  }
+  return chain[2]!;
+}
+
+export function writeDatasetDiff(directory: string, id: string, diff: unknown) {
+  // Serialized with the rest of the dataset tree: refresh and delete share the same chain head.
+  return serialize(datasetsRoot(directory), async () => {
+    const dir = await ensureDatasetChain(directory, id);
+    const stamp = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
+    await writeFile(join(dir, `${stamp}.json`), JSON.stringify(diff, null, 2), { mode: 0o600 });
+    const entries = (await readdir(dir)).filter(name => name.endsWith(".json")).sort();
+    for (const name of entries.slice(0, Math.max(0, entries.length - DIFF_LIMIT))) await rm(join(dir, name), { force: true });
+    return stamp;
+  });
+}
+
+/** Single-flight for refreshes of one dataset: two overlapping refreshes would diff the same
+ *  "before" snapshot twice and silently drop the middle transition (reviewer finding). */
+export function serializeDatasetRefresh<T>(directory: string, id: string, work: () => Promise<T>): Promise<T> {
+  return serialize(`${datasetsRoot(directory)}:refresh:${id}`, work);
 }
 
 export async function readLatestDiff(directory: string, id: string): Promise<unknown | null> {
@@ -255,8 +269,9 @@ export async function readLatestDiff(directory: string, id: string): Promise<unk
   } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
 }
 
-/** The dataset a query belongs to, without registering a run (read-side lookup). */
-export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
+/** The ONE "same query" matching (hash first, then canonical file comparison) shared by the
+ *  write path (recordDatasetRun) and the read path (findDatasetForQuery). */
+async function findByQuery(directory: string, query: SpecialistDatasetQuery) {
   const datasets = await readIndex(directory);
   const hash = datasetQueryHash(query);
   const byHash = datasets.find(entry => entry.queryHash === hash);
@@ -264,7 +279,12 @@ export async function findDatasetForQuery(directory: string, query: SpecialistDa
   for (const meta of datasets) {
     if (meta.queryHash !== undefined || meta.provider !== query.provider || meta.operation !== query.operation) continue;
     try { if (sameQuery(datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, meta.id), "query.json"), "utf8"))), query)) return meta; }
-    catch { /* unreadable query: skip like recordDatasetRun does */ }
+    catch { /* unreadable query: never matches */ }
   }
   return null;
+}
+
+/** The dataset a query belongs to, without registering a run (read-side lookup). */
+export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
+  return findByQuery(directory, query);
 }

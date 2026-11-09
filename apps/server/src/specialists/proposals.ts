@@ -51,12 +51,35 @@ const LIMIT = 20;
 const proposalsFile = (config: Pick<ServerConfig, "configPath">, id: string) => join(specialistDirectory(config), id, "proposals.json");
 const failure = (message: string) => new ApiError(422, "invalid_proposal", message);
 
-export async function listProposals(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistProposal[]> {
+// proposals.json is read-modify-written from routes AND the tool bridge; serialize per app
+// (same doctrine as tasks.ts/datasets.ts) so concurrent adds/accepts can't lose a proposal.
+const chains = new Map<string, Promise<unknown>>();
+function serialize<T>(id: string, work: () => Promise<T>): Promise<T> {
+  const previous = chains.get(id) ?? Promise.resolve();
+  const current = previous.then(work, work);
+  chains.set(id, current.then(() => undefined, () => undefined));
+  return current;
+}
+
+/** Raw entries (unparsed): accept/dismiss must reach an entry even when its content was
+ *  hand-damaged — the person can always discard it, and accepting it fails readable (422). */
+async function readRawEntries(config: Pick<ServerConfig, "configPath">, id: string): Promise<Record<string, unknown>[]> {
   try {
     const value: unknown = JSON.parse(await readFile(proposalsFile(config, id), "utf8"));
     if (!Array.isArray(value)) return [];
-    return value.flatMap(entry => { try { return [proposalSchema.parse(entry)]; } catch { return []; } });
+    return value.filter(entry => typeof entry === "object" && entry !== null) as Record<string, unknown>[];
   } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+}
+
+export async function listProposals(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistProposal[]> {
+  const entries = await readRawEntries(config, id);
+  return entries.flatMap(entry => { try { return [proposalSchema.parse(entry)]; } catch { return []; } });
+}
+
+/** The raw inbox entry for accept-time validation (damaged entries stay reachable, never invisible). */
+export async function rawProposal(config: Pick<ServerConfig, "configPath">, id: string, proposalId: string): Promise<Record<string, unknown> | null> {
+  const entries = await readRawEntries(config, id);
+  return entries.find(entry => entry.id === proposalId) ?? null;
 }
 
 async function save(config: Pick<ServerConfig, "configPath">, id: string, proposals: SpecialistProposal[]) {
@@ -76,17 +99,35 @@ export async function addProposal(config: Pick<ServerConfig, "configPath">, id: 
   if (input.reason.length > 500) throw failure("El motivo propuesto supera 500 caracteres.");
   if (input.kind === "task") parseTaskProposalContent(input.content);
   else if (input.kind === "plan") parsePlanProposalContent(input.content);
-  const existing = await listProposals(config, id);
-  const duplicate = existing.find(proposal => proposal.kind === input.kind && proposal.name === name);
-  const proposal: SpecialistProposal = { ...input, name, reason: input.reason.trim(), id: `prop_${randomUUID()}`, createdAt: Date.now() };
-  const next = [proposal, ...existing.filter(entry => entry !== duplicate)].slice(0, LIMIT);
-  await save(config, id, next);
-  return { proposals: next, replaced: duplicate !== undefined };
+  return serialize(id, async () => {
+    const existing = await listProposals(config, id);
+    const duplicate = existing.find(proposal => proposal.kind === input.kind && proposal.name === name);
+    const proposal: SpecialistProposal = { ...input, name, reason: input.reason.trim(), id: `prop_${randomUUID()}`, createdAt: Date.now() };
+    const next = [proposal, ...existing.filter(entry => entry !== duplicate)].slice(0, LIMIT);
+    await save(config, id, next);
+    return { proposals: next, replaced: duplicate !== undefined };
+  });
 }
 
 export async function removeProposal(config: Pick<ServerConfig, "configPath">, id: string, proposalId: string) {
-  const existing = await listProposals(config, id);
-  if (!existing.some(proposal => proposal.id === proposalId)) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
-  await save(config, id, existing.filter(proposal => proposal.id !== proposalId));
-  return existing.find(proposal => proposal.id === proposalId)!;
+  return serialize(id, async () => {
+    const entries = await readRawEntries(config, id);
+    if (!entries.some(entry => entry.id === proposalId)) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
+    await save(config, id, entries.filter(entry => entry.id !== proposalId) as unknown as SpecialistProposal[]);
+    return entries.find(entry => entry.id === proposalId) as unknown as SpecialistProposal;
+  });
+}
+
+/**
+ * Restore a proposal that was taken for acceptance but whose pieces ALL failed (e.g. family flag
+ * off): the person toggles the flag and retakes it instead of losing the captured work. No-op if
+ * the inbox already holds the same id or kind+name.
+ */
+export async function restoreProposal(config: Pick<ServerConfig, "configPath">, id: string, proposal: SpecialistProposal) {
+  return serialize(id, async () => {
+    const existing = await listProposals(config, id);
+    if (existing.some(entry => entry.id === proposal.id || (entry.kind === proposal.kind && entry.name === proposal.name))) return false;
+    await save(config, id, [proposal, ...existing].slice(0, LIMIT));
+    return true;
+  });
 }
