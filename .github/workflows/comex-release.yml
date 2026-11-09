@@ -181,8 +181,34 @@ jobs:
         run: node scripts/release/stamp-version.mjs --version "$RELEASE_VERSION"
       - name: Build desktop
         run: pnpm --filter @openwork/desktop build:electron
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron-builder
+            ~/.cache/electron
+            ~/AppData/Local/electron-builder/Cache
+            ~/AppData/Local/electron/Cache
+          key: eb-cache-${{ runner.os }}-electron43
+          restore-keys: eb-cache-${{ runner.os }}-
       - name: Package without publishing
-        run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --${{ matrix.target }} --x64 --publish never
+        # GitHub intermittently 504s release-asset downloads and electron-builder's
+        # own binary fetcher has no retries; retry the whole packaging pass so
+        # already-cached binaries (shared cache dir) carry the next attempt.
+        run: |
+          attempt=0
+          while true; do
+            attempt=$((attempt+1))
+            if pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --${{ matrix.target }} --x64 --publish never; then
+              exit 0
+            fi
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error::packaging failed after $attempt attempts"
+              exit 1
+            fi
+            echo "::notice::packaging failed (attempt $attempt of 3); retrying in 60s"
+            sleep 60
+          done
       - name: Verify and stage updater artifacts
         run: node scripts/release/comex-artifacts.mjs apps/desktop/dist-electron "$RELEASE_VERSION" "${{ matrix.target }}" release-assets
       - name: Smoke-test installed Windows build

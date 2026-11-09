@@ -145,3 +145,7 @@ El release 1.0.23 (puente estable) falló dos veces seguidas en CI por 504 de Gi
 ## Resiliencia de descargas CI ante incidentes de GitHub (2026-11-09)
 
 El release 1.0.23 (puente estable) falló dos veces seguidas en CI por 504 de GitHub en sus release-assets (sidecars de sst/opencode y toolset AppImage de electron-builder) — incidente que también se vio en local durante todo el día. No es un bug del código: validate/prepare verdes, publish skipped, tag inexistente. prepare-sidecar ahora reintenta 10 veces cada 20s para sobrevivir cortes cortos. El release queda pendiente de una corrida verde; el puente estable ya está en main listo para publicar. Sin cambios académicos.
+
+## CI: retries + cache para los 504 de electron-builder (2026-11-09)
+
+Run 1.0.24 (42569074978) falló igual que los dos anteriores: el 504 de GitHub no era de mis sidecars (esos ya pasan con retries) sino del descargador propio de electron-builder para sus binarios (appimage-tools-runtime/7zip en Linux, winCodeSign/NSIS en Windows), que no reintenta nada. Fix en el workflow: actions/cache de ~/.cache/electron-builder + electron (sobrevive reruns), y el paso "Package without publishing" ahora envuelve el comando en un loop de hasta 3 intentos con 60s de espera — los binarios ya bajados quedan en el cache y el intento siguiente no los repide. El fix del puente estable (ffe02ea) sigue esperando su corrida verde. Sin cambios académicos.
