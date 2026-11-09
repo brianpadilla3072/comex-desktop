@@ -5,13 +5,15 @@ import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { specialistApplicationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
 import {
   agentInput, contextInput, createLibraryAgent, createLibrarySkill, deleteLibraryFile, libraryFileInput,
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { addProposal } from "./proposals.js";
 import { createTask, deleteTask, listTasks, updateTask } from "./tasks.js";
+import { listDatasets, listSnapshotDates, readLatestSnapshot, registerDerivedDataset } from "./datasets.js";
+import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
@@ -22,6 +24,7 @@ const toolCallSchema = z.object({ name: z.enum([
   "specialist_library_list", "specialist_library_read", "specialist_library_write", "specialist_library_delete",
   "specialist_agent_create", "specialist_skill_create", "specialist_context_write", "specialist_propose",
   "specialist_task_create", "specialist_task_list", "specialist_task_pause", "specialist_task_delete",
+  "specialist_dataset_list", "specialist_dataset_read", "specialist_dataset_refresh", "specialist_dataset_derive",
 ]), input: z.record(z.string(), z.unknown()) });
 
 const toolDirectory = (config: Pick<ServerConfig, "configPath">) => join(specialistDirectory(config), "tool");
@@ -45,7 +48,7 @@ export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPa
   const canonical = resolve(directory);
   const existing = await readDescriptor(config, canonical);
   const target = existing?.file ?? join(toolDirectory(config), createHash("sha256").update(canonical).digest("hex") + ".json");
-  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
+  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
     if (existing) await writeDescriptor(target, { directory: canonical, token: "00000000000000000000000000000000", url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
     return;
   }
@@ -93,6 +96,8 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
   // One gate per family: the plugin registers both sets, but each rides on its own feature flag.
   if (name.startsWith("specialist_task_")) {
     if (!scheduledTasksEnabled()) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas programadas están desactivadas en este server.");
+  } else if (name.startsWith("specialist_dataset_")) {
+    if (!specialistDatasetsEnabled()) throw new ApiError(409, "specialist_datasets_disabled", "Los datasets de investigación están desactivados en este server.");
   } else if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
   switch (name) {
     case "specialist_library_list": {
@@ -141,6 +146,37 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
       const deleted = await deleteTask(config, app.id, z.string().parse(input.taskId));
       return { deleted: deleted.id };
     }
+    case "specialist_dataset_list":
+      return { datasets: await listDatasets(directory), note: "La persona ve estos datasets en el menú de su aplicación, en Contexto, agentes y skills → Datos." };
+    case "specialist_dataset_read": {
+      const id = z.string().min(1).parse(input.id);
+      const dataset = (await listDatasets(directory)).find(entry => entry.id === id);
+      if (!dataset) throw new ApiError(404, "dataset_not_found", "Ese dataset no existe en este proyecto.");
+      const snapshots = await listSnapshotDates(directory, id);
+      const preview = JSON.stringify(await readLatestSnapshot(directory, id));
+      // Same guard as the research tools: a huge snapshot arrives as a bounded preview, never as a flood.
+      const truncated = preview.length > 40_000;
+      return {
+        dataset, snapshots, truncated,
+        latest: truncated ? preview.slice(0, 40_000) : JSON.parse(preview) as unknown,
+        ...(truncated ? { note: "El snapshot supera 40 KB: recibís un recorte. El resto está en comex/datasets del proyecto." } : {}),
+      };
+    }
+    case "specialist_dataset_refresh": {
+      // Same path as the panel's "Actualizar" button: re-runs the stored query through Tavily and records a new snapshot.
+      const dataset = await refreshDatasetThroughResearch(config, directory, z.string().min(1).parse(input.id));
+      return { dataset, note: `Consulta re-ejecutada: el dataset ${dataset.id} quedó con un snapshot nuevo. La persona lo ve en Contexto, agentes y skills → Datos. Si el proveedor no está conectado, avisale en voz alta y no inventes cifras.` };
+    }
+    case "specialist_dataset_derive": {
+      const parsed = z.object({
+        sourceId: z.string().min(1),
+        name: z.string().trim().min(1).max(120),
+        payload: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]),
+      }).parse(input);
+      if (Buffer.byteLength(JSON.stringify(parsed.payload), "utf8") > 1_000_000) throw new ApiError(422, "invalid_dataset", "El payload del dataset derivado no puede superar 1 MB.");
+      const dataset = await registerDerivedDataset(directory, parsed.sourceId, parsed.name, parsed.payload);
+      return { dataset, note: "Quedó registrado como dataset derivado, con linaje a su origen. La persona lo ve en Contexto, agentes y skills → Datos." };
+    }
     default: throw new ApiError(404, "library_tool_unknown", "Esa herramienta de biblioteca no existe.");
   }
 }
@@ -153,7 +189,7 @@ export function registerSpecialistToolRoutes(options: {
 }) {
   const { routes, config, readJsonBody, jsonResponse } = options;
   addRoute(routes, "POST", "/specialist-tool", "none", async (ctx: RequestContext) => {
-    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
+    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
     const bearer = ctx.request.headers.get("authorization") ?? "";
     const token = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
     if (token.length < 16) throw new ApiError(401, "library_tool_unauthorized", "Falta la credencial de la biblioteca.");

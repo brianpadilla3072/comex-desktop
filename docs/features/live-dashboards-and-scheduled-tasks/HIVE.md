@@ -6,10 +6,10 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 
 | Celda | Pieza | Estado | Commits | Pendientes |
 |---|---|---|---|---|
-| A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ verde · 🔬 test-front EN VUELO | `f850096` impl · `ca474c2` fixes revisor + store B | aplicar hallazgos del tester (HIVE-A-TEST.md) |
-| B | [2] Datasets + captura | ✅ store + 5/5 tests · 🔧 wiring (rutas/tools/UI) EN VUELO (retry tras 429) | `ca474c2` store · `01b6ccb` derivados | revisión de B, test-front de B |
-| B2 | [6] Fuentes y citas | ⬜ bloqueado: toca routes/library-tool-api que el agente B usa | | |
-| C1 | [3] Paneles declarativos | ✅ store + 3/3 tests · 👁 revisor EN VUELO | `7d8ee72` core | fixes revisor → routes/tools/UI después |
+| A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front (5 trabas reportadas) · 🔧 fixes-trabas EN COLA (archivos ocupados por B) | `f850096` `ca474c2` | aplicar HIVE-A-TEST.md |
+| B | [2] Datasets + captura | ✅ store + 5/5 · 🔧 wiring EN VUELO (datasets-refresh, rutas, tools, UI) | `ca474c2` `01b6ccb` | revisión de B → fixes → test-front |
+| B2 | [6] Fuentes y citas | ✅ core + 3/3 tests (sources.ts) | `c144aff` | wiring (research-factory registra sources; chips en markdown; ruta /sources) tras B |
+| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | test-front C1 tras el paso de UI de B |
 | C2 | [5] Captura ampliada (kinds task/panel/dataset) | ⬜ | | |
 | C3 | [7] Salidas mini-Studio | ⬜ | | |
 | D | [4] MCP Apps local | ⬜ | | |

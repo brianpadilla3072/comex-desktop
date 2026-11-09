@@ -4,7 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, scheduledTasksEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
@@ -18,6 +18,8 @@ import {
 } from "./library.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { createTask, deleteTask, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
+import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot } from "./datasets.js";
+import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
@@ -45,11 +47,11 @@ export function registerSpecialistRoutes(options: {
     return applySpecialistLibraryChange(config, app);
   }
   const catalog = async () => {
-    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, scheduledTasksEnabled: false, user: null, applications: [] };
+    if (!specialistApplicationsEnabled()) return { enabled: false, libraryEnabled: false, scheduledTasksEnabled: false, datasetsEnabled: false, user: null, applications: [] };
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), datasetsEnabled: specialistDatasetsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -248,5 +250,67 @@ export function registerSpecialistRoutes(options: {
     if (!scheduler) throw new ApiError(503, "scheduler_unavailable", "El planificador no está corriendo en este server.");
     const result = await scheduler.trigger(app.id, ctx.params.taskId);
     return jsonResponse({ started: result.ok, detail: result.detail ?? null, tasks: await listTasks(config, app.id) });
+  });
+
+  /** Research datasets: files live per project (workspace), so the application's panels aggregate over its
+   *  bound live workspaces; `?workspace=<id>` narrows a call to a single project. */
+  function requireDatasets(write = false) {
+    requireFeature(write);
+    if (!specialistDatasetsEnabled()) throw new ApiError(404, "specialist_datasets_disabled", "Los datasets de investigación están desactivados.");
+  }
+  type DatasetTarget = { workspaceId: string; workspacePath: string };
+  async function datasetWorkspaces(appId: string, requested: string | null): Promise<DatasetTarget[]> {
+    const store = await specialistStore(config);
+    const bound = store.projectsFor(appId).map(project => project.workspaceId);
+    if (requested !== null) {
+      const workspace = config.workspaces.find(entry => entry.id === requested);
+      if (!workspace) throw new ApiError(404, "workspace_not_found", "Ese espacio de trabajo no está disponible en el server.");
+      if (!bound.includes(requested)) throw new ApiError(403, "workspace_not_bound", "Ese proyecto no pertenece a esta aplicación.");
+      return [{ workspaceId: workspace.id, workspacePath: workspace.path }];
+    }
+    // Same "live projects" filter the catalog applies: workspaces gone from the host are skipped.
+    return config.workspaces.filter(workspace => bound.includes(workspace.id)).map(workspace => ({ workspaceId: workspace.id, workspacePath: workspace.path }));
+  }
+  async function datasetTarget(appId: string, requested: string | null, datasetId: string) {
+    for (const target of await datasetWorkspaces(appId, requested)) {
+      const meta = (await listDatasets(target.workspacePath)).find(entry => entry.id === datasetId);
+      if (meta) return { ...target, meta };
+    }
+    throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/datasets", "client", async ctx => {
+    requireDatasets();
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const listings = await Promise.all(targets.map(async target => ({ target, entries: await listDatasets(target.workspacePath) })));
+    const datasets = listings
+      .flatMap(({ target, entries }) => entries.map(dataset => ({ ...dataset, workspaceId: target.workspaceId, workspacePath: target.workspacePath })))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    return jsonResponse({ datasets });
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/datasets/:datasetId", "client", async ctx => {
+    requireDatasets();
+    const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
+    const [snapshots, latest] = await Promise.all([
+      listSnapshotDates(found.workspacePath, ctx.params.datasetId),
+      readLatestSnapshot(found.workspacePath, ctx.params.datasetId),
+    ]);
+    const size = Buffer.byteLength(JSON.stringify(latest), "utf8");
+    return jsonResponse({
+      dataset: { ...found.meta, workspaceId: found.workspaceId, workspacePath: found.workspacePath },
+      snapshots,
+      latest: size <= 200_000 ? latest : { tooLarge: true },
+    });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/datasets/:datasetId/refresh", "host", async ctx => {
+    requireDatasets(true);
+    const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
+    const dataset = await refreshDatasetThroughResearch(config, found.workspacePath, ctx.params.datasetId);
+    return jsonResponse({ dataset: { ...dataset, workspaceId: found.workspaceId, workspacePath: found.workspacePath } });
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/datasets/:datasetId", "host", async ctx => {
+    requireDatasets(true);
+    const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
+    await deleteDataset(found.workspacePath, ctx.params.datasetId);
+    return jsonResponse({ deleted: ctx.params.datasetId });
   });
 }

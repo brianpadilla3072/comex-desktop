@@ -18,6 +18,10 @@ export const researchOperations = {
   research: { description: "Investigar un tema con Tavily y guardar un informe con citas. Usa créditos de investigación de Tavily; consultá a la persona antes de iniciarlo si no lo pidió.", schema: z.object({ query }) },
 };
 export type ResearchOperation = keyof typeof researchOperations;
+/** Safe narrowing for operation ids stored in datasets: the list stays in sync with the adapter. */
+export function isResearchOperation(value: string): value is ResearchOperation {
+  return Object.hasOwn(researchOperations, value);
+}
 export interface ResearchRuntime { cli: string; home: string }
 export async function executeTavily(runtime: ResearchRuntime, operation: ResearchOperation, input: unknown, directory: string, signal?: AbortSignal) {
   const args: string[] = [operation];

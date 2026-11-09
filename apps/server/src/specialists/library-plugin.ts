@@ -37,6 +37,12 @@ const taskCreateSchema = z.object({
   schedule: scheduleSchema,
 });
 const taskIdSchema = z.object({ taskId: z.string().describe("Id de la tarea (task_…), visible en specialist_task_list") });
+const datasetIdSchema = z.object({ id: z.string().describe("id del dataset, visible en specialist_dataset_list") });
+const datasetDeriveSchema = z.object({
+  sourceId: z.string().describe("id del dataset del que derivás estos datos, visible en specialist_dataset_list"),
+  name: z.string().describe("Nombre legible del dataset derivado, 1-120 caracteres"),
+  payload: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).describe("Datos limpios o transformados: un arreglo de filas o un objeto con las series; hasta 1 MB"),
+});
 
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
@@ -51,6 +57,10 @@ const TOOLS = [
   { name: "specialist_task_list", description: "Listar las tareas programadas de la aplicación con su próxima corrida y último estado.", schema: listSchema },
   { name: "specialist_task_pause", description: "Pausar una tarea programada (no se borra; retoma la persona desde la app o con specialist_task_create de reemplazo).", schema: taskIdSchema },
   { name: "specialist_task_delete", description: "Eliminar una tarea programada, a pedido explícito de la persona.", schema: taskIdSchema },
+  { name: "specialist_dataset_list", description: "Listar los datasets de investigación guardados en este proyecto (cada consulta de investigación queda como dataset con sus snapshots).", schema: listSchema },
+  { name: "specialist_dataset_read", description: "Leer un dataset: su consulta, las fechas de sus snapshots y el último snapshot. Usarla proactivamente después de investigar, para responder con los datos ya guardados en vez de volver a consultar.", schema: datasetIdSchema },
+  { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, decilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
+  { name: "specialist_dataset_derive", description: "Registrar un dataset DERIVADO de otro: una vista limpia o transformada (sin consulta re-ejecutable, con linaje al origen). Usarla proactivamente cuando convertiste los datos de una investigación en algo reutilizable para el proyecto.", schema: datasetDeriveSchema },
 ] as const;
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */

@@ -126,6 +126,7 @@ export interface SpecialistCatalog {
   integrationsEnabled?: boolean;
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
+  datasetsEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
   applications: SpecialistApplication[];
@@ -170,6 +171,16 @@ export interface SpecialistTask {
 export interface SpecialistTaskRun {
   at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
   sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap"; detail: string | null;
+}
+export interface SpecialistDataset {
+  id: string; name: string; question: string; provider: string; operation: string;
+  createdAt: number; updatedAt: number; lastSnapshotAt: number | null; snapshots: number;
+  derivedFrom: string | null; workspaceId: string; workspacePath: string;
+}
+export interface SpecialistDatasetDetail {
+  dataset: SpecialistDataset; snapshots: string[];
+  /** Last snapshot parsed, or { tooLarge: true } when it exceeds the 200 KB preview bound. */
+  latest: unknown;
 }
 export interface SpecialistProposal {
   id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number;
@@ -2514,6 +2525,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
+    getSpecialistDatasets: (id: string, workspaceId?: string) => requestJson<{ datasets: SpecialistDataset[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<SpecialistDatasetDetail>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    refreshSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<{ dataset: SpecialistDataset }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}/refresh${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 660_000 }),
+    deleteSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
     putComexCheckpoint: (workspaceId: string, sessionId: string, body: { expectedRevision: number; checkpoint: ComexCheckpointInput }) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body }),
     getComexGitReview: (workspaceId: string, sessionId?: string) => requestJson<ComexGitReview>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/review${sessionId ? `?codeOnly=true&session=${encodeURIComponent(sessionId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 }),
