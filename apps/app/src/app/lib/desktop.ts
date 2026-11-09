@@ -180,6 +180,7 @@ declare global {
         }>;
         download?: () => Promise<{ ok: boolean; reason?: string }>;
         installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
+        onDownloadProgress?: (callback: (data: { transferred: number; total: number; percent: number; bytesPerSecond: number }) => void) => (() => void);
       };
       recovery?: {
         recordHealthy?: () => Promise<unknown>;

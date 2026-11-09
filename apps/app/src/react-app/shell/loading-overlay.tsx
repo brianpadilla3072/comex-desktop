@@ -10,6 +10,18 @@ import { shouldSuppressBootOverlayForGateway } from "./cloud-workspace-status";
 import { OwDotTicker } from "./dot-ticker";
 import { useOrgOnboardingOnScreen } from "./org-onboarding-visibility";
 
+/**
+ * Self-healing update shown on the boot-failure screen: a broken start must
+ * still be able to move the app to the newest published release, even when no
+ * previous version is installed to restore.
+ */
+type BootUpdate =
+  | { phase: "checking" }
+  | { phase: "available"; version: string }
+  | { phase: "downloading"; version: string; percent: number }
+  | { phase: "ready"; version: string }
+  | { phase: "failed"; version: string; reason: string };
+
 async function loadRecoveryPolicy(
   refreshDesktopConfig: () => Promise<DenDesktopConfig>,
 ): Promise<{ metadata: DenAppVersionMetadata; policy: DenDesktopConfig } | null> {
@@ -41,6 +53,7 @@ export function LoadingOverlay() {
   const [releases, setReleases] = useState<RecoveryRelease[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [actionState, setActionState] = useState<string | null>(null);
+  const [bootUpdate, setBootUpdate] = useState<BootUpdate | null>(null);
 
   useEffect(() => {
     if (!error) return;
@@ -96,6 +109,45 @@ export function LoadingOverlay() {
 
   const useRelease = window.__OPENWORK_ELECTRON__?.recovery?.use;
 
+  // On a failed boot, ask the release feed directly: the app itself may be
+  // broken, so recovery cannot wait for the healthy-UI updater poller.
+  useEffect(() => {
+    if (!error) return;
+    const updater = window.__OPENWORK_ELECTRON__?.updater;
+    if (!updater?.check) return;
+    let cancelled = false;
+    setBootUpdate({ phase: "checking" });
+    const unsubscribe = updater.onDownloadProgress?.((info) => {
+      const percent = Math.round(info.percent ?? (info.total ? ((info.transferred ?? 0) / info.total) * 100 : 0));
+      if (!cancelled) setBootUpdate((current) => current?.phase === "downloading" ? { ...current, percent } : current);
+    });
+    void updater.check()
+      .then((result) => {
+        if (cancelled) return;
+        if (result?.available && result.latestVersion) setBootUpdate({ phase: "available", version: result.latestVersion });
+        else setBootUpdate(null);
+      })
+      .catch(() => { if (!cancelled) setBootUpdate(null); });
+    return () => { cancelled = true; unsubscribe?.(); };
+  }, [error]);
+
+  const startBootUpdate = async (version: string) => {
+    const updater = window.__OPENWORK_ELECTRON__?.updater;
+    if (!updater?.download) return;
+    setBootUpdate({ phase: "downloading", version, percent: 0 });
+    const result = await updater.download().catch((downloadError: unknown) => ({
+      ok: false,
+      reason: downloadError instanceof Error ? downloadError.message : "The update could not be downloaded.",
+    }));
+    setBootUpdate(result.ok
+      ? { phase: "ready", version }
+      : { phase: "failed", version, reason: result.reason ?? "The update could not be downloaded." });
+  };
+
+  const finishBootUpdate = () => {
+    void window.__OPENWORK_ELECTRON__?.updater?.installAndRestart?.();
+  };
+
   if (!visible || ((suppressForGateway || orgOnboardingOnScreen) && !error)) return null;
 
   const fading = bootOverlayCanHide(phase, routeReady);
@@ -114,6 +166,45 @@ export function LoadingOverlay() {
           <div className="flex w-full flex-col gap-3 text-[12px] leading-5">
             <div className="text-base font-medium text-dls-primary">OpenWork couldn't start</div>
             <div className="text-dls-secondary">Reload to try again, or return to a version that works on this computer.</div>
+            {bootUpdate ? (
+              <div className="flex w-full flex-col gap-2">
+                {bootUpdate.phase === "checking" ? (
+                  <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary" role="status">Checking for a newer version…</div>
+                ) : bootUpdate.phase === "available" ? (
+                  <button
+                    type="button"
+                    className="rounded-md bg-dls-accent px-3 py-2 font-medium text-[var(--dls-accent-fg)]"
+                    onClick={() => void startBootUpdate(bootUpdate.version)}
+                  >
+                    Update to {bootUpdate.version} and restart
+                  </button>
+                ) : bootUpdate.phase === "downloading" ? (
+                  <div className="flex w-full flex-col gap-1" role="status">
+                    <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary">Downloading {bootUpdate.version}… {bootUpdate.percent}%</div>
+                    <div className="h-1 w-full overflow-hidden rounded bg-dls-border"><div className="h-full bg-dls-accent transition-[width] duration-150" style={{ width: `${bootUpdate.percent}%` }} /></div>
+                  </div>
+                ) : bootUpdate.phase === "ready" ? (
+                  <button
+                    type="button"
+                    className="rounded-md bg-dls-accent px-3 py-2 font-medium text-[var(--dls-accent-fg)]"
+                    onClick={finishBootUpdate}
+                  >
+                    Restart to finish updating to {bootUpdate.version}
+                  </button>
+                ) : (
+                  <div className="flex w-full flex-col gap-2">
+                    <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary">{bootUpdate.reason}</div>
+                    <button
+                      type="button"
+                      className="rounded-md border border-dls-border px-3 py-2 font-medium text-dls-primary"
+                      onClick={() => void startBootUpdate(bootUpdate.version)}
+                    >
+                      Retry update
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
             <button
               type="button"
               className="rounded-md border border-dls-border px-3 py-2 font-medium text-dls-primary"
