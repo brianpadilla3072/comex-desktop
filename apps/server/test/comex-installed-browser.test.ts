@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { createInstalledBrowserIntegration } from "../src/comex/installed-browser.js";
 import { installedBrowserPlugin } from "../src/comex/installed-browser-plugin.js";
 
@@ -33,6 +33,33 @@ test("installed browser bridge stays project-local, keeps credentials outside it
     await integration.close();
     assert.deepEqual(JSON.parse(await readFile(descriptorFile, "utf8")), {});
     await assert.rejects(fetch(descriptor.url));
+  } finally { await integration.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test("a stale managed bridge whose plugin path no longer exists is rewritten, while personal edits are not", async () => {
+  const root = await mkdtemp(join(tmpdir(), "comex-browser-stale-"));
+  const project = join(root, "project"); await mkdir(project);
+  const integration = createInstalledBrowserIntegration({ configPath: join(root, "private/config.json"), workspaces: [{ path: project }] });
+  try {
+    const file = join(project, ".opencode/plugins/comex-browser/server.js");
+    await mkdir(dirname(file), { recursive: true });
+    // A bridge written by a previous AppImage mount that no longer exists.
+    await writeFile(file, '// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from "file:///tmp/.mount_oldXyz/resources/app.asar/server/dist/comex/installed-browser-plugin.js";\nexport default installedBrowserPlugin("/tmp/old-descriptor.json");\n');
+    await integration.install(project);
+    const rewritten = await readFile(file, "utf8");
+    assert.ok(rewritten.includes("installedBrowserPlugin"));
+    assert.ok(!rewritten.includes("mount_oldXyz"), "la ruta vieja fue reemplazada");
+    await integration.close();
+    // A fresh integration over the same storage writes nothing new: the path is now stable across runs.
+    const second = createInstalledBrowserIntegration({ configPath: join(root, "private/config.json"), workspaces: [{ path: project }] });
+    try { await second.install(project); } finally { await second.close(); }
+    assert.equal(await readFile(file, "utf8"), rewritten);
+    // A personal edit of the canonical file stays protected.
+    await writeFile(file, `${rewritten}// Personalizado\n`);
+    const third = createInstalledBrowserIntegration({ configPath: join(root, "other/config.json"), workspaces: [{ path: project }] });
+    try { await assert.rejects(third.install(project), /No se sobrescribió/); }
+    finally { await third.close(); }
+    assert.equal(await readFile(file, "utf8"), `${rewritten}// Personalizado\n`);
   } finally { await integration.close(); await rm(root, { recursive: true, force: true }); }
 });
 
