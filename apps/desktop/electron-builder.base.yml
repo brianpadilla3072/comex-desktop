@@ -5,11 +5,17 @@ toolsets:
 files:
   - electron/**/*
   - server/**/*
-  # The server's module graph statically imports the plugin JS, so they must
-  # live inside the asar; extraResources keeps real-file copies for the engine
-  # (which cannot read through the virtual asar path) and only the wasm blobs
-  # stay out of the asar.
-  - "!server/dist/opencode-plugins/*.wasm"
+  # The server's module graph statically imports the plugin JS, so those files
+  # must live inside the asar. electron-builder 26.18 does not honour a
+  # `!dir/*.wasm` negation for a nested directory (it prunes the whole folder),
+  # so the folder is excluded from the recursive glob and re-included explicitly
+  # as JS-only with the object form already proven for node_modules. The wasm
+  # blobs stay in extraResources for the engine, which cannot read asar paths.
+  - "!server/dist/opencode-plugins/**"
+  - from: server/dist/opencode-plugins
+    to: server/dist/opencode-plugins
+    filter:
+      - "**/*.js"
   - package.json
   - from: .electron-runtime/node_modules
     to: node_modules
