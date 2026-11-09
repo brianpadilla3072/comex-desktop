@@ -175,7 +175,7 @@ export interface SpecialistTaskRun {
 export interface SpecialistDataset {
   id: string; name: string; question: string; provider: string; operation: string;
   createdAt: number; updatedAt: number; lastSnapshotAt: number | null; snapshots: number;
-  derivedFrom: string | null; workspaceId: string; workspacePath: string;
+  derivedFrom: string | null; workspaceId: string; workspaceName: string;
 }
 export interface SpecialistDatasetDetail {
   dataset: SpecialistDataset; snapshots: string[];

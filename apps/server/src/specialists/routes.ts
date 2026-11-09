@@ -278,12 +278,13 @@ export function registerSpecialistRoutes(options: {
     }
     throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
   }
+  const workspaceName = (path: string) => path.split("/").pop() ?? path;
   addRoute(routes, "GET", "/specialist-applications/:id/datasets", "client", async ctx => {
     requireDatasets();
     const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
     const listings = await Promise.all(targets.map(async target => ({ target, entries: await listDatasets(target.workspacePath) })));
     const datasets = listings
-      .flatMap(({ target, entries }) => entries.map(dataset => ({ ...dataset, workspaceId: target.workspaceId, workspacePath: target.workspacePath })))
+      .flatMap(({ target, entries }) => entries.map(dataset => ({ ...dataset, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
       .sort((left, right) => right.updatedAt - left.updatedAt);
     return jsonResponse({ datasets });
   });
@@ -296,7 +297,7 @@ export function registerSpecialistRoutes(options: {
     ]);
     const size = Buffer.byteLength(JSON.stringify(latest), "utf8");
     return jsonResponse({
-      dataset: { ...found.meta, workspaceId: found.workspaceId, workspacePath: found.workspacePath },
+      dataset: { ...found.meta, workspaceId: found.workspaceId, workspaceName: workspaceName(found.workspacePath) },
       snapshots,
       latest: size <= 200_000 ? latest : { tooLarge: true },
     });
@@ -304,8 +305,8 @@ export function registerSpecialistRoutes(options: {
   addRoute(routes, "POST", "/specialist-applications/:id/datasets/:datasetId/refresh", "host", async ctx => {
     requireDatasets(true);
     const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
-    const dataset = await refreshDatasetThroughResearch(config, found.workspacePath, ctx.params.datasetId);
-    return jsonResponse({ dataset: { ...dataset, workspaceId: found.workspaceId, workspacePath: found.workspacePath } });
+    const dataset = await refreshDatasetThroughResearch(config, found.workspacePath, ctx.params.datasetId, ctx.request.signal);
+    return jsonResponse({ dataset: { ...dataset, workspaceId: found.workspaceId, workspaceName: workspaceName(found.workspacePath) } });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/datasets/:datasetId", "host", async ctx => {
     requireDatasets(true);

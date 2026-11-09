@@ -101,8 +101,8 @@ test("dataset routes live and die with the specialistDatasets flag and aggregate
       const datasets = listed.json.datasets as Array<Record<string, unknown>>;
       assert.deepEqual(datasets.map(entry => entry.id), [datasetB.id, datasetA.id]);
       assert.equal(datasets[0]?.workspaceId, idB);
-      assert.equal(datasets[0]?.workspacePath, pathB);
-      assert.equal(datasets[1]?.workspacePath, pathA);
+      assert.equal(datasets[0]?.workspaceName, "proyecto-b");
+      assert.equal(datasets[1]?.workspaceName, "proyecto-a");
       // ?workspace= narrows to one project.
       const filtered = await call("GET", `/specialist-applications/${app.id}/datasets?workspace=${idA}`);
       assert.deepEqual((filtered.json.datasets as Array<Record<string, unknown>>).map(entry => entry.id), [datasetA.id]);

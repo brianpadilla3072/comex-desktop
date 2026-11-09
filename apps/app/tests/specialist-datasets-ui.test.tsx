@@ -22,7 +22,7 @@ let restoreFetch: () => void;
 type FakeDataset = {
   id: string; name: string; question: string; provider: string; operation: string;
   createdAt: number; updatedAt: number; lastSnapshotAt: number | null; snapshots: number;
-  derivedFrom: string | null; workspaceId: string; workspacePath: string;
+  derivedFrom: string | null; workspaceId: string; workspaceName: string;
 };
 let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean; datasetsEnabled: boolean };
 let datasets: FakeDataset[];
@@ -48,9 +48,9 @@ const libraryPayload = () => ({
   counts: { agents: 1, skills: 0 },
 });
 const seedDatasets = (): FakeDataset[] => ([
-  { id: "ds-search-informe-gigante-3c3c3c3c", name: "search-informe-gigante-3c3c3c3c", question: "informe gigante", provider: "tavily", operation: "search", createdAt: 1_700_000_400_000, updatedAt: 1_700_000_600_000, lastSnapshotAt: 1_700_000_600_000, snapshots: 1, derivedFrom: null, workspaceId: "ws_test", workspacePath: "/fixture/proyecto-principal" },
-  { id: "ds-search-aranceles-soja-1a2b3c4d", name: "search-aranceles-soja-1a2b3c4d", question: "aranceles soja china", provider: "tavily", operation: "search", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_500_000, lastSnapshotAt: 1_700_000_500_000, snapshots: 2, derivedFrom: null, workspaceId: "ws_test", workspacePath: "/fixture/proyecto-principal" },
-  { id: "ds-precios-limpios-9f8e7d6c", name: "precios-limpios-9f8e7d6c", question: "Derivado de aranceles soja china", provider: "local", operation: "derived", createdAt: 1_700_000_200_000, updatedAt: 1_700_000_200_000, lastSnapshotAt: 1_700_000_200_000, snapshots: 1, derivedFrom: "ds-search-aranceles-soja-1a2b3c4d", workspaceId: "ws_dos", workspacePath: "/fixture/proyecto-anexo" },
+  { id: "ds-search-informe-gigante-3c3c3c3c", name: "search-informe-gigante-3c3c3c3c", question: "informe gigante", provider: "tavily", operation: "search", createdAt: 1_700_000_400_000, updatedAt: 1_700_000_600_000, lastSnapshotAt: 1_700_000_600_000, snapshots: 1, derivedFrom: null, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
+  { id: "ds-search-aranceles-soja-1a2b3c4d", name: "search-aranceles-soja-1a2b3c4d", question: "aranceles soja china", provider: "tavily", operation: "search", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_500_000, lastSnapshotAt: 1_700_000_500_000, snapshots: 2, derivedFrom: null, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
+  { id: "ds-precios-limpios-9f8e7d6c", name: "precios-limpios-9f8e7d6c", question: "Derivado de aranceles soja china", provider: "local", operation: "derived", createdAt: 1_700_000_200_000, updatedAt: 1_700_000_200_000, lastSnapshotAt: 1_700_000_200_000, snapshots: 1, derivedFrom: "ds-search-aranceles-soja-1a2b3c4d", workspaceId: "ws_dos", workspaceName: "proyecto-anexo" },
 ]);
 
 beforeEach(() => {

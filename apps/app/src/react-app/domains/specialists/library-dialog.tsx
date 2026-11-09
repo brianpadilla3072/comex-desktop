@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, Pause, Play, Plus, Trash2, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -235,13 +235,11 @@ const TASKS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => 
 
 const DATASETS_KEY = (client: OpenworkServerClient, app: SpecialistApplication) => ["specialist-datasets", client.baseUrl, app.id] as const;
 
-/** Shared options for the datasets list: same idle-refetch rhythm as the tasks helpers, faster while an action (a refresh) is running. */
-function datasetsQuery(client: OpenworkServerClient, app: SpecialistApplication, refreshing = false) {
-  return { queryKey: DATASETS_KEY(client, app), queryFn: () => client.getSpecialistDatasets(app.id), retry: false, refetchInterval: refreshing ? 5_000 : 30_000 };
+/** Shared options for the datasets list: same idle-refetch rhythm as the tasks helpers. Refresh
+ *  is a long awaited call, so its result invalidates the list + open detail instead of polling. */
+function datasetsQuery(client: OpenworkServerClient, app: SpecialistApplication) {
+  return { queryKey: DATASETS_KEY(client, app), queryFn: () => client.getSpecialistDatasets(app.id), retry: false, refetchInterval: 30_000 };
 }
-
-/** Last path segment of the project folder: enough to tell the workspaces apart in the rows. */
-const workspaceName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 
 function previewText(value: unknown): string {
   if (typeof value === "object" && value !== null && !Array.isArray(value) && "tooLarge" in value) return "El último snapshot supera los 200 KB y no se previsualiza acá. Está en el proyecto, en comex/datasets.";
@@ -260,14 +258,14 @@ function DatasetsSummary({ app, client }: { app: SpecialistApplication; client: 
   return <ul className="grid gap-1 text-xs text-muted-foreground">{datasets.slice(0, 4).map(dataset => <li key={`${dataset.workspaceId}/${dataset.id}`} className="flex items-center gap-2">
     <Database className="size-3.5 shrink-0" /><span className="max-w-40 truncate">{dataset.name}</span>
     <span className="min-w-0 flex-1 truncate">{dataset.question}</span>
-    {workspaces.size > 1 ? <span className="max-w-32 truncate">{workspaceName(dataset.workspacePath)}</span> : null}
+    {workspaces.size > 1 ? <span className="max-w-32 truncate">{dataset.workspaceName}</span> : null}
     <span>actualizado {formatWhen(dataset.updatedAt)}</span>
   </li>)}</ul>;
 }
 
 function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
-  const [refreshing, setRefreshing] = useState(false);
-  const query = useQuery(datasetsQuery(client, app, refreshing));
+  const queryClient = useQueryClient();
+  const query = useQuery(datasetsQuery(client, app));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -281,7 +279,13 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
   async function run(action: () => Promise<unknown>, message?: string) {
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
-    try { await action(); await query.refetch(); if (message) setNotice(message); }
+    try {
+      await action();
+      await query.refetch();
+      // The open detail (a prefix of this key) must re-read the new snapshot, not the cache.
+      queryClient.invalidateQueries({ queryKey: DATASETS_KEY(client, app) });
+      if (message) setNotice(message);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
     finally { setBusy(false); }
   }
@@ -310,11 +314,11 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
             <span className="block truncate text-xs text-muted-foreground">{dataset.question}</span>
           </span>
         </button>
-        {dataset.provider === "tavily" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(async () => { setRefreshing(true); try { await client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId); } finally { setRefreshing(false); } }, "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
+        {dataset.provider === "tavily" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} aria-label={`Eliminar ${dataset.name}`} onClick={() => setPendingDelete({ id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })}><Trash2 className="size-4" /></Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        {workspaces.size > 1 ? `${workspaceName(dataset.workspacePath)} · ` : ""}
+        {workspaces.size > 1 ? `${dataset.workspaceName} · ` : ""}
         {dataset.provider}/{dataset.operation} · {dataset.snapshots} snapshot{dataset.snapshots === 1 ? "" : "s"}{dataset.derivedFrom ? " · derivado de otro dataset" : ""} · actualizado {formatWhen(dataset.updatedAt)}
       </p>
       {isOpen(dataset) ? <div className="grid gap-1 border-t pt-2 text-xs">

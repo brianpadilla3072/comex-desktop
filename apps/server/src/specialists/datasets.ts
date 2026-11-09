@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { cp, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -6,7 +6,9 @@ import { ApiError } from "../errors.js";
 
 /** Datasets give research queries an identity: the query is stored as data so it can be
  *  re-run (by a person, a task or the scheduler) and each execution leaves an immutable snapshot.
- *  Everything lives as files inside the workspace: comex/datasets/<id>/. */
+ *  Everything lives as files inside the workspace: comex/datasets/<id>/. Every index mutation is
+ *  serialized per project (tasks.ts doctrine: awaits between read and write are where concurrent
+ *  capture/refresh/delete would lose updates). */
 
 const DATASET_LIMIT = 60;
 const SNAPSHOT_LIMIT = 50;
@@ -17,6 +19,10 @@ export const datasetMetaSchema = z.object({
   question: z.string(),
   provider: z.string(),
   operation: z.string(),
+  /** sha256 over canonical provider|operation|input — cheap "same query" matching without
+   *  reading every query.json. Optional: entries written before the hash existed fall back
+   *  to a one-time file comparison and gain the hash on their next run. */
+  queryHash: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
   lastSnapshotAt: z.number().nullable(),
@@ -34,8 +40,27 @@ export const datasetQuerySchema = z.object({
 export type SpecialistDatasetQuery = z.infer<typeof datasetQuerySchema>;
 
 const failure = (message: string) => new ApiError(422, "invalid_dataset", message);
-
 const datasetsRoot = (directory: string) => join(directory, "comex", "datasets");
+
+/** Key-order-stable serialization so the same query always hashes the same, whoever wrote it. */
+const canonicalJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+};
+export const datasetQueryHash = (query: SpecialistDatasetQuery) =>
+  createHash("sha256").update(`${query.provider}|${query.operation}|${canonicalJson(query.input)}`).digest("hex");
+
+const chains = new Map<string, Promise<unknown>>();
+function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = chains.get(key) ?? Promise.resolve();
+  const current = previous.then(work, work);
+  chains.set(key, current.then(() => undefined, () => undefined));
+  return current;
+}
 const datasetDir = (directory: string, id: string) => {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) throw failure("El id del dataset no es válido.");
   return join(datasetsRoot(directory), id);
@@ -72,19 +97,27 @@ export async function listDatasets(directory: string) {
 const slugify = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 
 const sameQuery = (left: SpecialistDatasetQuery, right: SpecialistDatasetQuery) =>
-  left.provider === right.provider && left.operation === right.operation && JSON.stringify(left.input) === JSON.stringify(right.input);
+  left.provider === right.provider && left.operation === right.operation && canonicalJson(left.input) === canonicalJson(right.input);
 
 /** Register one execution. Returns the dataset it belongs to; creates it the first time the exact query appears. */
-export async function recordDatasetRun(directory: string, query: SpecialistDatasetQuery, evidencePath: string) {
+export function recordDatasetRun(directory: string, query: SpecialistDatasetQuery, evidencePath: string) {
+  return serialize(datasetsRoot(directory), async () => {
   await ensureFolder(datasetsRoot(directory));
   const datasets = await readIndex(directory);
-  const queries = new Map<string, SpecialistDatasetQuery>();
-  for (const meta of datasets) {
-    try { queries.set(meta.id, datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, meta.id), "query.json"), "utf8")))); }
-    catch { /* a dataset without a readable query stays in the list but never matches */ }
-  }
-  let meta = datasets.find(entry => { const value = queries.get(entry.id); return value !== undefined && sameQuery(value, query); });
+  const hash = datasetQueryHash(query);
+  // The index hash answers the "same query" question without reading every query.json; entries
+  // predating the hash fall back to one file comparison (they gain the hash on this very write).
+  let meta = datasets.find(entry => entry.queryHash === hash)
+    ?? (await (async () => {
+      for (const entry of datasets) {
+        if (entry.queryHash !== undefined || entry.provider !== query.provider || entry.operation !== query.operation) continue;
+        try { if (sameQuery(datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, entry.id), "query.json"), "utf8"))), query)) return entry; }
+        catch { /* unreadable query: never matches */ }
+      }
+      return undefined;
+    })());
   const id = meta?.id ?? `ds-${slugify(`${query.operation}-${(query.input as { query?: string; url?: string }).query ?? (query.input as { query?: string; url?: string }).url ?? "consulta"}`) || "consulta"}-${randomUUID().slice(0, 8)}`;
+  const created = meta === undefined;
   const dir = await ensureFolder(datasetDir(directory, id));
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const snapshotFile = join(dir, "snapshots");
@@ -98,17 +131,18 @@ export async function recordDatasetRun(directory: string, query: SpecialistDatas
   const question = typeof (query.input as { query?: string }).query === "string" ? String((query.input as { query?: string }).query) : typeof (query.input as { url?: string }).url === "string" ? String((query.input as { url?: string }).url) : query.operation;
   if (!meta) {
     if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
-    meta = { id, name: id.replace(/^ds-/, "").replace(/-[a-z0-9]{8}$/, ""), question, provider: query.provider, operation: query.operation, createdAt: now, updatedAt: now, lastSnapshotAt: now, snapshots: 1, derivedFrom: null };
+    meta = { id, name: id.replace(/^ds-/, "").replace(/-[a-z0-9]{8}$/, ""), question, provider: query.provider, operation: query.operation, queryHash: hash, createdAt: now, updatedAt: now, lastSnapshotAt: now, snapshots: 1, derivedFrom: null };
     await writeFile(join(dir, "dataset.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
     await writeFile(join(dir, "query.json"), JSON.stringify(query, null, 2), { mode: 0o600 });
     await writeIndex(directory, [meta, ...datasets]);
   } else {
-    const next = { ...meta, updatedAt: now, lastSnapshotAt: now, snapshots: Math.min(SNAPSHOT_LIMIT, entries.length) };
+    const next = { ...meta, updatedAt: now, lastSnapshotAt: now, snapshots: Math.min(SNAPSHOT_LIMIT, entries.length), queryHash: meta.queryHash ?? hash };
     meta = next;
     await writeFile(join(dir, "dataset.json"), JSON.stringify(next, null, 2), { mode: 0o600 });
     await writeIndex(directory, datasets.map(entry => entry.id === next.id ? next : entry));
   }
-  return { dataset: meta, created: queries.get(meta.id) === undefined };
+  return { dataset: meta, created };
+  });
 }
 
 export async function readDatasetQuery(directory: string, id: string) {
@@ -128,23 +162,28 @@ export async function listSnapshotDates(directory: string, id: string) {
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
 }
 
-/** Re-run the stored query. The runner is injected so datasets never import providers directly. */
+/** Re-run the stored query. The runner is injected so datasets never import providers directly.
+ *  Kept as the provider-agnostic seam for tests and future local runners; production refresh
+ *  goes through datasets-refresh.ts (which threads abort + reports the recorded dataset id). */
 export async function refreshDataset(directory: string, id: string, run: (query: SpecialistDatasetQuery) => Promise<{ evidencePath: string }>) {
   const query = await readDatasetQuery(directory, id);
   const { evidencePath } = await run(query);
   return recordDatasetRun(directory, query, evidencePath);
 }
 
-export async function deleteDataset(directory: string, id: string) {
-  const datasets = await readIndex(directory);
-  if (!datasets.some(entry => entry.id === id)) throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
-  await rm(datasetDir(directory, id), { recursive: true, force: true });
-  await writeIndex(directory, datasets.filter(entry => entry.id !== id));
+export function deleteDataset(directory: string, id: string) {
+  return serialize(datasetsRoot(directory), async () => {
+    const datasets = await readIndex(directory);
+    if (!datasets.some(entry => entry.id === id)) throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
+    await rm(datasetDir(directory, id), { recursive: true, force: true });
+    await writeIndex(directory, datasets.filter(entry => entry.id !== id));
+  });
 }
 
 /** A cleaned/transformed view of a source dataset: no re-runnable query (the derivation is the
  *  script the person's agent keeps in the project), one snapshot per regeneration, lineage kept. */
-export async function registerDerivedDataset(directory: string, sourceId: string, name: string, payload: unknown) {
+export function registerDerivedDataset(directory: string, sourceId: string, name: string, payload: unknown) {
+  return serialize(datasetsRoot(directory), async () => {
   const datasets = await readIndex(directory);
   const source = datasets.find(entry => entry.id === sourceId);
   if (!source) throw new ApiError(404, "dataset_not_found", "El dataset de origen no existe.");
@@ -164,12 +203,17 @@ export async function registerDerivedDataset(directory: string, sourceId: string
   await writeFile(join(dir, "dataset.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
   await writeIndex(directory, [meta, ...datasets]);
   return meta;
+  });
 }
 
 /** The dataset a query belongs to, without registering a run (read-side lookup). */
 export async function findDatasetForQuery(directory: string, query: SpecialistDatasetQuery) {
   const datasets = await readIndex(directory);
+  const hash = datasetQueryHash(query);
+  const byHash = datasets.find(entry => entry.queryHash === hash);
+  if (byHash) return byHash;
   for (const meta of datasets) {
+    if (meta.queryHash !== undefined || meta.provider !== query.provider || meta.operation !== query.operation) continue;
     try { if (sameQuery(datasetQuerySchema.parse(JSON.parse(await readFile(join(datasetDir(directory, meta.id), "query.json"), "utf8"))), query)) return meta; }
     catch { /* unreadable query: skip like recordDatasetRun does */ }
   }
