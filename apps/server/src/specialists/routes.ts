@@ -4,7 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled } from "../comex/features.js";
+import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
@@ -54,7 +54,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), sourcesEnabled: specialistSourcesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), sourcesEnabled: specialistSourcesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
@@ -304,6 +304,16 @@ export function registerSpecialistRoutes(options: {
     if (!scheduler) throw new ApiError(503, "scheduler_unavailable", "El planificador no está corriendo en este server.");
     const result = await scheduler.trigger(app.id, ctx.params.taskId);
     return jsonResponse({ started: result.ok, detail: result.detail ?? null, tasks: await listTasks(config, app.id) });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/tasks/:taskId/dry-run", "host", async ctx => {
+    requireTasks(true);
+    if (!taskDryRunEnabled()) throw new ApiError(404, "task_dry_run_disabled", "El ensayo de tareas está desactivado.");
+    const store = await specialistStore(config);
+    const app = store.application(ctx.params.id);
+    const scheduler = currentSpecialistScheduler();
+    if (!scheduler) throw new ApiError(503, "scheduler_unavailable", "El planificador no está corriendo en este server.");
+    const result = await scheduler.dryRun(app.id, ctx.params.taskId);
+    return jsonResponse({ started: result.ok, sessionId: result.sessionId ?? null, workspaceId: result.workspaceId ?? null, detail: result.detail ?? null, note: result.ok ? "Ensayo lanzado en una sesión aparte: nada se guardó ni se programó." : null });
   });
 
   /** Research datasets: files live per project (workspace), so the application's panels aggregate over its

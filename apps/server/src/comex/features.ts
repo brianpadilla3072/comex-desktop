@@ -81,6 +81,12 @@ export function scheduledTasksEnabled(env: NodeJS.ProcessEnv = process.env): boo
   return resolveFeature("scheduledTasks", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+export function taskDryRunEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("taskDryRun", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 export function specialistDatasetsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;

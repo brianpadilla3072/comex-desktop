@@ -48,7 +48,7 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, datasets, sources, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; datasets: boolean; sources: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   // El título describe lo que realmente hay adentro, no la feature original.
@@ -60,7 +60,7 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, datas
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
@@ -767,7 +767,7 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
 
 const RUNS_KEY = (client: OpenworkServerClient, app: SpecialistApplication, taskId: string) => ["specialist-task-runs", client.baseUrl, app.id, taskId] as const;
 
-function TasksView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; dryRun: boolean; onBack(): void }) {
   const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -840,6 +840,7 @@ function TasksView({ app, client, onBack }: { app: SpecialistApplication; client
       <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
+        {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mirá el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
         <Button size="sm" variant="ghost" aria-expanded={runsFor?.id === task.id} onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
         <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => void run(() => client.deleteSpecialistTask(app.id, task.id))}><Trash2 className="size-4" /></Button>

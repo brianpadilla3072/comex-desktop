@@ -269,6 +269,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  taskDryRun: {
+    label: "Specialist task dry-run",
+    description: "Let a person rehearse a scheduled task once before activating it: the prompt runs in a disposable session that writes nothing, so the task's real effect can be reviewed safely.",
+    category: "experience",
+    added: "2026-11-09",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/live-dashboards-and-scheduled-tasks/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistPanels: {
     label: "Specialist data panels",
     description: "Declarative *.panel.json views over datasets or workspace files: deterministic stat/line/bar/table/markdown blocks that repaint when the latest snapshot changes, with no AI code in the render path.",

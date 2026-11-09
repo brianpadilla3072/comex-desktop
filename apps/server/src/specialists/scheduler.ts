@@ -20,6 +20,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 export type SpecialistScheduler = {
   /** Run one task now, outside the schedule (manual button / "probala ya"). */
   trigger: (applicationId: string, taskId: string) => Promise<{ ok: boolean; detail?: string }>;
+  /** Rehearse once in a disposable session: no claim, no run log, no evidence (F3). */
+  dryRun: (applicationId: string, taskId: string) => Promise<{ ok: boolean; sessionId?: string; workspaceId?: string; detail?: string }>;
   tick: () => Promise<void>;
   stop: () => Promise<void>;
 };
@@ -191,8 +193,33 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       if (task.running) throw new ApiError(409, "task_running", "La tarea ya tiene una corrida en curso.");
       return dispatch(applicationId, task, "manual");
     },
+    async dryRun(applicationId, taskId) {
+      // The rehearsal never claims the task: no run log entry, no evidence file, no schedule
+      // change. The prompt carries a banner so the agent knows persistence is off; a session is
+      // still created so the person can watch what the task WOULD do. F3 of the plan.
+      const store = await specialistStore(config);
+      void store.application(applicationId);
+      const task = (await listTasks(config, applicationId)).find(entry => entry.id === taskId);
+      if (!task) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
+      const bound = store.projectsFor(applicationId).filter(project => config.workspaces.some(workspace => workspace.id === project.workspaceId));
+      const project = bound[0];
+      if (!project) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para ensayar la tarea.");
+      try {
+        const created = await call(project.workspaceId, "/session", { title: `Ensayo (sin guardar): ${task.name}` });
+        const sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
+        if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");
+        await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/prompt`, {
+          text: `[ENSAYO — no guardes nada: esta corrida no escribe archivos, no crea sesiones y no muta el proyecto; mostrá qué herramientas usarías y qué escribirías]\n\n${task.prompt}`,
+          delivery: "queue",
+          metadata: { openworkScheduledTask: task.id, openworkScheduledTaskName: task.name, openworkDryRun: true },
+        });
+        return { ok: true, sessionId, workspaceId: project.workspaceId };
+      } catch (error) {
+        return { ok: false, detail: error instanceof ApiError ? error.message : "No se pudo lanzar el ensayo." };
+      }
+    },
     tick,
-    async stop() { stopped = true; clearInterval(timer); },
+    async stop() { stopped = true; clearInterval(timer); if (active === controller) active = undefined; },
   };
   active = controller;
   return controller;

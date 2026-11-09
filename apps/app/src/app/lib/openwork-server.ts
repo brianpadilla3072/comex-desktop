@@ -126,6 +126,7 @@ export interface SpecialistCatalog {
   integrationsEnabled?: boolean;
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
+  taskDryRunEnabled?: boolean;
   datasetsEnabled?: boolean;
   panelsEnabled?: boolean;
   sourcesEnabled?: boolean;
@@ -2565,6 +2566,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
     deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    dryRunSpecialistTask: (id: string, taskId: string) => requestJson<{ started: boolean; sessionId: string | null; workspaceId: string | null; detail: string | null; note: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/dry-run`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
     getSpecialistDatasets: (id: string, workspaceId?: string) => requestJson<{ datasets: SpecialistDataset[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<SpecialistDatasetDetail>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
