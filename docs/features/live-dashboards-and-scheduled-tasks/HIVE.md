@@ -7,13 +7,12 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | Celda | Pieza | Estado | Commits | Pendientes |
 |---|---|---|---|---|
 | A | [1] Scheduler tareas | ✅ impl ✅ revisor ✅ fixes ✅ test-front ✅ fixes de las 5 trabas aplicados | `f850096` `ca474c2` `fd3c2dbe` | — (celda cerrada) |
-| B | [2] Datasets + captura | ✅ store ✅ wiring (rutas/tools/UI, 41/41+10/10) · 👁 revisor EN VUELO | `ca474c2` `01b6ccb` `fd3c2dbe` | fixes revisor → test-front B |
-| B2 | [6] Fuentes y citas | ✅ core + 3/3 tests | `c144aff` | wiring tras el revisor de B (mismos archivos) |
-| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front tras B |
-| C2 | [5] Captura ampliada | ⬜ plan: kinds task/dataset/panel en proposals + propuesta compuesta + accept route | | |
-| C3 | [7] Salidas mini-Studio | ✅ core + 3/3 tests (outputs.ts: validación por tipo, auditoría de citas) | `ffd07a7` | wiring |
-| C2 | [5] Captura ampliada (kinds task/panel/dataset) | ⬜ | | |
-| C3 | [7] Salidas mini-Studio | ⬜ | | |
+| B | [2] Datasets + captura | ✅ store ✅ wiring ✅ revisor ✅ fixes (`e60a3b1`) · 🔬 test-front EN VUELO | `ca474c2` `01b6ccb` `fd3c2dbe` `e60a3b1` | aplicar HIVE-B-TEST.md |
+| B2 | [6] Fuentes y citas | ✅ core + 3/3 | `c144aff` | wiring tras tester B (mismos archivos) |
+| C1 | [3] Paneles declarativos | ✅ core ✅ revisor ✅ fixes 8/8 | `7d8ee72` `cd38ddee` | wiring + test-front |
+| C2 | [5] Captura ampliada | ✅ core: kinds task/plan con validación at-rest + tests | `094028b` | wiring: enum propose, accept route (task nace PAUSADA), UI kinds |
+| C3 | [7] Salidas mini-Studio | ✅ core: validación por tipo + auditoría de citas | `ffd07a7` | wiring |
+| F2 | Diff de snapshot | ✅ diffs.ts puro (filas por identidad, escalar, shape honesto) | `4d3387c` | wiring: runner lo llama tras cada refresh; bloque de panel "cambios" |
 | D | [4] MCP Apps local | ⬜ | | |
 | F1–F5 | Backlog alineado | ⬜ | | |
 
