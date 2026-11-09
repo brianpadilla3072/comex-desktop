@@ -269,7 +269,7 @@ if (shouldDownloadOpencode) {
     // The Windows runner ships curl.exe, which retries 504s from GitHub
     // releases. Invoke-WebRequest on the runner's PowerShell 5.1 has no
     // retry interval (PowerShell 7 only), so it stays as a plain fallback.
-    const curlResult = spawnSync("curl.exe", ["-fsSL", "--retry", "5", "--retry-all-errors", "--retry-delay", "5", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
+    const curlResult = spawnSync("curl.exe", ["-fsSL", "--retry", "10", "--retry-all-errors", "--retry-delay", "20", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
       stdio: "inherit",
     });
     if (curlResult.status !== 0) {
@@ -290,7 +290,7 @@ if (shouldDownloadOpencode) {
   } else {
     // GitHub release assets intermittently answer 504; without retries the
     // Linux build job fails on a transient CDN hiccup.
-    const downloadResult = spawnSync("curl", ["-fsSL", "--retry", "5", "--retry-all-errors", "--retry-delay", "5", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
+    const downloadResult = spawnSync("curl", ["-fsSL", "--retry", "10", "--retry-all-errors", "--retry-delay", "20", "--connect-timeout", "20", "--max-time", "600", "-o", archivePath, opencodeUrl], {
       stdio: "inherit",
     });
     if (downloadResult.status !== 0) {
