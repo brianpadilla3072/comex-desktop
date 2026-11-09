@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versión opcional 1.0.N. Si se deja vacío se usa el número de ejecución.'
+        description: 'Versión opcional 1.0.N. Si se deja vacío se reemplaza la última publicada (sin bump).'
         required: false
         type: string
 
@@ -47,7 +47,20 @@ jobs:
         with:
           script: |
             const input = (process.env.INPUT_VERSION || '').trim().replace(/^v/, '');
-            const version = input || `1.0.${context.runNumber}`;
+            let version = input;
+            if (!version) {
+              // Replace-in-place policy: a normal run rebuilds the newest published
+              // release instead of minting a new version number. Bump only when the
+              // workflow is dispatched with an explicit version input.
+              try {
+                const latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
+                const match = /^v1\.0\.(\d+)$/.exec(latest.tag_name);
+                if (match) version = `1.0.${match[1]}`;
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+            version = version || `1.0.${context.runNumber}`;
             if (!/^1\.0\.\d+$/.test(version)) {
               throw new Error(`Invalid release version "${version}"; expected 1.0.N.`);
             }
@@ -60,19 +73,22 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
             }
-            if (release && release.target_commitish !== context.sha) {
-              throw new Error(`Release ${tag} belongs to another commit.`);
+            if (release && !release.draft && release.target_commitish === context.sha) {
+              // This exact commit is already published under this tag: nothing to replace.
+              core.setOutput('published', 'true');
+              return;
             }
-            core.setOutput('published', Boolean(release && !release.draft));
-            if (release && !release.draft) return;
-            try {
-              const latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
-              const match = /^v1\.0\.(\d+)$/.exec(latest.tag_name);
-              if (match && Number(match[1]) >= Number(version.split('.')[2])) {
-                throw new Error(`Refusing to replace newer release ${latest.tag_name} with ${tag}.`);
+            core.setOutput('published', 'false');
+            if (!release) {
+              try {
+                const latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
+                const match = /^v1\.0\.(\d+)$/.exec(latest.tag_name);
+                if (match && Number(match[1]) > Number(version.split('.')[2])) {
+                  throw new Error(`Refusing to create ${tag} behind newer release ${latest.tag_name}.`);
+                }
+              } catch (error) {
+                if (error.status !== 404) throw error;
               }
-            } catch (error) {
-              if (error.status !== 404) throw error;
             }
 
   validate:
@@ -268,15 +284,18 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
             }
+            const body = `Actualización automática de Comex.\n\nCódigo: ${context.sha}\n\nWindows x64: instalador .exe. Linux x64: AppImage.`;
             if (release) {
-              if (!release.draft || release.target_commitish !== context.sha) {
-                throw new Error('Refusing to overwrite an existing published release or a different commit.');
-              }
+              // Replace-in-place policy: retarget the existing release to this commit;
+              // same-named assets are overwritten below with --clobber.
+              await github.rest.repos.updateRelease({
+                ...context.repo, release_id: release.id,
+                target_commitish: context.sha, draft: release.draft, body,
+              });
             } else {
               await github.rest.repos.createRelease({
                 ...context.repo, tag_name: tag, target_commitish: context.sha,
-                name: `Comex ${process.env.RELEASE_VERSION}`, draft: true,
-                body: `Actualización automática de Comex.\n\nCódigo: ${context.sha}\n\nWindows x64: instalador .exe. Linux x64: AppImage.`,
+                name: `Comex ${process.env.RELEASE_VERSION}`, draft: true, body,
               });
             }
       - name: Build Comex release inventory
