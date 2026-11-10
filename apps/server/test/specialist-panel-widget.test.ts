@@ -158,3 +158,19 @@ test("a failed refresh keeps the data on screen, says why and leaves the button 
     await until(() => document.querySelector<HTMLButtonElement>("#refresh")?.disabled === false, "the refresh button stayed disabled");
   } finally { host.dispose(); }
 });
+
+test("bar rows keep every value readable and scale widths within their own track", async () => {
+  const host = mountWidget();
+  try {
+    await until(() => host.sent.some(message => message["method"] === "ui/notifications/initialized"), "handshake incomplete");
+    host.deliver({ content: [], structuredContent: {
+      ok: true, panel: "volumen", title: "Volumen", source: "file:precios.json", refreshedAt: 1,
+      blocks: [{ type: "bar", title: "Volumen", x: "fecha", series: [{ name: "volumen", points: [{ x: "2026-11-07", y: 1200 }, { x: "2026-11-08", y: 600 }] }], skipped: 0 }],
+    } });
+    await until(() => document.querySelectorAll(".bar-row").length === 2, "bars never painted");
+    const values = [...document.querySelectorAll(".bar-value")].map(node => node.textContent);
+    assert.deepEqual(values, ["1200", "600"]);
+    const widths = [...document.querySelectorAll<HTMLElement>(".bar-fill")].map(node => node.style.width);
+    assert.deepEqual(widths, ["100%", "50%"]);
+  } finally { host.dispose(); }
+});

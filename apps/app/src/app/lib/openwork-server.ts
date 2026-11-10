@@ -129,6 +129,8 @@ export interface SpecialistCatalog {
   taskDryRunEnabled?: boolean;
   datasetsEnabled?: boolean;
   panelsEnabled?: boolean;
+  /** The panel also renders as an interactive MCP App inside the chat. */
+  panelAppsEnabled?: boolean;
   sourcesEnabled?: boolean;
   sourcesLocalFilesEnabled?: boolean;
   outputsEnabled?: boolean;

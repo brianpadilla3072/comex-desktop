@@ -272,7 +272,8 @@ test("scheduledTasks=false: el menú sigue abierto la biblioteca pero sin la sec
   flags = { libraryEnabled: true, scheduledTasksEnabled: false };
   await renderAt();
   await openLibraryDialog();
-  expect(hasText("Contexto, agentes y skills de Taller")).toBe(true);
+  expect(document.querySelector('[data-slot="dialog-title"]')?.textContent).toBe("Taller");
+  expect(hasText("Contexto, agentes y skills")).toBe(true);
   expect(hasText("Tareas programadas")).toBe(false);
   expect(hasText("Gestionar")).toBe(false);
   // La biblioteca se lee igual.
@@ -295,8 +296,12 @@ test("library=false y scheduledTasks=true: el diálogo abre sobre tareas sin el 
   // El fixture tiene una propuesta skill: con tareas encendidas también se ve (cada pieza la
   // confirma o no su propia flag al aceptar).
   expect(hasText("Propuestas pendientes (1)")).toBe(true);
-  // Y el título del diálogo describe lo que hay: tareas, no contexto/agentes/skills.
-  expect(hasText("Tareas de Taller")).toBe(true);
+  // El título nombra la aplicación y la línea de abajo dice qué hay: tareas, no
+  // contexto/agentes/skills.
+  expect(document.querySelector('[data-slot="dialog-title"]')?.textContent).toBe("Taller");
+  const subtitle = document.querySelector('[data-slot="dialog-header"] p')?.textContent ?? "";
+  expect(subtitle).toBe("Tareas");
+  expect(subtitle.includes("Contexto, agentes y skills")).toBe(false);
 });
 
 test("library=false y scheduledTasks=false: el ítem del menú desaparece", async () => {

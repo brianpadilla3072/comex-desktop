@@ -308,7 +308,8 @@ test("paso 1 — todas las flags: el título lista las seis secciones y el home 
   await flush();
 
   // El título describe lo que hay adentro: las seis secciones, sin inventar ni ocultar ninguna.
-  expect(hasText("Contexto, agentes y skills · Tareas · Datos · Fuentes · Paneles · Salidas de Taller")).toBe(true);
+  expect(hasText("Contexto, agentes y skills · Tareas · Datos · Fuentes · Paneles · Salidas")).toBe(true);
+  expect(document.querySelector('[data-slot="dialog-title"]')?.textContent).toBe("Taller");
 
   // Cabeceras de sección (home) + una muestra de contenido por resumen: si una lista
   // estuviera rota, el resumen no podría mostrar su fila real.

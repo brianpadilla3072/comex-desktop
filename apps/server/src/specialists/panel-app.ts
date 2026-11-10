@@ -332,9 +332,10 @@ tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--color-background-secondary,#f7f7f7)}
 .alert{border:1px solid var(--color-border-danger,#c33);color:var(--color-text-danger,#a11);border-radius:7px;padding:7px 9px;font-size:12px}
 .empty{font-size:12px;opacity:.72}
-.bar-row{display:grid;grid-template-columns:86px 1fr;gap:6px;align-items:center;font-size:11px}
-.bar-track{display:flex;gap:3px;align-items:center}
-.bar-fill{height:9px;border-radius:3px;background:var(--color-text-info,#3b82f6);min-width:1px}
+.bar-row{display:grid;grid-template-columns:96px 1fr 52px;gap:6px;align-items:center;font-size:11px}
+.bar-track{position:relative;height:9px;min-width:0;border-radius:3px;background:var(--color-background-tertiary,#e8e8e8)}
+.bar-fill{position:absolute;inset:0 auto 0 0;height:9px;border-radius:3px;background:var(--color-text-info,#3b82f6);min-width:1px}
+.bar-value{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .muted{opacity:.72}
 pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;border-radius:6px;background:var(--color-background-secondary,#f5f5f5)}
 </style></head><body>
@@ -507,14 +508,16 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
       series.forEach(function(entry){
         entry.points.slice(0, 20).forEach(function(point, index){
           var row = el("div", "bar-row");
-          row.appendChild(el("span", "muted", point.x || String(index + 1)));
+          // The value column keeps the row from overflowing the card, so the bar width is a
+          // percentage of its own track and every number stays readable.
+          row.appendChild(el("span", "muted", (point.x || String(index + 1)) + (series.length > 1 ? " · " + entry.name : "")));
           var track = el("div", "bar-track");
           var fill = el("span", "bar-fill");
-          fill.style.width = Math.max(1, Math.abs(point.y) / barSpan * 100) + "%";
+          fill.style.width = Math.max(1, Math.min(100, Math.abs(point.y) / barSpan * 100)) + "%";
           fill.title = entry.name + ": " + point.y;
           track.appendChild(fill);
-          track.appendChild(el("span", "meta", String(point.y)));
           row.appendChild(track);
+          row.appendChild(el("span", "bar-value meta", String(point.y)));
           wrap.appendChild(row);
         });
       });

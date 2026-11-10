@@ -369,7 +369,8 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   await openLibraryDialog();
 
   // ── Paso 1: menú → título con las seis secciones + resúmenes con contenido real ──
-  expect(hasText("Contexto, agentes y skills · Tareas · Datos · Fuentes · Paneles · Salidas de Taller")).toBe(true);
+  expect(hasText("Contexto, agentes y skills · Tareas · Datos · Fuentes · Paneles · Salidas")).toBe(true);
+  expect(document.querySelector('[data-slot="dialog-title"]')?.textContent).toBe("Taller");
   expect(hasText("actualizar precios")).toBe(true); // fila tareas
   expect(hasText("search-aranceles-soja-1a2b3c4d")).toBe(true); // fila datasets
   expect(hasText("Soja — cierre")).toBe(true); // fila paneles

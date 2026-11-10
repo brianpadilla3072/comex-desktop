@@ -394,3 +394,19 @@ test("a panel too large for the host budget is trimmed, or fails loud instead of
 });
 
 type PanelPayload = { ok: true; blocks: unknown[] } | { ok: false; error: string };
+
+test("the catalog says whether panel Apps are available, so the UI never promises a missing feature", async () => {
+  const { root, config } = await fixture();
+  const call = apiHarness(config);
+  try {
+    await withEnv(ALL, async () => {
+      const on = await call("GET", "/specialist-applications");
+      assert.equal(on.status, 200);
+      assert.equal(on.json?.["panelAppsEnabled"], true);
+    });
+    await withEnv({ ...ALL, DEN_FEATURE_SPECIALIST_PANEL_APPS: "false" }, async () => {
+      const off = await call("GET", "/specialist-applications");
+      assert.equal(off.json?.["panelAppsEnabled"], false);
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

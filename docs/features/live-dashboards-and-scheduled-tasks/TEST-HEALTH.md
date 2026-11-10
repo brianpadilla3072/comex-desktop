@@ -43,7 +43,7 @@ llegue (condición en vez de snapshot).
 
 
 Las dos suites quedan **completamente verdes**: servidor **754 pass / 11 skip / 0 fail** (dos
-fases) y app **2044 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
+fases) y app **2046 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
 
 > El servidor corre en dos fases: `test:engines` (36: 35 pass + 1 skip solo-Windows) y
 > `test:parallel` (729: 719 pass + 10 skip). Los 11 skip son legítimos: 10 piden el binario
@@ -181,6 +181,27 @@ llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía a
 plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
 (con tests de ambos caminos).
 
+### Pasada de usuario exigente sobre la UI real
+
+Segunda vuelta, esta vez recorriendo la UI como una persona con expectativas (clicks, Escape,
+borrar/cancelar, ventana angosta, datos raros). Encontró y arregló cuatro cosas:
+
+1. **Título del diálogo**: era una enumeración de seis secciones (`Contexto, agentes y skills ·
+   Tareas · Datos · … de Comercio`) que se partía en dos líneas y se pisaba con la X. Ahora el
+   título es el nombre de la aplicación y la enumeración es una línea secundaria.
+2. **Tabla recortada en silencio**: la tarjeta mostraba 5 de 30 filas sin decirlo. Ahora agrega
+   "Mostrando 5 de 30 filas" (y "N de M columnas" cuando recorta columnas por defecto).
+3. **Gráfico de barras desbordado**: las barras se salían de la tarjeta y los valores quedaban
+   cortados. Ahora cada fila es `etiqueta | pista | valor`: el ancho es un porcentaje de su pista
+   y el número tiene su propia columna (mismo arreglo en el widget `ui://`, con test de DOM).
+4. **La App interactiva no se anunciaba**: nada en la UI decía que el panel también se abre en el
+   chat. Ahora la vista de Paneles lo cuenta, y solo cuando el server la tiene encendida
+   (`panelAppsEnabled` viaja en el catálogo, con test de las dos posiciones).
+
+Verificado en esa misma pasada: Escape cierra el diálogo, borrar pide confirmación y cancelar
+conserva el panel, el estado de error nombra el archivo/dataset que falta, la ventana angosta
+scrollea adentro sin desbordar a lo ancho, y la consola del navegador quedó sin errores.
+
 ### Defecto de producto encontrado en el navegador
 
 El gráfico de líneas escalaba con **cero incluido** (`min = Math.min(...flat, 0)`): una serie
@@ -207,7 +228,7 @@ catálogo del host, resolución del recurso y preservación del resultado (unit)
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 719 pass / 10 skip / 0 fail + engines 35/1, exit 0
+pnpm --filter openwork-server test          # 721 pass / 10 skip / 0 fail + engines 35/1, exit 0
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53

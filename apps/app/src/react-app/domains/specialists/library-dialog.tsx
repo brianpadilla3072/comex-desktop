@@ -48,14 +48,18 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, localFiles, panels, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; localFiles: boolean; panels: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, localFiles, panels, panelApps, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; localFiles: boolean; panels: boolean; panelApps: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
-  // El título describe lo que realmente hay adentro, no la feature original.
+  // El título nombra la aplicación; la línea de abajo dice qué hay adentro (el título anterior era
+  // una enumeración de seis secciones que se partía en dos líneas y se pisaba con la X).
   const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null, sources ? "Fuentes" : null, panels ? "Paneles" : null, outputs ? "Salidas" : null].filter(Boolean).join(" · ");
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
-      <DialogHeader><DialogTitle>{sections} de {app.name}</DialogTitle></DialogHeader>
+      <DialogHeader>
+        <DialogTitle className="pr-8 leading-snug">{app.name}</DialogTitle>
+        <p className="text-xs text-muted-foreground">{sections}</p>
+      </DialogHeader>
       {view.kind === "home" ? <Home app={app} client={client} query={query} libraryEnabled={library} scheduled={scheduled} datasets={datasets} sources={sources} panels={panels} outputs={outputs} onOpen={setView} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
@@ -63,7 +67,7 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRu
       {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} localFiles={localFiles} onBack={() => setView({ kind: "home" })} /> : null}
-      {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} panelApps={panelApps} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "outputs" ? <OutputsView key="outputs" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
     </DialogContent>
   </Dialog>;
@@ -483,7 +487,7 @@ function PanelsSummary({ app, client }: { app: SpecialistApplication; client: Op
   </li>)}</ul>;
 }
 
-function PanelsView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
+function PanelsView({ app, client, panelApps, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; panelApps: boolean; onBack(): void }) {
   const query = useQuery(panelsQuery(client, app));
   const queryClient = useQueryClient();
   const [openName, setOpenName] = useState<string | null>(null);
@@ -501,6 +505,7 @@ function PanelsView({ app, client, onBack }: { app: SpecialistApplication; clien
     <Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <h3 className="text-sm font-medium">Paneles de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Vistas declarativas sobre los datasets: se redibujan solas cuando llega un snapshot nuevo. Si algo no se puede dibujar, el panel lo dice en vez de quedar en blanco.</p>
+    {panelApps ? <p className="text-xs text-muted-foreground">Este panel también se abre como <span className="font-medium">App interactiva dentro del chat</span>: pedile al asistente que lo muestre y vas a poder refrescarlo desde la tarjeta.</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación del panel ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar el panel "{pendingDelete.title}"? Dejará de dibujarse en los proyectos.</span>
@@ -603,17 +608,26 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
           </div>;
         }
         case "table": {
-          const columns = block.columns ?? (rows[0] ? Object.keys(rows[0]).slice(0, 8) : []);
+          const allColumns = rows[0] ? Object.keys(rows[0]) : [];
+          const columns = block.columns ?? allColumns.slice(0, 8);
           const sorted = block.sort ? [...rows].sort((a, b) => {
             const av = a[block.sort!.by], bv = b[block.sort!.by];
             const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
             return block.sort!.desc ? -cmp : cmp;
           }) : rows;
-          return <div key={index} className="overflow-x-auto"><table className="w-full text-xs">
-            <caption className="sr-only">Tabla del panel</caption>
-            <thead><tr>{columns.map(column => <th key={column} scope="col" className="border-b p-1 text-left font-medium">{column}</th>)}</tr></thead>
-            <tbody>{sorted.slice(0, block.limit ?? 50).map((row, rowIndex) => <tr key={rowIndex}>{columns.map(column => <td key={column} className="border-b p-1">{String(row[column] ?? "")}</td>)}</tr>)}</tbody>
-          </table></div>;
+          const limit = block.limit ?? 50;
+          const visible = sorted.slice(0, limit);
+          // Truncation is never silent: the card says how much it is showing of what exists.
+          return <div key={index} className="grid gap-1">
+            <div className="overflow-x-auto"><table className="w-full text-xs">
+              <caption className="sr-only">Tabla del panel</caption>
+              <thead><tr>{columns.map(column => <th key={column} scope="col" className="border-b p-1 text-left font-medium">{column}</th>)}</tr></thead>
+              <tbody>{visible.map((row, rowIndex) => <tr key={rowIndex}>{columns.map(column => <td key={column} className="border-b p-1">{String(row[column] ?? "")}</td>)}</tr>)}</tbody>
+            </table></div>
+            {visible.length < sorted.length || (block.columns === undefined && allColumns.length > columns.length)
+              ? <p className="text-xs text-muted-foreground">Mostrando {visible.length} de {sorted.length} filas{block.columns === undefined && allColumns.length > columns.length ? ` · ${columns.length} de ${allColumns.length} columnas` : ""}.</p>
+              : null}
+          </div>;
         }
         case "line":
         case "bar": {
@@ -627,13 +641,17 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
             const barSpan = (Math.max(...flat, 0) || 1) - Math.min(...flat, 0) || 1;
             return <div key={index} className="grid gap-1 text-xs" role="img" aria-label={`Gráfico de barras: ${block.title ?? block.y.join(", ")}`}>
               <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
-              {rows.slice(0, 20).map((row, rowIndex) => <div key={rowIndex} className="flex items-center gap-2">
-                <span className="w-20 shrink-0 truncate text-muted-foreground">{xs[rowIndex]}</span>
-                {series.map(entry => {
-                  const value = entry.values[rowIndex] ?? null;
-                  return <span key={entry.field} title={`${entry.field}: ${value ?? "—"}`} aria-label={`${entry.field}: ${value ?? "sin dato"}`} className={value === null ? "h-3 w-2 shrink-0 border border-dashed" : "h-3 shrink-0 rounded-sm bg-primary/70"} style={value === null ? undefined : { width: `${Math.abs(value) / barSpan * 100}%` }} />;
-                })}
-              </div>)}
+              {series.flatMap(entry => rows.slice(0, 20).map((row, rowIndex) => {
+                const value = entry.values[rowIndex] ?? null;
+                return <div key={`${entry.field}-${rowIndex}`} className="grid grid-cols-[7rem_1fr_3.5rem] items-center gap-2">
+                  <span className="truncate text-muted-foreground">{xs[rowIndex]}{series.length > 1 ? ` · ${entry.field}` : ""}</span>
+                  {/* The percentage is of this track only: the value column keeps the row from overflowing. */}
+                  <span className="relative h-3 min-w-0 rounded-sm bg-muted/50">
+                    {value === null ? null : <span className="absolute inset-y-0 left-0 rounded-sm bg-primary/70" style={{ width: `${Math.max(1, Math.min(100, Math.abs(value) / barSpan * 100))}%` }} />}
+                  </span>
+                  <span className="truncate text-right text-muted-foreground">{value ?? "—"}</span>
+                </div>;
+              }))}
             </div>;
           }
           // A line shows shape, not magnitude: a zero-based scale flattens 486→491 into a straight

@@ -18,7 +18,8 @@ let root: ReturnType<typeof createRoot>;
 let cache: InstanceType<typeof QueryClient>;
 let restoreFetch: () => void;
 
-let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean; datasetsEnabled: boolean; sourcesEnabled: boolean; panelsEnabled: boolean };
+let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean; datasetsEnabled: boolean; sourcesEnabled: boolean; panelsEnabled: boolean; panelAppsEnabled?: boolean };
+let resolveSpec: typeof SPEC;
 let panels: Array<{ name: string; title: string; source: string; updatedAt: number; bytes: number }>;
 let panelRequests: Array<{ method: string; path: string }> = [];
 let listFailsWith: { status: number; code: string; message: string } | null = null;
@@ -46,6 +47,7 @@ const catalog = () => ({
   datasetsEnabled: flags.datasetsEnabled,
   sourcesEnabled: flags.sourcesEnabled,
   panelsEnabled: flags.panelsEnabled,
+  panelAppsEnabled: flags.panelAppsEnabled === true,
   integrationsEnabled: false,
   user: { id: "local", displayName: "Usuario de prueba" },
   activeApplicationId: APP.id,
@@ -57,8 +59,9 @@ beforeEach(() => {
   localStorage.clear();
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
-  flags = { libraryEnabled: true, scheduledTasksEnabled: false, datasetsEnabled: true, sourcesEnabled: true, panelsEnabled: true };
+  flags = { libraryEnabled: true, scheduledTasksEnabled: false, datasetsEnabled: true, sourcesEnabled: true, panelsEnabled: true, panelAppsEnabled: true };
   panels = [{ name: "soja", title: "Soja — cierre", source: "dataset:search-precios-soja", updatedAt: 1_700_000_500_000, bytes: 512 }];
+  resolveSpec = SPEC;
   panelRequests = [];
   listFailsWith = null;
   const spy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -81,7 +84,7 @@ beforeEach(() => {
     if (path === "/specialist-applications/app_test/panels/soja/resolve" && method === "GET") {
       if (!flags.panelsEnabled) return Response.json({ code: "specialist_panels_disabled", message: "Los paneles están desactivados." }, { status: 404 });
       return Response.json({
-        spec: SPEC,
+        spec: resolveSpec,
         resolutions: [
           { workspaceId: "ws_test", workspaceName: "proyecto-principal", ok: true, data: ROWS, sourceLabel: "dataset:ds-search-precios-soja-1a2b3c4d", diff: DIFF },
           { workspaceId: "ws_dos", workspaceName: "proyecto-anexo", ok: false, error: 'El dataset "search-precios-soja" no existe en este proyecto.' },
@@ -174,6 +177,38 @@ test("error de lectura en el resumen de paneles: mensaje + reintento, nunca 'sin
   expect(hasText("No se pudieron leer los paneles")).toBe(true);
   expect(hasText("Volver a intentar")).toBe(true);
   expect(hasText("Sin paneles todavía")).toBe(false);
+});
+
+test("la vista de paneles anuncia la App interactiva y no recorta la tabla en silencio", async () => {
+  resolveSpec = { ...SPEC, blocks: [{ type: "table", limit: 2 }, { type: "bar", x: "fecha", y: ["cierre"], title: "Barras" }] } as typeof SPEC;
+  await renderAt();
+  await openLibraryDialog();
+  const panelesSection = [...document.querySelectorAll("section")].find(s => (s.textContent ?? "").startsWith("Paneles"));
+  if (!panelesSection) throw new Error("Missing Paneles section");
+  await act(async () => { [...panelesSection.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Gestionar"))!.click(); });
+  await flush();
+  expect(hasText("App interactiva dentro del chat")).toBe(true);
+  await act(async () => {
+    const row = [...document.querySelectorAll("div.rounded-md")].find(el => (el.textContent ?? "").includes("Soja — cierre"));
+    [...(row as HTMLElement).querySelectorAll("button")].find(b => (b.textContent ?? "").trim() === "Ver")!.click();
+  });
+  await flush();
+  expect(document.querySelectorAll("tbody tr").length).toBe(2);
+  expect(hasText("Mostrando 2 de 3 filas")).toBe(true);
+  // Barras: la etiqueta de valor tiene su propia columna (nunca se sale de la tarjeta).
+  expect(document.querySelector('[aria-label^="Gráfico de barras"]')).not.toBeNull();
+  expect(hasText("491")).toBe(true);
+});
+
+test("sin la App de paneles, la vista no la promete", async () => {
+  flags = { ...flags, panelAppsEnabled: false };
+  await renderAt();
+  await openLibraryDialog();
+  const panelesSection = [...document.querySelectorAll("section")].find(s => (s.textContent ?? "").startsWith("Paneles"));
+  if (!panelesSection) throw new Error("Missing Paneles section");
+  await act(async () => { [...panelesSection.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Gestionar"))!.click(); });
+  await flush();
+  expect(hasText("App interactiva dentro del chat")).toBe(false);
 });
 
 test("panelsEnabled=false: la sección no aparece y no se dispara ningún request de paneles", async () => {
