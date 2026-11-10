@@ -59,6 +59,44 @@ async function writeIndex(directory: string, outputs: SpecialistOutputMeta[]) {
   await rename(temporary, file);
 }
 
+/** The first complete JSON value in a string, ignoring anything a provider appends after it.
+ *  Some OpenAI-compatible providers trail a stray word after a tool argument (`…}]Conformément`);
+ *  the JSON the model wrote is intact, and the extra text is not part of anyone's content. */
+export function firstJsonValue(text: string): string | null {
+  const start = text.search(/[\[{]/);
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') { inString = true; continue; }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+  return null;
+}
+
+/** JSON kinds are stored normalized: a provider's trailing word never lands in the workspace file. */
+function normalizeJsonContent(kind: SpecialistOutputKind, content: string): string {
+  if (kind === "report" || kind === "mindmap") return content;
+  try { JSON.parse(content); return content; }
+  catch {
+    const first = firstJsonValue(content);
+    if (first === null) return content;
+    try { return JSON.stringify(JSON.parse(first)); } catch { return content; }
+  }
+}
+
 /** Per-kind content shape. Keeps the Studio honest: a quiz without answers or a mindmap
  *  without the mermaid fence is rejected at write time, not at render time. */
 export function validateOutputContent(kind: SpecialistOutputKind, content: string): string | null {
@@ -87,7 +125,8 @@ export async function listOutputs(directory: string) {
 }
 
 export async function writeOutput(directory: string, input: { kind: SpecialistOutputKind; title: string; content: string; fromDatasets?: string[]; fromSources?: string[]; focus?: string; id?: string }) {
-  const problem = validateOutputContent(input.kind, input.content);
+  const content = normalizeJsonContent(input.kind, input.content);
+  const problem = validateOutputContent(input.kind, content);
   if (problem) throw failure(problem);
   const title = input.title.trim();
   if (!title || title.length > 200) throw failure("El título de la salida debe tener entre 1 y 200 caracteres.");
@@ -105,7 +144,7 @@ export async function writeOutput(directory: string, input: { kind: SpecialistOu
     createdAt: existing?.createdAt ?? Date.now(), updatedAt: Date.now(),
   };
   const extension = input.kind === "report" || input.kind === "mindmap" ? "md" : "json";
-  await writeFile(join(dir, `content.${extension}`), input.content, { mode: 0o600 });
+  await writeFile(join(dir, `content.${extension}`), content, { mode: 0o600 });
   if (existing) {
     const other = `content.${existing.kind === "report" || existing.kind === "mindmap" ? "md" : "json"}`;
     if (other !== `content.${extension}`) await rm(join(dir, other), { force: true }).catch(() => undefined);

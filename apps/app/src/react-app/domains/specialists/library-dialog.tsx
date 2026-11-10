@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistOutput, SpecialistOutputAudit, SpecialistPanelBlock, SpecialistPanelResolution, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
+import { MarkdownPreview } from "@/react-app/domains/session/artifacts/preview";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -761,7 +762,7 @@ function OutputDetail({ app, client, output }: { app: SpecialistApplication; cli
   if (detail.isError) return <p role="alert" className="text-xs text-destructive">No se pudo leer la salida. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void detail.refetch()}>Volver a intentar</Button></p>;
   const audit: SpecialistOutputAudit | undefined = auditQuery.data?.audit;
   return <div className="grid gap-2">
-    <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">{detail.data.content}</pre>
+    <OutputBody kind={output.kind} content={detail.data.content} />
     {auditQuery.isPending ? <Skeleton className="h-6 w-full" />
       : audit ? <div className="grid gap-1 text-xs" role="status">
         {audit.total === 0 ? <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2">Sin anclas: esta salida no está anclada a fuentes del proyecto.</p>
@@ -770,6 +771,65 @@ function OutputDetail({ app, client, output }: { app: SpecialistApplication; cli
       </div>
       : <p role="alert" className="text-xs text-destructive">No se pudo auditar la salida. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void auditQuery.refetch()}>Volver a intentar</Button></p>}
   </div>;
+}
+
+/** Reads a Studio output the way its kind is meant to be read: Markdown for reports and maps,
+ *  flip cards for flashcards, answers you can try for quizzes and a real table for tables. Raw
+ *  JSON stays as the fallback so a malformed file still shows something (and the audit says why). */
+function OutputBody({ kind, content }: { kind: SpecialistOutput["kind"]; content: string }) {
+  if (kind === "report" || kind === "mindmap") return <div className="max-h-80 overflow-auto rounded bg-muted/40 p-2 text-xs"><MarkdownPreview content={content} /></div>;
+  let value: unknown;
+  try { value = JSON.parse(content); } catch { return <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">{content}</pre>; }
+  if (kind === "table" && Array.isArray(value) && value.every(entry => entry && typeof entry === "object")) {
+    const rows = value as Array<Record<string, unknown>>;
+    const columns = rows[0] ? Object.keys(rows[0]).slice(0, 8) : [];
+    return <div className="max-h-64 overflow-auto"><table className="w-full text-xs">
+      <thead><tr>{columns.map(column => <th key={column} scope="col" className="border-b p-1 text-left font-medium">{column}</th>)}</tr></thead>
+      <tbody>{rows.slice(0, 50).map((row, index) => <tr key={index}>{columns.map(column => <td key={column} className="border-b p-1">{typeof row[column] === "object" && row[column] !== null ? JSON.stringify(row[column]) : String(row[column] ?? "")}</td>)}</tr>)}</tbody>
+    </table></div>;
+  }
+  if (kind === "flashcards" && Array.isArray(value)) {
+    const cards = value.flatMap(entry => entry && typeof entry === "object" && typeof (entry as { front?: unknown }).front === "string" && typeof (entry as { back?: unknown }).back === "string" ? [entry as { front: string; back: string }] : []);
+    if (cards.length) return <FlashcardsView cards={cards} />;
+  }
+  if (kind === "quiz" && Array.isArray(value)) {
+    const questions = value.flatMap(entry => entry && typeof entry === "object" && typeof (entry as { question?: unknown }).question === "string" && Array.isArray((entry as { options?: unknown }).options) ? [entry as { question: string; options: string[]; answer: number }] : []);
+    if (questions.length) return <QuizView questions={questions} />;
+  }
+  return <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">{content}</pre>;
+}
+
+function FlashcardsView({ cards }: { cards: Array<{ front: string; back: string }> }) {
+  const [open, setOpen] = useState<Set<number>>(new Set());
+  const toggle = (index: number) => setOpen(current => {
+    const next = new Set(current);
+    if (next.has(index)) next.delete(index); else next.add(index);
+    return next;
+  });
+  return <div className="grid gap-2 sm:grid-cols-2">{cards.map((card, index) => <button
+    key={index}
+    type="button"
+    onClick={() => toggle(index)}
+    aria-expanded={open.has(index)}
+    className="grid gap-1 rounded-md border p-2 text-left text-xs hover:bg-muted/40"
+  >
+    <span className="font-medium">{card.front}</span>
+    <span className={open.has(index) ? "text-muted-foreground" : "text-muted-foreground blur-[3px] select-none"}>{open.has(index) ? card.back : "Tocá para ver la respuesta"}</span>
+  </button>)}</div>;
+}
+
+function QuizView({ questions }: { questions: Array<{ question: string; options: string[]; answer: number }> }) {
+  const [picked, setPicked] = useState<Record<number, number>>({});
+  return <ol className="grid gap-3 text-xs">{questions.map((question, qIndex) => <li key={qIndex} className="grid gap-1 rounded-md border p-2">
+    <p className="font-medium">{question.question}</p>
+    <div className="grid gap-1">{question.options.map((option, index) => {
+      const chosen = picked[qIndex];
+      const state = chosen === undefined ? "" : index === question.answer ? " border-emerald-500/60 bg-emerald-500/10" : index === chosen ? " border-destructive/60 bg-destructive/5" : " opacity-70";
+      return <button key={index} type="button" className={`rounded border p-1 text-left${state}`} onClick={() => setPicked(current => ({ ...current, [qIndex]: index }))}>{option}</button>;
+    })}</div>
+    {picked[qIndex] === undefined ? <p className="text-muted-foreground">Elegí una opción.</p>
+      : <p role="status" className={picked[qIndex] === question.answer ? "text-emerald-600" : "text-destructive"}>{picked[qIndex] === question.answer ? "Correcto." : `Incorrecto: la respuesta es "${question.options[question.answer] ?? "—"}".`}</p>}
+  </li>)}</ol>;
 }
 
 function ProposalsSection({ app, client, enabled, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; enabled: boolean; onChanged(): Promise<void> }) {
@@ -929,7 +989,12 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
       <div className="grid gap-1.5">
         <Label>Modelo de cada corrida</Label>
-        <Select value={modelChoice} onValueChange={value => setModelChoice(value ?? "__default__")}>
+        <Select
+          value={modelChoice}
+          // The trigger resolves its label from `items`; without it the raw value showed.
+          items={[{ value: "__default__", label: "Modelo predeterminado del motor" }, ...(models.data ?? []).map(entry => ({ value: entry.key, label: `${entry.name} · ${entry.providerID}` }))]}
+          onValueChange={value => setModelChoice(value ?? "__default__")}
+        >
           <SelectTrigger className="max-w-full"><SelectValue placeholder="Modelo predeterminado del motor" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__default__">Modelo predeterminado del motor</SelectItem>
@@ -955,7 +1020,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
         <span className="min-w-0 flex-1 truncate font-medium">{task.name}</span>
         {task.running ? <Badge variant="secondary">Corriendo…</Badge> : !task.enabled ? <Badge variant="outline">Pausada</Badge> : task.lastStatus ? <Badge variant={task.lastStatus === "ok" ? "outline" : "destructive"}>{task.lastStatus === "ok" ? "Última: ok" : task.lastStatus === "failed" ? "Última: falló" : task.lastStatus === "blocked" ? "Última: bloqueada" : "Última: corriendo"}</Badge> : null}
       </div>
-      <p className="text-xs text-muted-foreground">{describeSchedule(task.schedule)} · próxima {task.enabled ? formatWhen(task.nextRunAt) : "—"} · {task.runs} corrida{task.runs === 1 ? "" : "s"}{task.running?.missed ? ` · ${task.running.missed} perdidas consolidadas` : ""}</p>
+      <p className="text-xs text-muted-foreground">{describeSchedule(task.schedule)} · próxima {task.enabled ? formatWhen(task.nextRunAt) : "—"} · {task.runs} corrida{task.runs === 1 ? "" : "s"}{task.running?.missed ? ` · ${task.running.missed} perdidas consolidadas` : ""} · {task.model ? `${task.model.providerID}/${task.model.modelID}` : "modelo predeterminado"}</p>
       <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>

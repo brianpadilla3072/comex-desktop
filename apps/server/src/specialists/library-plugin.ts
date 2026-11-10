@@ -57,7 +57,7 @@ const panelNameSchemaTool = z.object({ name: z.string().describe("kebab-case del
 const outputGenerateSchema = z.object({
   kind: z.enum(["mindmap", "report", "flashcards", "quiz", "table"]).describe("Tipo de salida"),
   title: z.string().describe("Título legible, 1-200 caracteres"),
-  content: z.string().describe("Contenido según el kind: mindmap/report en Markdown (mindmap con fence mindmap/graph), table = array JSON de filas, flashcards = [{front,back}], quiz = [{question,options[2..6],answer}]. Incluí citas [fuente:<id>#<n>] verificadas con specialist_source_read."),
+  content: z.string().describe("Contenido según el kind: mindmap/report en Markdown (mindmap con fence mindmap/graph), table = array JSON de filas, flashcards = [{front,back}], quiz = [{question, options: [2..6 textos], answer: índice 0-based de la opción correcta}]. Sin campos extra en cada objeto. Incluí citas [fuente:<id>#<n>] verificadas con specialist_source_read."),
   fromDatasets: z.array(z.string()).describe("ids de datasets usados (de specialist_dataset_list)").default([]),
   fromSources: z.array(z.string()).describe("ids de fuentes citadas").default([]),
   focus: z.string().describe("Foco opcional de la salida (qué se preguntó)").default(""),
@@ -101,6 +101,10 @@ const TOOLS = [
   { name: "specialist_output_read", description: "Leer una salida con su contenido y la auditoría de sus citas (qué anclas resuelven y cuáles no).", schema: outputIdSchema },
 ] as const;
 
+const failedTool = (error: unknown) => ({
+  content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La herramienta falló sin detalle."} Corregí la llamada o contale el problema a la persona; no la repitas igual.` }],
+});
+
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */
 export function createSpecialistLibraryPlugin(descriptorFile: string) {
   return { id: "comex.library", async setup(context: Context) {
@@ -123,16 +127,25 @@ export function createSpecialistLibraryPlugin(descriptorFile: string) {
           input: z.toJSONSchema(definition.schema),
           options: { codemode: false },
           async execute(input, call) {
-            const descriptor = await read();
-            const response = await fetch(descriptor.url, {
-              method: "POST",
-              redirect: "error",
-              signal: call.signal,
-              headers: { Authorization: `Bearer ${descriptor.token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ name: definition.name, input: input ?? {} }),
-            });
+            // Failures travel as text the model can read and correct from: a thrown error reached
+            // the chat as a null result, so a rejected payload was retried blindly.
+            let descriptor;
+            try { descriptor = await read(); }
+            catch (error) { return failedTool(error); }
+            let response: Response;
+            try {
+              response = await fetch(descriptor.url, {
+                method: "POST",
+                redirect: "error",
+                signal: call.signal,
+                headers: { Authorization: `Bearer ${descriptor.token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ name: definition.name, input: input ?? {} }),
+              });
+            } catch (error) {
+              return failedTool(new Error(`La biblioteca no respondió: ${error instanceof Error ? error.message : "sin detalle"}`));
+            }
             const text = await response.text();
-            if (!response.ok) throw new Error(`La biblioteca rechazó la operación (${response.status}): ${text.slice(0, 400)}`);
+            if (!response.ok) return failedTool(new Error(`La biblioteca rechazó la operación (${response.status}): ${text.slice(0, 400)}`));
             // The v2 tool runner reads `output`/`content` off the result; a bare string made every
             // specialist tool fail with "a is not an Object (evaluating 'output' in a)".
             return { content: [{ type: "text" as const, text }] };

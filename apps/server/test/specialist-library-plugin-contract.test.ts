@@ -72,3 +72,30 @@ test("a library tool answers the engine with a content block, never a bare strin
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("the plugin hands a valid flashcards payload through and reports a rejected one readably", async () => {
+  const { root, config, project, workspaceId } = await fixture();
+  const originalFetch = globalThis.fetch;
+  try {
+    await syncLibraryToolPlugin(config as unknown as ServerConfig, workspaceId, project);
+    const descriptor = join(root, "specialists", "tool", createHash("sha256").update(project).digest("hex") + ".json");
+    const tools = new Map<string, EngineTool>();
+    await createSpecialistLibraryPlugin(descriptor).setup(pluginContext(project, tools));
+    const output = [...tools.values()].find(tool => tool.name === "specialist_output_generate");
+    assert.ok(output);
+
+    const valid = JSON.stringify([{ front: "¿Objeto?", back: "Defensa del consumidor." }]);
+    globalThis.fetch = (async () => Response.json({ ok: true, result: { output: { id: "out-1", kind: "flashcards", title: "Ley" }, created: true, audit: { total: 0, valid: 0, invalid: [] } } })) as unknown as typeof fetch;
+    const accepted = await output.execute({ kind: "flashcards", title: "Ley", content: valid }, { signal: new AbortController().signal });
+    assert.ok(Array.isArray((accepted as { content?: unknown[] }).content));
+
+    // A rejected call must reach the model as text it can act on, not as a null result.
+    globalThis.fetch = (async () => Response.json({ code: "invalid_output", message: "Esta salida necesita JSON." }, { status: 422 })) as unknown as typeof fetch;
+    const rejected = await output.execute({ kind: "flashcards", title: "Ley", content: "[{" }, { signal: new AbortController().signal });
+    const text = (rejected as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
+    assert.match(text, /invalid_output|necesita JSON/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(root, { recursive: true, force: true });
+  }
+});

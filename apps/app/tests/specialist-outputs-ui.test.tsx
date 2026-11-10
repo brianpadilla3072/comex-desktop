@@ -35,7 +35,13 @@ const catalog = () => ({
   activeApplicationId: APP.id,
   applications: [APP],
 });
-const KINDS: Record<string, string> = { "out_good": "# Informe soja\n\nLa soja creció [fuente:src_soja#1].", "out_unanchored": "sin citas acá", "out_rota": "# T\n\nLo inventé [fuente:src_rota#3]." };
+const KINDS: Record<string, string> = {
+  "out_good": "# Informe soja\n\nLa soja creció [fuente:src_soja#1].",
+  "out_unanchored": "sin citas acá",
+  "out_rota": "# T\n\nLo inventé [fuente:src_rota#3].",
+  "out_cards": JSON.stringify([{ front: "¿Objeto?", back: "Defensa del consumidor." }]),
+  "out_quiz": JSON.stringify([{ question: "¿Qué regula?", options: ["Consumidores", "Aduanas"], answer: 0 }]),
+};
 
 beforeEach(() => {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -47,6 +53,8 @@ beforeEach(() => {
     { id: "out_good", kind: "report", title: "Informe soja", fromDatasets: [], fromSources: ["src_soja"], focus: "", createdAt: 1_700_000_100_000, updatedAt: 1_700_000_500_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
     { id: "out_unanchored", kind: "table", title: "Tabla de aranceles", fromDatasets: [], fromSources: [], focus: "", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_400_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
     { id: "out_rota", kind: "report", title: "Informe con cita rota", fromDatasets: [], fromSources: [], focus: "", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_300_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
+    { id: "out_cards", kind: "flashcards", title: "Tarjetas de estudio", fromDatasets: [], fromSources: [], focus: "", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_200_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
+    { id: "out_quiz", kind: "quiz", title: "Quiz de estudio", fromDatasets: [], fromSources: [], focus: "", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_100_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
   ];
   outputRequests = [];
   const spy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -161,4 +169,32 @@ test("outputsEnabled=false: la sección no aparece y no se dispara ningún reque
   await openLibraryDialog();
   expect(hasText("Salidas del mini-Studio")).toBe(false);
   expect(outputRequests.length).toBe(0);
+});
+
+
+test("flashcards flip and a quiz marks the answer right or wrong", async () => {
+  await openOutputsView();
+  const openOutput = async (title: string) => {
+    const row = [...document.querySelectorAll("div.rounded-md")].find(el => (el.textContent ?? "").includes(title));
+    await act(async () => { [...(row as HTMLElement).querySelectorAll("button")].find(b => (b.textContent ?? "").trim() === "Ver")!.click(); });
+    await flush();
+  };
+  await openOutput("Tarjetas de estudio");
+  expect(hasText("¿Objeto?")).toBe(true);
+  expect(hasText("Tocá para ver la respuesta")).toBe(true);
+  const card = [...document.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("¿Objeto?"));
+  await act(async () => { (card as HTMLButtonElement).click(); });
+  await flush();
+  expect(hasText("Defensa del consumidor.")).toBe(true);
+
+  await openOutput("Quiz de estudio");
+  expect(hasText("¿Qué regula?")).toBe(true);
+  const right = [...document.querySelectorAll("button")].find(b => (b.textContent ?? "").trim() === "Consumidores");
+  await act(async () => { (right as HTMLButtonElement).click(); });
+  await flush();
+  expect(hasText("Correcto.")).toBe(true);
+  const wrong = [...document.querySelectorAll("button")].find(b => (b.textContent ?? "").trim() === "Aduanas");
+  await act(async () => { (wrong as HTMLButtonElement).click(); });
+  await flush();
+  expect(hasText("Incorrecto: la respuesta es \"Consumidores\".")).toBe(true);
 });

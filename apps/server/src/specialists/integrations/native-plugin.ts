@@ -28,11 +28,16 @@ export function createResearchPlugin(descriptorFile: string) {
         const definition = researchOperations[name];
         addProviderSafeTool(editor, { name: `tavily_${name}`, description: definition.description, input: z.toJSONSchema(definition.schema), options: { codemode: false },
           async execute(input, call) {
-            const descriptor = await read();
-            const result = await executeTavily(descriptor, name, input, directory, call.signal);
-            // The v2 runner reads content blocks off the result; a bare object showed up to the
-            // model as the text "undefined" and the search looked empty.
-            return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+            // A failed research call must reach the model as readable text, not as a null result.
+            try {
+              const descriptor = await read();
+              const result = await executeTavily(descriptor, name, input, directory, call.signal);
+              // The v2 runner reads content blocks off the result; a bare object showed up to the
+              // model as the text "undefined" and the search looked empty.
+              return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+            } catch (error) {
+              return { content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La búsqueda falló sin detalle."} No inventes resultados: decile a la persona qué pasó.` }] };
+            }
           },
         });
       }

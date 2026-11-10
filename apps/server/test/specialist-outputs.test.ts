@@ -71,3 +71,19 @@ test("citation audit resolves anchors against project sources and never fakes th
     assert.deepEqual(extractCitations("a [fuente:x_1#2] b [fuente:y#0]"), [{ sourceId: "x_1", chunk: 2 }, { sourceId: "y", chunk: 0 }]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("a provider's trailing word after the JSON never reaches the saved output", async () => {
+  const root = await workspace();
+  const project = root;
+  try {
+    const result = await writeOutput(project, {
+      kind: "flashcards", title: "Con cola",
+      content: '[{"front":"¿Objeto?","back":"Defensa del consumidor."}]Conformément',
+    });
+    assert.equal(result.created, true);
+    const saved = await readFile(join(project, "comex", "salidas", result.output.id, "content.json"), "utf8");
+    assert.deepEqual(JSON.parse(saved), [{ front: "¿Objeto?", back: "Defensa del consumidor." }]);
+    // A genuinely broken payload still fails loud.
+    await assert.rejects(writeOutput(project, { kind: "flashcards", title: "Rota", content: "[{front:" }), (error) => error instanceof ApiError && error.code === "invalid_output");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

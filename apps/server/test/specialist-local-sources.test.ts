@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
-import { readCitation } from "../src/specialists/sources.js";
+import { readCitation, registerSource } from "../src/specialists/sources.js";
 import { registerLocalSource } from "../src/specialists/sources.js";
 
 const longSentence = "La exportación de soja creció un tres por ciento en el último trimestre medido por la Bolsa de Comercio. ";
@@ -93,5 +93,27 @@ test("an empty chunk cache left by an older indexer is rebuilt instead of pinnin
     await writeFile(join(root, "comex", "fuentes", `${source.id}.chunks.json`), "[]");
     const cited = await readCitation(root, source.id, 0);
     assert.equal(cited.ok, true, cited.ok ? "" : cited.error);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("research evidence cites its result content, never the search query or the bare URL", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-source-tavily-"));
+  try {
+    await mkdir(join(root, "comex", "fuentes", "tavily"), { recursive: true });
+    const evidencePath = "comex/fuentes/tavily/evidencia.json";
+    await writeFile(join(root, evidencePath), JSON.stringify({
+      query: "https://www.argentina.gob.ar/normativa/nacional/ley-24240",
+      results: [
+        { title: "Ley 24.240", url: "https://www.argentina.gob.ar/normativa/nacional/ley-24240", content: "ARTICULO 1 — Objeto. La presente ley tiene por objeto la defensa de los consumidores." },
+        { title: "Boletín", url: "https://example.com/boletin", content: "La autoridad de aplicación publica las resoluciones en el boletín oficial." },
+      ],
+    }));
+    const source = await registerSource(root, { provider: "tavily", evidencePath, title: "Ley 24.240", url: null });
+    const cited = await readCitation(root, source.id, 0);
+    assert.equal(cited.ok, true);
+    if (cited.ok) {
+      assert.match(cited.text, /defensa de los consumidores/);
+      assert.equal(cited.text.startsWith("http"), false);
+    }
   } finally { await rm(root, { recursive: true, force: true }); }
 });

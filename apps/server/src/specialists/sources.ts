@@ -79,7 +79,13 @@ export async function registerSource(directory: string, input: { provider: strin
 
 /** Walk any JSON payload and pull the substantial text out of it (provider results, answers, pages). */
 function collectText(value: unknown, out: string[]) {
-  if (typeof value === "string") { if (value.length >= 40) out.push(value); return; }
+  if (typeof value === "string") {
+    // A bare URL is provenance, not a passage: citing it as [fuente:id#0] tells the model
+    // nothing and made the first anchor point at the link instead of the text.
+    const trimmed = value.trim();
+    if (trimmed.length >= 40 && !/^https?:\/\/\S+$/i.test(trimmed)) out.push(value);
+    return;
+  }
   if (Array.isArray(value)) { for (const entry of value) collectText(entry, out); return; }
   if (typeof value === "object" && value !== null) { for (const entry of Object.values(value)) collectText(entry, out); }
 }
@@ -125,13 +131,22 @@ export async function ensureChunks(directory: string, id: string) {
   let payload: unknown = evidenceText;
   try { payload = JSON.parse(evidenceText); } catch { /* treat the raw text itself as the content */ }
   const texts: string[] = [];
-  collectText(payload, texts);
+  // Research evidence wraps its passages in `results` (Tavily). Read those, not the envelope
+  // (`query` is the search string or the URL, and must never become passage #0).
+  const content = payload !== null && typeof payload === "object" && !Array.isArray(payload)
+    ? (Array.isArray((payload as Record<string, unknown>).results) ? (payload as Record<string, unknown>).results
+      : "data" in (payload as Record<string, unknown>) ? (payload as Record<string, unknown>).data
+        : payload)
+    : payload;
+  collectText(content, texts);
   // Structured data whose cells are short (a CSV-shaped JSON, a table) has no 40-character
   // string to collect, and the source ended up with ZERO passages: a citation could never
   // resolve. Serialize it readably instead of leaving it uncitable.
   if (texts.length === 0) {
     const serialized = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
-    if (serialized.trim()) texts.push(serialized);
+    // A payload of only URLs (a site map) has no passage to cite; keep it empty so the reader
+    // fails loud instead of citing a link as text.
+    if (serialized.trim() && !/^\s*(?:\[|\{)?\s*"?https?:\/\//i.test(serialized)) texts.push(serialized);
   }
   const chunks = texts.flatMap(chunkText);
   await mkdir(dirname(chunkFile), { recursive: true });

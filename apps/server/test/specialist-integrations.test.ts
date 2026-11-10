@@ -110,7 +110,9 @@ test("research settings stay per profile in SQLite and native tool schemas are p
     for (const tool of tools) assert.deepEqual(providerSchemaProblems(tool.input), []);
     f.store.setResearchEnabled(f.app.id, false);
     await syncResearchPlugin(f.config, "ws_fixture", f.project);
-    await assert.rejects(() => tools[0]!.execute({ query: "test" }, { signal: new AbortController().signal }), /desactivada/);
+    // A disabled provider reaches the model as text it can read, never as a thrown null result.
+    const disabled = await tools[0]!.execute({ query: "test" }, { signal: new AbortController().signal }) as { content?: Array<{ text: string }> };
+    assert.match(disabled.content?.[0]?.text ?? "", /desactivada/);
     await dispose?.(); assert.equal(disposed, true);
   } finally {
     if (original.specialist === undefined) delete process.env.DEN_FEATURE_SPECIALIST_APPLICATIONS; else process.env.DEN_FEATURE_SPECIALIST_APPLICATIONS = original.specialist;
