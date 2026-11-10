@@ -1,11 +1,20 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
+import { useOptionalDenAuth } from "../cloud/den-auth-provider";
 import { useAppsClient } from "./use-apps";
 import { builtAppSummary, latestBuiltAppParts } from "./built-mcp-app-model";
 
 /** Builder results already belong to the member catalog; refresh it, never pin them. */
 export function BuiltAppCatalogSync({ messages }: { messages: UIMessage[] }) {
+  // No Den account (self-hosted Comex, web surfaces, tests): there is no member catalog to
+  // refresh, so this must not even mount the hook that needs a query client and a session.
+  const auth = useOptionalDenAuth();
+  if (!auth?.isSignedIn) return null;
+  return <SignedInCatalogSync messages={messages} />;
+}
+
+function SignedInCatalogSync({ messages }: { messages: UIMessage[] }) {
   const context = useAppsClient();
   const queryClient = useQueryClient();
   const scopeKey = JSON.stringify(context.scope);

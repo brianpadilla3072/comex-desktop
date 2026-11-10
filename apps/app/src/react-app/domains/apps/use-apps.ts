@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createDenClient, DenApiError, isDenOrgAdminRole, readDenSettings } from "@/app/lib/den";
 import { denSettingsChangedEvent } from "@/app/lib/den-session-events";
-import { useDenAuth } from "../cloud/den-auth-provider";
+import { useDenAuth, useOptionalDenAuth } from "../cloud/den-auth-provider";
 
 export const dashboardManagementReason = "Only organization owners and admins can manage dashboards and apps.";
 
 export function useAppsClient() {
-  const auth = useDenAuth();
+  // Chat and artifacts render in builds without Den (self-hosted Comex, web surfaces):
+  // no provider means "no cloud account", not a crash.
+  const auth = useOptionalDenAuth();
   const [settings, setSettings] = useState(readDenSettings);
   useEffect(() => {
     const sync = () => setSettings(readDenSettings());
@@ -17,10 +19,10 @@ export function useAppsClient() {
   const token = settings.authToken;
   const client = useMemo(() => token ? createDenClient({ baseUrl: settings.baseUrl, apiBaseUrl: settings.apiBaseUrl, token }) : null,
     [settings.baseUrl, settings.apiBaseUrl, token]);
-  const identity = auth.verifiedIdentity;
+  const identity = auth?.verifiedIdentity;
   const role = useQuery({
     queryKey: ["apps-organization-role", settings.baseUrl, identity?.principalId, settings.activeOrgId, settings.apiBaseUrl],
-    enabled: auth.isSignedIn && Boolean(client && identity) && identity?.organizationId === settings.activeOrgId,
+    enabled: Boolean(auth?.isSignedIn) && Boolean(client && identity) && identity?.organizationId === settings.activeOrgId,
     queryFn: async () => {
       if (!client) return null;
       const result = await client.listOrgs();
@@ -28,12 +30,12 @@ export function useAppsClient() {
     },
   });
   return {
-    identityVerified: Boolean(auth.isSignedIn && identity && identity.organizationId === settings.activeOrgId),
-    canManage: auth.isSignedIn && identity?.organizationId === settings.activeOrgId && !role.isError && isDenOrgAdminRole(role.data),
-    client: auth.isSignedIn ? client : null,
+    identityVerified: Boolean(auth?.isSignedIn && identity && identity.organizationId === settings.activeOrgId),
+    canManage: Boolean(auth?.isSignedIn) && identity?.organizationId === settings.activeOrgId && !role.isError && isDenOrgAdminRole(role.data),
+    client: auth?.isSignedIn ? client : null,
     orgId: settings.activeOrgId,
     orgName: settings.activeOrgName,
-    scope: [settings.baseUrl, auth.user?.id, settings.activeOrgId, settings.apiBaseUrl],
+    scope: [settings.baseUrl, auth?.user?.id, settings.activeOrgId, settings.apiBaseUrl],
   };
 }
 
