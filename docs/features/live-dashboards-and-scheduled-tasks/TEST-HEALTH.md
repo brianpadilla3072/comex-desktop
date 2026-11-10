@@ -43,7 +43,7 @@ llegue (condición en vez de snapshot).
 
 
 Las dos suites quedan **completamente verdes**: servidor **754 pass / 11 skip / 0 fail** (dos
-fases) y app **2042 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
+fases) y app **2044 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
 
 > El servidor corre en dos fases: `test:engines` (36: 35 pass + 1 skip solo-Windows) y
 > `test:parallel` (729: 719 pass + 10 skip). Los 11 skip son legítimos: 10 piden el binario
@@ -171,6 +171,7 @@ La última pieza del plan quedó implementada y probada en tres niveles:
 | Servidor real | endpoint `POST /specialist-mcp` sobre el server real con motor v2: `/api/mcp` → `openwork-panels` **connected**; `/mcp-apps/list` lista la app `openwork-panels_dashboard_render` con `ui://openwork/panel/v1`; `resolve` entrega el HTML con CSP deny-by-default | HTTP real |
 | Cliente MCP real | el mismo `StreamableHTTPClientTransport` del host: handshake, tools, `dashboard_render` con CSV real, `panel_list`, panel inexistente → `isError` legible, recurso `text/html;profile=mcp-app` | script real |
 | Widget (DOM real) | happy-dom ejecuta el HTML tal cual: handshake (`ui/initialize` → `initialized`), `size-changed`, pintado de stat/línea/tabla/cambios, error de payload, gráfico sin números, refresh con repintado y con fallo (mantiene datos + aviso), y geometría de la línea (no chata) | 5 tests |
+| Puente motor → chat | un evento v2 `session.tool.success` con `metadata.openworkMcpResult` (lo que escribe el plugin para una llamada directa a `openwork-panels_*`) llega al part con `structuredContent` y `_meta.ui.resourceUri`; el tool de la misma server sin recurso no se marca como App | 2 tests |
 | **Navegador real** (Chrome headless + CDP) | la cadena completa del host: el **proxy `sandbox.html` del server real** carga el widget real bajo su CSP, un `AppBridge` (el mismo que usa el chat) hace el handshake, llega el resultado del tool real (`dashboard_render` sobre `precios.json`), el widget pinta (título, `495`/`489`, 3 filas, 3 puntos, bloque de cambios) y **el botón Actualizar llama la tool y repinta** (la llamada queda registrada en el host); una entrega nueva del host también repinta. Sin errores de consola ni excepciones | `drive.ts` (efímero) |
 
 Defecto encontrado y corregido durante el trabajo: en v2 el plugin de resultados solo preservaba
