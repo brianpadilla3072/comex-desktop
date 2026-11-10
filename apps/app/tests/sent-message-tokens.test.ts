@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Part } from "@opencode-ai/sdk/v2/client";
 import type { UIMessage } from "ai";
 
-import { mapV2UserPart, v2AcknowledgementText, v2PromptText } from "../src/app/lib/opencode-v2-adapter";
+import { mapV2UserPart, v2AcknowledgementText, v2PromptFiles, v2PromptText } from "../src/app/lib/opencode-v2-adapter";
 import { snapshotToUIMessages } from "../src/react-app/domains/session/sync/usechat-adapter";
 import { composerPillPromptParts, splitComposerPillText, type ComposerPill } from "../src/react-app/domains/session/surface/composer/composer-pills";
 import {
@@ -115,4 +115,19 @@ describe("Edit puts the same chips back in the composer", () => {
     const draft = composerDraftFromSentParts(reload([...composerPillPromptParts(meetingSkill), text(" today's meeting")]).parts);
     expect(draft.text).toBe("[connect-skill meeting-analysis|Meeting analysis|OpenWork|skill:meeting-analysis] today's meeting");
   });
+});
+
+
+test("an attached image travels as a native prompt file, not only as its name", () => {
+  const parts: PromptPart[] = [
+    text("¿qué dice la imagen?"),
+    // What the draft adds for an attachment: a synthetic note plus the file itself.
+    { type: "text", text: "<attachment>vision.png</attachment>", synthetic: true } as PromptPart,
+    { type: "file", mime: "image/png", url: "file:///workspace/.openwork/inbox/ses_1/vision.png", filename: "vision.png" },
+  ];
+  // The words still name the attachment (the transcript chips read them).
+  expect(v2PromptText(parts)).toContain("vision.png");
+  // And the file itself is handed to the engine, which is what lets a vision model see it.
+  expect(v2PromptFiles(parts)).toEqual([{ uri: "file:///workspace/.openwork/inbox/ses_1/vision.png", name: "vision.png" }]);
+  expect(v2PromptFiles([text("solo texto")])).toEqual([]);
 });

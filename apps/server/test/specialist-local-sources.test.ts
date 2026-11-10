@@ -50,3 +50,48 @@ test("local sources fail loud on traversal, symlinks, formats and size", async (
     assert.equal((await readdir(join(root, "comex", "fuentes", "local")).catch(() => []) as string[]).length, 0);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("a table-shaped JSON file is still citable: short cells must not leave it with zero passages", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-local-source-json-"));
+  try {
+    await mkdir(join(root, "datos"), { recursive: true });
+    await writeFile(join(root, "datos", "precios.json"), JSON.stringify([
+      { fecha: "2026-11-07", cierre: 480, volumen: 1180 },
+      { fecha: "2026-11-08", cierre: 486, volumen: 1200 },
+    ]));
+    const source = await registerLocalSource(root, { path: "datos/precios.json" });
+    const cited = await readCitation(root, source.id, 0);
+    assert.equal(cited.ok, true, cited.ok ? "" : cited.error);
+    if (cited.ok) {
+      assert.match(cited.text, /cierre/);
+      assert.match(cited.text, /2026-11-07/);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("one long line is split into bounded passages instead of a single huge one", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-local-source-line-"));
+  try {
+    await mkdir(join(root, "datos"), { recursive: true });
+    const singleLine = "x".repeat(5000);
+    await writeFile(join(root, "datos", "larga.txt"), singleLine);
+    const source = await registerLocalSource(root, { path: "datos/larga.txt" });
+    const first = await readCitation(root, source.id, 0);
+    assert.equal(first.ok, true);
+    if (first.ok) assert.ok(first.text.length <= 1200, `passage too long: ${first.text.length}`);
+    const second = await readCitation(root, source.id, 1);
+    assert.equal(second.ok, true, "the rest of the line must be reachable by anchor");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("an empty chunk cache left by an older indexer is rebuilt instead of pinning zero passages", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-local-source-cache-"));
+  try {
+    await mkdir(join(root, "datos"), { recursive: true });
+    await writeFile(join(root, "datos", "precios.json"), JSON.stringify([{ fecha: "2026-11-07", cierre: 480 }]));
+    const source = await registerLocalSource(root, { path: "datos/precios.json" });
+    await writeFile(join(root, "comex", "fuentes", `${source.id}.chunks.json`), "[]");
+    const cited = await readCitation(root, source.id, 0);
+    assert.equal(cited.ok, true, cited.ok ? "" : cited.error);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

@@ -80,6 +80,8 @@ type PromptPart = {
   filename?: unknown;
   name?: unknown;
   source?: unknown;
+  url?: unknown;
+  mime?: unknown;
 };
 
 function selectedSkill(part: PromptPart): Record<string, unknown> | null {
@@ -172,6 +174,21 @@ function attachmentNames(metadata: unknown): string[] {
   return attachments.flatMap((item) => {
     const filename = readString(item, "filename");
     return filename ? [filename] : [];
+  });
+}
+
+/**
+ * The files a v2 turn carries. The native prompt takes an ordered text plus a
+ * list of file attachments, so an image or a document the person attached
+ * reaches the model instead of only its name appearing in the words.
+ */
+export function v2PromptFiles(parts: readonly PromptPart[]): Array<{ uri: string; name?: string }> {
+  return parts.flatMap((part) => {
+    if (part.type !== "file") return [];
+    const uri = readString(part, "url")?.trim();
+    if (!uri) return [];
+    const name = readString(part, "filename")?.trim();
+    return [{ uri, ...(name ? { name } : {}) }];
   });
 }
 
@@ -2871,11 +2888,13 @@ export function createClientV2(
         if (!instructions.response.ok) return failedResult(instructions);
       }
       const text = v2PromptText(parameters.parts ?? []);
+      const files = v2PromptFiles(parameters.parts ?? []);
       const promptResult = await request(
         "POST",
         `/api/session/${encodeURIComponent(parameters.sessionID)}/prompt`,
         {
           text,
+          ...(files.length ? { files } : {}),
           ...(parameters.messageID ? { id: parameters.messageID } : {}),
           delivery: "steer",
           ...(skills.length ? { skills } : {}),

@@ -43,7 +43,7 @@ llegue (condición en vez de snapshot).
 
 
 Las dos suites quedan **completamente verdes**: servidor **754 pass / 11 skip / 0 fail** (dos
-fases) y app **2046 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
+fases) y app **2047 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
 
 > El servidor corre en dos fases: `test:engines` (36: 35 pass + 1 skip solo-Windows) y
 > `test:parallel` (729: 719 pass + 10 skip). Los 11 skip son legítimos: 10 piden el binario
@@ -181,6 +181,42 @@ llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía a
 plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
 (con tests de ambos caminos).
 
+### Prueba con el motor y modelos reales (OpenCode Zen)
+
+Con una clave de OpenCode Zen se levantó un server aislado (HOME/XDG en `/tmp`, `auth.json` 0600; la
+clave **no** está en el repo) y se usaron dos modelos: **`opencode/gpt-5-nano`** (ve imágenes,
+US$0,05/US$0,40 por 1M) y **`opencode/minimax-m2.5`** (sin visión, el más barato:
+US$0,30/US$1,20). Cuatro defectos de producción que ningún test unitario veía:
+
+1. **La app v2 no mandaba los adjuntos al motor.** El prompt nativo viajaba solo como texto: el
+   modelo recibía `<attachment>vision.png</attachment>` y respondía "no puedo leer la imagen". Ahora
+   el cliente v2 manda `files: [{uri, name}]` (test en `sent-message-tokens`). Verificado en la UI
+   con Chrome: adjuntar la imagen y preguntar devolvió **"SOJA 489"**.
+2. **Ninguna herramienta de la biblioteca funcionaba en un turno real.** El plugin devolvía el texto
+   pelado y el runner v2 hacía `'output' in result` sobre un string:
+   `"a is not an Object. (evaluating 'output' in a)"`. Ahora devuelve `{content:[{type:"text",…}]}`
+   (test de contrato en `specialist-library-plugin-contract`). Verificado con el modelo real:
+   `specialist_panel_read`, `specialist_skill_create`, `specialist_task_create`,
+   `specialist_source_add`, `specialist_source_read` y `specialist_output_generate` completan, y la
+   skill (`skills/revisar-precios/SKILL.md`) y la tarea (`cada 20 min`) quedaron creadas de verdad.
+3. **Una tabla JSON con celdas cortas quedaba sin pasajes citables.** `collectText` solo guardaba
+   strings de ≥40 caracteres, así que `precios.json` se registraba con `chunks: 0` y toda cita
+   `[fuente:id#0]` era inválida. Ahora se serializa el payload estructurado, un renglón largo se
+   parte por tamaño y una caché vacía de un indexador viejo se reconstruye. Verificado: informe con
+   **3 de 3 citas válidas**.
+4. **El gráfico de línea del widget crecía con el ancho** (ya corregido antes) y la tabla repetía
+   sus columnas: ambos quedaron como estaban tras la pasada anterior.
+
+Cadena completa con modelo real: `dashboard_render` vía Code Mode → resultado preservado con
+`launch` → tarjeta en el chat con el widget, tabla y bloque de cambios, con datos de
+`precios.json`. El modelo, además, llamó herramientas nativas dentro de `execute` (no existen ahí)
+y escribió mal el nombre del panel (`cierros`): las dos cosas terminaron en errores legibles, no en
+pantallas rotas.
+
+Límite del entorno: `websearch` responde `Web search cancelled` (no hay proveedor de búsqueda
+configurado). `webfetch` sí funciona (se leyó example.com), así que una investigación puede hacerse
+por fetch de URLs concretas, pero la búsqueda queda pendiente de configurar Tavily/proveedor.
+
 ### Conversación real, con un modelo scripted (turno completo)
 
 Sin claves de modelo en esta máquina, se levantó un **modelo OpenAI-compatible mínimo** (un mock que
@@ -255,7 +291,7 @@ catálogo del host, resolución del recurso y preservación del resultado (unit)
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 721 pass / 10 skip / 0 fail + engines 35/1, exit 0
+pnpm --filter openwork-server test          # 725 pass / 10 skip / 0 fail + engines 35/1, exit 0
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53

@@ -88,6 +88,16 @@ function chunkText(text: string): string[] {
   const chunks: string[] = [];
   let current = "";
   for (const sentence of text.split(/(?<=[.!?。])\s+/)) {
+    // A single line with no sentence break (JSON, CSV) must still respect the chunk size:
+    // one 100 KB passage would blow the read budget and hide every anchor after #0.
+    if (sentence.length > CHUNK_CHARS) {
+      if (current.trim()) { chunks.push(current.trim()); current = ""; }
+      for (let index = 0; index < sentence.length; index += CHUNK_CHARS) {
+        const piece = sentence.slice(index, index + CHUNK_CHARS).trim();
+        if (piece) chunks.push(piece);
+      }
+      continue;
+    }
     if (current.length && current.length + sentence.length > CHUNK_CHARS) { chunks.push(current.trim()); current = ""; }
     current += sentence + " ";
   }
@@ -103,7 +113,12 @@ export async function ensureChunks(directory: string, id: string) {
   const chunkFile = join(fuentesRoot(directory), `${source.id}.chunks.json`);
   const cached = await readFile(chunkFile, "utf8").catch((error: NodeJS.ErrnoException) => (error.code === "ENOENT" ? null : Promise.reject(error)));
   if (cached !== null) {
-    try { return { source, chunks: z.array(z.string()).parse(JSON.parse(cached)) }; } catch { /* rebuild below */ }
+    try {
+      const chunks = z.array(z.string()).parse(JSON.parse(cached));
+      // A cached empty list (written by an older indexer for short-cell data) must not keep the
+      // source uncitable: rebuild it below.
+      if (chunks.length > 0) return { source, chunks };
+    } catch { /* rebuild below */ }
   }
   const evidenceText = await readFile(join(directory, source.evidencePath), "utf8").catch(() => null);
   if (evidenceText === null) return { source, chunks: [] as string[] };
@@ -111,6 +126,13 @@ export async function ensureChunks(directory: string, id: string) {
   try { payload = JSON.parse(evidenceText); } catch { /* treat the raw text itself as the content */ }
   const texts: string[] = [];
   collectText(payload, texts);
+  // Structured data whose cells are short (a CSV-shaped JSON, a table) has no 40-character
+  // string to collect, and the source ended up with ZERO passages: a citation could never
+  // resolve. Serialize it readably instead of leaving it uncitable.
+  if (texts.length === 0) {
+    const serialized = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
+    if (serialized.trim()) texts.push(serialized);
+  }
   const chunks = texts.flatMap(chunkText);
   await mkdir(dirname(chunkFile), { recursive: true });
   const temporary = `${chunkFile}.${randomUUID()}.tmp`;

@@ -132,7 +132,9 @@ export function createSpecialistLibraryPlugin(descriptorFile: string) {
             });
             const text = await response.text();
             if (!response.ok) throw new Error(`La biblioteca rechazó la operación (${response.status}): ${text.slice(0, 400)}`);
-            return text;
+            // The v2 tool runner reads `output`/`content` off the result; a bare string made every
+            // specialist tool fail with "a is not an Object (evaluating 'output' in a)".
+            return { content: [{ type: "text" as const, text }] };
           },
         });
       }
