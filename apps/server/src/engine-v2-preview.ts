@@ -1273,7 +1273,11 @@ export function createEngineV2Preview(options: {
     restartTimer = setTimeout(() => {
       restartTimer = undefined;
       if (stopping || !allowRunning || !enabled || !chatRouting) return;
-      void start().catch(recordStartError);
+      // A restart attempt that settles without a running engine is a failed attempt, not a
+      // success: without this, one aborted attempt left the engine dead until the next tick.
+      void start().then(() => {
+        if (!running) recordStartError(new Error("El motor no quedó en ejecución tras reiniciarlo."));
+      }).catch(recordStartError);
     }, wait);
     restartTimer.unref?.();
   }

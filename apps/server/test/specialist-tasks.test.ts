@@ -69,6 +69,10 @@ test("the task store validates names, limits and running edits", async () => {
     assert.ok(edited.nextRunAt !== task.nextRunAt);
     const paused = await updateTask(config, app.id, task.id, { enabled: false });
     assert.equal(paused.enabled, false);
+    // A paused task holds no next run: the slot is empty, not a future date nobody will honour.
+    assert.equal(paused.nextRunAt, null);
+    const resumed = await updateTask(config, app.id, task.id, { enabled: true });
+    assert.ok(resumed.nextRunAt !== null && resumed.nextRunAt > Date.now());
     // Delete refuses while a run holds the claim.
     await patchTask(config, app.id, task.id, t => ({ ...t, running: { workspaceId: "ws", sessionId: null, startedAt: Date.now(), mode: "scheduled", missed: 0 } }));
     await assert.rejects(deleteTask(config, app.id, task.id), (error) => failureStatus(error, "task_running"));
@@ -137,14 +141,14 @@ function fakeEngine(state: EngineState) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/workspace\/[^/]+\/opencode2\/api/, "");
     state.calls.push(`${request.method} ${path}`);
-    if (request.method === "POST" && path === "/session") return new Response(JSON.stringify({ id: "ses_auto_1" }), { status: 200, headers: { "content-type": "application/json" } });
+    if (request.method === "POST" && path === "/session") return new Response(JSON.stringify({ data: { id: "ses_auto_1" } }), { status: 200, headers: { "content-type": "application/json" } });
     if (request.method === "POST" && path.startsWith("/session/")) { state.prompted = await request.json() as Record<string, unknown>; return new Response("{}", { status: 200 }); }
     if (path.startsWith("/session/")) {
       // Newest first, like the engine's order=desc pages.
       const history = state.history ?? (state.completed
         ? [{ type: "assistant", time: { completed: 1_700_000_000_000 } }, { type: "user", time: { created: 1 } }]
         : []);
-      return new Response(JSON.stringify(history), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ data: history }), { status: 200, headers: { "content-type": "application/json" } });
     }
     return new Response("{}", { status: 200 });
   };

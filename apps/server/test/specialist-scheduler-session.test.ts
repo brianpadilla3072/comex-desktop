@@ -42,7 +42,8 @@ function fakeEngine(state: EngineState): (request: Request) => Promise<Response>
     state.calls.push(`${request.method} ${path}`);
     if (request.method === "POST" && path === "/session") {
       state.sessions += 1;
-      return new Response(JSON.stringify({ id: `ses_fake_${state.sessions}` }), { status: 200, headers: { "content-type": "application/json" } });
+      // The real engine wraps payloads as { data } (OpenCode v2 API).
+      return new Response(JSON.stringify({ data: { id: `ses_fake_${state.sessions}` } }), { status: 200, headers: { "content-type": "application/json" } });
     }
     if (request.method === "POST" && path.startsWith("/session/")) {
       if (state.failPrompt) return new Response("fake engine exploded", { status: 500 });
@@ -54,7 +55,7 @@ function fakeEngine(state: EngineState): (request: Request) => Promise<Response>
       const history = state.history ?? (state.completed
         ? [{ type: "assistant", time: { completed: 1_700_000_000_000 } }, { type: "user", time: { created: 1 } }]
         : []);
-      return new Response(JSON.stringify(history), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ data: history }), { status: 200, headers: { "content-type": "application/json" } });
     }
     return new Response("{}", { status: 200 });
   };
@@ -437,5 +438,22 @@ test("8. Budget: create and update responses both carry an honest runsPerDay est
     assert.equal(updatedBudget.runsPerDay, 72);
     assert.equal(updatedBudget.note, createdBudget.note);
     assert.equal((updated.json.task as { enabled: boolean }).enabled, false);
+  });
+});
+
+test("a v2 envelope { data } is unwrapped for the session id and the message page", async () => {
+  // Regression: the engine answers `{ data: … }`; reading the envelope directly left every
+  // dispatch without a session id and every run "running" until the 15-minute timeout.
+  const ctx = await session();
+  await withFlags(async () => {
+    const task = await createTask(ctx.config, ctx.appId, { name: "convelope", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 } });
+    const before = ctx.state.sessions;
+    const result = await ctx.scheduler.trigger(ctx.appId, task.id);
+    assert.equal(result.ok, true, result.detail);
+    const running = (await listTasks(ctx.config, ctx.appId)).find(entry => entry.id === task.id)!;
+    // The session id in the claim and in the run log comes from the unwrapped payload.
+    assert.equal(running.running?.sessionId, `ses_fake_${before + 1}`);
+    const runs = await listRuns(ctx.config, ctx.appId, task.id);
+    assert.equal(runs[0]?.sessionId, `ses_fake_${before + 1}`);
   });
 });

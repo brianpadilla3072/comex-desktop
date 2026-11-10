@@ -122,6 +122,41 @@ es Node-only (`pnpm --filter openwork-server test:approval-transport` → 6/6).
   contra el motor real.
 - **1** es solo-Windows (`named pipes`), se saltea en Linux a propósito.
 
+
+## Verificación contra el servidor real (no solo tests)
+
+Se levantó el server de verdad (`bun --conditions=development src/cli.ts --config …`) con las nueve
+flags de especialistas encendidas, dos workspaces y el motor OpenCode v2 real, y se recorrió una
+sesión completa por HTTP. **Todo respondió como corresponde**:
+
+| Paso | Resultado real |
+|---|---|
+| `GET /health` | `{ok:true, opencodeVersion:"1.18.33"}` |
+| crear aplicación especialista | app + proyecto `Principal` creados |
+| crear tarea | `task_…` con presupuesto (`≈ 72 corridas/día`) |
+| escribir panel | spec aceptado; `resolve` con `datos.csv` real devolvió los datos |
+| registrar fuente local (F1) | `src_…` con snapshot en `comex/fuentes/local/` |
+| leer pasaje | `chunk=0` devuelve el texto exacto del CSV |
+| crear salida | informe guardado; auditoría con ancla real `1/1 válidas`; con ancla falsa `1 inválida` |
+| ensayar tarea (F3) | **sesión real** del motor (`ses_…`) sin guardar nada |
+| correr ahora | sesión real, `running` con `sessionId`, corrida **`ok`**, evidencia en `comex/tareas/<id>/runs/` |
+| pausar tarea | `enabled:false` y **`nextRunAt:null`** |
+
+### Dos bugs de producción que solo aparecieron acá
+
+1. **`scheduler.ts` no desenvuelve el sobre `{ data }` de la API v2.** `POST /session` devuelve
+   `{data:{id}}` y la página de mensajes `{data:[…]}`; el planificador leía `created.id` y
+   `Array.isArray(messages)`. Efecto real: **ninguna tarea programada podía correr** ("El motor no
+   devolvió el id de la sesión") y las que arrancaban quedaban `running` hasta el timeout de 15
+   minutos. Los tests no lo veían porque el motor falso imitaba la forma v1. Ahora se acepta el
+   sobre y el motor falso usa la forma v2 (con test de regresión).
+2. **Pausar una tarea dejaba un `nextRunAt` futuro.** El scheduler igual la saltea, pero la API y
+   los tools mostraban una "próxima corrida" que nadie iba a honrar. Ahora pausar limpia el slot y
+   reanudar lo recalcula (con test).
+
+También se endureció el supervisor del motor: un intento de reinicio que termina **sin** motor
+corriendo ahora cuenta como intento fallido y se reintenta, en vez de quedar en silencio.
+
 ## Pendiente (alcance)
 
 1. **Celda D — MCP Apps local** del plan: sin empezar. Su host quedó con 225/225 tests verdes, así

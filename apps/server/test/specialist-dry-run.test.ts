@@ -20,7 +20,7 @@ function fakeEngine(state: EngineState) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/workspace\/[^/]+\/opencode2\/api/, "");
     state.calls.push(`${request.method} ${path}`);
-    if (request.method === "POST" && path === "/session") { state.created = await request.json() as Record<string, unknown>; return new Response(JSON.stringify({ id: "ses_dry_1" }), { status: 200, headers: { "content-type": "application/json" } }); }
+    if (request.method === "POST" && path === "/session") { state.created = await request.json() as Record<string, unknown>; return new Response(JSON.stringify({ data: { id: "ses_dry_1" } }), { status: 200, headers: { "content-type": "application/json" } }); }
     if (request.method === "POST" && path.startsWith("/session/")) { state.prompted = await request.json() as Record<string, unknown>; return new Response("{}", { status: 200 }); }
     return new Response("{}", { status: 200 });
   };

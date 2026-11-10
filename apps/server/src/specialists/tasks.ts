@@ -175,11 +175,11 @@ export async function updateTask(config: Pick<ServerConfig, "configPath">, id: s
     }
     const schedule = patch.schedule ?? current.schedule;
     const enabled = input.enabled ?? current.enabled;
-    // Editing the schedule or re-enabling recalculates; pausing leaves the claim for finalize.
-    const reschedule = patch.schedule !== undefined || (enabled !== current.enabled && enabled);
+    // Editing the schedule or re-enabling recalculates. Pausing clears the slot: a paused task
+    // holds no next run (the claim, if any, is what finalize is still observing).
     const next = taskSchema.parse({
       ...current, ...patch, schedule, enabled,
-      nextRunAt: reschedule ? nextRun(schedule, Date.now()) : current.nextRunAt,
+      nextRunAt: enabled ? (patch.schedule !== undefined || current.enabled === false ? nextRun(schedule, Date.now()) : current.nextRunAt) : null,
       updatedAt: Date.now(),
     });
     await writeJson(tasksFile(config, id), tasks.map(task => task.id === taskId ? next : task));

@@ -44,6 +44,15 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     return response.status === 204 ? null : await response.json();
   };
 
+  /**
+   * The OpenCode v2 API wraps every payload as `{ data, cursor? }` while the scheduler's own
+   * shapes (`{ id }`, message arrays) are unwrapped. Reading the envelope directly made every
+   * dispatch fail with "El motor no devolvió el id de la sesión" — and every run stay "running"
+   * until the 15-minute timeout, because the message page is not an array either. Accept both
+   * shapes so a v1-shaped engine (and the test fakes) keep working.
+   */
+  const payload = (value: unknown): unknown => isRecord(value) && "data" in value ? value.data : value;
+
   /** Same hardening as the evidence folder: never accept a symbolic link in the path we write. */
   const ensureFolder = async (path: string) => {
     await mkdir(path, { recursive: true });
@@ -95,7 +104,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     try {
       // Log the attempt first: a failed dispatch must still leave a trace.
       await appendRun(config, applicationId, task.id, record("dispatched", null));
-      const created = await call(project.workspaceId, "/session", { title: `Tarea programada: ${task.name}` });
+      const created = payload(await call(project.workspaceId, "/session", { title: `Tarea programada: ${task.name}` }));
       sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
       if (sessionId) await identifyRun(config, applicationId, task.id, startedAt, sessionId);
       evidencePath = await writeEvidence(project.rootPath, task.id, stamp, record("dispatched", null));
@@ -137,7 +146,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     if (Date.now() - running.startedAt > RUN_TIMEOUT_MS) { await finish("failed", "La corrida superó 15 minutos sin confirmarse; revisá el chat de la tarea."); return; }
     if (!running.sessionId) return; // crashed between claim and create; the timeout above covers it
     try {
-      const messages = await call(running.workspaceId, `/session/${encodeURIComponent(running.sessionId)}/message?order=desc&limit=10`);
+      const messages = payload(await call(running.workspaceId, `/session/${encodeURIComponent(running.sessionId)}/message?order=desc&limit=10`));
       if (!Array.isArray(messages)) return;
       // The engine pages newest-first: take the FIRST assistant, not the oldest of the window.
       const assistant = messages.find(message => isRecord(message) && message.type === "assistant");
@@ -206,7 +215,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       const project = bound[0];
       if (!project) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para ensayar la tarea.");
       try {
-        const created = await call(project.workspaceId, "/session", { title: `Ensayo (sin guardar): ${task.name}` });
+        const created = payload(await call(project.workspaceId, "/session", { title: `Ensayo (sin guardar): ${task.name}` }));
         const sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
         if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");
         await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/prompt`, {
