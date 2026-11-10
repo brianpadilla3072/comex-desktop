@@ -7,6 +7,7 @@
   },
   "type": "module",
   "scripts": {
+    "test": "bun test --isolate --max-concurrency=4",
     "dev": "OPENWORK_DEV_MODE=1 vite",
     "prebuild": "pnpm --filter @openwork/types build",
     "build": "vite build",

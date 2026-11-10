@@ -1,0 +1,13 @@
+# Bun test discovery for the server.
+#
+# Two families of tests cannot run under `bun test` in this checkout and are skipped here
+# instead of failing the whole suite:
+#
+# 1. `*.vitest.test.ts` — written for the vitest runner (and some import packages that are not
+#    workspace dependencies here, e.g. @openwork/testkit). They are not part of any bun script.
+# 2. `test/browser-approval-transport.test.ts` — a transport test that must run on Node with
+#    undici's coarse timer internals (the shipped transport is Node's). Bun's fetch/Agent do not
+#    expose them, so five of its cases fail for runner reasons. Run it with:
+#      pnpm --filter openwork-server test:approval-transport
+[test]
+pathIgnorePatterns = ["**/*.vitest.test.ts", "test/browser-approval-transport.test.ts"]

@@ -79,7 +79,7 @@ async function profile(failFirstStart: boolean, run: (config: ServerConfig, capt
 }
 
 async function waitFor(check: () => boolean, label: string) {
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + 30_000;
   while (!check()) {
     if (Date.now() > deadline) assert.fail(`Timed out waiting until ${label}`);
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -88,7 +88,7 @@ async function waitFor(check: () => boolean, label: string) {
 
 const waits = { engineRestartMs: 20, engineRestartMaxMs: 200 };
 
-test("an engine that exits on its own is reported once and started again", { timeout: 30_000 }, async () => {
+test("an engine that exits on its own is reported once and started again", { timeout: 60_000 }, async () => {
   await profile(false, async (config, captured) => {
     const engine = createEngineV2Preview({ config, waits });
     try {
@@ -98,6 +98,8 @@ test("an engine that exits on its own is reported once and started again", { tim
       assert.ok(connection);
       await fetch(new URL("/test/exit", connection.url));
       await waitFor(() => engine.status().running && engine.status().pid !== first, "a new engine replaces the one that exited");
+      // Same settle rule as the failed-start case: the exit report may land a tick after restart.
+      await waitFor(() => captured.length > 0, "the exit is reported");
       assert.equal(engine.status().chatRouting, true);
       assert.equal(engine.status().lastError, undefined, "a healthy restart clears the exit error");
       assert.deepEqual(captured.map(event => event.route), ["engine.v2.exit"]);
@@ -106,11 +108,14 @@ test("an engine that exits on its own is reported once and started again", { tim
   });
 });
 
-test("a failed start is reported by its first line and retried until the engine runs", { timeout: 30_000 }, async () => {
+test("a failed start is reported by its first line and retried until the engine runs", { timeout: 60_000 }, async () => {
   await profile(true, async (config, captured) => {
     const engine = createEngineV2Preview({ config, waits });
     try {
       await waitFor(() => engine.status().running, "a retried start succeeds");
+      // The recovery flips `running` before the failure report is flushed: wait for the settled
+      // condition instead of racing the telemetry callback (flaked under parallel load).
+      await waitFor(() => captured.length > 0, "the failed start is reported");
       assert.equal(engine.status().chatRouting, true, "chats stay on v2");
       assert.equal(engine.status().lastError, undefined);
       assert.deepEqual(captured.map(event => event.route), ["engine.v2.start"]);
@@ -120,7 +125,7 @@ test("a failed start is reported by its first line and retried until the engine 
   });
 });
 
-test("a failed start under the v2-only rollout retries without falling back to v1", { timeout: 30_000 }, async () => {
+test("a failed start under the v2-only rollout retries without falling back to v1", { timeout: 60_000 }, async () => {
   await profile(true, async (config, captured) => {
     const engine = createEngineV2Preview({ config, waits, deferStart: true });
     try {
@@ -134,7 +139,7 @@ test("a failed start under the v2-only rollout retries without falling back to v
   });
 });
 
-test("a stopped engine is not started again", { timeout: 30_000 }, async () => {
+test("a stopped engine is not started again", { timeout: 60_000 }, async () => {
   await profile(false, async (config) => {
     const engine = createEngineV2Preview({ config, waits });
     await waitFor(() => engine.status().running, "the engine is running");

@@ -513,7 +513,9 @@ export function McpAppSandboxView({ origin, app, resolveLiveActions, goesLiveInP
       onErrorRef.current?.()
     }
     checkpoint("resource-resolved")
-    if (!readOnly && !app.launchId) {
+    // A missing launch context is only fatal when nothing can fetch a live one: with
+    // resolveLiveActions the App waits for the lease instead of blanking the artifact.
+    if (!readOnly && !app.launchId && !resolveLiveActions) {
       fail("MCP_APP_LAUNCH_CONTEXT_MISSING", "resource-resolution", null,
         "This artifact has no live launch context. Update OpenWork and reopen the artifact before using its actions.")
       return

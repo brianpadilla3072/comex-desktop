@@ -48,20 +48,42 @@ function instructionDocument(path: string) {
   return /\.(?:md|mdc|markdown|txt)$/i.test(name) && !/\.env(?:$|\.(?!example$))/i.test(name);
 }
 
+/** True when this folder or any parent holds a `.git` entry (worktrees use a file, not a dir). */
+async function insideGitWorkTree(cwd: string) {
+  let current = resolve(cwd);
+  for (;;) {
+    if (await stat(join(current, ".git")).catch(() => null)) return true;
+    const parent = resolve(current, "..");
+    if (parent === current) return false;
+    current = parent;
+  }
+}
+
 /** The paths git ignores; none outside a repository or without git. Tracked files are never ignored. */
 async function gitIgnored(cwd: string, paths: string[]) {
   if (paths.length === 0) return new Set<string>();
   try {
-    const run = execFileAsync("git", ["check-ignore", "-z", "--stdin"], { cwd, timeout: 5_000 });
+    // LC_ALL/LANG keep git's wording predictable; the exit codes are the contract anyway.
+    const run = execFileAsync("git", ["check-ignore", "-z", "--stdin"], {
+      cwd, timeout: 5_000,
+      env: { ...process.env, LC_ALL: "C", LANG: "C" },
+    });
+    // git may exit before reading stdin (no repository, nothing to check): a broken pipe is
+    // not an error of this call, it is the normal "git closed the pipe" case.
+    run.child.stdin?.on("error", () => undefined);
     run.child.stdin?.end(paths.join("\0"));
     const { stdout } = await run;
     return new Set(stdout.split("\0").filter(Boolean));
   } catch (error) {
-    // Exit 1: nothing ignored. Without a repository there are no ignore rules;
-    // a checkout git cannot read, or any other failure, throws.
     const { code, stderr } = error as { code?: unknown; stderr?: unknown };
+    // Exit 1: nothing ignored.
     if (code === 1) return new Set<string>();
-    if (code === 128 && typeof stderr === "string" && /not a git repository/i.test(stderr)) return new Set<string>();
+    // git could not find a repository: no ignore rules exist, whatever the locale says.
+    if (code === 128) {
+      const message = typeof stderr === "string" ? stderr : "";
+      if (/not a git repository|no es un repositorio git/i.test(message)) return new Set<string>();
+      if (!(await insideGitWorkTree(cwd))) return new Set<string>();
+    }
     if (code === "ENOENT" && !(await stat(join(cwd, ".git")).catch(() => null))) return new Set<string>();
     throw error;
   }

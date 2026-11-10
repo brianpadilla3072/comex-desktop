@@ -21,12 +21,14 @@ export function sessionManagementStorage(): StateStorage {
   let hydrated = false;
   let localReadable = false;
   let previous: string[] = [];
+  // Shared by getItem/setItem/removeItem: a host may install or drop localStorage at any time and
+  // a missing one is a readable condition, never a crash inside zoom persistence.
+  let localFailure: unknown;
   return {
     getItem(key) {
       hydrated = false;
       localReadable = false;
       let legacy: ReturnType<typeof decode> = null;
-      let localFailure: unknown;
       try {
         legacy = decode(localStorage.getItem(key));
         localReadable = true;
@@ -62,11 +64,20 @@ export function sessionManagementStorage(): StateStorage {
         if (!saved.ok) throw new Error(saved.error);
       }
       previous = intended;
-      if (localReadable) localStorage.setItem(key, raw);
+      // Re-read the global instead of trusting the import-time probe: a host may install or
+      // remove localStorage after the module loads (and a missing one is a readable condition,
+      // never a crash).
+      if (localReadable) {
+        try { localStorage.setItem(key, raw); }
+        catch (error) { localFailure = error; localReadable = false; }
+      }
     },
     removeItem(key) {
       // Clearing a UI cache is not an instruction to discard durable pins.
-      if (hydrated && localReadable) localStorage.removeItem(key);
+      if (hydrated && localReadable) {
+        try { localStorage.removeItem(key); }
+        catch (error) { localFailure = error; localReadable = false; }
+      }
     },
   };
 }
