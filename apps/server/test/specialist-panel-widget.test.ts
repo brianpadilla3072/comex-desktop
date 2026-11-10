@@ -134,7 +134,13 @@ test("a chart without numbers fails loud and the refresh button re-runs the tool
     await until(() => document.querySelector("h1")?.textContent === "Segundo", "refresh did not repaint the card");
     assert.equal(document.querySelector(".stat-value")?.textContent, "42");
     const call = host.sent.find(message => message["method"] === "tools/call");
-    assert.deepEqual((call?.["params"] as { name: string; arguments: { panel: string } }), { name: "dashboard_render", arguments: { panel: "cierres" } });
+    // The click must reach the tool as a user interaction with a unique stamp: otherwise the host
+    // answers from the result it already read for this open and the card silently shows stale data.
+    const params = call?.["params"] as { name: string; arguments: { panel: string; refreshAt: number }; _meta: Record<string, unknown> };
+    assert.equal(params.name, "dashboard_render");
+    assert.equal(params.arguments.panel, "cierres");
+    assert.equal(typeof params.arguments.refreshAt, "number");
+    assert.deepEqual(params._meta, { "openwork/userInteraction": true });
   } finally { host.dispose(); }
 });
 

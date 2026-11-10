@@ -222,9 +222,15 @@ async function callTool(config: Pick<ServerConfig, "configPath">, appId: string,
     if (!panel.success) return textResult("Falta el nombre del panel (campo panel).", undefined, true);
     const payload = await panelRenderPayload(config, appId, directory, panel.data);
     if (!payload.ok) return textResult(payload.error, payload as unknown as Record<string, unknown>, true);
-    return name === "dashboard_render"
-      ? textResult(`Panel "${payload.title}" con ${payload.blocks.length} bloque${payload.blocks.length === 1 ? "" : "s"} (fuente ${payload.source}).`, payload as unknown as Record<string, unknown>, false, { ui: { resourceUri: PANEL_APP_URI } })
-      : textResult(`Panel "${payload.title}" con ${payload.blocks.length} bloque${payload.blocks.length === 1 ? "" : "s"} (fuente ${payload.source}).`, payload as unknown as Record<string, unknown>);
+    const summary = `Panel "${payload.title}" con ${payload.blocks.length} bloque${payload.blocks.length === 1 ? "" : "s"} (fuente ${payload.source}).`;
+    if (name === "panel_snapshot") return textResult(summary, payload as unknown as Record<string, unknown>);
+    // The launch reference is how a chat hosts the widget: Code Mode keeps only the structured
+    // payload per inner call, so the App binding travels inside it (same shape cloud Apps use).
+    const withLaunch = {
+      ...payload,
+      launch: { toolName: "dashboard_render", resourceUri: PANEL_APP_URI, arguments: { panel: panel.data } },
+    };
+    return textResult(summary, withLaunch as unknown as Record<string, unknown>, false, { ui: { resourceUri: PANEL_APP_URI } });
   }
   if (name === "panel_list") {
     const panels = await listPanels(config, appId);
@@ -420,7 +426,14 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
     if (!panel) return;
     button.disabled = true;
     button.textContent = "Actualizando…";
-    request("tools/call", { name: "dashboard_render", arguments: { panel: panel } })
+    // A click means "ask again": the unique stamp keeps the host from answering with the result it
+    // already read for this open (it keys that per-call), and the interaction flag marks the call
+    // as the person's own. The tool ignores both; panel is the only input it reads.
+    request("tools/call", {
+      name: "dashboard_render",
+      arguments: { panel: panel, refreshAt: Date.now() },
+      _meta: { "openwork/userInteraction": true },
+    })
       .then(function(result){
         if (result && result.isError) { showNotice(textOf(result) || "No se pudo refrescar el panel."); return; }
         applyResult(result);
@@ -459,7 +472,7 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
   }
   function renderTable(block){
     var wrap = el("div");
-    wrap.appendChild(el("p", "table-title", (block.columns || []).join(" · ")));
+    // The header row already names every column; a repeated "a · b · c" line adds nothing.
     if (!block.rows || !block.rows.length) { wrap.appendChild(el("p", "empty", "Sin filas para mostrar.")); return wrap; }
     var table = el("table");
     var head = el("thead");
@@ -527,12 +540,15 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
     var lineMin = Math.min.apply(null, values);
     var lineMax = Math.max.apply(null, values);
     var lineSpan = (lineMax - lineMin) || 1;
-    var width = 320;
-    var height = 120;
+    // Draw in CSS pixels: a fixed-height chart that fills the card instead of a viewBox that
+    // grows with the card width (a 670 px card used to turn 120 units into 250 px of chart).
+    var width = Math.max(240, Math.round(window.innerWidth) - 24);
+    var height = 150;
     var yFor = function(value){ return height - 20 - ((value - lineMin) / lineSpan) * (height - 28); };
     var ns = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+    svg.style.height = height + "px";
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-label", "Gráfico de líneas: " + block.title);
     var axis = document.createElementNS(ns, "line");

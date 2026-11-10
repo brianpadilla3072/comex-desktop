@@ -181,6 +181,33 @@ llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía a
 plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
 (con tests de ambos caminos).
 
+### Conversación real, con un modelo scripted (turno completo)
+
+Sin claves de modelo en esta máquina, se levantó un **modelo OpenAI-compatible mínimo** (un mock que
+responde un tool call y después texto) y se configuró como provider del workspace. Eso permitió
+conversar de verdad con la app y recorrer la cadena completa, no por partes:
+
+`prompt en la app` → `execute` (Code Mode) → `tools["openwork-panels"].dashboard_render` → el
+resultado se preserva (`openworkMcpResults` con `launch`) → el adaptador arma el part → la tarjeta
+resuelve `ui://openwork/panel/v1` y el widget pinta.
+
+Verificado: título, `489`, tabla de 4 filas, línea y bloque de cambios; **Actualizar** vuelve a
+consultar la tool y repinta; con el archivo borrado el aviso nombra el archivo **y mantiene los
+datos**; al restaurarlo el aviso desaparece; un cambio de spec se ve al refrescar.
+
+Tres defectos que solo aparecen conversando:
+
+1. **"Actualizar" repetido no consultaba la tool.** El host reutiliza el resultado ya leído para la
+   misma llamada (caché por-apertura) y un click sintético no cuenta como gesto de confianza para
+   el sandbox, así que la segunda pulsación devolvía lo anterior. El widget ahora manda un sello
+   único (`refreshAt`) además de la marca de interacción: el botón siempre vuelve a preguntar.
+2. **El gráfico de línea crecía con el ancho de la tarjeta** (250 px de alto en el chat). Ahora se
+   dibuja en píxeles CSS con alto fijo (150) y ancho de la tarjeta.
+3. **La tabla repetía** "fecha · cierre · volumen" arriba de sus propios encabezados. Se quitó.
+
+Nota: el warning de React "two children with the same key" (clave de sesión) aparece también en un
+turno **sin** tool, así que es preexistente y ajeno a la tarjeta; queda anotado, no corregido acá.
+
 ### Pasada de usuario exigente sobre la UI real
 
 Segunda vuelta, esta vez recorriendo la UI como una persona con expectativas (clicks, Escape,
