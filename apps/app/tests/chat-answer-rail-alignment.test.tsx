@@ -64,47 +64,47 @@ async function render(messages: UIMessage[], streaming = false, modelOptions?: r
   return container
 }
 
-/** The rail's leading 20px lane holds the chevron; its text starts after it (lane + gap-2). */
-function railLane(container: HTMLElement): HTMLElement | null {
-  return container.querySelector<HTMLElement>('[data-testid="completed-work-rail"] span[aria-hidden="true"]')
+/** The frame every chat row shares: a centered column with the same gutters. */
+const FRAME = "max-w-3xl"
+
+function frameOf(element: Element | null): Element | null {
+  let current: Element | null = element
+  while (current && !current.className.toString().includes(FRAME)) current = current.parentElement
+  return current
 }
 
-/** The answer's lane: the same 20px lane, reserved so the reply's text starts where the rail's labels do. */
-function answerLane(container: HTMLElement): HTMLElement | null {
-  const prose = container.querySelector<HTMLElement>('[data-message-role="assistant"] .prose')
-  // The prose sits in a flex row whose first child is the lane (the rail's shared alignment).
-  const row = prose?.parentElement
-  if (!row || !row.classList.contains("flex") || !row.classList.contains("gap-2")) return null
-  return row.querySelector<HTMLElement>(":scope > span[aria-hidden='true']")
-}
-
-test("the answer aligns with the activity rail: both reserve the same leading lane", async () => {
+test("the answer and the activity rail share one frame and one left edge", async () => {
   const container = await render([answer("reply")])
 
-  // The completed rail still folds to one line and keeps its chevron lane.
   const rail = container.querySelector('[data-testid="completed-work-rail"]')
   expect(rail?.textContent).toContain("Worked for 7s")
-  const railLaneEl = railLane(container)
-  expect(railLaneEl).not.toBeNull()
-  // The rail's label sits after the lane (lane + gap), not at the rail row's left edge.
-  expect(rail?.querySelector("span:not([aria-hidden='true'])")?.previousElementSibling).toBe(railLaneEl)
+  const prose = container.querySelector('[data-message-role="assistant"] .prose')
+  expect(prose).not.toBeNull()
 
-  // The answer reserves the same lane, so its text starts where the rail's labels do —
-  // not 28px to the rail's left.
-  const answerLaneEl = answerLane(container)
-  expect(answerLaneEl).not.toBeNull()
-  expect(answerLaneEl?.className).toContain("size-5")
-  expect(railLaneEl?.className).toContain("size-5")
-  // Same lane width and same gap: their text columns share one left edge.
-  expect(answerLaneEl?.classList.contains("shrink-0")).toBe(true)
-  const proseRow = container.querySelector('[data-message-role="assistant"] .prose')?.parentElement
-  expect(proseRow?.classList.contains("gap-2")).toBe(true)
+  // Text-first rail (activity-rail.tsx): sentences share the reply's left edge. There is no
+  // reserved lane span in front of either one, so no reply is indented 20px past the steps.
+  const railFrame = frameOf(rail)
+  const answerFrame = frameOf(prose)
+  expect(railFrame).not.toBeNull()
+  // Same centered column with the same gutters: the two rows are separate elements, but
+  // they resolve to one left edge (mx-auto + max-w-3xl + px-2 md:px-10).
+  const gutters = (frame: Element | null) => ["mx-auto", "w-full", "max-w-3xl"].every(name => frame?.className.toString().includes(name))
+  expect(gutters(railFrame)).toBe(true)
+  expect(gutters(answerFrame)).toBe(true)
+  expect(rail?.querySelector('span[aria-hidden="true"]')).toBeNull()
+  const proseRow = prose?.parentElement
+  expect(proseRow?.querySelector('span[aria-hidden="true"]')).toBeNull()
+  // Their text columns start at the same place: the first child of each row is the text.
+  expect(rail?.firstElementChild?.textContent).toContain("Worked for 7s")
+  expect(proseRow?.firstElementChild).toBe(prose)
 })
 
-test("the answer keeps the lane while it streams, so it does not jump left when it finishes", async () => {
+test("the answer keeps its frame while it streams, so it does not jump when it finishes", async () => {
   const container = await render([answer("streaming")], true)
-  expect(answerLane(container)).not.toBeNull()
-  // No completed rail while streaming; the lane is the answer's own, not the rail's.
+  const prose = container.querySelector('[data-message-role="assistant"] .prose')
+  expect(prose).not.toBeNull()
+  expect(frameOf(prose)).not.toBeNull()
+  // No completed rail while streaming; the answer already sits in the final frame.
   expect(container.querySelector('[data-testid="completed-work-rail"]')).toBeNull()
 })
 
@@ -126,7 +126,7 @@ function runningScript(toolCallId: string): UIMessage {
   }
 }
 
-test("a running script with no visible calls shows a spinner in the lane, not a generic dot", async () => {
+test("a running script with no visible calls is one quiet text row (no spinner, no dot)", async () => {
   const container = await render(
     [{ id: "user_script", role: "user", parts: [{ type: "text", text: "Run a script." }], metadata: { opencode: { created: 900 } } }, runningScript("call_script")],
     true,
@@ -135,10 +135,11 @@ test("a running script with no visible calls shows a spinner in the lane, not a 
   )
   // The empty-group row's label is the script summary ("Running a script").
   expect(container.textContent).toContain("Running a script")
-  // The lane holds a spinner (LoaderCircle svg with animate-spin), never the
-  // generic solid-dot fallback (size-1 rounded-full bg-muted-foreground) that
-  // read as a bullet beside the run (DESIGN.md T1).
-  expect(container.querySelector('[data-code-mode-call] .animate-spin')).not.toBeNull()
+  // Text-first (activity-rail.tsx): the running row is one quiet sentence in full ink.
+  // No spinner and no generic solid dot sit beside it: the turn's Working line is the one
+  // thing that shimmers, so two rows never sweep at once.
+  expect(container.querySelector('[data-code-mode-call] [data-text-step-tone="running"]')).not.toBeNull()
+  expect(container.querySelector('[data-code-mode-call] .animate-spin')).toBeNull()
   expect(container.querySelector('[data-code-mode-call] .size-1.rounded-full.bg-muted-foreground')).toBeNull()
 })
 
@@ -159,16 +160,16 @@ function runningGenericCall(toolCallId: string): UIMessage {
   }
 }
 
-test("an in-flight capability call with no connector shows a spinner in the lane, not a generic dot", async () => {
+test("an in-flight capability call with no connector is one quiet text row (no spinner, no dot)", async () => {
   const container = await render(
     [{ id: "user_call", role: "user", parts: [{ type: "text", text: "Fetch the data." }], metadata: { opencode: { created: 900 } } }, runningGenericCall("call_data")],
     true,
     undefined,
     "responding",
   )
-  // The lane holds a spinner (LoaderCircle svg with animate-spin), never the
-  // generic solid-dot fallback (size-1 rounded-full bg-muted-foreground) that
-  // read as a bullet, whether the text shimmers or not (DESIGN.md T1).
-  expect(container.querySelector('[data-capability-call] .animate-spin')).not.toBeNull()
+  // Same text-first contract for a capability call: one sentence in full ink while it runs,
+  // no spinner and no solid dot beside it.
+  expect(container.querySelector('[data-capability-call] [data-text-step-tone="running"]')).not.toBeNull()
+  expect(container.querySelector('[data-capability-call] .animate-spin')).toBeNull()
   expect(container.querySelector('[data-capability-call] .size-1.rounded-full.bg-muted-foreground')).toBeNull()
 })

@@ -82,6 +82,8 @@ test("collapsed tool details do not serialize large outputs until opened", async
   expect(document.querySelector('[data-agent-details]')!.textContent).toContain("Datos sintéticos de rendimiento");
   await act(async () => {
     queryClient.setQueryData<UIMessage[]>(["agent-activity-map", "perf-map-owner", "child-finished"], [{ id: "reply-perf", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "bash", toolCallId: "perf-tool", state: "output-error", input: { description: "Resultado extenso", command: "revisar" }, errorText: "Error actualizado del agente" }] }]);
+    // The observer inside AgentDetails needs a turn to re-render with the new cache value.
+    await new Promise(resolve => setTimeout(resolve, 30));
   });
   expect(document.querySelector('[data-agent-details]')!.textContent).toContain("Error actualizado del agente");
   expect(document.querySelector('[data-agent-details]')!.textContent).not.toContain("Datos sintéticos de rendimiento");

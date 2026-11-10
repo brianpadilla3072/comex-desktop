@@ -14,7 +14,8 @@ export function BuiltAppCatalogSync({ messages }: { messages: UIMessage[] }) {
   return <SignedInCatalogSync messages={messages} />;
 }
 
-function SignedInCatalogSync({ messages }: { messages: UIMessage[] }) {
+/** Exported for tests: the revision-invalidation logic without the Den gate. */
+export function SignedInCatalogSync({ messages }: { messages: UIMessage[] }) {
   const context = useAppsClient();
   const queryClient = useQueryClient();
   const scopeKey = JSON.stringify(context.scope);

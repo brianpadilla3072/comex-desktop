@@ -9,7 +9,7 @@ falla, por qué y qué se arregló. Complementa `HIVE-C-TEST.md`, `HIVE-F-TEST.m
 | Suite | Comando | Resultado |
 |---|---|---|
 | Servidor | `pnpm --filter openwork-server test` (dos fases, ver abajo) | **713 pass / 11 skip / 0 fail (724 tests, exit 0)** · corridas repetidas verdes |
-| App | `pnpm --filter @openwork/app test` (`bun test --isolate --max-concurrency=4`) | **1970 pass / 72 fail** (207 archivos) |
+| App | `pnpm --filter @openwork/app test` (`bun test --isolate --max-concurrency=4`) | **2042 pass / 0 fail** (207 archivos) |
 
 ### Por qué el servidor corre en dos fases
 
@@ -42,14 +42,8 @@ llegue (condición en vez de snapshot).
 > no la suma. Por eso `test:parallel` repite los tres patrones.
 
 
-Los 72 fallos de la app están agrupados: 9 archivos, 6 familias (abajo). **Ninguno es del feature
-de especialistas ni de las celdas A–F**: `specialist-*` y `comex-*` están 100% verdes.
-
-> Nota de medición: en modo aislado (`--isolate`) aparecen además ~14 fallos que **no existen** en
-> modo compartido — tests que renderizan componentes que necesitan `DenAuthProvider` y solo pasaban
-> porque otro archivo había dejado módulos mockeados en el registro compartido. Ambos números están
-> documentados: la app tiene 72 fallos aislados y 82 en la corrida por grupos, con 3 de ellos
-> (error-monitoring, electron-updater-check-now, comex-docx-preview) que pasan aislados.
+Las dos suites quedan **completamente verdes**: servidor 724 tests (713 pass + 11 skip) y app 2042
+pass, con `specialist-*` y `comex-*` incluidos.
 
 
 ## Arreglos de esta pasada (código de producción)
@@ -87,23 +81,24 @@ de especialistas ni de las celdas A–F**: `specialist-*` y `comex-*` están 100
 - `apps/server`: script `test:approval-transport` (`node --conditions=development --import tsx
   --test`) → **6/6 verde** en Node. Ese archivo no es compatible con Bun.
 
-## Mapa de fallos restantes de la app (64 tests, 6 archivos)
+## Fallos restantes de la app: 0
 
-Medido con `bun test --isolate --max-concurrency=4`: **1978 pass / 64 fail**. Cada archivo falla
-también **aislado**, así que no es fuga entre tests.
+`pnpm --filter @openwork/app test` → **2042 pass / 0 fail** (207 archivos).
 
-| Archivo | Fallos | Causa verificada | Arreglo |
+Lo que estaba rojo y cómo se cerró:
+
+| Archivo | Fallos | Causa | Arreglo |
 |---|---|---|---|
-| `tests/mcp-app-frame.test.ts` | 50 | La app espera `IntersectionObserver` para arrancar una App **inline**; happy-dom nunca dispara el observer y estos 50 casos no lo desactivan (los que sí lo hacen pasan). Instrumentado: el efecto corre, `expectedOrigin` resuelve, pero `navigationStarted` queda en false. | Actualizar el harness (`startupFixture`) a `presentation: "dashboard"` o apagar el observer, como ya hacen los casos verdes. Es mecánico, ~50 casos. Desbloquea la celda D. |
-| `tests/opencode-session-native.test.ts` | 6 | El cliente v2 hace **3** requests donde el test espera 2 (probe extra de `/path`); 3 de esos casos además cuelgan hasta el timeout por la misma razón. | Decisión del dueño del motor v2: aceptar el probe en la expectativa o dejar de hacerlo. |
-| `tests/chat-answer-rail-alignment.test.tsx` | 4 | El `.prose` del asistente ya no está en una fila `flex gap-2` con `span[aria-hidden]` como carril; el test que describe esa alineación no encuentra el elemento. | Revisar contra `DESIGN.md` antes de tocar markup (es alineación visual). |
-| `tests/created-skill-render.test.tsx` | 2 | La línea plegada dice "Worked for 4s" donde el test espera "3 steps". | Alinear la etiqueta con el modelo actual (o al revés, si el diseño pide los pasos). |
-| `tests/agent-activity-map.test.tsx` | 1 | Espera "Error actualizado del agente", renderiza "Finalizado". | Revisar el estado del mapa para ese fixture. |
-| `tests/artifact-pinning.test.tsx` | 1 | La mutación de pin no se llama (esperado 1, recibido 0). | Revisar el disparador del pin en el árbol de artefactos. |
+| `tests/mcp-app-frame.test.ts` | 50 | happy-dom nunca dispara `IntersectionObserver`; la app espera a que la App esté en pantalla. | El archivo instala un observer que reporta intersección inmediata (lo que hace un navegador con una App visible). El caso que necesita «sin observer» sigue poniendo el global en `undefined`. |
+| `tests/opencode-session-native.test.ts` | 6 | Los clientes se auto-inicializan (un `GET …/path` y un `GET …/api/info`) y ese request extra rompía los conteos y los `respond` estrictos; tres casos quedaban colgados. | `withSessionFetch` responde centralmente los dos probes de bootstrap y el helper `sessionRequests` los excluye de los conteos. |
+| `tests/chat-answer-rail-alignment.test.tsx` | 4 | El test describía un «carril» de 20 px y spinners que el rail text-first ya no tiene (ver `activity-rail.tsx`). | Reescrito al contrato vigente: fila y respuesta comparten `mx-auto / max-w-3xl / px-2 md:px-10`; las filas en curso son una frase en tinta plena, sin spinner ni punto. |
+| `tests/created-skill-render.test.tsx` | 2 | Esperaba «3 steps» en el rail plegado y un shimmer en el paso activo; el diseño es text-first y solo la línea Working brilla. | Se afirma el contrato nuevo (sin conteo de pasos, `data-text-step-tone="running"`, cero `ow-text-shimmer` en filas de capacidad). |
+| `tests/agent-activity-map.test.tsx` | 1 | El `setQueryData` no daba tiempo a que el detalle re-renderizara. | Se espera un turno del observer antes de afirmar. |
+| `tests/artifact-pinning.test.tsx` | 1 | El componente ahora no monta nada sin sesión Den, y el test lo renderizaba suelto. | Se exporta `SignedInCatalogSync` (la lógica de revisiones sin el gate) y el test usa esa pieza. |
 
-**Fuera del mapa**: 3 archivos (`error-monitoring`, `electron-updater-check-now`,
-`comex-docx-preview`) que pasan aislados y solo fallan cuando comparten proceso con otros; quedan
-resueltos por cualquier estrategia que aísle por archivo.
+Además, 16 de esos fallos venían de un bug de producto real: **el chat se rompía sin cuenta Den**
+(`BuiltAppCatalogSync` montaba hooks que exigían provider y QueryClient). Ahora no-ops sin sesión y
+`useAppsClient` lee el contexto opcional.
 
 ## Pendiente de revisar (no es un fallo, es alcance)
 
@@ -121,7 +116,7 @@ resueltos por cualquier estrategia que aísle por archivo.
 ```bash
 pnpm --filter openwork-server test          # 713 pass / 11 skip / 0 fail, exit 0 (dos fases, 724 tests)
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
-pnpm --filter @openwork/app test            # 1970 pass / 72 fail (mapa arriba)
+pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53
 cd apps/server && bun test test/specialist-*.test.ts test/comex-*.test.ts  # 132/132
 ```

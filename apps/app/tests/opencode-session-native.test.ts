@@ -63,6 +63,18 @@ function operations(overrides: Partial<NativeSessionOperations> = {}): NativeSes
   };
 }
 
+/**
+ * Requests that belong to the operation under test. The clients bootstrap themselves lazily
+ * (one `/path` workspace lookup, one `/api/info` version probe) and cache it, so those probes
+ * are not part of what a session read costs.
+ */
+function sessionRequests(requests: readonly Request[]) {
+  return requests.filter(request => {
+    const path = new URL(request.url).pathname;
+    return !path.endsWith("/path") && !path.endsWith("/api/info");
+  });
+}
+
 async function withSessionFetch(
   respond: (request: Request) => Response | Promise<Response>,
   run: (requests: Request[]) => Promise<void>,
@@ -79,6 +91,11 @@ async function withSessionFetch(
       if (request.method === "GET" && url.pathname.endsWith("/path")) {
         const directory = url.searchParams.get("directory") ?? "";
         return Promise.resolve(Response.json({ home: "/", state: "/", config: "/", worktree: directory, directory }));
+      }
+      // Clients bootstrap themselves once (workspace path + engine version). Answer centrally so
+      // each test only describes the operation it is about.
+      if (request.method === "GET" && url.pathname.endsWith("/api/info")) {
+        return Promise.resolve(Response.json({ version: "2.0.26", pid: 1 }));
       }
       return Promise.resolve(respond(request));
     },
@@ -540,7 +557,7 @@ describe("native OpenCode session operations", () => {
       await started.promise;
       caller.abort(reason);
       await expect(history).rejects.toBe(reason);
-      expect(requests).toHaveLength(3);
+      expect(sessionRequests(requests)).toHaveLength(3);
       expect(requests.every((request) => request.signal.aborted && request.signal.reason === reason)).toBe(true);
     });
   });
@@ -607,7 +624,7 @@ describe("native OpenCode session operations", () => {
       }
       response = Response.json({ info: { id: messageID, sessionID: session.id, role: "user" }, parts: [] });
       expect(await hasAcceptedPromptMessage(client, session.id, messageID)).toBe(true);
-      expect(requests).toHaveLength(5);
+      expect(sessionRequests(requests)).toHaveLength(5);
       for (const request of requests) {
         expect(request.method).toBe("GET");
         const url = new URL(request.url);
@@ -711,7 +728,7 @@ describe("native OpenCode session operations", () => {
       ]);
       expect(current.id).toBe(session.id);
       expect(newest.map(({ info }) => info.id)).toEqual(history.slice(-24).map(({ info }) => info.id));
-      expect(requests).toHaveLength(2);
+      expect(sessionRequests(requests)).toHaveLength(2);
     });
   });
 

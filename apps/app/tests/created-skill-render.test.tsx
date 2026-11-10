@@ -86,7 +86,8 @@ test("a finished turn folds to one quiet line while its skill stays visible, and
 
   const rail = container.querySelector<HTMLElement>('[data-testid="completed-work-rail"]')
   expect(rail?.textContent).toContain("Worked for 4s")
-  expect(rail?.textContent).toContain("3 steps")
+  // Text-first rail: the duration and nothing else (no step count, no separator) before expanding.
+  expect(rail?.textContent).not.toContain("step")
   expect(rail?.textContent).not.toContain("·")
   expect(container.textContent).not.toContain("Created the Update CRM skill")
 
@@ -114,9 +115,11 @@ test("a running share keeps the created skill openable and says sharing is in pr
   const container = await render(conversation([createCall, directory, shareRunning], false), "streaming")
   expect(card(container)?.textContent).toContain("Sharing with Sam…")
   expect(container.textContent).toContain("Sharing Update CRM with Sam…")
-  // Only the active step shimmers; the finished create step does not.
-  const shimmering = [...container.querySelectorAll("[data-capability-call] .ow-text-shimmer")].map((element) => element.textContent)
-  expect(shimmering).toEqual(["Sharing Update CRM with Sam…"])
+  // One shimmer on screen: the turn's Working line. A running step holds still in full ink,
+  // so two lines never sweep at once (activity-rail.tsx documents this).
+  const stepTones = [...container.querySelectorAll("[data-capability-call] [data-text-step]")].map(element => element.getAttribute("data-text-step-tone"))
+  expect(stepTones).toContain("running")
+  expect(container.querySelectorAll("[data-capability-call] .ow-text-shimmer")).toHaveLength(0)
   const before = card(container)
 
   await render(conversation([createCall, directory, shareDone, { type: "text", text: "Done." }], true), "ready")
