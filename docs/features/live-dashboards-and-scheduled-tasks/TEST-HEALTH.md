@@ -327,6 +327,9 @@ cualquier profesión, no solo Comex.
   tarea queda pausada. Descartar no deja rastro.
 - **Fallo en voz alta**: con el modelo gratuito saturado, el chat dice "The free starter model is
   busy right now…" con la salida (conectar otro proveedor), no un 500.
+- **Programador**: en una app "Codigo" el asistente escribió `suma.js` + `suma.test.js`, corrió
+  `bun test suma.test.js` y mostró la salida real (**2 pass / 0 fail**), con el registro en la
+  memoria del proyecto.
 
 ### Arreglos que salieron de este barrido
 
@@ -363,6 +366,12 @@ cualquier profesión, no solo Comex.
 - Un especialista puede leer rutas absolutas fuera de su proyecto con `read`/`shell` (el motor
   corre con cwd en el proyecto, no en un sandbox). Es el mismo poder que el chat principal y queda
   bajo el modo de permisos, pero conviene decirlo en la biblioteca.
+- **Deuda de nombre (acoplamiento a Comex)**: los datos de CUALQUIER aplicación viven en
+  `<proyecto>/comex/` (estado, sesiones, datasets, fuentes, salidas, tareas). En una app de estudio,
+  obra o programación eso se lee raro. El arreglo correcto es una raíz de datos por aplicación
+  (nueva: `proyecto/`; Comex y proyectos existentes siguen leyendo `comex/`), pero toca
+  `tasks/sources/datasets/panels/outputs/instructions/seed` y sus tests; no se hizo en este barrido
+  para no dejar una migración a medias.
 
 ## Pendiente (alcance)
 
