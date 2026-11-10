@@ -461,7 +461,7 @@ function SourceRow({ app, client, source, open, onToggle, multi }: { app: Specia
       <Badge variant="outline">{source.provider}</Badge>
     </div>
     <p className="text-xs text-muted-foreground">
-      {source.id}{multi ? ` · ${source.workspaceName}` : ""} · {source.chunks ? `${source.chunks} pasajes` : "sin pasajes indexados todavía"} · {formatWhen(source.retrievedAt)}
+      {source.id}{multi ? ` · ${source.workspaceName}` : ""} · {source.chunks ? `${source.chunks} ${source.chunks === 1 ? "pasaje" : "pasajes"}` : "sin pasajes citables"} · {formatWhen(source.retrievedAt)}
       {source.url ? <> · <a href={source.url} target="_blank" rel="noreferrer" className="underline">{source.url}</a></> : null}
     </p>
     <Button size="sm" variant="ghost" className="justify-self-start" aria-expanded={open} onClick={onToggle}>{open ? "Ocultar pasajes" : "Ver pasajes"}</Button>

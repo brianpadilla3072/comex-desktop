@@ -142,7 +142,7 @@ test("recorrido: menú → resumen de fuentes → Gestionar → lector de pasaje
   expect(fila.textContent).toContain("https://ejemplo.cl/soja");
   const filaAnexo = rowFor("aduana argentina");
   expect(filaAnexo.textContent).toContain("proyecto-anexo");
-  expect(filaAnexo.textContent).toContain("sin pasajes indexados todavía");
+  expect(filaAnexo.textContent).toContain("sin pasajes citables");
 
   // Ver pasajes: GET detalle con ?workspace= del proyecto de la fila; cada pasaje muestra su ancla.
   await act(async () => { [...fila.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Ver pasajes"))!.click(); });

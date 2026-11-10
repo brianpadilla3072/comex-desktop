@@ -52,7 +52,21 @@ async function writeIndex(directory: string, sources: SpecialistSourceMeta[]) {
 }
 
 export async function listSources(directory: string) {
-  return (await readIndex(directory)).sort((left, right) => right.retrievedAt - left.retrievedAt);
+  const sources = await readIndex(directory);
+  // Self-healing counts: the library used to show "sin pasajes" for sources registered before
+  // the indexer ran, and opening one revealed text. Index every uncounted source once, here.
+  const pending = sources.filter(source => source.chunks === 0);
+  if (pending.length) {
+    const counted = new Map<string, number>();
+    for (const source of pending) {
+      try { counted.set(source.id, (await buildChunks(directory, source)).length); } catch { /* stays uncounted */ }
+    }
+    if ([...counted.values()].some(count => count > 0)) {
+      await writeIndex(directory, sources.map(source => counted.has(source.id) ? { ...source, chunks: counted.get(source.id)! } : source));
+      return (await readIndex(directory)).sort((left, right) => right.retrievedAt - left.retrievedAt);
+    }
+  }
+  return sources.sort((left, right) => right.retrievedAt - left.retrievedAt);
 }
 
 /** Register evidence as a citable source; idempotent by evidencePath (re-register refreshes meta). */
@@ -74,7 +88,10 @@ export async function registerSource(directory: string, input: { provider: strin
   };
   if (!existing && sources.length >= SOURCE_LIMIT) throw new ApiError(409, "source_limit", `Hay ${SOURCE_LIMIT} fuentes registradas; depurá el proyecto.`);
   await writeIndex(directory, existing ? sources.map(source => source.id === meta.id ? meta : source) : [meta, ...sources]);
-  return meta;
+  // Index the passages now, not on first read: the library said "sin pasajes" for a source that
+  // had plenty of text, and a person registering their own file needs to see what can be cited.
+  try { const { chunks } = await ensureChunks(directory, meta.id); return { ...meta, chunks: chunks.length }; }
+  catch { return meta; }
 }
 
 /** Walk any JSON payload and pull the substantial text out of it (provider results, answers, pages). */
@@ -112,10 +129,7 @@ function chunkText(text: string): string[] {
 }
 
 /** Build (and cache) the chunk file so citations have stable anchors. Idempotent. */
-export async function ensureChunks(directory: string, id: string) {
-  const sources = await readIndex(directory);
-  const source = sources.find(entry => entry.id === id);
-  if (!source) throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en este proyecto.");
+async function buildChunks(directory: string, source: SpecialistSourceMeta): Promise<string[]> {
   const chunkFile = join(fuentesRoot(directory), `${source.id}.chunks.json`);
   const cached = await readFile(chunkFile, "utf8").catch((error: NodeJS.ErrnoException) => (error.code === "ENOENT" ? null : Promise.reject(error)));
   if (cached !== null) {
@@ -123,11 +137,11 @@ export async function ensureChunks(directory: string, id: string) {
       const chunks = z.array(z.string()).parse(JSON.parse(cached));
       // A cached empty list (written by an older indexer for short-cell data) must not keep the
       // source uncitable: rebuild it below.
-      if (chunks.length > 0) return { source, chunks };
+      if (chunks.length > 0) return chunks;
     } catch { /* rebuild below */ }
   }
   const evidenceText = await readFile(join(directory, source.evidencePath), "utf8").catch(() => null);
-  if (evidenceText === null) return { source, chunks: [] as string[] };
+  if (evidenceText === null) return [];
   let payload: unknown = evidenceText;
   try { payload = JSON.parse(evidenceText); } catch { /* treat the raw text itself as the content */ }
   const texts: string[] = [];
@@ -153,7 +167,17 @@ export async function ensureChunks(directory: string, id: string) {
   const temporary = `${chunkFile}.${randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(chunks), { mode: 0o600 });
   await rename(temporary, chunkFile);
-  await writeIndex(directory, (await readIndex(directory)).map(entry => entry.id === id ? { ...entry, chunks: chunks.length } : entry));
+  return chunks;
+}
+
+export async function ensureChunks(directory: string, id: string) {
+  const sources = await readIndex(directory);
+  const source = sources.find(entry => entry.id === id);
+  if (!source) throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en este proyecto.");
+  const chunks = await buildChunks(directory, source);
+  if (source.chunks !== chunks.length) {
+    await writeIndex(directory, (await readIndex(directory)).map(entry => entry.id === id ? { ...entry, chunks: chunks.length } : entry));
+  }
   return { source, chunks };
 }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
 import { readCitation, registerSource } from "../src/specialists/sources.js";
-import { registerLocalSource } from "../src/specialists/sources.js";
+import { listSources, registerLocalSource } from "../src/specialists/sources.js";
 
 const longSentence = "La exportación de soja creció un tres por ciento en el último trimestre medido por la Bolsa de Comercio. ";
 
@@ -17,6 +17,8 @@ test("a local text file becomes a citable source with stable anchors", async () 
     await writeFile(join(root, "datos", "informe.md"), content);
     const source = await registerLocalSource(root, { path: "datos/informe.md" });
     assert.equal(source.provider, "file");
+    // Registering indexes the passages: the library must not say "sin pasajes" for real text.
+    assert.ok(source.chunks > 0);
     assert.equal(source.title, "informe.md");
     assert.match(source.evidencePath, /^comex\/fuentes\/local\//);
     // Snapshot: changing the original afterwards doesn't move the citation.
@@ -115,5 +117,22 @@ test("research evidence cites its result content, never the search query or the 
       assert.match(cited.text, /defensa de los consumidores/);
       assert.equal(cited.text.startsWith("http"), false);
     }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("listing sources indexes an old uncounted source instead of claiming it has no passages", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-source-count-"));
+  try {
+    await mkdir(join(root, "comex", "fuentes", "tavily"), { recursive: true });
+    const evidencePath = "comex/fuentes/tavily/vieja.json";
+    await writeFile(join(root, evidencePath), JSON.stringify({ results: [{ title: "Nota", url: "https://example.com", content: longSentence.repeat(4) }] }));
+    // An index written by the older indexer: no chunk count, no chunk file.
+    await writeFile(join(root, "comex", "fuentes", "index.json"), JSON.stringify([{
+      id: "src_vieja", provider: "tavily", title: "Nota", url: null, evidencePath, datasetId: null, retrievedAt: 1,
+    }]));
+    const listed = await listSources(root);
+    assert.equal(listed[0]!.chunks > 0, true);
+    const reread = JSON.parse(await readFile(join(root, "comex", "fuentes", "index.json"), "utf8")) as Array<{ chunks: number }>;
+    assert.equal(reread[0]!.chunks, listed[0]!.chunks);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
