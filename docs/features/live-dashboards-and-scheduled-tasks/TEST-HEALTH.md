@@ -87,17 +87,34 @@ de especialistas ni de las celdas A–F**: `specialist-*` y `comex-*` están 100
 - `apps/server`: script `test:approval-transport` (`node --conditions=development --import tsx
   --test`) → **6/6 verde** en Node. Ese archivo no es compatible con Bun.
 
-## Mapa de fallos restantes de la app (9 archivos, 80 tests)
+## Mapa de fallos restantes de la app (64 tests, 6 archivos)
 
-| Archivo | Fallos | Causa verificada | Estado |
+Medido con `bun test --isolate --max-concurrency=4`: **1978 pass / 64 fail**. Cada archivo falla
+también **aislado**, así que no es fuga entre tests.
+
+| Archivo | Fallos | Causa verificada | Arreglo |
 |---|---|---|---|
-| `tests/mcp-app-frame.test.ts` | 50 | Deriva test/app: la app ahora **espera `IntersectionObserver`** para arrancar una App inline; happy-dom nunca dispara el observer, y 50 casos no lo desactivan (los que sí lo hacen — p. ej. «cached chat preview…» — pasan). | Documentado. Dos arreglos posibles: (a) actualizar el harness a `presentation: "dashboard"` o apagar el observer en `startupFixture`, (b) revisar si la app debe arrancar inline sin observer. Requiere decisión de producto: es el host de MCP Apps (celda D). |
-| `tests/den-sign-in-return.test.ts` | 5 | Flujo Den (sign-in/organización) desalineado con el código actual. | Documentado. Dominio Den, no del feature. |
-| `tests/den-org-session.test.ts` | 9 | `ensureDenActiveOrganization` promueve una org arbitraria a "elegida" (`activeOrgId` org_b cuando se espera `null`); el test describe justamente el comportamiento correcto. | Documentado — **candidato a bug real de producto** (memoria de organización). |
-| `tests/live-provider-sync-session-handoff.test.ts` | 6 | Sync de proveedores cloud devuelve `invalid_gateway_providers_payload` (500) en el fixture. | Documentado. Dominio conexiones/cloud. |
-| `tests/opencode-session-native.test.ts` | 6 | El cliente v2 hace **3** requests donde el test espera 2 (probe extra de `/path`), y 3 casos quedaban colgados hasta el timeout por el mismo motivo. | Documentado. Dominio motor OpenCode v2 (línea de trabajo paralela). |
-| `tests/mcp-app-member-access.test.ts` | 3 | Misma familia MCP App (individualmente 33/33 verde → falla solo en corrida conjunta por fuga de mocks). | Documentado. |
-| `tests/error-monitoring.test.ts`, `tests/electron-updater-check-now.test.ts`, `tests/comex-docx-preview.test.ts` | 1 c/u | Pasan aislados (12/12, 41/41, 2/2): fallan únicamente por fuga de estado entre archivos dentro de un mismo proceso. | Con `--isolate` dejan de fallar. |
+| `tests/mcp-app-frame.test.ts` | 50 | La app espera `IntersectionObserver` para arrancar una App **inline**; happy-dom nunca dispara el observer y estos 50 casos no lo desactivan (los que sí lo hacen pasan). Instrumentado: el efecto corre, `expectedOrigin` resuelve, pero `navigationStarted` queda en false. | Actualizar el harness (`startupFixture`) a `presentation: "dashboard"` o apagar el observer, como ya hacen los casos verdes. Es mecánico, ~50 casos. Desbloquea la celda D. |
+| `tests/opencode-session-native.test.ts` | 6 | El cliente v2 hace **3** requests donde el test espera 2 (probe extra de `/path`); 3 de esos casos además cuelgan hasta el timeout por la misma razón. | Decisión del dueño del motor v2: aceptar el probe en la expectativa o dejar de hacerlo. |
+| `tests/chat-answer-rail-alignment.test.tsx` | 4 | El `.prose` del asistente ya no está en una fila `flex gap-2` con `span[aria-hidden]` como carril; el test que describe esa alineación no encuentra el elemento. | Revisar contra `DESIGN.md` antes de tocar markup (es alineación visual). |
+| `tests/created-skill-render.test.tsx` | 2 | La línea plegada dice "Worked for 4s" donde el test espera "3 steps". | Alinear la etiqueta con el modelo actual (o al revés, si el diseño pide los pasos). |
+| `tests/agent-activity-map.test.tsx` | 1 | Espera "Error actualizado del agente", renderiza "Finalizado". | Revisar el estado del mapa para ese fixture. |
+| `tests/artifact-pinning.test.tsx` | 1 | La mutación de pin no se llama (esperado 1, recibido 0). | Revisar el disparador del pin en el árbol de artefactos. |
+
+**Fuera del mapa**: 3 archivos (`error-monitoring`, `electron-updater-check-now`,
+`comex-docx-preview`) que pasan aislados y solo fallan cuando comparten proceso con otros; quedan
+resueltos por cualquier estrategia que aísle por archivo.
+
+## Pendiente de revisar (no es un fallo, es alcance)
+
+1. **Celda D — MCP Apps local** del plan: sin empezar. Su host es exactamente la familia #1 de
+   arriba, así que D arranca arreglando esos 50 tests.
+2. **4 archivos `*.vitest.test.ts` que nunca se ejecutan** (`cloud-computer-lifecycle`,
+   `computer-use-tools`, `non-reasoning-model-variants`, `session-title-sigv4`): necesitan el runner
+   vitest y `@openwork/testkit`, que no son dependencias de este workspace. Ese código está sin
+   cobertura efectiva.
+3. **11 tests saltados en el servidor**: conviene auditar si siguen siendo `skip` legítimos.
+4. **Nada pusheado**: ~62 commits por delante de `origin` en `comex/bootstrap`.
 
 ## Cómo verificarlo
 
