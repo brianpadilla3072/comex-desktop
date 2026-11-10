@@ -418,7 +418,7 @@ test("paso 5 — fuentes: el lector muestra las anclas [fuente:id#n] y la fuente
   const fila = rowFor("aranceles soja china");
   expect(fila.textContent).toContain("2 pasajes");
   const filaAnexo = rowFor("aduana argentina");
-  expect(filaAnexo.textContent).toContain("sin pasajes indexados todavía");
+  expect(filaAnexo.textContent).toContain("sin pasajes citables");
 
   await act(async () => { [...fila.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Ver pasajes"))!.click(); });
   await flush(60);

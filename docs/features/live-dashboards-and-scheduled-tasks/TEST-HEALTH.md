@@ -299,6 +299,71 @@ Límite conocido: no hay claves de modelo en este entorno, así que **no se pudo
 que llame al tool**. Lo que sí está verificado es cada eslabón por separado: motor conectado,
 catálogo del host, resolución del recurso y preservación del resultado (unit), y el widget real.
 
+## Barrido por UI de uso general (2026-11-10)
+
+Probado con la app real (vite 5180 + server 8906 + Chrome por CDP), modelos reales
+(`opencode/minimax-m2.5` y `opencode-go/minimax-m3.1-flash`) y tres aplicaciones creadas
+**por la UI**: Estudio (derecho), Obra (arquitectura) y Comunidad (community management). El
+objetivo era el pedido del usuario: que la app sirva para estudiar y para el día a día de
+cualquier profesión, no solo Comex.
+
+### Lo que se verificó funcionando
+
+- **Crear aplicación** con el template "Otra especialidad" tres veces (nombre, especialidad,
+  personalidad) y **elegir modelo por aplicación** desde el compositor (persiste tras recargar y
+  lo heredan los chats nuevos de ese proyecto).
+- **Salidas**: flashcards que dan vuelta, quiz que marca correcto/incorrecto
+  ("Incorrecto: la respuesta es …"), tabla real y Markdown de informe; la auditoría de citas dice
+  ✓ 4/4 o "sin anclas" en la misma tarjeta.
+- **Fuentes locales**: registrar `material/apuntes-consumidor.md` desde la biblioteca y leer sus
+  pasajes citables (`[fuente:src_…#0]`) en la app.
+- **Paneles sobre archivo**: `mediciones-obra.csv` (arquitecto) y `calendario-contenido.csv`
+  (community) dibujan tabla; el segundo además con bloque markdown.
+- **Tareas por UI**: crear con modelo por corrida (`opencode/minimax-m2.5`), costo estimado en
+  vivo, borrar con confirmación (cancelar no borra; eliminar sí) y tarea que nace **pausada** al
+  aceptar una propuesta.
+- **Propuestas**: el asistente propone una skill (cómputo de mampostería) y una tarea semanal;
+  aceptar por UI crea el archivo real (`…/.opencode/skills/computo-mamposteria/SKILL.md`) y la
+  tarea queda pausada. Descartar no deja rastro.
+- **Fallo en voz alta**: con el modelo gratuito saturado, el chat dice "The free starter model is
+  busy right now…" con la salida (conectar otro proveedor), no un 500.
+
+### Arreglos que salieron de este barrido
+
+1. **Panel sobre CSV decía "los datos no tienen forma de tabla"** aunque la tabla estaba ahí:
+   `resolvePanel` solo parseaba `.json` y devolvía el CSV como texto. Ahora `.csv/.tsv` se parsean
+   a filas (comillas con separador adentro, CRLF, dialectos `;` y tab, códigos con cero inicial que
+   quedan como texto) y `stat/table/bar` funcionan. Probado en la app con los dos CSV reales.
+2. **Registrar una fuente local mostraba "sin pasajes"**: el conteo solo aparecía al abrirla.
+   Ahora se indexa al registrar y `listSources` auto-repara índices viejos; el singular dice
+   "1 pasaje".
+3. **El bloque `changes` de un panel sobre archivo prometía "aparece tras el primer refresh"**
+   para siempre: un panel de archivo no tiene corridas. Ahora lo dice.
+4. **`specialist_output_generate` fallaba con "Esta salida necesita JSON"** cuando un proveedor
+   pegaba una palabra después del JSON (`…}]Conformément`). Se guarda el primer valor JSON
+   completo; un payload realmente roto sigue fallando.
+5. **El plugin devolvía `undefined`/null al modelo** cuando una tool nativa fallaba
+   (`"a is not an Object (evaluating 'output' in a)"`): ahora el error viaja como texto legible.
+6. **La evidencia de investigación citaba la URL o la consulta como pasaje #0**: ahora se citan los
+   `results` y una URL suelta nunca es pasaje.
+7. **El mensaje de panel inválido no decía qué campo estaba mal** ("Revisá title, source…"): un
+   modelo reescribió el mismo spec roto cuatro veces. Ahora nombra el path
+   (`la raíz tiene campos que no van (type)`, `blocks debería ser array`).
+8. **Aceptar una propuesta de tarea dejaba "Sin tareas programadas"** hasta el sondeo de 30 s:
+   ahora invalida tareas/paneles/datasets/fuentes/salidas al aceptar.
+9. **El bloque markdown de un panel mostraba `**Resumen:**` crudo**: ahora se renderiza.
+
+### Observaciones que quedan abiertas (no son del feature)
+
+- El modelo por defecto es **por proyecto**: una aplicación nueva arranca en "OpenWork Free" y hay
+  que elegir modelo una vez por proyecto (después persiste y lo heredan los chats nuevos de ese
+  proyecto). No es un fallback transitorio: `setWorkspaceDefaultModel` guarda por workspace.
+- En esta distribución, la política `allowZenModel` bloquea los modelos `opencode/*` en workspaces
+  Comex; los modelos gratuitos de `opencode-go` sí están disponibles (y se saturan).
+- Un especialista puede leer rutas absolutas fuera de su proyecto con `read`/`shell` (el motor
+  corre con cwd en el proyecto, no en un sandbox). Es el mismo poder que el chat principal y queda
+  bajo el modo de permisos, pero conviene decirlo en la biblioteca.
+
 ## Pendiente (alcance)
 
 1. **Nada pusheado**: ~68 commits por delante de `origin` en `comex/bootstrap`.
@@ -313,11 +378,12 @@ catálogo del host, resolución del recurso y preservación del resultado (unit)
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 728 pass / 10 skip / 0 fail + engines 35/1, exit 0
+pnpm --filter openwork-server test          # engines 35/1 + parallel 737/10 = 772 pass / 11 skip / 0 fail, exit 0 (2026-11-10)
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
-pnpm --filter @openwork/app test            # 2042 pass / 0 fail
-cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53
-cd apps/server && bun test --isolate test/specialist-*.test.ts test/comex-*.test.ts test/openwork-mcp-results-v2.test.ts  # 152/152
+pnpm --filter @openwork/app test            # 2050 pass / 0 fail, 208 archivos (2026-11-10)
+pnpm --filter openwork-server exec tsc --noEmit && pnpm --filter @openwork/app typecheck   # limpios
+cd apps/app && bun test tests/specialist-*.test.tsx      # 58/58
+cd apps/server && bun test --isolate test/specialist-*.test.ts test/comex-*.test.ts test/openwork-mcp-results-v2.test.ts  # 169/169
 ```
 
 ## Reglas que quedan
