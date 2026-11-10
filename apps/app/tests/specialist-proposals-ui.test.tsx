@@ -35,7 +35,8 @@ const catalog = () => ({
   activeApplicationId: APP.id,
   applications: [APP],
 });
-const tasksPayload = () => ({ tasks: [] });
+let tasks: Array<{ id: string; name: string; prompt: string; enabled: boolean; nextRunAt: number; runs: number; schedule: { kind: string; everyMinutes: number }; running: null }> = [];
+const tasksPayload = () => ({ tasks });
 
 beforeEach(() => {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -43,6 +44,7 @@ beforeEach(() => {
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
   flags = { libraryEnabled: true, scheduledTasksEnabled: true, datasetsEnabled: true };
+  tasks = [];
   proposals = [
     { id: "prop_task", kind: "task", name: "refrescar aranceles", description: "Cada 20 minutos traer los aranceles.", content: JSON.stringify({ prompt: "Consultá.", schedule: { kind: "interval", everyMinutes: 20 } }), reason: "Se repite.", createdAt: 1_700_000_000_000 },
     { id: "prop_plan", kind: "plan", name: "programa aranceles", description: "Varias piezas juntas.", content: JSON.stringify({ skill: { name: "traer-aranceles", description: "Busca.", content: "# pasos" }, dataset: { name: "aranceles", query: { provider: "tavily", operation: "search", input: { query: "arancel soja" } } }, panel: { name: "aranceles-panel", spec: { title: "Aranceles", source: { dataset: "aranceles" }, blocks: [{ type: "table" }] } }, task: { prompt: "Refrescá.", schedule: { kind: "interval", everyMinutes: 20 } } }), reason: "Se repite.", createdAt: 1_700_000_100_000 },
@@ -169,4 +171,16 @@ test("sin biblioteca pero con tareas/datos, las propuestas igual se ven", async 
   await openLibraryDialog();
   expect(hasText("Propuestas pendientes (3)")).toBe(true);
   expect(hasText("Tarea")).toBe(true);
+});
+
+test("aceptar una tarea la muestra en el acto, sin esperar el sondeo de 30 s", async () => {
+  await renderAt();
+  await openLibraryDialog();
+  expect(hasText("Sin tareas programadas.")).toBe(true);
+  acceptResult = { accepted: "prop_task", applied: [{ piece: "tarea", ok: true }] };
+  tasks = [{ id: "task_1", name: "refrescar aranceles", prompt: "Consultá.", enabled: false, nextRunAt: 0, runs: 0, schedule: { kind: "interval", everyMinutes: 20 }, running: null }];
+  await act(async () => { [...rowFor("refrescar aranceles").querySelectorAll("button")].find(b => b.textContent === "Aceptar")!.click(); });
+  await flush(80);
+  expect(hasText("refrescar aranceles")).toBe(true);
+  expect(hasText("Pausada")).toBe(true);
 });

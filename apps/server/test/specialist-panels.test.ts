@@ -208,3 +208,18 @@ test("a CSV in the project draws a table panel: headers, quoted commas, numbers 
     assert.deepEqual(calendarRows[0], { semana: 1, tema: "Reels", codigo: "007" });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("a bad spec names the failing field, not just 'revisá el esquema'", async () => {
+  const { root, config } = await fixture();
+  try {
+    await assert.rejects(
+      writePanel(config, "app_a", "roto", { title: "T", source: { file: "x.csv" }, type: { blocks: { item: [] } } } as never),
+      (error) => error instanceof ApiError && error.code === "invalid_panel"
+        && /la raíz tiene campos que no van \(type\)/.test(error.message),
+    );
+    await assert.rejects(
+      writePanel(config, "app_a", "roto", { title: "T", source: { file: "x.csv" }, blocks: "tabla" } as never),
+      (error) => error instanceof ApiError && /blocks debería ser array/.test(error.message),
+    );
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

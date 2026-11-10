@@ -591,7 +591,7 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
   const { rows, error: rowsError } = panelRows(resolution.data);
   return <div className="grid gap-2">
     {spec.blocks.map((block, index) => {
-      if (block.type === "markdown") return <p key={index} className="whitespace-pre-wrap text-xs text-muted-foreground">{block.text}</p>;
+      if (block.type === "markdown") return <div key={index} className="text-xs text-muted-foreground"><MarkdownPreview content={block.text} /></div>;
       if (block.type === "changes") {
         const diff = resolution.diff as { at?: number; diff?: { summary?: string } } | null;
         return <div key={index} className="rounded-md bg-muted/40 p-2 text-xs">
@@ -835,6 +835,7 @@ function QuizView({ questions }: { questions: Array<{ question: string; options:
 
 function ProposalsSection({ app, client, enabled, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; enabled: boolean; onChanged(): Promise<void> }) {
   const query = useQuery({ queryKey: ["specialist-proposals", client.baseUrl, app.id], queryFn: () => client.getSpecialistProposals(app.id), retry: false, enabled });
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Array<{ piece: string; ok: boolean; detail?: string }> | null>(null);
@@ -845,6 +846,9 @@ function ProposalsSection({ app, client, enabled, onChanged }: { app: Specialist
         const result = await client.acceptSpecialistProposal(app.id, proposal.id);
         if (result.applied?.length) setNotice(result.applied);
       } else await client.dismissSpecialistProposal(app.id, proposal.id);
+      // An accepted task/panel/dataset exists NOW: the summaries on this same screen must not keep
+      // saying "sin tareas" until their 30s poll.
+      await Promise.all(["specialist-tasks", "specialist-panels", "specialist-datasets", "specialist-sources", "specialist-outputs"].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
       await query.refetch(); await onChanged();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo procesar la propuesta."); }
     finally { setBusy(false); }

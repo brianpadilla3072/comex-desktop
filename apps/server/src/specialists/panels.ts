@@ -48,6 +48,16 @@ export type SpecialistPanelSpec = z.infer<typeof panelSpecSchema>;
 export const panelNameSchema = z.string().trim().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "kebab-case").max(64);
 
 const failure = (message: string) => new ApiError(422, "invalid_panel", message);
+
+/** Zod, in the words of the person reading the chat: which field, and what is wrong with it. */
+function panelIssues(error: z.ZodError): string {
+  return error.issues.slice(0, 6).map(issue => {
+    const path = issue.path.length ? issue.path.join(".") : "la raíz";
+    if (issue.code === "unrecognized_keys") return `${path} tiene campos que no van (${issue.keys.join(", ")})`;
+    if (issue.code === "invalid_type") return `${path} debería ser ${issue.expected}`;
+    return `${path}: ${issue.message}`;
+  }).join("; ");
+}
 const panelsRoot = (config: Pick<ServerConfig, "configPath">, id: string) => join(specialistDirectory(config), id, "panels");
 const panelPath = (config: Pick<ServerConfig, "configPath">, id: string, name: string) => join(panelsRoot(config, id), `${name}.panel.json`);
 
@@ -106,7 +116,7 @@ export async function readPanelSpec(config: Pick<ServerConfig, "configPath">, id
   try { payload = JSON.parse(raw); }
   catch { throw failure("El panel guardado está dañado (no es JSON); reescribilo."); }
   const spec = panelSpecSchema.safeParse(payload);
-  if (!spec.success) throw failure("El panel guardado no valida contra el esquema; reescribilo.");
+  if (!spec.success) throw failure(`El panel guardado no valida contra el esquema: ${panelIssues(spec.error)}. Reescribilo.`);
   return spec.data;
 }
 
@@ -114,7 +124,9 @@ export async function writePanel(config: Pick<ServerConfig, "configPath">, id: s
   const parsed = parsePanelName(name);
   if (Buffer.byteLength(JSON.stringify(specInput)) > SPEC_LIMIT) throw failure("La especificación del panel supera 64 KB.");
   const spec = panelBodySchema.safeParse(specInput);
-  if (!spec.success) throw failure("Revisá title, source (dataset o file), refresh y blocks (stat|line|bar|table|markdown); no se aceptan campos desconocidos.");
+  // Name the exact failing path: a generic "revisá el esquema" made a model rewrite the same
+  // broken spec four times, and would leave a person guessing which field is wrong.
+  if (!spec.success) throw failure(`Revisá el panel: ${panelIssues(spec.error)}. Los campos válidos son title, source {dataset|file}, refresh y blocks (stat|line|bar|table|markdown|changes).`);
   return serialize(id, async () => {
     const file = panelPath(config, id, parsed);
     const existing = await statOrNull(file);
