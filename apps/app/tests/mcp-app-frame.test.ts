@@ -22,6 +22,17 @@ import { markCloudCredentialRefreshed } from "../src/react-app/domains/connectio
 
 // happy-dom 21 loads no iframe page by default, so frames would have no window to talk to.
 GlobalRegistrator.register({ url: "https://web.example/", settings: { enableIframePageLoading: true } })
+// happy-dom's IntersectionObserver never fires, but an App rendered in a chat (or a dashboard)
+// is on screen: report intersection immediately so the visibility gate behaves like a browser.
+// A test that needs the "no observer at all" path sets the global to undefined itself.
+class VisibleImmediately {
+  constructor(private readonly callback: (entries: Array<{ isIntersecting: boolean; target: Element }>) => void) {}
+  observe(target: Element) { this.callback([{ isIntersecting: true, target }]) }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return [] }
+}
+Reflect.set(globalThis, "IntersectionObserver", VisibleImmediately)
 afterAll(() => GlobalRegistrator.unregister())
 const { MessageListProvider } = await import("../src/components/chat/message-list-provider")
 const { WorkspaceProvider } = await import("../src/react-app/shell/workspace-provider")
