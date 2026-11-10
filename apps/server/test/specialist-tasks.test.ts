@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
@@ -106,6 +106,27 @@ function apiHarness(config: Record<string, unknown>) {
     }
   };
 }
+
+test("a task can pin the model each run uses, and it survives edits", async () => {
+  const { root, config, app } = await fixture();
+  try {
+    const task = await createTask(config, app.id, {
+      name: "con modelo", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 },
+      model: { providerID: "opencode", modelID: "gpt-5-nano" },
+    });
+    assert.deepEqual(task.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    const listed = (await listTasks(config, app.id)).find(entry => entry.id === task.id)!;
+    assert.deepEqual(listed.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    // Editing something else keeps the model; an explicit null returns to the engine default.
+    const edited = await updateTask(config, app.id, task.id, { name: "renombrada" });
+    assert.deepEqual(edited.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    const cleared = await updateTask(config, app.id, task.id, { model: null });
+    assert.equal(cleared.model, null);
+    // A task created without one stays explicit-null (the engine default), never guessed.
+    const plain = await createTask(config, app.id, { name: "sin modelo", prompt: "P.", schedule: { kind: "interval", everyMinutes: 30 } });
+    assert.equal(plain.model, null);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test("task routes live and die with the scheduledTasks flag", async () => {
   const { root, config, app } = await fixture();

@@ -35,9 +35,23 @@ const scalarOf = (value: unknown): number | string | null =>
 
 /** Diff two parsed snapshots. Row arrays compare by identity; single-number/string payloads
  *  compare directly; anything else degrades honestly to "shape" (structure changed, no claim). */
+/** The first rows array a payload carries — a search snapshot wraps its rows in `results`, and
+ *  comparing the envelope instead of those rows reported "shape changed" every time. */
+function rowsOf(value: unknown): Array<Record<string, unknown>> | null {
+  const direct = rowsSchema.safeParse(value);
+  if (direct.success && direct.data.length > 0) return direct.data;
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    for (const entry of Object.values(value)) {
+      const nested = rowsOf(entry);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 export function diffSnapshots(before: unknown, after: unknown): SnapshotDiff {
-  const beforeRows = rowsSchema.safeParse(before).success ? rowsSchema.parse(before) : null;
-  const afterRows = rowsSchema.safeParse(after).success ? rowsSchema.parse(after) : null;
+  const beforeRows = rowsOf(before);
+  const afterRows = rowsOf(after);
   if (beforeRows && afterRows) {
     const key = keyRows(beforeRows.length ? beforeRows : afterRows);
     const beforeMap = new Map((beforeRows ?? []).map(row => [(key ? key.keyOf(row) : JSON.stringify(row)), row]));

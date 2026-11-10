@@ -89,7 +89,9 @@ test("accepting a task proposal creates the task PAUSED and keeps the schedule v
       assert.equal(tasks[0]!.enabled, false);
       assert.equal(tasks[0]!.nextRunAt, null);
       assert.equal(tasks[0]!.name, "refrescar aranceles");
+      assert.equal(tasks[0]!.model, null);
       assert.deepEqual(await listProposals(config, app.id), []);
+
     });
     // With tasks off the proposal stays and the accept says exactly which piece could not run.
     const again = await addProposal(config, app.id, { ...base, kind: "task", name: "otra", content: JSON.stringify({ prompt: "P.", schedule: { kind: "daily", hour: 8, minute: 0 } }) });
@@ -98,6 +100,15 @@ test("accepting a task proposal creates the task PAUSED and keeps the schedule v
       assert.equal(accepted.status, 200);
       assert.deepEqual(accepted.json.applied, [{ piece: "tarea", ok: false, detail: "Las tareas programadas están desactivadas." }]);
       assert.equal((await listTasks(config, app.id)).length, 1);
+    });
+    // A proposal that pins a model keeps it when accepted (paused, but ready to run cheap).
+    await withFlags({ tasks: "true" }, async () => {
+      const withModel = await addProposal(config, app.id, { ...base, kind: "task", name: "con modelo", content: JSON.stringify({ prompt: "P.", schedule: { kind: "interval", everyMinutes: 60 }, model: { providerID: "opencode", modelID: "minimax-m2.5" } }) });
+      const pinned = await call("POST", `/specialist-applications/${app.id}/library/proposals/${withModel.proposals[0]!.id}/accept`, {});
+      assert.equal(pinned.status, 200);
+      const pinnedTask = (await listTasks(config, app.id)).find(task => task.name === "con modelo")!;
+      assert.deepEqual(pinnedTask.model, { providerID: "opencode", modelID: "minimax-m2.5" });
+      assert.equal(pinnedTask.enabled, false);
     });
   } finally { await rm(root, { recursive: true, force: true }); }
 });

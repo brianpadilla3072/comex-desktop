@@ -106,6 +106,10 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       await appendRun(config, applicationId, task.id, record("dispatched", null));
       const created = payload(await call(project.workspaceId, "/session", { title: `Tarea programada: ${task.name}` }));
       sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
+      // The run uses the model the person pinned on the task; otherwise the engine's default.
+      if (sessionId && task.model) await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/model`, {
+        model: { providerID: task.model.providerID, id: task.model.modelID },
+      });
       if (sessionId) await identifyRun(config, applicationId, task.id, startedAt, sessionId);
       evidencePath = await writeEvidence(project.rootPath, task.id, stamp, record("dispatched", null));
       await patchTask(config, applicationId, task.id, t => ({ ...t, running: t.running ? { ...t.running, sessionId, evidencePath } : t.running }));
@@ -218,6 +222,9 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
         const created = payload(await call(project.workspaceId, "/session", { title: `Ensayo (sin guardar): ${task.name}` }));
         const sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;
         if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");
+        if (task.model) await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/model`, {
+          model: { providerID: task.model.providerID, id: task.model.modelID },
+        });
         await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/prompt`, {
           text: `[ENSAYO — no guardes nada: esta corrida no escribe archivos, no crea sesiones y no muta el proyecto; mostrá qué herramientas usarías y qué escribirías]\n\n${task.prompt}`,
           delivery: "queue",

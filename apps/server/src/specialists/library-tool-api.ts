@@ -11,7 +11,7 @@ import {
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
 } from "./library.js";
 import { addProposal } from "./proposals.js";
-import { createTask, deleteTask, listTasks, updateTask } from "./tasks.js";
+import { createTask, deleteTask, listTasks, taskModelSchema, updateTask } from "./tasks.js";
 import { listDatasets, listSnapshotDates, readLatestSnapshot, registerDerivedDataset } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { ensureChunks, readCitation, registerLocalSource } from "./sources.js";
@@ -183,8 +183,17 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       return { proposal: proposals[0], total: proposals.length, replaced, note };
     }
     case "specialist_task_create": {
-      const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule });
-      return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. Avisá a la persona que la tarea quedó en "Tareas programadas" de su aplicación.` };
+      // A task can pin its model ("provider/model" or {providerID, modelID}); without one the
+      // engine's default applies, which may be a pricier model than the person expects.
+      const model = z.union([
+        z.string().trim().regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/, "Usá provider/model"),
+        taskModelSchema,
+      ]).nullable().optional().parse(input.model ?? null);
+      const parsedModel = typeof model === "string"
+        ? { providerID: model.slice(0, model.indexOf("/")), modelID: model.slice(model.indexOf("/") + 1) }
+        : model ?? null;
+      const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule, model: parsedModel });
+      return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. ${task.model ? `Corre con ${task.model.providerID}/${task.model.modelID}.` : "Corre con el modelo predeterminado del motor."} Avisá a la persona que la tarea quedó en "Tareas programadas" de su aplicación, donde puede elegir el modelo.` };
     }
     case "specialist_task_list":
       return { tasks: await listTasks(config, app.id) };

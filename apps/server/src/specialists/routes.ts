@@ -229,7 +229,7 @@ export function registerSpecialistRoutes(options: {
     } else if (proposal.kind === "skill") {
       await attempt("skill", async () => { needLibrary("skill"); const item = await createLibrarySkill(config, app.id, { name: proposal.name, description: proposal.description, content: proposal.content }); return { id: item.path }; });
     } else if (proposal.kind === "task" && taskContent) {
-      await attempt("tarea", async () => { needTasks(); const task = await createTask(config, app.id, { name: proposal.name, prompt: taskContent.prompt, schedule: taskContent.schedule }, { enabled: false }); return { id: task.id }; });
+      await attempt("tarea", async () => { needTasks(); const task = await createTask(config, app.id, { name: proposal.name, prompt: taskContent.prompt, schedule: taskContent.schedule, model: taskContent.model ?? null }, { enabled: false }); return { id: task.id }; });
     } else if (proposal.kind === "plan" && planContent) {
       if (planContent.skill) await attempt("skill", async () => { needLibrary("skill"); const item = await createLibrarySkill(config, app.id, planContent.skill!); return { id: item.path }; });
       if (planContent.dataset) await attempt("dataset", async () => {
@@ -324,7 +324,9 @@ export function registerSpecialistRoutes(options: {
     requireFeature(write);
     if (!specialistDatasetsEnabled()) throw new ApiError(404, "specialist_datasets_disabled", "Los datasets de investigación están desactivados.");
   }
-  type DatasetTarget = { workspaceId: string; workspacePath: string };
+  /** The person named the project when creating it; the folder is an internal id. */
+  type DatasetTarget = { workspaceId: string; workspacePath: string; workspaceName: string };
+  const workspaceDisplayName = (workspace: { name?: string; path: string }) => workspace.name?.trim() || workspace.path.split("/").pop() || workspace.path;
   async function datasetWorkspaces(appId: string, requested: string | null): Promise<DatasetTarget[]> {
     const store = await specialistStore(config);
     const bound = store.projectsFor(appId).map(project => project.workspaceId);
@@ -332,10 +334,10 @@ export function registerSpecialistRoutes(options: {
       const workspace = config.workspaces.find(entry => entry.id === requested);
       if (!workspace) throw new ApiError(404, "workspace_not_found", "Ese espacio de trabajo no está disponible en el server.");
       if (!bound.includes(requested)) throw new ApiError(403, "workspace_not_bound", "Ese proyecto no pertenece a esta aplicación.");
-      return [{ workspaceId: workspace.id, workspacePath: workspace.path }];
+      return [{ workspaceId: workspace.id, workspacePath: workspace.path, workspaceName: workspaceDisplayName(workspace) }];
     }
     // Same "live projects" filter the catalog applies: workspaces gone from the host are skipped.
-    return config.workspaces.filter(workspace => bound.includes(workspace.id)).map(workspace => ({ workspaceId: workspace.id, workspacePath: workspace.path }));
+    return config.workspaces.filter(workspace => bound.includes(workspace.id)).map(workspace => ({ workspaceId: workspace.id, workspacePath: workspace.path, workspaceName: workspaceDisplayName(workspace) }));
   }
   async function datasetTarget(appId: string, requested: string | null, datasetId: string) {
     const targets = await datasetWorkspaces(appId, requested);
@@ -344,13 +346,13 @@ export function registerSpecialistRoutes(options: {
     if (hit?.meta) return { ...hit.target, meta: hit.meta };
     throw new ApiError(404, "dataset_not_found", "Ese dataset no existe.");
   }
-  const workspaceName = (path: string) => path.split("/").pop() ?? path;
+  const workspaceName = (target: DatasetTarget) => target.workspaceName;
   addRoute(routes, "GET", "/specialist-applications/:id/datasets", "client", async ctx => {
     requireDatasets();
     const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
     const listings = await Promise.all(targets.map(async target => ({ target, entries: await listDatasets(target.workspacePath) })));
     const datasets = listings
-      .flatMap(({ target, entries }) => entries.map(dataset => ({ ...dataset, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
+      .flatMap(({ target, entries }) => entries.map(dataset => ({ ...dataset, workspaceId: target.workspaceId, workspaceName: workspaceName(target) })))
       .sort((left, right) => right.updatedAt - left.updatedAt);
     return jsonResponse({ datasets });
   });
@@ -362,7 +364,7 @@ export function registerSpecialistRoutes(options: {
     const latest = found.meta.lastSnapshotAt === null ? null : await readLatestSnapshot(found.workspacePath, ctx.params.datasetId);
     const size = latest === null ? 0 : Buffer.byteLength(JSON.stringify(latest), "utf8");
     return jsonResponse({
-      dataset: { ...found.meta, workspaceId: found.workspaceId, workspaceName: workspaceName(found.workspacePath) },
+      dataset: { ...found.meta, workspaceId: found.workspaceId, workspaceName: workspaceName(found) },
       snapshots,
       latest: latest !== null && size <= 200_000 ? latest : latest !== null ? { tooLarge: true } : null,
     });
@@ -371,7 +373,7 @@ export function registerSpecialistRoutes(options: {
     requireDatasets(true);
     const found = await datasetTarget(ctx.params.id, ctx.url.searchParams.get("workspace"), ctx.params.datasetId);
     const dataset = await refreshDatasetThroughResearch(config, found.workspacePath, ctx.params.datasetId, ctx.request.signal);
-    return jsonResponse({ dataset: { ...dataset, workspaceId: found.workspaceId, workspaceName: workspaceName(found.workspacePath) } });
+    return jsonResponse({ dataset: { ...dataset, workspaceId: found.workspaceId, workspaceName: workspaceName(found) } });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/datasets/:datasetId", "host", async ctx => {
     requireDatasets(true);
@@ -392,7 +394,7 @@ export function registerSpecialistRoutes(options: {
     const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
     const listings = await Promise.all(targets.map(async target => ({ target, entries: await listSources(target.workspacePath) })));
     const sources = listings
-      .flatMap(({ target, entries }) => entries.map(source => ({ ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
+      .flatMap(({ target, entries }) => entries.map(source => ({ ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target) })))
       .sort((left, right) => right.retrievedAt - left.retrievedAt);
     return jsonResponse({ sources });
   });
@@ -408,7 +410,7 @@ export function registerSpecialistRoutes(options: {
       const chunkIndex = chunkParam === null ? null : Number(chunkParam);
       const result = chunkIndex === null ? { ok: true as const, source: meta, chunk: null as number | null, text: null as string | null, chunks: chunks.slice(0, 50), totalChunks: chunks.length }
         : { ...(await readCitation(target.workspacePath, meta.id, chunkIndex)), source: meta };
-      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
     }
     throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en los proyectos de esta aplicación.");
   });
@@ -422,7 +424,7 @@ export function registerSpecialistRoutes(options: {
     const parsed = z.object({ path: z.string().trim().min(1).max(500), title: z.string().trim().max(200).optional() }).safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_source", "Revisá la ruta del archivo local.");
     const source = await registerLocalSource(target.workspacePath, parsed.data);
-    return jsonResponse({ source: { ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) } }, 201);
+    return jsonResponse({ source: { ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target) } }, 201);
   });
 
   /** Declarative panels ([3]): the spec lives per application; resolution paints each bound
@@ -467,7 +469,7 @@ export function registerSpecialistRoutes(options: {
     const spec = await readPanelSpec(config, app.id, ctx.params.name);
     const targets = await datasetWorkspaces(app.id, ctx.url.searchParams.get("workspace"));
     const resolutions = await Promise.all(targets.map(async target => ({
-      workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath),
+      workspaceId: target.workspaceId, workspaceName: workspaceName(target),
       ...(await resolvePanel(config, app.id, ctx.params.name, target.workspacePath)),
     })));
     return jsonResponse({ spec, resolutions });
@@ -485,7 +487,7 @@ export function registerSpecialistRoutes(options: {
     const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
     const listings = await Promise.all(targets.map(async target => ({ target, entries: await listOutputs(target.workspacePath) })));
     const outputs = listings
-      .flatMap(({ target, entries }) => entries.map(output => ({ ...output, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) })))
+      .flatMap(({ target, entries }) => entries.map(output => ({ ...output, workspaceId: target.workspaceId, workspaceName: workspaceName(target) })))
       .sort((left, right) => right.updatedAt - left.updatedAt);
     return jsonResponse({ outputs });
   });
@@ -502,7 +504,7 @@ export function registerSpecialistRoutes(options: {
     const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
     const result = await writeOutput(target.workspacePath, parsed.data);
-    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) }, 201);
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, 201);
   });
   addRoute(routes, "PUT", "/specialist-applications/:id/outputs/:outputId", "host", async ctx => {
     requireOutputs(true);
@@ -512,7 +514,7 @@ export function registerSpecialistRoutes(options: {
       const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
       if (!meta) continue;
       const result = await writeOutput(target.workspacePath, { ...parsed.data, id: ctx.params.outputId });
-      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
     }
     throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   });
@@ -522,7 +524,7 @@ export function registerSpecialistRoutes(options: {
       const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
       if (!meta) continue;
       const { content } = await readOutput(target.workspacePath, meta.id);
-      return jsonResponse({ output: { ...meta, workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) }, content: content.slice(0, 60_000), truncated: content.length > 60_000 });
+      return jsonResponse({ output: { ...meta, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, content: content.slice(0, 60_000), truncated: content.length > 60_000 });
     }
     throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   });
@@ -531,7 +533,7 @@ export function registerSpecialistRoutes(options: {
     for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
       const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
       if (!meta) continue;
-      return jsonResponse({ audit: await auditOutputCitations(target.workspacePath, meta.id), workspaceId: target.workspaceId, workspaceName: workspaceName(target.workspacePath) });
+      return jsonResponse({ audit: await auditOutputCitations(target.workspacePath, meta.id), workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
     }
     throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   });

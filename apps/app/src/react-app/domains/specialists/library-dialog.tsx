@@ -6,6 +6,7 @@ import { ArrowLeft, BookText, Bot, CalendarClock, Database, FileText, History, L
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -856,6 +857,23 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
   const [clock, setClock] = useState("09:00");
   const [days, setDays] = useState<number[]>([1]);
   const [once, setOnce] = useState("");
+  const [modelChoice, setModelChoice] = useState("__default__");
+  // The catalog comes from the engine; only needed while the form is open.
+  const models = useQuery({
+    queryKey: ["specialist-engine-models", client.baseUrl, app.workspaceIds[0] ?? ""],
+    queryFn: async () => {
+      const raw = await client.listEngineModels(app.workspaceIds[0]!);
+      const list = Array.isArray(raw) ? raw : raw.data ?? [];
+      return list.flatMap(entry => {
+        const providerID = typeof entry.providerID === "string" ? entry.providerID : "";
+        const modelID = typeof entry.id === "string" ? entry.id : typeof entry.modelID === "string" ? entry.modelID : "";
+        return providerID && modelID ? [{ key: `${providerID}/${modelID}`, providerID, modelID, name: typeof entry.name === "string" ? entry.name : modelID }] : [];
+      });
+    },
+    enabled: creating && Boolean(app.workspaceIds[0]),
+    retry: false,
+    staleTime: 60_000,
+  });
   async function run(action: () => Promise<unknown>, message?: string) {
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
@@ -871,10 +889,12 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
     else if (kind === "daily") schedule = { kind, hour, minute };
     else if (kind === "weekly") schedule = { kind, daysOfWeek: [...days].sort(), hour, minute };
     else schedule = { kind, at: once ? new Date(once).getTime() : 0 };
+    const [providerID, modelID] = modelChoice.split("/");
+    const model = modelChoice !== "__default__" && providerID && modelID ? { providerID, modelID } : null;
     await run(async () => {
-      await client.createSpecialistTask(app.id, { name: name.trim(), prompt: prompt.trim(), schedule });
-      setName(""); setPrompt(""); setCreating(false);
-    }, "Tarea creada y activada.");
+      await client.createSpecialistTask(app.id, { name: name.trim(), prompt: prompt.trim(), schedule, ...(model ? { model } : {}) });
+      setName(""); setPrompt(""); setModelChoice("__default__"); setCreating(false);
+    }, model ? `Tarea creada y activada con ${model.providerID}/${model.modelID}.` : "Tarea creada y activada.");
   }
   const minutesValue = Number(every);
   const scheduleProblem = kind === "interval" && (!Number.isInteger(minutesValue) || minutesValue < 1 || minutesValue > 43_200)
@@ -907,6 +927,17 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       {kind !== "interval" && kind !== "once" ? <div className="grid gap-1.5"><Label htmlFor="task-clock">Hora</Label><Input id="task-clock" type="time" value={clock} onChange={event => setClock(event.target.value)} className="max-w-40" /></div> : null}
       {kind === "weekly" ? <div className="flex flex-wrap gap-1">{DAY_LABELS.map((label, day) => <Button key={label} type="button" size="sm" variant={days.includes(day) ? "default" : "outline"} onClick={() => setDays(current => current.includes(day) ? current.filter(entry => entry !== day) : [...current, day])}>{label}</Button>)}</div> : null}
       {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
+      <div className="grid gap-1.5">
+        <Label>Modelo de cada corrida</Label>
+        <Select value={modelChoice} onValueChange={value => setModelChoice(value ?? "__default__")}>
+          <SelectTrigger className="max-w-full"><SelectValue placeholder="Modelo predeterminado del motor" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__default__">Modelo predeterminado del motor</SelectItem>
+            {(models.data ?? []).map(entry => <SelectItem key={entry.key} value={entry.key}>{entry.name} · {entry.providerID}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">{models.isError ? "No se pudo leer el catálogo de modelos; se usará el predeterminado del motor." : "Se usa en cada corrida. Elegí uno barato si la tarea corre seguido."}</p>
+      </div>
       <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim() || (kind === "once" && !once) || scheduleProblem !== null}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
       {scheduleProblem ? <p role="alert" className="text-xs text-destructive">{scheduleProblem}</p> : null}
       {budgetEstimate ? <p role="status" className="text-xs text-muted-foreground">Costo estimado: {budgetEstimate}</p> : null}

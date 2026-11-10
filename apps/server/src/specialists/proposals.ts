@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { specialistDirectory } from "./store.js";
-import { scheduleSchema } from "./tasks.js";
+import { scheduleSchema, taskModelSchema } from "./tasks.js";
 import { panelBodySchema } from "./panels.js";
 import type { ServerConfig } from "../types.js";
 
@@ -24,6 +24,8 @@ export type SpecialistProposal = z.infer<typeof proposalSchema>;
 const taskContentSchema = z.object({
   prompt: z.string().trim().min(1).max(8000),
   schedule: scheduleSchema,
+  /** Optional pinned model for the accepted task; the engine default applies without it. */
+  model: taskModelSchema.nullable().optional(),
 });
 const planSkillSchema = z.object({ name: z.string().trim().min(1).max(64), description: z.string().trim().min(1).max(1024), content: z.string().min(1).max(200_000) }).strict();
 const planContentSchema = z.object({

@@ -49,7 +49,7 @@ async function fixture() {
   await mkdir(join(pathA, "comex", "fuentes", "tavily"), { recursive: true });
   await mkdir(join(pathB, "comex", "fuentes", "tavily"), { recursive: true });
   const idA = workspaceIdForPath(pathA); const idB = workspaceIdForPath(pathB);
-  config.workspaces.push({ id: idA, path: pathA }, { id: idB, path: pathB });
+  config.workspaces.push({ id: idA, path: pathA, name: "Principal" }, { id: idB, path: pathB, name: "Anexo" });
   store.bind(idA, app.id, pathA);
   store.bind(idB, app.id, pathB);
   return { root, config, app, pathA, pathB, idA, idB };
@@ -113,6 +113,9 @@ test("panels: write, list, resolve per project, and per-project failure stays lo
       assert.deepEqual(okOne!.data, rows);
       assert.ok(badOne);
       assert.match(String(badOne!.error), /no existe en este proyecto/);
+      // Projects are shown by the name the person gave them, not by their internal folder id.
+      assert.equal(okOne!.workspaceName, "Principal");
+      assert.equal(badOne!.workspaceName, "Anexo");
       // The changes block source: an F2 diff written for project A rides along; B has none.
       const diff = diffSnapshots(rows, [...rows, { fecha: "2026-11-10", cierre: 495 }]);
       assert.match(diff.summary, /\+1/);

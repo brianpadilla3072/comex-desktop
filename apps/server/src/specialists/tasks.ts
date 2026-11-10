@@ -22,11 +22,19 @@ export const scheduleSchema = z.discriminatedUnion("kind", [
 ]);
 export type SpecialistSchedule = z.infer<typeof scheduleSchema>;
 
+/** A task can pin the model each run uses; without it the engine's default applies. */
+export const taskModelSchema = z.object({
+  providerID: z.string().trim().min(1).max(120),
+  modelID: z.string().trim().min(1).max(200),
+}).strict();
+export type SpecialistTaskModel = z.infer<typeof taskModelSchema>;
+
 export const taskSchema = z.object({
   id: z.string(),
   name: z.string(),
   prompt: z.string(),
   schedule: scheduleSchema,
+  model: taskModelSchema.nullable().default(null),
   enabled: z.boolean(),
   createdAt: z.number(),
   updatedAt: z.number(),
@@ -66,6 +74,7 @@ export const taskInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   prompt: z.string().trim().min(1).max(8000),
   schedule: scheduleSchema,
+  model: taskModelSchema.nullable().optional(),
 });
 export type SpecialistTaskInput = z.infer<typeof taskInputSchema>;
 
@@ -148,7 +157,7 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
     if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borrá alguna antes de crear otra.`);
     if (tasks.some(task => task.name === value.name)) throw new ApiError(409, "task_exists", "Ya existe una tarea con ese nombre en esta aplicación.");
     const task: SpecialistTask = {
-      id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule,
+      id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule, model: value.model ?? null,
       // Accepted proposals are born PAUSED (the plan's rule): a task that runs unseen once is the
       // recipe for ghost data. Re-enabling recalculates nextRunAt from the current instant.
       enabled, createdAt: Date.now(), updatedAt: Date.now(),

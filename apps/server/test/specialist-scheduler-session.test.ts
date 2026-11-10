@@ -32,6 +32,7 @@ type EngineState = {
   sessions: number;
   calls: string[];
   prompts: Array<Record<string, unknown>>;
+  models: Array<Record<string, unknown>>;
   history: Array<Record<string, unknown>> | null;
 };
 
@@ -44,6 +45,10 @@ function fakeEngine(state: EngineState): (request: Request) => Promise<Response>
       state.sessions += 1;
       // The real engine wraps payloads as { data } (OpenCode v2 API).
       return new Response(JSON.stringify({ data: { id: `ses_fake_${state.sessions}` } }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (request.method === "POST" && /^\/session\/[^/]+\/model$/.test(path)) {
+      state.models.push((await request.json()) as Record<string, unknown>);
+      return new Response("{}", { status: 200 });
     }
     if (request.method === "POST" && path.startsWith("/session/")) {
       if (state.failPrompt) return new Response("fake engine exploded", { status: 500 });
@@ -115,7 +120,7 @@ async function createSession(): Promise<SessionCtx> {
   const workspaceId = workspaceIdForPath(project);
   config.workspaces.push({ id: workspaceId, path: project });
   store.bind(workspaceId, app.id, project);
-  const state: EngineState = { completed: false, failPrompt: false, sessions: 0, calls: [], prompts: [], history: null };
+  const state: EngineState = { completed: false, failPrompt: false, sessions: 0, calls: [], prompts: [], models: [], history: null };
   const scheduler = await createSpecialistScheduler(config as unknown as ServerConfig, fakeEngine(state));
   return { root, config, store, appId: app.id, project, workspaceId, scheduler, state };
 }
@@ -455,5 +460,24 @@ test("a v2 envelope { data } is unwrapped for the session id and the message pag
     assert.equal(running.running?.sessionId, `ses_fake_${before + 1}`);
     const runs = await listRuns(ctx.config, ctx.appId, task.id);
     assert.equal(runs[0]?.sessionId, `ses_fake_${before + 1}`);
+  });
+});
+
+test("a task that pins a model selects it on the run session before prompting", async () => {
+  const ctx = await session();
+  await withFlags(async () => {
+    const task = await createTask(ctx.config as unknown as ServerConfig, ctx.appId, {
+      name: "con modelo fijo", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 },
+      model: { providerID: "opencode", modelID: "gpt-5-nano" },
+    });
+    const before = ctx.state.models.length;
+    const result = await ctx.scheduler.trigger(ctx.appId, task.id);
+    assert.equal(result.ok, true, result.detail);
+    const selected = ctx.state.models.slice(before);
+    assert.equal(selected.length, 1);
+    assert.deepEqual(selected[0]?.model, { providerID: "opencode", id: "gpt-5-nano" });
+    // The engine saw the model call before the prompt: both landed on the same run session.
+    const calls = ctx.state.calls.slice(-4);
+    assert.ok(calls.some(call => /^POST \/session\/ses_fake_\d+\/model$/.test(call)), calls.join(" | "));
   });
 });

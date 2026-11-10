@@ -20,7 +20,7 @@ const proposeSchema = z.object({
   kind: z.enum(["skill", "agent", "context", "task", "plan"]),
   name: createSchema.shape.name,
   description: createSchema.shape.description,
-  content: z.string().describe("Para skill/agent/context: el procedimiento en Markdown. Para task: JSON {prompt, schedule}. Para plan: JSON {skill?, dataset?, task?, panel?} con las piezas que se aplican juntas al aceptar"),
+  content: z.string().describe("Para skill/agent/context: el procedimiento en Markdown. Para task: JSON {prompt, schedule} con model opcional \"provider/model\". Para plan: JSON {skill?, dataset?, task?, panel?} con las piezas que se aplican juntas al aceptar"),
   reason: z.string().describe("Por qué vale la pena guardarlo y en qué se notó que se va a repetir"),
 });
 const scheduleSchema = z.object({
@@ -35,6 +35,7 @@ const taskCreateSchema = z.object({
   name: z.string().describe("Nombre legible de la tarea, 1-120 caracteres"),
   prompt: z.string().describe("Instrucción que recibirá el agente en cada corrida, 1-8000 caracteres"),
   schedule: scheduleSchema,
+  model: z.string().regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/).describe("Opcional: modelo fijo de las corridas, como \"opencode/gpt-5-nano\". Sin esto se usa el predeterminado del motor.").optional(),
 });
 const taskIdSchema = z.object({ taskId: z.string().describe("Id de la tarea (task_…), visible en specialist_task_list") });
 const datasetIdSchema = z.object({ id: z.string().describe("id del dataset, visible en specialist_dataset_list") });
