@@ -42,8 +42,12 @@ llegue (condición en vez de snapshot).
 > no la suma. Por eso `test:parallel` repite los tres patrones.
 
 
-Las dos suites quedan **completamente verdes**: servidor 724 tests (713 pass + 11 skip) y app 2042
-pass, con `specialist-*` y `comex-*` incluidos.
+Las dos suites quedan **completamente verdes**: servidor **754 pass / 11 skip / 0 fail** (dos
+fases) y app **2042 pass / 0 fail**, con `specialist-*` y `comex-*` incluidos.
+
+> El servidor corre en dos fases: `test:engines` (36: 35 pass + 1 skip solo-Windows) y
+> `test:parallel` (729: 719 pass + 10 skip). Los 11 skip son legítimos: 10 piden el binario
+> OpenCode v2.0.26 pineado y 1 es solo-Windows.
 
 
 ## Arreglos de esta pasada (código de producción)
@@ -192,7 +196,7 @@ catálogo del host, resolución del recurso y preservación del resultado (unit)
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 717 pass / 10 skip / 0 fail + engines 35/1, exit 0
+pnpm --filter openwork-server test          # 719 pass / 10 skip / 0 fail + engines 35/1, exit 0
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53
