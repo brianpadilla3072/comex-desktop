@@ -232,7 +232,6 @@ test("the loopback route authenticates with the project token and honours flags 
       const ok = await call("POST", "/specialist-mcp", { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }, headers);
       assert.equal(ok.status, 200);
       assert.equal(((ok.json?.["result"] as { serverInfo: { name: string } }).serverInfo.name), PANEL_MCP_SERVER_NAME);
-
       const noToken = await call("POST", "/specialist-mcp", { jsonrpc: "2.0", id: 1, method: "initialize" }, { "content-type": "application/json" });
       assert.equal(noToken.status, 401);
       const wrongToken = await call("POST", "/specialist-mcp", { jsonrpc: "2.0", id: 1, method: "initialize" }, { authorization: "Bearer 00000000000000000000000000000000", "content-type": "application/json" });
@@ -252,6 +251,13 @@ test("the loopback route authenticates with the project token and honours flags 
 
       const offHost = await call("POST", "/specialist-mcp", { jsonrpc: "2.0", id: 1, method: "initialize" }, headers, "http://192.168.1.20:4711");
       assert.equal(offHost.status, 403);
+      // A server bound to a public interface turns the feature off entirely: a forged Host header
+      // must not be enough to reach the panel endpoint from the network.
+      (config as { host?: string }).host = "0.0.0.0";
+      const boundPublic = await call("POST", "/specialist-mcp", { jsonrpc: "2.0", id: 1, method: "initialize" }, headers);
+      assert.equal(boundPublic.status, 403);
+      assert.equal(boundPublic.json?.["error"], "specialist_panel_apps_loopback");
+      delete (config as { host?: string }).host;
       void app;
     });
     await withEnv({ ...ALL, DEN_FEATURE_SPECIALIST_PANEL_APPS: "false" }, async () => {
@@ -353,3 +359,38 @@ test("the projection keeps one panel connection per project and removes it when 
     });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("a panel too large for the host budget is trimmed, or fails loud instead of truncating silently", async () => {
+  const { root, config, app, project } = await fixture();
+  try {
+    await withEnv(ALL, async () => {
+      const wide = Array.from({ length: 300 }, (_, row) => Object.fromEntries(
+        Array.from({ length: 40 }, (_, column) => [`c${column}`, `${row}-${column}-${"x".repeat(80)}`]),
+      ));
+      await writeFile(join(project, "datos", "grande.json"), JSON.stringify(wide));
+      // One table with every column: trimming rows keeps it under the 512 KB widget budget.
+      await writePanel(config as unknown as ServerConfig, app.id, "grande", {
+        title: "Grande", source: { file: "datos/grande.json" }, blocks: [{ type: "table", limit: 500, columns: Array.from({ length: 40 }, (_, column) => `c${column}`) }],
+      });
+      const one = await handlePanelMcpMessage(config as unknown as ServerConfig, app.id, project, { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "dashboard_render", arguments: { panel: "grande" } } });
+      const payload = (one?.["result"] as { structuredContent: PanelPayload }).structuredContent;
+      assert.equal(payload.ok, true);
+      const table = payload.blocks[0] as { rows: unknown[]; total: number };
+      assert.equal(table.total, 300);
+      assert.equal(table.rows.length, 20);
+      assert.ok(JSON.stringify(payload).length <= 512 * 1024);
+
+      // Twelve wide tables cannot fit even trimmed: the tool says why, it never sends a partial card.
+      await writePanel(config as unknown as ServerConfig, app.id, "enorme", {
+        title: "Enorme", source: { file: "datos/grande.json" },
+        blocks: Array.from({ length: 12 }, () => ({ type: "table" as const, limit: 500, columns: Array.from({ length: 40 }, (_, column) => `c${column}`) })),
+      });
+      const many = await handlePanelMcpMessage(config as unknown as ServerConfig, app.id, project, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "dashboard_render", arguments: { panel: "enorme" } } });
+      const rejected = (many?.["result"] as { structuredContent: PanelPayload; isError: boolean }).structuredContent;
+      assert.equal(rejected.ok, false);
+      assert.match(rejected.ok === false ? rejected.error : "", /demasiado grande/);
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+type PanelPayload = { ok: true; blocks: unknown[] } | { ok: false; error: string };

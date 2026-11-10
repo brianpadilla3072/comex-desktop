@@ -22,11 +22,21 @@ Orquestador: sesión principal. Cada hito se commitea separado.
 | TEST-SESSION | Sesión tool-bridge completa | ✅ 1 sesión 9 pasos (`specialist-session-journey.test.ts`), sin trabas | c039cac713 | — |
 | TEST-FULLUI | Sesión UI completa (write flows) | ✅ 1 sesión 7 pasos (`specialist-full-ui-session.test.tsx`) · U-1/U-2 corregidas | c039cac713 | — |
 | TEST-SCHED | Sesión scheduler completa | ✅ 8/8 (`specialist-scheduler-session.test.ts`) · T-1 corregida | c039cac713 | — |
-| D | [4] MCP Apps local | ⬜ | | |
+| D | [4] MCP Apps local | ✅ prod (endpoint MCP loopback + `ui://` determinista + tools read-only) ✅ proyección al motor ✅ preservación de resultados directos ✅ widget DOM ✅ server real (engine connected, catálogo, resolve) · 8+5+3 tests | `0559669ebc` | sin turno real con modelo (no hay claves acá) |
 | F3 | Ensayo de tareas | ✅ wiring: `dryRun` en scheduler (sin claim/cola/evidencia), ruta + botón "Ensayar" con flag taskDryRun · ✅ server + UI | `0358d8f` | — |
 | F4 | Presupuesto de corrida | ✅ wiring: `estimateTaskBudget` (tiempo/espacio local) en create/update + estimado en vivo en el form | a53117cb8a | — |
 
 ## Agentes desplegados
+
+- **Celda D (MCP Apps local): COMPLETA.** `specialists/panel-app.ts` sirve `POST /specialist-mcp`
+  (Streamable HTTP/JSON, loopback doble, token del puente por proyecto), tools read-only y el
+  recurso `ui://openwork/panel/v1` determinista; el server pre-computa los bloques con
+  `panelAggregate` y el widget solo pinta. La proyección `mcp.openwork-panels` se escribe al guardar
+  un panel y en cada turno, y se borra al apagar la flag. El plugin v2 de resultados ahora preserva
+  llamadas **directas** a Apps de primera parte (antes solo Code Mode). Verificado con el server y
+  el motor reales: `/api/mcp` → `openwork-panels: connected`; `/mcp-apps/list` → app lista;
+  `resolve` → HTML con CSP vacío. Sin claves de modelo no se pudo correr un turno real.
+
 
 - **Test-front A: COMPLETO.** 4/4 tests UI nuevos (`specialist-tasks-ui.test.tsx`) + server real por
   HTTP OK. Hallazgos para arreglar (cola Celda A-fix2, en `HIVE-A-TEST.md`): (1) error de lectura de

@@ -133,3 +133,24 @@ test("a chart without numbers fails loud and the refresh button re-runs the tool
     assert.deepEqual((call?.["params"] as { name: string; arguments: { panel: string } }), { name: "dashboard_render", arguments: { panel: "cierres" } });
   } finally { host.dispose(); }
 });
+
+test("a failed refresh keeps the data on screen, says why and leaves the button usable", async () => {
+  let failing = false;
+  const host = mountWidget({
+    toolResult: () => failing
+      ? { content: [{ type: "text", text: "El archivo datos.json se borró." }], isError: true }
+      : { content: [{ type: "text", text: "ok" }], structuredContent: payload },
+  });
+  try {
+    await until(() => host.sent.some(message => message["method"] === "ui/notifications/initialized"), "handshake incomplete");
+    host.deliver({ content: [], structuredContent: payload });
+    await until(() => document.querySelector("h1")?.textContent === "Cierres", "first paint missing");
+    failing = true;
+    document.querySelector<HTMLButtonElement>("#refresh")?.click();
+    await until(() => (document.getElementById("notice")?.textContent ?? "").includes("se borró"), "the refresh failure was hidden");
+    // The card keeps its data: a failed refresh is a notice, not a blank frame.
+    assert.equal(document.querySelector("h1")?.textContent, "Cierres");
+    assert.equal(document.querySelector(".stat-value")?.textContent, "489");
+    await until(() => document.querySelector<HTMLButtonElement>("#refresh")?.disabled === false, "the refresh button stayed disabled");
+  } finally { host.dispose(); }
+});

@@ -104,12 +104,14 @@ function renderBlock(block: SpecialistPanelSpec["blocks"][number], rows: Array<R
 }
 
 /** Resolve a panel and pre-compute every block. Shared by the MCP tools and the route tests, so
- *  what the widget paints is exactly what the panel means (one aggregation, no JS duplication). */
+ *  what the widget paints is exactly what the panel means (one aggregation, no JS duplication).
+ *  A huge panel is trimmed (or fails loud) to stay under the host's 1 MB result budget: the card
+ *  never arrives half-serialized. */
 export async function panelRenderPayload(config: Pick<ServerConfig, "configPath">, appId: string, directory: string, name: string): Promise<PanelRenderPayload> {
   const resolution = await resolvePanel(config, appId, name, directory);
   if (!resolution.ok) return { ok: false, panel: name, title: resolution.spec?.title ?? null, error: resolution.error };
   const { rows } = panelRows(resolution.data);
-  return {
+  const payload: PanelRenderPayload = {
     ok: true,
     panel: name,
     title: resolution.spec.title,
@@ -117,6 +119,22 @@ export async function panelRenderPayload(config: Pick<ServerConfig, "configPath"
     refreshedAt: Date.now(),
     blocks: resolution.spec.blocks.map(block => renderBlock(block, rows, resolution.diff)),
   };
+  return fitWidgetPayload(payload);
+}
+
+/** 512 KB leaves room for the transport envelope under the host's 1 MB cap. */
+const MAX_WIDGET_CHARS = 512 * 1024;
+
+function fitWidgetPayload(payload: PanelRenderPayload): PanelRenderPayload {
+  if (!payload.ok || JSON.stringify(payload).length <= MAX_WIDGET_CHARS) return payload;
+  // First trim tables (the block itself already says "Mostrando X de Y filas"), then series.
+  const withTables = { ...payload, blocks: payload.blocks.map(block => block.type === "table" ? { ...block, rows: block.rows.slice(0, 20) } : block) };
+  if (JSON.stringify(withTables).length <= MAX_WIDGET_CHARS) return withTables;
+  const withSeries = { ...payload, blocks: withTables.blocks.map(block => block.type === "line" || block.type === "bar"
+    ? { ...block, series: block.series.map(entry => ({ ...entry, points: entry.points.slice(0, 200) })) }
+    : block) };
+  if (JSON.stringify(withSeries).length <= MAX_WIDGET_CHARS) return withSeries;
+  return { ok: false, panel: payload.panel, title: payload.title, error: "El panel es demasiado grande para la vista interactiva: achicá la tabla o derivá el dato a un dataset." };
 }
 
 function datasetPayload(directory: string, id: string) {
@@ -364,6 +382,15 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
     root.appendChild(el("p", "alert", message || "El panel no se pudo dibujar."));
     resize();
   }
+  function showNotice(message){
+    var root = document.getElementById("root");
+    var previous = document.getElementById("notice");
+    if (previous) previous.remove();
+    var notice = el("p", "alert", message || "El panel no se pudo actualizar.");
+    notice.id = "notice";
+    root.insertBefore(notice, root.firstChild);
+    resize();
+  }
   function render(payload){
     var root = document.getElementById("root");
     root.textContent = "";
@@ -394,10 +421,11 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
     button.textContent = "Actualizando…";
     request("tools/call", { name: "dashboard_render", arguments: { panel: panel } })
       .then(function(result){
-        if (result && result.isError) { renderError(textOf(result)); return; }
+        if (result && result.isError) { showNotice(textOf(result) || "No se pudo refrescar el panel."); return; }
         applyResult(result);
       })
-      .catch(function(error){ renderError(error && error.message ? error.message : "No se pudo refrescar el panel."); });
+      .catch(function(error){ showNotice(error && error.message ? error.message : "No se pudo refrescar el panel."); })
+      .finally(function(){ if (button.isConnected) { button.disabled = false; button.textContent = "Actualizar"; } });
   }
   function textOf(result){
     if (!result || !result.content) return "";
@@ -603,6 +631,13 @@ export function registerSpecialistMcpRoutes(options: {
   addRoute(routes, "POST", PANEL_MCP_ROUTE, "none", async (ctx: RequestContext) => {
     if (!specialistApplicationsEnabled() || !specialistPanelAppsEnabled() || !specialistPanelsEnabled()) {
       throw new ApiError(404, "specialist_panel_apps_disabled", "Las Apps de paneles están desactivadas en este server.");
+    }
+    // Loopback only, twice: the URL host must be loopback AND the server must actually be bound
+    // to a loopback interface. A server bound to 0.0.0.0 would let a remote client reach this
+    // endpoint with a forged Host header, so the feature stays off there.
+    const bound = config.host ?? "127.0.0.1";
+    if (!isLoopbackHostname(bound)) {
+      throw new ApiError(403, "specialist_panel_apps_loopback", "Este server no está atado a 127.0.0.1: las Apps de paneles quedan apagadas.");
     }
     if (!isLoopbackHostname(ctx.url.hostname)) {
       throw new ApiError(403, "specialist_panel_apps_loopback", "El servidor de paneles solo responde en 127.0.0.1.");

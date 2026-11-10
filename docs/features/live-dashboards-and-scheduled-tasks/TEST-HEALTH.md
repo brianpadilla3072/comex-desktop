@@ -157,20 +157,46 @@ sesión completa por HTTP. **Todo respondió como corresponde**:
 También se endureció el supervisor del motor: un intento de reinicio que termina **sin** motor
 corriendo ahora cuenta como intento fallido y se reintenta, en vez de quedar en silencio.
 
+## Celda D — MCP Apps local (cerrada)
+
+La última pieza del plan quedó implementada y probada en tres niveles:
+
+| Nivel | Qué prueba | Resultado |
+|---|---|---|
+| Protocolo (unit) | `initialize`/`tools/list`/`tools/call`/`resources/*`, notificaciones, métodos desconocidos, JSON inválido, batch, token ausente/ajeno, flag apagada, host no loopback, `config.host` público | 8 tests |
+| Servidor real | endpoint `POST /specialist-mcp` sobre el server real con motor v2: `/api/mcp` → `openwork-panels` **connected**; `/mcp-apps/list` lista la app `openwork-panels_dashboard_render` con `ui://openwork/panel/v1`; `resolve` entrega el HTML con CSP deny-by-default | HTTP real |
+| Cliente MCP real | el mismo `StreamableHTTPClientTransport` del host: handshake, tools, `dashboard_render` con CSV real, `panel_list`, panel inexistente → `isError` legible, recurso `text/html;profile=mcp-app` | script real |
+| Widget (DOM real) | happy-dom ejecuta el HTML tal cual: handshake (`ui/initialize` → `initialized`), `size-changed`, pintado de stat/línea/tabla/cambios, error de payload, gráfico sin números, refresh con repintado y con fallo (mantiene datos + aviso) | 5 tests |
+
+Defecto encontrado y corregido durante el trabajo: en v2 el plugin de resultados solo preservaba
+llamadas de **Code Mode**; una llamada directa a un App de primera parte (`openwork-panels_*`) no
+llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía abrirse. Ahora el
+plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
+(con tests de ambos caminos).
+
+Límite conocido: no hay claves de modelo en este entorno, así que **no se pudo correr un turno real
+que llame al tool**. Lo que sí está verificado es cada eslabón por separado: motor conectado,
+catálogo del host, resolución del recurso y preservación del resultado (unit), y el widget real.
+
 ## Pendiente (alcance)
 
-1. **Celda D — MCP Apps local** del plan: sin empezar. Su host quedó con 225/225 tests verdes, así
-   que es el mejor punto de partida.
-2. **Nada pusheado**: ~66 commits por delante de `origin` en `comex/bootstrap`.
+1. **Nada pusheado**: ~68 commits por delante de `origin` en `comex/bootstrap`.
+2. `pnpm --filter @openwork/features test` falla **por el entorno**, no por el código: ese script
+   usa `node --test` sobre `.ts` y este Node está compilado sin soporte TypeScript
+   (`ERR_NO_TYPESCRIPT`). Con `bun test src/resolve.test.ts` pasan 26/26. Afecta a cualquier
+   paquete con el mismo patrón de script.
+3. Observación preexistente (fuera de alcance): `runtime.sqlite` y
+   `runtime-opencode-config.json` se escriben con umask (0644) y contienen credenciales de
+   proveedor/tokens de MCP; en una máquina multiusuario convendría 0600.
 
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 713 pass / 11 skip / 0 fail, exit 0 (dos fases, 724 tests)
+pnpm --filter openwork-server test          # 717 pass / 10 skip / 0 fail + engines 35/1, exit 0
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53
-cd apps/server && bun test test/specialist-*.test.ts test/comex-*.test.ts  # 132/132
+cd apps/server && bun test --isolate test/specialist-*.test.ts test/comex-*.test.ts test/openwork-mcp-results-v2.test.ts  # 152/152
 ```
 
 ## Reglas que quedan

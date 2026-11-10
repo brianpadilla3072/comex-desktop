@@ -352,6 +352,9 @@ se repinta se logra con [1]+[2]+[3]; [4] agrega interactividad dentro del widget
   App de primera parte (`openwork-panels_*` con `_meta.ui.resourceUri`), no solo las de Code Mode,
   así la tarjeta abre con datos vivos. El widget solo puede llamar tools del mismo server y
   read-only: el host ya lo restringe.
+- **Límite de tamaño**: el resultado del tool viaja bajo el tope de 1 MB del host; si un panel no
+  entra, primero se recorta la tabla (el bloque dice "Mostrando X de Y filas") y, si ni así entra,
+  la tool responde con el motivo en vez de mandar una tarjeta a medio serializar.
 - **Flag**: `specialistPanelApps` (default on self_hosted; apagarla con
   `DEN_FEATURE_SPECIALIST_PANEL_APPS=false`). Requiere también `specialistPanels`.
 
