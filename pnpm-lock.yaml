@@ -527,6 +527,9 @@ importers:
         specifier: ^4.6.6
         version: 4.6.6
     devDependencies:
+      '@happy-dom/global-registrator':
+        specifier: 21.0.4
+        version: 21.0.4
       '@hyzyla/pdfium':
         specifier: 2.1.13
         version: 2.1.13

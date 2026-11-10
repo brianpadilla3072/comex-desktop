@@ -95,14 +95,62 @@ function normalizedTool(tool: string): string {
   return tool.replace(/^(openwork(?:-cloud)?)\./, "$1_");
 }
 
+/** First-party MCP App servers whose direct call result the chat hosts as an interactive card.
+ *  Must match PANEL_MCP_SERVER_NAME in specialists/panel-app.ts: this plugin runs inside the
+ *  engine, so it keeps the name literal instead of importing the server graph. */
+export const FIRST_PARTY_APP_MCP_SERVERS: readonly string[] = ["openwork-panels"];
+
+const MAX_DIRECT_APP_RESULT_BYTES = 1024 * 1024;
+
+/**
+ * A completed direct call (not inside Code Mode) to a first-party MCP App tool. The engine keeps
+ * only the text projection of an MCP result; the standard fields (structuredContent and _meta)
+ * travel in the result metadata channel so the chat can host the widget without replaying the
+ * call. Only results that declare a UI resource are kept: other tools of the same server are
+ * ordinary tool results.
+ */
+export function directAppResult(
+  event: ExecuteAfter,
+  servers: readonly string[] = FIRST_PARTY_APP_MCP_SERVERS,
+): Record<string, unknown> | null {
+  if (event.status !== "completed") return null;
+  const tool = normalizedTool(event.tool);
+  if (!servers.some(server => tool.startsWith(`${server}_`))) return null;
+  const output = event.result.output;
+  if (!isRecord(output) || !Array.isArray(output.content)) return null;
+  if (!hasUiResourceMeta(output._meta)) return null;
+  const meta = isRecord(output._meta) ? output._meta : {};
+  const appResult = {
+    content: output.content,
+    ...(typeof output.isError === "boolean" ? { isError: output.isError } : {}),
+    ...(output.structuredContent !== undefined ? { structuredContent: output.structuredContent } : {}),
+    _meta: meta,
+  };
+  try {
+    if (new TextEncoder().encode(JSON.stringify(appResult)).byteLength > MAX_DIRECT_APP_RESULT_BYTES) return null;
+  } catch { return null; }
+  return appResult;
+}
+
+/** True when a CallToolResult declares the MCP App resource it renders (tool _meta shape). */
+function hasUiResourceMeta(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const meta = value;
+  const ui = isRecord(meta.ui) ? meta.ui : {};
+  const uri = typeof ui.resourceUri === "string" ? ui.resourceUri : typeof meta["ui/resourceUri"] === "string" ? meta["ui/resourceUri"] : null;
+  return uri !== null && uri.startsWith("ui://");
+}
+
 export function preservedEntry(rawEvent: ExecuteAfter): PreservedMcpResult | null {
   const event = { ...rawEvent, tool: normalizedTool(rawEvent.tool) };
-  if (!OPENWORK_CLOUD_TOOL.test(event.tool)) return null;
+  const firstParty = FIRST_PARTY_APP_MCP_SERVERS.some(server => event.tool.startsWith(`${server}_`));
+  if (!OPENWORK_CLOUD_TOOL.test(event.tool) && !firstParty) return null;
   const appBuilder = /_(?:search_capabilities|prepare_app|create_app|update_app)$/.test(event.tool);
   const appLaunch = event.status === "completed" && isRecord(event.result.output) && isRecord(event.result.output.launch);
+  const uiApp = firstParty && event.status === "completed" && isRecord(event.result.output) && hasUiResourceMeta(event.result.output._meta);
   const input = jsonCopy(event.input);
   const entry: PreservedMcpResult | null = event.status === "completed"
-    ? (appBuilder || appLaunch || reportsConnection(event.result.output)) ? { tool: event.tool, input, status: "completed", output: jsonCopy(event.result.output) } : null
+    ? (appBuilder || appLaunch || uiApp || reportsConnection(event.result.output)) ? { tool: event.tool, input, status: "completed", output: jsonCopy(event.result.output) } : null
     : (appBuilder || reportsConnection(parseRecord(errorText(event.error)))) ? { tool: event.tool, input, status: "error", error: errorText(event.error) } : null;
   if (!entry) return null;
   return new TextEncoder().encode(JSON.stringify(entry)).byteLength <= MAX_ENTRY_BYTES ? entry : null;
@@ -220,7 +268,15 @@ export function createMcpResultsCollector() {
         }
         return;
       }
-      if (!execution) return;
+      if (!execution) {
+        // A direct call outside Code Mode: a first-party App result keeps its standard fields in
+        // the same metadata channel the chat already reads (`openworkMcpResult`).
+        const appResult = directAppResult(event);
+        if (appResult && event.status === "completed") {
+          event.result.metadata = { ...(event.result.metadata ?? {}), openworkMcpResult: appResult };
+        }
+        return;
+      }
       // The hook sees the same input object as `execute.before`. Matching by
       // tool name alone would cross-wire parallel repeated calls.
       const tool = normalizedTool(event.tool);

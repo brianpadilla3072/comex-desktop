@@ -111,6 +111,12 @@ export function specialistPanelsEnabled(env: NodeJS.ProcessEnv = process.env): b
   return resolveFeature("specialistPanels", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+export function specialistPanelAppsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistPanelApps", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 export function studioOutputsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;

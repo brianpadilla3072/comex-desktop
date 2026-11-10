@@ -196,6 +196,7 @@ import { shouldSyncLiveProviderOwnerTransition, type EngineV2Preview } from "./e
 import { createRuntimeEngine } from "./runtime-engine-factory.js";
 import { syncResearchPlugin } from "./specialists/integrations/native.js";
 import { syncLibraryToolPlugin } from "./specialists/library-tool-api.js";
+import { syncPanelAppMcpEntry } from "./specialists/panel-app.js";
 import { MACHINE_PROVIDER_TEMPLATE_OWNERSHIP, providerConfigFingerprint } from "./provider-config-templates.js";
 import pkg from "../package.json" with { type: "json" };
 import constants from "../../../constants.json" with { type: "json" };
@@ -1067,6 +1068,7 @@ export async function startServer(
             // setup instead. Bounded and never fails the request.
             await syncResearchPlugin(config, workspace.id, workspace.path);
             await syncLibraryToolPlugin(config, workspace.id, workspace.path);
+            await syncPanelAppMcpEntry(config, workspace.id, workspace.path);
             await engineV2Preview.ensureWorkspaceReady(workspace.path);
           }
           const send = () => proxyOpencodeV2Request({
@@ -1082,6 +1084,7 @@ export async function startServer(
             prepareExecution: async (directory) => {
               await syncResearchPlugin(config, workspace.id, directory);
               await syncLibraryToolPlugin(config, workspace.id, directory);
+              await syncPanelAppMcpEntry(config, workspace.id, directory);
               engineV2Preview.warmWorkspace(workspace.id, directory);
               await engineV2Preview.ensureWorkspaceReady(directory);
             },

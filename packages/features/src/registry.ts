@@ -302,6 +302,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  specialistPanelApps: {
+    label: "Specialist panel apps",
+    description: "Render a specialist panel inline in the chat through a loopback-only, project-scoped MCP server: read-only tools and a deterministic ui:// resource, with no network and no AI-authored code in the widget.",
+    category: "experience",
+    added: "2026-11-10",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/live-dashboards-and-scheduled-tasks/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   studioOutputs: {
     label: "Specialist studio outputs",
     description: "Turn one dataset or set of sources into many digestions (mindmap, report, flashcards, quiz, table) stored as workspace files under comex/salidas/, with citation audits that fail loud.",

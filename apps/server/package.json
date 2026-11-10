@@ -80,6 +80,7 @@
     "@openwork/computer-use": "workspace:*"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "21.0.4",
     "@hyzyla/pdfium": "2.1.13",
     "@openwork/paths": "workspace:*",
     "@openwork/workbook": "workspace:*",

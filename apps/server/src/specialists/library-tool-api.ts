@@ -47,6 +47,20 @@ async function writeDescriptor(file: string, value: { directory: string; token: 
   await writeFile(file, JSON.stringify(value), { mode: 0o600 });
 }
 
+export type SpecialistToolDescriptor = { directory: string; token: string; url: string };
+
+/** The scoped credential a project's tool bridge already holds; the panel App projects the
+ *  same one into its MCP connection, so a project never grows a second secret. */
+export async function readSpecialistToolDescriptor(config: Pick<ServerConfig, "configPath">, directory: string): Promise<SpecialistToolDescriptor | null> {
+  const found = await readDescriptor(config, resolve(directory));
+  return found ? found.value : null;
+}
+
+/** Token → project folder, for the loopback endpoints that authenticate with it. */
+export function specialistTokenDirectory(config: Pick<ServerConfig, "configPath">, token: string): Promise<string | null> {
+  return findDescriptorDirectory(config, token);
+}
+
 /** Idempotent project-only installation, mirroring the research plugin. Never touches non-specialist folders. */
 export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPath" | "port" | "workspaces">, workspaceId: string, directory: string) {
   if (!specialistApplicationsEnabled()) return;

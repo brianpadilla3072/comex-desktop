@@ -9,7 +9,8 @@ import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
-import { registerSpecialistToolRoutes } from "./library-tool-api.js";
+import { registerSpecialistToolRoutes, syncLibraryToolPlugin } from "./library-tool-api.js";
+import { registerSpecialistMcpRoutes, syncPanelAppMcpEntry } from "./panel-app.js";
 import { listProposals, parsePlanProposalContent, parseTaskProposalContent, rawProposal, removeProposal, restoreProposal, proposalSchema } from "./proposals.js";
 import {
   agentInput, createLibraryAgent, createLibrarySkill, contextInput, deleteLibraryFile,
@@ -37,6 +38,7 @@ export function registerSpecialistRoutes(options: {
   const { routes, config, readJsonBody, jsonResponse, ensureWritable, createWorkspace } = options;
   registerIntegrationRoutes(options);
   registerSpecialistToolRoutes(options);
+  registerSpecialistMcpRoutes(options);
   function requireFeature(write = false) {
     if (!specialistApplicationsEnabled()) throw new ApiError(404, "specialists_disabled", "Los perfiles especialistas están desactivados.");
     if (write) ensureWritable(config);
@@ -441,6 +443,14 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     const result = await writePanel(config, app.id, ctx.params.name, await readJsonBody(ctx.request));
+    // A saved panel is immediately launchable as an App (no chat turn needed): install the
+    // project's bridge if it is missing, then project the loopback MCP connection (idempotent).
+    await Promise.all(config.workspaces
+      .filter(workspace => store.projectsFor(app.id).some(project => project.workspaceId === workspace.id))
+      .map(async workspace => {
+        await syncLibraryToolPlugin(config, workspace.id, workspace.path);
+        await syncPanelAppMcpEntry(config, workspace.id, workspace.path);
+      }).map(promise => promise.catch(() => undefined)));
     return jsonResponse(result);
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/panels/:name", "host", async ctx => {

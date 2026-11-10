@@ -293,8 +293,8 @@ puente postMessage MCP Apps, auto-size, resultado→widget) más
 `mcp-app-host.ts` del server (resuelve recursos `ui://` por `resources/read`,
 CSP deny-by-default, límites 512 KiB/1 MiB). Su doc acepta **loopback HTTP**.
 
-**Qué falta hoy:** todo el *productor*. El host solo resuelve recursos de
-servidores MCP remotos configurados (no stdio), y quien genera las apps de
+**Qué faltaba (y ya existe, ver "Implementado (celda D)"):** todo el *productor*. El host solo
+resuelve recursos de servidores MCP remotos configurados (no stdio), y quien genera las apps de
 workflow es `ee/apps/den-api` (`workflow-artifact-app.ts`) — nube. Los plugins
 de motor (comex-research, comex-library) registran tools nativas de OpenCode,
 que **no pueden colgar recursos `ui://`**.
@@ -326,6 +326,37 @@ que **no pueden colgar recursos `ui://`**.
 
 **Es fase D+: no bloquea el escenario central.** "Cada 20 minutos" + panel que
 se repinta se logra con [1]+[2]+[3]; [4] agrega interactividad dentro del widget.
+
+**Implementado (celda D).** La pieza quedó así, toda local:
+
+- `apps/server/src/specialists/panel-app.ts` — el productor que faltaba:
+  - Endpoint MCP en `POST /specialist-mcp` (Streamable HTTP, respuestas JSON), **solo loopback**
+    (rechaza cualquier otro host) y autenticado con el **mismo token scoped por proyecto** que ya
+    usa el puente de tools: un proyecto, una credencial, ningún secreto nuevo.
+  - Tools **read-only**: `dashboard_render` (con `_meta.ui.resourceUri`), `panel_snapshot`,
+    `panel_list`, `dataset_list`, `dataset_read`. No hay tool de escritura ni de refresh: mutar
+    sigue siendo territorio de la biblioteca, las tareas y [7].
+  - Recurso `ui://openwork/panel/v1`: HTML **determinista** (mismos bytes para todos los paneles y
+    proyectos), self-contained, sin red (`connectDomains` vacío ⇒ CSP deny-by-default), sin `eval`,
+    sin código de la IA. El server **pre-computa cada bloque** con la misma semántica del panel
+    (`panelAggregate`), así que el widget solo pinta: ni una fórmula duplicada en JS.
+  - Handshake MCP Apps completo (`ui/initialize` → `ui/notifications/initialized`,
+    `tool-input`/`tool-result`, `size-changed`) y un botón "Actualizar" que re-llama
+    `dashboard_render`; click en una fila abre su detalle. Fallar en voz alta: un resultado con
+    error o un panel inexistente pinta el motivo, nunca una tarjeta en blanco.
+- **Proyección**: al guardar un panel (y en cada preparación de turno) el server escribe
+  `mcp.openwork-panels = { type:"remote", url: …/specialist-mcp, headers: {Authorization}, oauth:false }`
+  en la config runtime del workspace. Idempotente; con la flag apagada **borra** la entrada. El
+  motor v2 real se conecta (`/api/mcp` → `status: connected`) y el catálogo de MCP Apps la lista.
+- **Chat**: el plugin de resultados v2 ahora preserva el resultado de una llamada **directa** a un
+  App de primera parte (`openwork-panels_*` con `_meta.ui.resourceUri`), no solo las de Code Mode,
+  así la tarjeta abre con datos vivos. El widget solo puede llamar tools del mismo server y
+  read-only: el host ya lo restringe.
+- **Flag**: `specialistPanelApps` (default on self_hosted; apagarla con
+  `DEN_FEATURE_SPECIALIST_PANEL_APPS=false`). Requiere también `specialistPanels`.
+
+**Límite explícito:** el widget no refresca datasets (eso dispara una consulta real) y no puede
+pedirle nada al modelo; D++ sigue fuera de alcance.
 
 **Opción D++ (anotada, no comprometida):** los "artifacts que llaman a Claude"
 (de claude.ai) sugieren un panel que *pregunta al modelo sobre sus propios datos*
