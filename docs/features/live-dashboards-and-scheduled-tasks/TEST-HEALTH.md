@@ -181,6 +181,28 @@ llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía a
 plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
 (con tests de ambos caminos).
 
+### Investigación web conectada
+
+Dos caminos, los dos ya funcionando:
+
+- **`websearch` del motor**: sin proveedor por defecto respondía "Web search provider is
+  required" (y el modelo se quedaba sin búsqueda). Ahora la config del motor lleva
+  `websearch.provider` (default `tavily`, elegible con `OPENWORK_WEBSEARCH_PROVIDER`, y `off` lo
+  desactiva). Verificado contra el motor real: una consulta sin `providerID` devolvió 8 resultados
+  por el gateway de OpenCode.
+- **Integración Tavily de la aplicación** (`tavily_search/extract/map/crawl/research`): guarda
+  evidencia, dataset y fuente citable. Tenía el mismo defecto que la biblioteca: devolvía el objeto
+  crudo y el modelo veía `"undefined"`; ahora devuelve bloques `content` (test de contrato con un
+  CLI simulado). Verificado con un modelo real: `tavily_search` devolvió las URLs y las cifras, y
+  quedaron el dataset `ds-search-…`, la fuente `src_…`, sus pasajes legibles y la evidencia en
+  `comex/fuentes/tavily/`.
+- Las instrucciones del especialista ahora dicen cuándo usar Tavily, que las cifras se verifican en
+  la fuente y que **si la búsqueda falla hay que decirlo en voz alta** (nunca inventar URLs ni
+  cifras), con la referencia a "Herramientas y fuentes" para conectarla.
+
+La prueba usó un CLI simulado (sin gastar créditos de Tavily); con el CLI real y una clave, el
+camino es idéntico.
+
 ### Prueba con el motor y modelos reales (OpenCode Zen)
 
 Con una clave de OpenCode Zen se levantó un server aislado (HOME/XDG en `/tmp`, `auth.json` 0600; la
@@ -291,7 +313,7 @@ catálogo del host, resolución del recurso y preservación del resultado (unit)
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 725 pass / 10 skip / 0 fail + engines 35/1, exit 0
+pnpm --filter openwork-server test          # 728 pass / 10 skip / 0 fail + engines 35/1, exit 0
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2042 pass / 0 fail
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53

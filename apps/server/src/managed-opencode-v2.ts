@@ -79,6 +79,8 @@ export interface ManagedOpencodeV2ServerOptions {
   permissions?: () => Promise<EnginePermissionRule[]>;
   /** Extra absolute skill directories registered before boot, so no later config write reloads the catalog. */
   skills?: string[];
+  /** Engine default web-search provider (`websearch.provider`), e.g. "tavily". */
+  websearchProvider?: string;
   /**
    * The signed-in member's agent permissions, which the engine and the agent
    * permissions plugin apply, with the organization MCP servers OpenWork
@@ -133,6 +135,8 @@ export interface ManagedOpencodeV2Server extends OpencodeV2Connection {
    * catalog, matching v1 `disabled_providers`.
    */
   setProviders(specs: OpencodeV2ProviderSpec[], disabledProviderIds?: string[], providerFilters?: OpencodeV2ProviderFilters): Promise<void>;
+  /** Engine default web-search provider (`websearch.provider`), e.g. "tavily". */
+  websearchProvider?: string;
   /** Extra absolute skill directories registered through native config `skills`. */
   setSkills(directories: string[]): Promise<void>;
   /** Rewrites the config when what it is read from changed, e.g. the organization MCP servers OpenWork registers. */
@@ -248,6 +252,8 @@ export function renderOpencodeV2Config(input: {
   agentPermissionRules?: AgentPermissionRule[];
   organizationMcp?: OrganizationMcpServers;
   agentPermissionsPluginDirectory?: string;
+  /** Engine default web-search provider, so the websearch tool works without an explicit one. */
+  websearchProvider?: string;
 }): Record<string, unknown> {
   const disabled = new Set(input.disabledProviderIds ?? []);
   const enabledProviders = input.providers.filter((provider) => !disabled.has(provider.id)
@@ -353,6 +359,9 @@ export function renderOpencodeV2Config(input: {
     ...(plugins.length ? { plugins } : {}),
     ...(input.permissions || permissions.length ? { permissions } : {}),
     ...(input.skills.length ? { skills: [...input.skills] } : {}),
+    // Without a default the engine's websearch tool answers "Web search provider is required"
+    // and the model gives up; with it, a plain `websearch` query works.
+    ...(input.websearchProvider ? { websearch: { provider: input.websearchProvider } } : {}),
   };
 }
 
@@ -591,6 +600,7 @@ async function createManagedOpencodeV2ServerInner(
       contextTools: options.contextTools,
       ...(options.permissions ? { permissions: await options.permissions() } : {}),
       ...(options.agentPermissions ? await agentPermissionsConfig(options.agentPermissions) : {}),
+      websearchProvider: options.websearchProvider,
       skills,
     }), null, 2)}\n`;
     // The engine watches this file and reloads its model catalog on every

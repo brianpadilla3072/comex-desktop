@@ -27,7 +27,13 @@ export function createResearchPlugin(descriptorFile: string) {
         const name = z.enum(["search", "extract", "map", "crawl", "research"]).parse(operation);
         const definition = researchOperations[name];
         addProviderSafeTool(editor, { name: `tavily_${name}`, description: definition.description, input: z.toJSONSchema(definition.schema), options: { codemode: false },
-          async execute(input, call) { const descriptor = await read(); return executeTavily(descriptor, name, input, directory, call.signal); },
+          async execute(input, call) {
+            const descriptor = await read();
+            const result = await executeTavily(descriptor, name, input, directory, call.signal);
+            // The v2 runner reads content blocks off the result; a bare object showed up to the
+            // model as the text "undefined" and the search looked empty.
+            return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+          },
         });
       }
     });

@@ -1170,7 +1170,14 @@ export function createEngineV2Preview(options: {
       options.providerSession?.() ?? null) : undefined;
     const globalSkills = globalSkillDirectories();
     const historyDatabase = await selectHistoryDatabase();
+    // Operators can pick another engine search provider; `off` disables the default so a
+    // deployment without OpenCode search access keeps the tool's own loud "provider required".
+    const websearchSetting = process.env.OPENWORK_WEBSEARCH_PROVIDER?.trim();
+    const websearchProvider = websearchSetting === undefined ? "tavily"
+      : /^(?:off|none|disabled)$/i.test(websearchSetting) || websearchSetting === "" ? undefined
+        : websearchSetting;
     const managed = await createManagedOpencodeV2Server({
+      ...(websearchProvider ? { websearchProvider } : {}),
       historyDatabase,
       contextTools: contextBridge,
       ...(providerSessionBridge ? { providerSession: providerSessionBridge } : {}),

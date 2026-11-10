@@ -114,3 +114,15 @@ test("the bundled Comex pack parses as valid native YAML and imports all 4 agent
   assert.equal(pack.summary.agents.length, 4);
   assert.equal(pack.summary.skills.length, 12);
 });
+
+test("the specialist instructions point to Tavily research only when it is connected", () => {
+  const app = { id: "app_x", name: "Comercio", specialty: "Soja", personality: "Clara", template: "custom" as const, agentCount: 0, skillCount: 0, createdAt: 1, workspaceIds: [] };
+  const memory = { continuity: null } as never;
+  const withResearch = specialistInstructions(app, null, memory, null, false, false, true, false, true, false, true);
+  assert.match(withResearch, /tavily_search/);
+  assert.match(withResearch, /nunca inventes URLs/);
+  const without = specialistInstructions(app, null, memory, null, false, false, true, false, true, false, false);
+  assert.doesNotMatch(without, /tavily_search/);
+  // Even disconnected, the model must say a search failed out loud instead of inventing.
+  assert.match(without, /decilo en voz alta/);
+});
