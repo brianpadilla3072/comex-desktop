@@ -8,7 +8,7 @@ falla, por qué y qué se arregló. Complementa `HIVE-C-TEST.md`, `HIVE-F-TEST.m
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| Servidor | `pnpm --filter openwork-server test` (dos fases, ver abajo) | **713 pass / 11 skip / 0 fail (724 tests, exit 0)** · corridas repetidas verdes |
+| Servidor | `pnpm --filter openwork-server test` (dos fases, ver abajo) | **737 pass / 11 skip / 0 fail (748 tests, exit 0)** |
 | App | `pnpm --filter @openwork/app test` (`bun test --isolate --max-concurrency=4`) | **2042 pass / 0 fail** (207 archivos) |
 
 ### Por qué el servidor corre en dos fases
@@ -100,16 +100,33 @@ Además, 16 de esos fallos venían de un bug de producto real: **el chat se romp
 (`BuiltAppCatalogSync` montaba hooks que exigían provider y QueryClient). Ahora no-ops sin sesión y
 `useAppsClient` lee el contexto opcional.
 
-## Pendiente de revisar (no es un fallo, es alcance)
+## Los 4 archivos `*.vitest.test.ts` ahora corren en `bun test`
 
-1. **Celda D — MCP Apps local** del plan: sin empezar. Su host es exactamente la familia #1 de
-   arriba, así que D arranca arreglando esos 50 tests.
-2. **4 archivos `*.vitest.test.ts` que nunca se ejecutan** (`cloud-computer-lifecycle`,
-   `computer-use-tools`, `non-reasoning-model-variants`, `session-title-sigv4`): necesitan el runner
-   vitest y `@openwork/testkit`, que no son dependencias de este workspace. Ese código está sin
-   cobertura efectiva.
-3. **11 tests saltados en el servidor**: conviene auditar si siguen siendo `skip` legítimos.
-4. **Nada pusheado**: ~62 commits por delante de `origin` en `comex/bootstrap`.
+Los cuatro se convirtieron (import de `vitest` → `bun:test`, `.vitest` fuera del nombre) y pasan:
+
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `cloud-computer-lifecycle` | no resolvía `@openwork/sandbox` (ee/ no es paquete del workspace) | 5/5. El test apunta el import a `packages/sandbox/src` con `mock.module`, sin symlinks ni cambios de install. |
+| `computer-use-tools` | nunca se ejecutaba | 6/6 |
+| `non-reasoning-model-variants` | nunca se ejecutaba | 3/3 |
+| `session-title-sigv4` | nunca se ejecutaba | 10/10. `vi.resetModules()` se reemplazó por import con query única por caso (el plugin parchea `fetch` al instalarse); se quitaron las llamadas a `evidence` del testkit. |
+
+`bunfig.toml` ya no ignora `*.vitest.test.ts`: solo queda excluido el transporte de aprobación, que
+es Node-only (`pnpm --filter openwork-server test:approval-transport` → 6/6).
+
+## Los 11 `skip` del servidor: auditados, todos justificados
+
+- **10** requieren el **binario OpenCode v2 pineado en 2.0.26** (`OPENWORK_TEST_OPENCODE2`); los
+  tests verifican `assert.match(version, /\bv2\.0\.26\b/)`. El binario instalado en esta máquina es
+  **v2.2.0**, así que correrlos fallaría en esa premisa, no por el código. Son suites de integración
+  contra el motor real.
+- **1** es solo-Windows (`named pipes`), se saltea en Linux a propósito.
+
+## Pendiente (alcance)
+
+1. **Celda D — MCP Apps local** del plan: sin empezar. Su host quedó con 225/225 tests verdes, así
+   que es el mejor punto de partida.
+2. **Nada pusheado**: ~66 commits por delante de `origin` en `comex/bootstrap`.
 
 ## Cómo verificarlo
 

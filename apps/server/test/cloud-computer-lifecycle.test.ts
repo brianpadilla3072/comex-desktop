@@ -1,6 +1,11 @@
-import { expect, test } from "vitest";
+import { expect, mock, test } from "bun:test";
 import { createFakeProvider } from "../../../packages/sandbox/src/testing/fake-provider.js";
-import { createCloudRuntimeOrchestrator, type CloudRuntimeOrchestratorConfig } from "../../../ee/packages/cloud-runtime/src/orchestrator/orchestrator.js";
+// ee/packages/cloud-runtime is not a pnpm workspace package here, so the orchestrator's
+// `@openwork/sandbox` import has no linked entry point. Point it at the checkout's source so the
+// enterprise runtime can be exercised from the open workspace.
+mock.module("@openwork/sandbox", () => import("../../../packages/sandbox/src/index.ts"));
+const { createCloudRuntimeOrchestrator } = await import("../../../ee/packages/cloud-runtime/src/orchestrator/orchestrator.js");
+type CloudRuntimeOrchestratorConfig = import("../../../ee/packages/cloud-runtime/src/orchestrator/orchestrator.js").CloudRuntimeOrchestratorConfig;
 import { createInMemoryRuntimeInstanceStore } from "../../../ee/packages/cloud-runtime/src/testing/in-memory-store.js";
 
 const config: CloudRuntimeOrchestratorConfig = {

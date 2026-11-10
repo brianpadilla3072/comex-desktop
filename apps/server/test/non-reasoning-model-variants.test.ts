@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "bun:test";
 import { renderOpencodeV2Config } from "../src/managed-opencode-v2.ts";
 
 function modelConfig(config: Record<string, unknown>) {

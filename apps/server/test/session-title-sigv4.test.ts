@@ -1,18 +1,18 @@
-import { expect, vi } from "vitest";
-import { test } from "@openwork/testkit";
+import { expect, test } from "bun:test";
 
 const marker = "x-openwork-title-attempt";
 
 for (const authorization of ["AWS4-HMAC-SHA256 Credential=dummy, SignedHeaders=x-openwork-title-attempt, Signature=dummy", "Bearer dummy", ""]) {
-  test(`title correlation preserves signed headers but strips unsigned markers: ${authorization.split(" ")[0] || "api-key"}`, async ({ evidence }) => {
+  test(`title correlation preserves signed headers but strips unsigned markers: ${authorization.split(" ")[0] || "api-key"}`, async () => {
     const original = globalThis.fetch;
     let received = new Headers();
     globalThis.fetch = Object.assign(async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
       received = new Headers(init?.headers);
       return new Response("{}", { status: 200 });
     }, original);
-    vi.resetModules();
-    const { OpenWorkTitleRecovery } = await import("../src/opencode-plugins/openwork-title-recovery.ts");
+    // A fresh module per case: the plugin patches global fetch at setup, so a cached copy would
+    // wrap the previous case's stub instead of this one (what vi.resetModules() did).
+    const { OpenWorkTitleRecovery } = await import(`../src/opencode-plugins/openwork-title-recovery.ts?case=${encodeURIComponent(`${authorization || "api-key"}`)}`);
     const plugin = await OpenWorkTitleRecovery({ client: { app: { log: async () => undefined } } });
     try {
       const headers: Record<string, string> = { authorization, "x-api-key": "dummy-api-key" };
@@ -27,7 +27,6 @@ for (const authorization of ["AWS4-HMAC-SHA256 Credential=dummy, SignedHeaders=x
       const chat = { headers: {} };
       await plugin["chat.headers"]({ sessionID: "chat", agent: "build", model: { id: "model", providerID: "provider" } }, chat);
       expect(chat.headers).toEqual({});
-      evidence.recordAssertionEvidence("Signed headers preserved; unsigned markers stripped; ordinary chat untouched", authorization.startsWith("AWS4-HMAC-SHA256") ? "AWS signed markers survive, including expired markers" : "Unsigned markers are stripped without changing authentication", true);
     } finally { await plugin.dispose(); globalThis.fetch = original; }
   });
 }
@@ -42,13 +41,14 @@ const failures: { status: number; body: unknown; outcome: string }[] = [
   { status: 404, body: { message: "Missing model" }, outcome: "model_or_endpoint_missing" },
 ];
 for (const { status, body, outcome } of failures) {
-  test(`title diagnostic maps ${status} to ${outcome}: ${JSON.stringify(body)}`, async ({ evidence }) => {
+  test(`title diagnostic maps ${status} to ${outcome}: ${JSON.stringify(body)}`, async () => {
     const original = globalThis.fetch;
     const raw = typeof body === "string" ? body : JSON.stringify(body);
     globalThis.fetch = Object.assign(async () => new Response(raw, { status }), original);
-    vi.resetModules();
     const diagnostics: string[] = [];
-    const { OpenWorkTitleRecovery } = await import("../src/opencode-plugins/openwork-title-recovery.ts");
+    // A fresh module per case: the plugin patches global fetch at setup, so a cached copy would
+    // wrap the previous case's stub instead of this one (what vi.resetModules() did).
+    const { OpenWorkTitleRecovery } = await import(`../src/opencode-plugins/openwork-title-recovery.ts?case=${encodeURIComponent(`${status}-${outcome}-${raw}`)}`);
     const plugin = await OpenWorkTitleRecovery({ client: { app: { log: async ({ body }) => { diagnostics.push(body.extra.outcome); } } } });
     try {
       const headers: Record<string, string> = {};
@@ -57,7 +57,6 @@ for (const { status, body, outcome } of failures) {
       expect(response.status).toBe(status);
       expect(await response.text()).toBe(raw);
       expect(diagnostics).toEqual(["started", outcome]);
-      evidence.recordAssertionEvidence("Failure labels preserve status and response", `${status}: ${outcome}; response unchanged`, true);
     } finally { await plugin.dispose(); globalThis.fetch = original; }
   });
 }

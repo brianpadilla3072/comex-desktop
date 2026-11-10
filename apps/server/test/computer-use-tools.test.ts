@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "bun:test";
 import { z } from "zod";
 import { server } from "../src/opencode-plugins/openwork-computer-use.js";
 
