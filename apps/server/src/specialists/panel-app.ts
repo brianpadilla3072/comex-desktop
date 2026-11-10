@@ -501,17 +501,16 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
     }
     var values = [];
     series.forEach(function(entry){ entry.points.forEach(function(point){ values.push(point.y); }); });
-    var max = Math.max.apply(null, values.concat([0]));
-    var min = Math.min.apply(null, values.concat([0]));
-    var span = (max - min) || 1;
     if (block.type === "bar") {
+      // Bars are magnitudes from zero: one zero baseline keeps widths comparable.
+      var barSpan = (Math.max.apply(null, values.concat([0])) || 1) - Math.min.apply(null, values.concat([0])) || 1;
       series.forEach(function(entry){
         entry.points.slice(0, 20).forEach(function(point, index){
           var row = el("div", "bar-row");
           row.appendChild(el("span", "muted", point.x || String(index + 1)));
           var track = el("div", "bar-track");
           var fill = el("span", "bar-fill");
-          fill.style.width = Math.max(1, Math.abs(point.y) / span * 100) + "%";
+          fill.style.width = Math.max(1, Math.abs(point.y) / barSpan * 100) + "%";
           fill.title = entry.name + ": " + point.y;
           track.appendChild(fill);
           track.appendChild(el("span", "meta", String(point.y)));
@@ -521,27 +520,42 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
       });
       return wrap;
     }
+    // A line shows shape, not magnitude: a zero-based scale flattens 486→491 into a straight line.
+    var lineMin = Math.min.apply(null, values);
+    var lineMax = Math.max.apply(null, values);
+    var lineSpan = (lineMax - lineMin) || 1;
     var width = 320;
     var height = 120;
+    var yFor = function(value){ return height - 20 - ((value - lineMin) / lineSpan) * (height - 28); };
     var ns = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 " + width + " " + height);
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-label", "Gráfico de líneas: " + block.title);
-    var origin = document.createElementNS(ns, "line");
-    origin.setAttribute("x1", "0");
-    origin.setAttribute("y1", String(height - 20));
-    origin.setAttribute("x2", String(width));
-    origin.setAttribute("y2", String(height - 20));
-    origin.setAttribute("stroke", "currentColor");
-    origin.setAttribute("stroke-opacity", "0.25");
-    svg.appendChild(origin);
+    var axis = document.createElementNS(ns, "line");
+    axis.setAttribute("x1", "0");
+    axis.setAttribute("y1", String(height - 20));
+    axis.setAttribute("x2", String(width));
+    axis.setAttribute("y2", String(height - 20));
+    axis.setAttribute("stroke", "currentColor");
+    axis.setAttribute("stroke-opacity", "0.25");
+    svg.appendChild(axis);
+    if (lineMin < 0 && lineMax > 0) {
+      var zero = document.createElementNS(ns, "line");
+      zero.setAttribute("x1", "0");
+      zero.setAttribute("x2", String(width));
+      zero.setAttribute("y1", String(yFor(0)));
+      zero.setAttribute("y2", String(yFor(0)));
+      zero.setAttribute("stroke", "currentColor");
+      zero.setAttribute("stroke-opacity", "0.35");
+      zero.setAttribute("stroke-dasharray", "3 3");
+      svg.appendChild(zero);
+    }
     series.forEach(function(entry){
       var count = entry.points.length;
       var points = entry.points.map(function(point, index){
         var x = count === 1 ? width / 2 : index / (count - 1) * (width - 8) + 4;
-        var y = height - 20 - (point.y - min) / span * (height - 28);
-        return x.toFixed(1) + "," + y.toFixed(1);
+        return x.toFixed(1) + "," + yFor(point.y).toFixed(1);
       }).join(" ");
       var line = document.createElementNS(ns, "polyline");
       line.setAttribute("points", points);
@@ -552,9 +566,8 @@ pre.detail{max-height:150px;overflow:auto;font-size:11px;margin:0;padding:6px;bo
       svg.appendChild(line);
       entry.points.forEach(function(point, index){
         var dot = document.createElementNS(ns, "circle");
-        var y = height - 20 - (point.y - min) / span * (height - 28);
         dot.setAttribute("cx", String(count === 1 ? width / 2 : index / (count - 1) * (width - 8) + 4));
-        dot.setAttribute("cy", String(y));
+        dot.setAttribute("cy", String(yFor(point.y)));
         dot.setAttribute("r", "2.5");
         dot.setAttribute("fill", "currentColor");
         var title = document.createElementNS(ns, "title");

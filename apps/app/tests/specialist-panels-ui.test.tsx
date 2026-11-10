@@ -150,6 +150,12 @@ test("recorrido: resumen → Gestionar → stat, línea, tabla ordenada, cambios
   await flush();
   expect(hasText("491")).toBe(true); // stat last(cierre)
   expect(document.querySelector("svg polyline")).not.toBeNull(); // línea
+  // 480 → 486 → 491 no puede salir como una línea chata: la escala es del rango de la serie.
+  const lineYs = (document.querySelector("svg polyline")?.getAttribute("points") ?? "")
+    .split(" ").map(point => Number(point.split(",")[1]));
+  expect(lineYs.length).toBe(3);
+  expect(new Set(lineYs).size).toBeGreaterThan(1);
+  expect(lineYs[2]).toBeLessThan(lineYs[0]!); // el último cierre (491) va arriba del primero (480)
   const firstRow = document.querySelector("tbody tr");
   expect(firstRow?.textContent).toContain("2026-11-09"); // sort desc por fecha
   expect(hasText("Cambios desde la última corrida")).toBe(true);

@@ -25,7 +25,7 @@ const payload = {
   refreshedAt: 1_700_000_000_000,
   blocks: [
     { type: "stat", title: "Cierre", field: "cierre", value: 489, format: "number" },
-    { type: "line", title: "Precio", x: "fecha", series: [{ name: "cierre", points: [{ x: "2026-11-08", y: 486 }, { x: "2026-11-09", y: 491 }] }], skipped: 0 },
+    { type: "line", title: "Precio", x: "fecha", series: [{ name: "cierre", points: [{ x: "2026-11-08", y: 486 }, { x: "2026-11-09", y: 491 }, { x: "2026-11-10", y: 489 }] }], skipped: 0 },
     { type: "table", columns: ["fecha", "cierre"], rows: [{ fecha: "2026-11-08", cierre: 486 }, { fecha: "2026-11-09", cierre: 491 }], total: 2 },
     { type: "markdown", text: "Datos del último cierre." },
     { type: "changes", title: "Cambios", summary: "+1 nuevo, 1 modificado", at: 1_700_000_000_000, added: 1, removed: 0, changed: 1 },
@@ -85,7 +85,11 @@ test("the widget paints every block the server computes", async () => {
     assert.match(document.querySelector("header p")?.textContent ?? "", /file:datos\.json/);
     assert.equal(document.querySelector(".stat-value")?.textContent, "489");
     assert.equal(document.querySelectorAll("table tbody tr").length, 2);
-    assert.equal(document.querySelector("svg polyline")?.getAttribute("points")?.split(" ").length, 2);
+    // Shape, not magnitude: 486 → 491 → 489 must show a rise and a fall, not a flat zero-based line.
+    const lineYs = (document.querySelector("svg polyline")?.getAttribute("points") ?? "").split(" ").map(point => Number(point.split(",")[1]));
+    assert.equal(lineYs.length, 3);
+    assert.ok(lineYs[1]! < lineYs[0]! && lineYs[1]! < lineYs[2]! && lineYs[2]! < lineYs[0]!);
+    assert.ok(new Set(lineYs).size > 1);
     assert.match(document.querySelector("header .meta")?.textContent ?? "", /· \d{2}\/\d{2}\/\d{4}/);
     // The changes block keeps its summary, never a bare count.
     assert.match(document.body.textContent ?? "", /\+1 nuevo, 1 modificado/);

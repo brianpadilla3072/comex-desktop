@@ -622,27 +622,30 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
           const flat = series.flatMap(entry => entry.values.filter((v): v is number => v !== null));
           // A chart that can't draw must SAY so, never render a silent blank ([3] fails loud).
           if (!flat.length) return <p key={index} role="alert" className="rounded-md border p-2 text-xs text-muted-foreground">Este gráfico no tiene valores numéricos para dibujar (columna ausente o no numérica).</p>;
-          // Signed scale: negatives plot below the axis instead of clipping off-canvas.
-          const max = Math.max(...flat, 0) || 1;
-          const min = Math.min(...flat, 0);
-          const span = max - min || 1;
           if (block.type === "bar") {
+            // Bars are magnitudes from zero: a shared zero baseline keeps widths comparable.
+            const barSpan = (Math.max(...flat, 0) || 1) - Math.min(...flat, 0) || 1;
             return <div key={index} className="grid gap-1 text-xs" role="img" aria-label={`Gráfico de barras: ${block.title ?? block.y.join(", ")}`}>
               <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
               {rows.slice(0, 20).map((row, rowIndex) => <div key={rowIndex} className="flex items-center gap-2">
                 <span className="w-20 shrink-0 truncate text-muted-foreground">{xs[rowIndex]}</span>
                 {series.map(entry => {
                   const value = entry.values[rowIndex] ?? null;
-                  return <span key={entry.field} title={`${entry.field}: ${value ?? "—"}`} aria-label={`${entry.field}: ${value ?? "sin dato"}`} className={value === null ? "h-3 w-2 shrink-0 border border-dashed" : "h-3 shrink-0 rounded-sm bg-primary/70"} style={value === null ? undefined : { width: `${Math.abs(value) / span * 100}%` }} />;
+                  return <span key={entry.field} title={`${entry.field}: ${value ?? "—"}`} aria-label={`${entry.field}: ${value ?? "sin dato"}`} className={value === null ? "h-3 w-2 shrink-0 border border-dashed" : "h-3 shrink-0 rounded-sm bg-primary/70"} style={value === null ? undefined : { width: `${Math.abs(value) / barSpan * 100}%` }} />;
                 })}
               </div>)}
             </div>;
           }
-          const yFor = (value: number) => 80 - ((value - min) / span) * 74 - 3;
+          // A line shows shape, not magnitude: a zero-based scale flattens 486→491 into a straight
+          // line. Use the series' own range, with the zero line only when the range crosses zero.
+          const lineMin = Math.min(...flat);
+          const lineMax = Math.max(...flat);
+          const lineSpan = lineMax - lineMin || 1;
+          const yFor = (value: number) => 80 - ((value - lineMin) / lineSpan) * 74 - 3;
           return <div key={index} className="grid gap-1 text-xs">
             <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
             <svg viewBox={`0 0 300 80`} className="h-20 w-full" role="img" aria-label={`Gráfico de líneas: ${block.title ?? block.y.join(", ")}`}>
-              {min < 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="#9ca3af" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
+              {lineMin < 0 && lineMax > 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="#9ca3af" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
               {series.map((entry, seriesIndex) => {
                 const color = ["#2563eb", "#dc2626", "#059669", "#d97706"][seriesIndex % 4];
                 const coords = entry.values.map((value, pointIndex) => value === null ? null : { x: (pointIndex / Math.max(1, entry.values.length - 1)) * 300, y: yFor(value) });

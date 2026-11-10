@@ -170,13 +170,22 @@ La última pieza del plan quedó implementada y probada en tres niveles:
 | Protocolo (unit) | `initialize`/`tools/list`/`tools/call`/`resources/*`, notificaciones, métodos desconocidos, JSON inválido, batch, token ausente/ajeno, flag apagada, host no loopback, `config.host` público | 8 tests |
 | Servidor real | endpoint `POST /specialist-mcp` sobre el server real con motor v2: `/api/mcp` → `openwork-panels` **connected**; `/mcp-apps/list` lista la app `openwork-panels_dashboard_render` con `ui://openwork/panel/v1`; `resolve` entrega el HTML con CSP deny-by-default | HTTP real |
 | Cliente MCP real | el mismo `StreamableHTTPClientTransport` del host: handshake, tools, `dashboard_render` con CSV real, `panel_list`, panel inexistente → `isError` legible, recurso `text/html;profile=mcp-app` | script real |
-| Widget (DOM real) | happy-dom ejecuta el HTML tal cual: handshake (`ui/initialize` → `initialized`), `size-changed`, pintado de stat/línea/tabla/cambios, error de payload, gráfico sin números, refresh con repintado y con fallo (mantiene datos + aviso) | 5 tests |
+| Widget (DOM real) | happy-dom ejecuta el HTML tal cual: handshake (`ui/initialize` → `initialized`), `size-changed`, pintado de stat/línea/tabla/cambios, error de payload, gráfico sin números, refresh con repintado y con fallo (mantiene datos + aviso), y geometría de la línea (no chata) | 5 tests |
+| **Navegador real** (Chrome headless + CDP) | la cadena completa del host: el **proxy `sandbox.html` del server real** carga el widget real bajo su CSP, un `AppBridge` (el mismo que usa el chat) hace el handshake, llega el resultado del tool real (`dashboard_render` sobre `precios.json`), el widget pinta (título, `495`/`489`, 3 filas, 3 puntos, bloque de cambios) y **el botón Actualizar llama la tool y repinta** (la llamada queda registrada en el host); una entrega nueva del host también repinta. Sin errores de consola ni excepciones | `drive.ts` (efímero) |
 
 Defecto encontrado y corregido durante el trabajo: en v2 el plugin de resultados solo preservaba
 llamadas de **Code Mode**; una llamada directa a un App de primera parte (`openwork-panels_*`) no
 llegaba al chat con `structuredContent`/`_meta`, así que la tarjeta no podía abrirse. Ahora el
 plugin preserva también las llamadas directas cuyo resultado declara `_meta.ui.resourceUri`
 (con tests de ambos caminos).
+
+### Defecto de producto encontrado en el navegador
+
+El gráfico de líneas escalaba con **cero incluido** (`min = Math.min(...flat, 0)`): una serie
+486 → 491 → 489 salía como una línea casi chata (el navegador lo mostró). Ahora la línea usa el
+rango propio de la serie (con la línea de cero solo si el rango cruza el cero) y las **barras**
+siguen ancladas a cero para que los anchos sean comparables. Se corrigió en los dos lugares que
+deben coincidir (`.tsx` de [3] y el widget de [4]) y hay aserciones de geometría en las dos suites.
 
 Límite conocido: no hay claves de modelo en este entorno, así que **no se pudo correr un turno real
 que llame al tool**. Lo que sí está verificado es cada eslabón por separado: motor conectado,
