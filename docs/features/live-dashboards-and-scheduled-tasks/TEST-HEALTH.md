@@ -8,7 +8,7 @@ falla, por qué y qué se arregló. Complementa `HIVE-C-TEST.md`, `HIVE-F-TEST.m
 
 | Suite | Comando | Resultado |
 |---|---|---|
-| Servidor | `pnpm --filter openwork-server test` (dos fases, ver abajo) | **713 pass / 11 skip / 0 fail** · 3 corridas seguidas con exit 0 |
+| Servidor | `pnpm --filter openwork-server test` (dos fases, ver abajo) | **713 pass / 11 skip / 0 fail (724 tests, exit 0)** · corridas repetidas verdes |
 | App | `pnpm --filter @openwork/app test` (`bun test --isolate --max-concurrency=4`) | **1970 pass / 72 fail** (207 archivos) |
 
 ### Por qué el servidor corre en dos fases
@@ -24,9 +24,14 @@ Por eso el script `test` es:
 
 ```json
 "test": "bun run test:parallel && bun run test:engines",
-"test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-*.test.ts' --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts'",
-"test:engines": "bun test --isolate --max-concurrency=1 test/engine-*.test.ts"
+"test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-v2-restart.test.ts' ... --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts'",
+"test:engines": "bun test --isolate --max-concurrency=1 test/engine-v2-restart.test.ts test/engine-auto-upgrade-boot.test.ts test/engine-fresh-forced-start-failure.test.ts test/engine-fresh-install-default.test.ts test/engine-auto-upgrade-safety.test.ts"
 ```
+
+Las dos listas deben cubrir exactamente los mismos cinco archivos que arrancan procesos: si la
+fase 1 ignora un archivo que la fase 2 no corre, ese test **desaparece sin avisar** (pasó en el
+primer intento: 32 tests quedaron afuera). Verificación de que no se pierde nada: la suma de ambas
+fases es **724 tests**, el mismo total que la corrida sin filtros.
 
 Los tests de motor conservan todas sus aserciones; solo se ejecutan en serie. Además se cambió
 `waitFor` de 15 s a 30 s y el timeout por test de 30 s a 60 s en `engine-v2-restart`, y las dos
@@ -97,7 +102,7 @@ de especialistas ni de las celdas A–F**: `specialist-*` y `comex-*` están 100
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # 713 pass / 0 fail (dos fases)
+pnpm --filter openwork-server test          # 713 pass / 11 skip / 0 fail, exit 0 (dos fases, 724 tests)
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 1970 pass / 72 fail (mapa arriba)
 cd apps/app && bun test tests/specialist-*.test.tsx      # 53/53

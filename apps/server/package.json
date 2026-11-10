@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "bun run test:parallel && bun run test:engines",
-    "test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-*.test.ts' --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts'",
+    "test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-v2-restart.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-boot.test.ts' --path-ignore-patterns 'test/engine-fresh-forced-start-failure.test.ts' --path-ignore-patterns 'test/engine-fresh-install-default.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-safety.test.ts' --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts'",
     "test:engines": "bun test --isolate --max-concurrency=1 test/engine-v2-restart.test.ts test/engine-auto-upgrade-boot.test.ts test/engine-fresh-forced-start-failure.test.ts test/engine-fresh-install-default.test.ts test/engine-auto-upgrade-safety.test.ts",
     "dev": "OPENWORK_DEV_MODE=1 bun --conditions=development src/cli.ts",
     "build:enterprise-mcp-client": "pnpm --filter @openwork/enterprise-mcp-client build",
