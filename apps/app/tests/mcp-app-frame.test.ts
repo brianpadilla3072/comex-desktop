@@ -297,8 +297,10 @@ describe("MCP App startup scheduling", () => {
     const releaseSpy = spyOn(host.client, "releaseMcpApp").mockResolvedValue({ released: true })
     const actionContext = { requestId: 1, signal: new AbortController().signal,
       sendNotification: async () => {}, sendRequest: async () => { throw new Error("Unexpected request") } }
+    // Generous budget: under a loaded machine the cached view needs more turns to mount, and a
+    // short loop made this scenario flake (Missing iframe 0) without any product difference.
     const settle = async (done: () => boolean) => {
-      for (let turn = 0; turn < 50 && !done(); turn += 1) await act(async () => { await new Promise(resolve => setImmediate(resolve)) })
+      for (let turn = 0; turn < 400 && !done(); turn += 1) await act(async () => { await new Promise(resolve => setImmediate(resolve)) })
     }
     const part: DynamicToolUIPart = {
       type: "dynamic-tool", toolName: "render-0", toolCallId: "preview-launch", state: "output-available", input: {}, output: "ok",
