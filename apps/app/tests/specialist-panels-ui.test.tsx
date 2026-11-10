@@ -23,6 +23,7 @@ let resolveSpec: typeof SPEC;
 let panels: Array<{ name: string; title: string; source: string; updatedAt: number; bytes: number }>;
 let panelRequests: Array<{ method: string; path: string }> = [];
 let listFailsWith: { status: number; code: string; message: string } | null = null;
+let resolveDiff: { at: number; diff: { kind: string; added: number; removed: number; changed: number; sample: unknown[]; summary: string } } | null = null;
 const ROWS = [
   { fecha: "2026-11-07", cierre: 480 },
   { fecha: "2026-11-08", cierre: 486 },
@@ -64,6 +65,7 @@ beforeEach(() => {
   resolveSpec = SPEC;
   panelRequests = [];
   listFailsWith = null;
+  resolveDiff = DIFF;
   const spy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init);
     const url = new URL(request.url);
@@ -86,7 +88,7 @@ beforeEach(() => {
       return Response.json({
         spec: resolveSpec,
         resolutions: [
-          { workspaceId: "ws_test", workspaceName: "proyecto-principal", ok: true, data: ROWS, sourceLabel: "dataset:ds-search-precios-soja-1a2b3c4d", diff: DIFF },
+          { workspaceId: "ws_test", workspaceName: "proyecto-principal", ok: true, data: ROWS, sourceLabel: "dataset:ds-search-precios-soja-1a2b3c4d", diff: resolveDiff },
           { workspaceId: "ws_dos", workspaceName: "proyecto-anexo", ok: false, error: 'El dataset "search-precios-soja" no existe en este proyecto.' },
         ],
       });
@@ -217,4 +219,26 @@ test("panelsEnabled=false: la sección no aparece y no se dispara ningún reques
   await openLibraryDialog();
   expect(hasText("Paneles")).toBe(false);
   expect(panelRequests.length).toBe(0);
+});
+
+test("un panel sobre un archivo no promete cambios entre corridas", async () => {
+  resolveSpec = {
+    panel: "soja", title: "Soja — cierre", source: { file: "mediciones.csv" },
+    blocks: [{ type: "table", limit: 10 }, { type: "changes" }],
+  };
+  resolveDiff = null;
+  await renderAt();
+  await openLibraryDialog();
+  const sections = [...document.querySelectorAll("section")];
+  const panelesSection = sections.find(s => (s.textContent ?? "").startsWith("Paneles"));
+  await act(async () => { [...panelesSection!.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Gestionar"))!.click(); });
+  await flush();
+  await act(async () => {
+    const row = [...document.querySelectorAll("div.rounded-md")].find(el => (el.textContent ?? "").includes("Soja — cierre"));
+    [...(row as HTMLElement).querySelectorAll("button")].find(b => (b.textContent ?? "").trim() === "Ver")!.click();
+  });
+  await flush();
+  expect(hasText("archivo mediciones.csv")).toBe(true);
+  expect(hasText("Este panel lee un archivo, no un dataset: no hay corridas que comparar.")).toBe(true);
+  expect(hasText("aparece tras el primer refresh")).toBe(false);
 });

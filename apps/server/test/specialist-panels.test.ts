@@ -175,3 +175,36 @@ test("panelAggregate is the single shared semantics for renderers and the future
   assert.equal(panelAggregate(rows, "n", "first"), 1);
   assert.equal(panelAggregate([{ s: "a" }, { s: "b" }], "s", "sum"), null); // nada inventado: null → "—"
 });
+
+test("a CSV in the project draws a table panel: headers, quoted commas, numbers and dialects", async () => {
+  const { root, config, project } = await fixture();
+  try {
+    await writeFile(join(project, "mediciones-obra.csv"), [
+      "partida,m2,precio_unitario,avance_pct",
+      "mamposteria,120,1500,75",
+      'revoque,"80,5",900,60',
+      "pisos,100,2200,40",
+    ].join("\r\n"));
+    await writePanel(config, "app_a", "avance-obra", {
+      title: "Avance de obra",
+      source: { file: "mediciones-obra.csv" },
+      blocks: [{ type: "table", limit: 10 }, { type: "stat", field: "m2", agg: "sum" }],
+    });
+    const resolved = await resolvePanel(config, "app_a", "avance-obra", project);
+    assert.equal(resolved.ok, true);
+    const rows = panelRows(resolved.data);
+    assert.equal(rows.error, undefined);
+    assert.deepEqual(rows.rows[0], { partida: "mamposteria", m2: 120, precio_unitario: 1500, avance_pct: 75 });
+    assert.equal(rows.rows[1]!.partida, "revoque");
+    assert.equal(rows.rows[1]!.m2, "80,5");
+    assert.equal(panelAggregate(rows.rows, "avance_pct", "avg"), 175 / 3);
+
+    // Semicolon exports from spreadsheets work too, and a leading-zero code stays an id.
+    await writeFile(join(project, "calendario.csv"), "semana;tema;codigo\n1;Reels;007\n2;Newsletter;010\n");
+    await writePanel(config, "app_a", "calendario", { title: "Calendario", source: { file: "calendario.csv" }, blocks: [{ type: "table", limit: 10 }] });
+    const calendar = await resolvePanel(config, "app_a", "calendario", project);
+    assert.equal(calendar.ok, true);
+    const calendarRows = panelRows(calendar.data).rows;
+    assert.deepEqual(calendarRows[0], { semana: 1, tema: "Reels", codigo: "007" });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

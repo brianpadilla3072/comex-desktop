@@ -584,7 +584,7 @@ function PanelCanvas({ app, client, name }: { app: SpecialistApplication; client
   </div>;
 }
 
-function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPanelResolution; spec: { blocks: SpecialistPanelBlock[] } }) {
+function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPanelResolution; spec: { blocks: SpecialistPanelBlock[]; source: { dataset: string } | { file: string } } }) {
   if (!resolution.ok) {
     return <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">Este panel no se puede dibujar acá: {resolution.error ?? "sin detalle"}</p>;
   }
@@ -597,6 +597,7 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
         return <div key={index} className="rounded-md bg-muted/40 p-2 text-xs">
           <p className="font-medium">{block.title ?? "Cambios desde la última corrida"}</p>
           {diff?.diff ? <p className="text-muted-foreground">{diff.diff.summary ?? "sin detalle"} · {formatWhen(diff.at ?? null)}</p>
+            : "file" in spec.source ? <p className="text-muted-foreground">Este panel lee un archivo, no un dataset: no hay corridas que comparar. Para ver cambios entre versiones, guardá los datos como dataset.</p>
             : <p className="text-muted-foreground">Todavía no hubo una corrida que compare: aparece tras el primer refresh.</p>}
         </div>;
       }

@@ -184,11 +184,61 @@ export async function resolvePanel(config: Pick<ServerConfig, "configPath">, id:
   if (info.size > DATA_LIMIT) return { ok: false, spec, error: `El archivo supera 2 MB; achicalo o derivá un dataset.` };
   const raw = await readFile(realTarget, "utf8").catch(() => null);
   if (raw === null) return { ok: false, spec, error: "El archivo no se pudo leer como texto." };
-  if (spec.source.file.endsWith(".json")) {
+  if (/\.json$/i.test(spec.source.file)) {
     try { return { ok: true, spec, data: JSON.parse(raw) as unknown, sourceLabel: `file:${spec.source.file}`, diff: null }; }
     catch { return { ok: false, spec, error: "El archivo .json no es JSON válido." }; }
   }
+  // A CSV in the project is the everyday case outside research (a measurement sheet, a content
+  // calendar, a stock list). Returned as raw text, every block failed with "los datos no tienen
+  // forma de tabla" even though the table was right there.
+  if (/\.(csv|tsv)$/i.test(spec.source.file)) {
+    const rows = parseDelimited(raw);
+    if (!rows.length) return { ok: false, spec, error: `El archivo ${spec.source.file} no tiene filas con encabezado para dibujar.` };
+    return { ok: true, spec, data: rows, sourceLabel: `file:${spec.source.file}`, diff: null };
+  }
   return { ok: true, spec, data: raw, sourceLabel: `file:${spec.source.file}`, diff: null };
+}
+
+/** One row per line, header as keys. Handles quoted fields (a comma inside a cell), CRLF and the
+ *  semicolon/tab dialects exported by spreadsheets. Numbers stay numbers so stat/avg work, except
+ *  codes with a leading zero ("007"), which would silently change meaning. */
+export function parseDelimited(text: string): Array<Record<string, unknown>> {
+  const body = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n").filter(line => line.trim() !== "");
+  if (body.length < 2) return [];
+  const headerLine = body[0]!;
+  const delimiter = ["\t", ";", ","].map(candidate => ({ candidate, count: (headerLine.match(new RegExp(candidate === "\t" ? "\\t" : `\\${candidate}`, "g")) ?? []).length })).sort((left, right) => right.count - left.count)[0]!;
+  if (!delimiter.count) return [];
+  const split = (line: string) => {
+    const cells: string[] = [];
+    let current = "";
+    let quoted = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index]!;
+      if (quoted) {
+        if (char === '"' && line[index + 1] === '"') { current += '"'; index += 1; }
+        else if (char === '"') quoted = false;
+        else current += char;
+        continue;
+      }
+      if (char === '"' && !current.trim()) { quoted = true; continue; }
+      if (char === delimiter.candidate) { cells.push(current.trim()); current = ""; continue; }
+      current += char;
+    }
+    cells.push(current.trim());
+    return cells;
+  };
+  const header = split(headerLine);
+  const rows: Array<Record<string, unknown>> = [];
+  for (const line of body.slice(1)) {
+    const cells = split(line);
+    const row: Record<string, unknown> = {};
+    header.forEach((key, index) => {
+      const value = cells[index] ?? "";
+      row[key] = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value) ? Number(value) : value;
+    });
+    rows.push(row);
+  }
+  return rows;
 }
 
 /** Extract one rows-array out of a payload that panels can plot. Tolerant: the FIRST object
