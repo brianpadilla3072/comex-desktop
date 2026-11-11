@@ -222,7 +222,7 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       return {
         dataset, snapshots, truncated,
         latest: truncated ? preview.slice(0, 40_000) : JSON.parse(preview) as unknown,
-        ...(truncated ? { note: "El snapshot supera 40 KB: recibís un recorte. El resto está en comex/datasets del proyecto." } : {}),
+        ...(truncated ? { note: "El snapshot supera 40 KB: recibís un recorte. El resto está en los datasets del proyecto." } : {}),
       };
     }
     case "specialist_dataset_refresh": {

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
 import { readCitation, registerSource } from "../src/specialists/sources.js";
 import { listSources, registerLocalSource } from "../src/specialists/sources.js";
+import { resolveDataDir } from "../src/specialists/project-data.js";
 
 const longSentence = "La exportación de soja creció un tres por ciento en el último trimestre medido por la Bolsa de Comercio. ";
 
@@ -20,7 +21,7 @@ test("a local text file becomes a citable source with stable anchors", async () 
     // Registering indexes the passages: the library must not say "sin pasajes" for real text.
     assert.ok(source.chunks > 0);
     assert.equal(source.title, "informe.md");
-    assert.match(source.evidencePath, /^comex\/fuentes\/local\//);
+    assert.match(source.evidencePath, /^(proyecto|comex)\/fuentes\/local\//);
     // Snapshot: changing the original afterwards doesn't move the citation.
     await writeFile(join(root, "datos", "informe.md"), "otro texto");
     const cited = await readCitation(root, source.id, 1);
@@ -39,7 +40,7 @@ test("local sources fail loud on traversal, symlinks, formats and size", async (
     const failureStatus = (error: unknown, code: string) => error instanceof ApiError && error.code === code;
     await assert.rejects(registerLocalSource(root, { path: "../secreto.md" }), (e) => failureStatus(e, "invalid_source"));
     await assert.rejects(registerLocalSource(root, { path: "/etc/passwd.md" }), (e) => failureStatus(e, "invalid_source"));
-    await assert.rejects(registerLocalSource(root, { path: "comex/fuentes/x.md" }), (e) => failureStatus(e, "invalid_source"));
+    await assert.rejects(registerLocalSource(root, { path: `${resolveDataDir(root)}/fuentes/x.md` }), (e) => failureStatus(e, "invalid_source"));
     await assert.rejects(registerLocalSource(root, { path: "no-existe.md" }), (e) => failureStatus(e, "invalid_source"));
     await writeFile(join(root, "doc.pdf"), "%PDF-falso");
     await assert.rejects(registerLocalSource(root, { path: "doc.pdf" }), (e) => failureStatus(e, "invalid_source"));
@@ -49,7 +50,7 @@ test("local sources fail loud on traversal, symlinks, formats and size", async (
     await writeFile(join(outside, "x.md"), longSentence.repeat(3)).catch(async () => { await mkdir(outside, { recursive: true }); await writeFile(join(outside, "x.md"), longSentence.repeat(3)); });
     await symlink(join(outside, "x.md"), join(root, "link.md"));
     await assert.rejects(registerLocalSource(root, { path: "link.md" }), (e) => failureStatus(e, "invalid_source"));
-    assert.equal((await readdir(join(root, "comex", "fuentes", "local")).catch(() => []) as string[]).length, 0);
+    assert.equal((await readdir(join(root, resolveDataDir(root), "fuentes", "local")).catch(() => []) as string[]).length, 0);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -92,7 +93,7 @@ test("an empty chunk cache left by an older indexer is rebuilt instead of pinnin
     await mkdir(join(root, "datos"), { recursive: true });
     await writeFile(join(root, "datos", "precios.json"), JSON.stringify([{ fecha: "2026-11-07", cierre: 480 }]));
     const source = await registerLocalSource(root, { path: "datos/precios.json" });
-    await writeFile(join(root, "comex", "fuentes", `${source.id}.chunks.json`), "[]");
+    await writeFile(join(root, resolveDataDir(root), "fuentes", `${source.id}.chunks.json`), "[]");
     const cited = await readCitation(root, source.id, 0);
     assert.equal(cited.ok, true, cited.ok ? "" : cited.error);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -101,8 +102,8 @@ test("an empty chunk cache left by an older indexer is rebuilt instead of pinnin
 test("research evidence cites its result content, never the search query or the bare URL", async () => {
   const root = await mkdtemp(join(tmpdir(), "specialists-source-tavily-"));
   try {
-    await mkdir(join(root, "comex", "fuentes", "tavily"), { recursive: true });
-    const evidencePath = "comex/fuentes/tavily/evidencia.json";
+    await mkdir(join(root, resolveDataDir(root), "fuentes", "tavily"), { recursive: true });
+    const evidencePath = `${resolveDataDir(root)}/fuentes/tavily/evidencia.json`;
     await writeFile(join(root, evidencePath), JSON.stringify({
       query: "https://www.argentina.gob.ar/normativa/nacional/ley-24240",
       results: [
@@ -123,16 +124,32 @@ test("research evidence cites its result content, never the search query or the 
 test("listing sources indexes an old uncounted source instead of claiming it has no passages", async () => {
   const root = await mkdtemp(join(tmpdir(), "specialists-source-count-"));
   try {
-    await mkdir(join(root, "comex", "fuentes", "tavily"), { recursive: true });
-    const evidencePath = "comex/fuentes/tavily/vieja.json";
+    await mkdir(join(root, resolveDataDir(root), "fuentes", "tavily"), { recursive: true });
+    const evidencePath = `${resolveDataDir(root)}/fuentes/tavily/vieja.json`;
     await writeFile(join(root, evidencePath), JSON.stringify({ results: [{ title: "Nota", url: "https://example.com", content: longSentence.repeat(4) }] }));
     // An index written by the older indexer: no chunk count, no chunk file.
-    await writeFile(join(root, "comex", "fuentes", "index.json"), JSON.stringify([{
+    await writeFile(join(root, resolveDataDir(root), "fuentes", "index.json"), JSON.stringify([{
       id: "src_vieja", provider: "tavily", title: "Nota", url: null, evidencePath, datasetId: null, retrievedAt: 1,
     }]));
     const listed = await listSources(root);
     assert.equal(listed[0]!.chunks > 0, true);
-    const reread = JSON.parse(await readFile(join(root, "comex", "fuentes", "index.json"), "utf8")) as Array<{ chunks: number }>;
+    const reread = JSON.parse(await readFile(join(root, resolveDataDir(root), "fuentes", "index.json"), "utf8")) as Array<{ chunks: number }>;
     assert.equal(reread[0]!.chunks, listed[0]!.chunks);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("new projects keep data in proyecto/ and legacy projects keep comex/", async () => {
+  const { resolveDataDir, dataRelative } = await import("../src/specialists/project-data.js");
+  const fresh = await mkdtemp(join(tmpdir(), "specialists-root-fresh-"));
+  const legacy = await mkdtemp(join(tmpdir(), "specialists-root-legacy-"));
+  try {
+    assert.equal(resolveDataDir(fresh), "proyecto");
+    await mkdir(join(legacy, "comex", "datasets"), { recursive: true });
+    assert.equal(resolveDataDir(legacy), "comex");
+    assert.equal(dataRelative(fresh, "fuentes", "tavily", "x.json"), "proyecto/fuentes/tavily/x.json");
+    assert.equal(dataRelative(legacy, "fuentes", "tavily", "x.json"), "comex/fuentes/tavily/x.json");
+  } finally {
+    await rm(fresh, { recursive: true, force: true });
+    await rm(legacy, { recursive: true, force: true });
+  }
 });

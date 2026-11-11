@@ -97,10 +97,12 @@ export async function ensureWorkspaceFiles(workspaceRoot: string, presetInput: s
   }
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureComexWorkspace(workspaceRoot)) reloadReasons.add("config");
+  // A specialist application owns its project: seeding the Comex pack here used to create a
+  // `comex/` folder (and Comex instructions) inside apps about architecture or accounting,
+  // before the specialist marker existed. Those projects get their own `proyecto/` data folder.
+  if (preset !== "specialist" && await ensureComexWorkspace(workspaceRoot)) reloadReasons.add("config");
   // openwork config is seeded into the runtime DB by the caller, not written
   // as a file here.
-  void preset;
   return {
     changed: reloadReasons.size > 0,
     reloadReasons: Array.from(reloadReasons),

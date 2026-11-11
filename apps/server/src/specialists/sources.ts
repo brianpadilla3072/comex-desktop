@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { statOrNull } from "./digest.js";
+import { dataPath, dataRelative, reservedDataPaths } from "./project-data.js";
 
 /** Sources ([6] del plan): every piece of retrieved material gets an identity so a citation like
  *  [fuente:<id>#<chunk>] can jump to the exact passage. Registry and chunk files live in the
@@ -26,12 +27,12 @@ export const sourceMetaSchema = z.object({
 export type SpecialistSourceMeta = z.infer<typeof sourceMetaSchema>;
 
 const failure = (message: string) => new ApiError(422, "invalid_source", message);
-const fuentesRoot = (directory: string) => join(directory, "comex", "fuentes");
+const fuentesRoot = (directory: string) => dataPath(directory, "fuentes");
 
 async function ensureFolder(path: string) {
   await mkdir(path, { recursive: true });
   const stat = await lstat(path);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw failure("La carpeta comex/fuentes no puede ser un enlace simbólico.");
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw failure("La carpeta de fuentes del proyecto no puede ser un enlace simbólico.");
   return path;
 }
 
@@ -70,7 +71,7 @@ export async function listSources(directory: string) {
 }
 
 /** Register evidence as a citable source; idempotent by evidencePath (re-register refreshes meta). */
-export async function registerSource(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {  if (!input.evidencePath.startsWith("comex/fuentes/") || input.evidencePath.includes("..")) throw failure("La evidencia debe vivir bajo comex/fuentes/.");
+export async function registerSource(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {  if (!input.evidencePath.startsWith(`${dataRelative(directory, "fuentes")}/`) || input.evidencePath.includes("..")) throw failure(`La evidencia debe vivir bajo ${dataRelative(directory, "fuentes")}/.`);
   await ensureFolder(fuentesRoot(directory));
   const stat = await lstat(join(directory, input.evidencePath)).catch(() => null);
   if (!stat || !stat.isFile() || stat.isSymbolicLink()) throw failure("El archivo de evidencia no existe o es un enlace.");
@@ -188,8 +189,9 @@ export async function ensureChunks(directory: string, id: string) {
 const LOCAL_FORMATS = new Set([".md", ".txt", ".csv", ".tsv", ".json", ".html", ".htm", ".xml"]);
 export async function registerLocalSource(directory: string, input: { path: string; title?: string }) {
   const relativePath = input.path.replace(/^\.\//, "");
-  if (!relativePath || relativePath.startsWith("/") || relativePath.includes("..") || relativePath.startsWith("comex/fuentes/") || relativePath.startsWith("comex/datasets/")) {
-    throw failure("La fuente local debe ser un archivo del proyecto, fuera de comex/fuentes y comex/datasets.");
+  const reserved = reservedDataPaths(directory);
+  if (!relativePath || relativePath.startsWith("/") || relativePath.includes("..") || reserved.some(prefix => relativePath.startsWith(prefix))) {
+    throw failure(`La fuente local debe ser un archivo del proyecto, fuera de ${reserved.join(" y ")}.`);
   }
   const extension = (relativePath.split(".").pop() ?? "").toLowerCase().replace(/^/, ".");
   if (!LOCAL_FORMATS.has(extension)) throw failure(`El formato ${extension} todavía no se puede indexar como fuente (PDF/XLSX pendientes de extractor).`);
@@ -207,7 +209,7 @@ export async function registerLocalSource(directory: string, input: { path: stri
   if (info.size > 8_000_000) throw failure("El archivo supera 8 MB; achicalo o subí el extracto en texto.");
   const localDir = await ensureFolder(join(fuentesRoot(directory), "local"));
   const stamped = `${Date.now()}-${randomUUID().slice(0, 8)}-${relativePath.split("/").pop()!.replace(/[^A-Za-z0-9._-]/g, "_")}`;
-  const evidencePath = `comex/fuentes/local/${stamped}`;
+  const evidencePath = dataRelative(directory, "fuentes", "local", stamped);
   await writeFile(join(localDir, stamped), await readFile(realTarget, "utf8"), { mode: 0o600 });
   return registerSource(directory, { provider: "file", evidencePath, title: input.title ?? relativePath.split("/").pop() ?? relativePath, url: null });
 }

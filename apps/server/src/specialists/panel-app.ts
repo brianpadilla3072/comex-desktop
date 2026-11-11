@@ -152,7 +152,7 @@ function datasetPayload(directory: string, id: string) {
       snapshots,
       truncated,
       latest: truncated ? preview.slice(0, SNAPSHOT_PREVIEW_CHARS) : JSON.parse(preview) as unknown,
-      ...(truncated ? { note: "El snapshot supera 40 KB: va un recorte. El resto está en comex/datasets del proyecto." } : {}),
+      ...(truncated ? { note: "El snapshot supera 40 KB: va un recorte. El resto está en los datasets del proyecto." } : {}),
     };
   });
 }

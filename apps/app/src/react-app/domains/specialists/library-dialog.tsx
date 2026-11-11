@@ -276,7 +276,7 @@ function datasetsQuery(client: OpenworkServerClient, app: SpecialistApplication)
 }
 
 function previewText(value: unknown): string {
-  if (typeof value === "object" && value !== null && !Array.isArray(value) && "tooLarge" in value) return "El último snapshot supera los 200 KB y no se previsualiza acá. Está en el proyecto, en comex/datasets.";
+  if (typeof value === "object" && value !== null && !Array.isArray(value) && "tooLarge" in value) return "El último snapshot supera los 200 KB y no se previsualiza acá. Está en los datasets del proyecto.";
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   return text.length > 2000 ? `${text.slice(0, 2000)}…` : text;
 }

@@ -3,10 +3,11 @@ import { cp, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
+import { dataPath } from "./project-data.js";
 
 /** Datasets give research queries an identity: the query is stored as data so it can be
  *  re-run (by a person, a task or the scheduler) and each execution leaves an immutable snapshot.
- *  Everything lives as files inside the workspace: comex/datasets/<id>/. Every index mutation is
+ *  Everything lives as files inside the workspace data folder (datasets/<id>/). Every index mutation is
  *  serialized per project (tasks.ts doctrine: awaits between read and write are where concurrent
  *  capture/refresh/delete would lose updates). */
 
@@ -40,7 +41,7 @@ export const datasetQuerySchema = z.object({
 export type SpecialistDatasetQuery = z.infer<typeof datasetQuerySchema>;
 
 const failure = (message: string) => new ApiError(422, "invalid_dataset", message);
-const datasetsRoot = (directory: string) => join(directory, "comex", "datasets");
+const datasetsRoot = (directory: string) => dataPath(directory, "datasets");
 
 /** Key-order-stable serialization so the same query always hashes the same, whoever wrote it. */
 const canonicalJson = (value: unknown): string => {
@@ -233,7 +234,7 @@ const diffsDir = (directory: string, id: string) => join(datasetDir(directory, i
 /** Every ancestor must be a real directory inside the project: a symlinked dataset folder would
  *  otherwise turn every refresh into a write outside the workspace (panels.ts containment rule). */
 async function ensureDatasetChain(directory: string, id: string) {
-  const root = join(directory, "comex", "datasets");
+  const root = dataPath(directory, "datasets");
   const chain = [root, datasetDir(directory, id), diffsDir(directory, id)];
   for (const part of chain) {
     await mkdir(part, { recursive: true });

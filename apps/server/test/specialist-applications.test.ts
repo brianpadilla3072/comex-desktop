@@ -81,9 +81,11 @@ test("custom application projects have separate packs, memory and identities wit
     await prepareSpecialistWorkspace(config, b, projectB);
     assert.equal(await ensureComexWorkspace(projectB), false);
     const note = "DECISION_SOLO_ALPHA";
-    await writeFile(join(projectA, "comex", "estado.md"), note);
+    // A custom application keeps its memory in `proyecto/`, never in the Comex folder.
+    await assert.rejects(readFile(join(projectA, "comex", "estado.md")));
+    await writeFile(join(projectA, "proyecto", "estado.md"), note);
     await prepareSpecialistWorkspace(config, a, projectA);
-    assert.equal(await readFile(join(projectA, "comex", "estado.md"), "utf8"), note);
+    assert.equal(await readFile(join(projectA, "proyecto", "estado.md"), "utf8"), note);
     await assert.rejects(prepareSpecialistWorkspace(config, b, projectA), /otra aplicación/);
     await assert.rejects(readFile(join(projectB, ".opencode", "skills", "tono", "SKILL.md")));
     await assert.rejects(readFile(join(projectB, ".opencode", "skills", "estudio-mercado-internacional", "SKILL.md")));

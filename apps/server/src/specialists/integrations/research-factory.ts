@@ -6,6 +6,7 @@ import { runTavilyCommand, tavilyHome, tavilyCli, tavilyStatus, installTavily, s
 import { specialistDatasetsEnabled, specialistSourcesEnabled } from "../../comex/features.js";
 import { recordDatasetRun } from "../datasets.js";
 import { registerSource } from "../sources.js";
+import { dataRelative } from "../project-data.js";
 import type { ServerConfig } from "../../types.js";
 import { FactoryRegistry } from "../factories.js";
 
@@ -34,9 +35,10 @@ export async function executeTavily(runtime: ResearchRuntime, operation: Researc
     case "crawl": { args.push(String(value.url), "--limit", String(value.limit), "--max-depth", "1"); break; }
     case "research": args.push(String(value.query), "--model", "mini", "--citation-format", "apa", "--timeout", "600"); break;
   }
-  const relative = `comex/fuentes/tavily/${randomUUID()}.json`;
+  const relative = dataRelative(directory, "fuentes", "tavily", `${randomUUID()}.json`);
   let folder = directory;
-  for (const part of ["comex", "fuentes", "tavily"]) {
+  // Every segment except the file name is a folder to create.
+  for (const part of relative.split("/").slice(0, -1)) {
     folder = join(folder, part); await mkdir(folder, { recursive: true });
     const stat = await lstat(folder); if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("La carpeta de evidencia no puede ser un enlace simbólico.");
   }

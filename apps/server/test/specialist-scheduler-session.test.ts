@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
 import { workspaceIdForPath } from "../src/workspaces.js";
 import { applicationInput, specialistStore } from "../src/specialists/store.js";
+import { resolveDataDir } from "../src/specialists/project-data.js";
 import { inspectSpecialistPack, saveSpecialistPack } from "../src/specialists/packs.js";
 import { createTask, listRuns, listTasks, patchTask, updateTask } from "../src/specialists/tasks.js";
 import { createSpecialistScheduler, type SpecialistScheduler } from "../src/specialists/scheduler.js";
@@ -229,10 +230,10 @@ test("1. DUE + MISSED: a backdated interval-20m task dispatches exactly once wit
     assert.equal(runs[0]?.status, "dispatched");
     assert.equal(runs[0]?.missed, 2);
     // Evidence file for this run exists under comex/tareas/<taskId>/runs/<stamp>.json
-    const files = await readdir(join(ctx.project, "comex", "tareas", task.id, "runs"));
+    const files = await readdir(join(ctx.project, resolveDataDir(ctx.project), "tareas", task.id, "runs"));
     assert.equal(files.length, 1);
     assert.match(files[0]!, /\.json$/);
-    const evidence = JSON.parse(await readFile(join(ctx.project, "comex", "tareas", task.id, "runs", files[0]!), "utf8")) as { status: string; sessionId: string | null };
+    const evidence = JSON.parse(await readFile(join(ctx.project, resolveDataDir(ctx.project), "tareas", task.id, "runs", files[0]!), "utf8")) as { status: string; sessionId: string | null };
     assert.equal(evidence.status, "dispatched");
     assert.equal(evidence.sessionId, "ses_fake_1");
     // The runs-log entry must identify the same session (audit trail). T-1: it is null.
@@ -254,9 +255,9 @@ test("2. OBSERVE OK: a completed assistant message finalizes the run as ok", asy
     const runs = await listRuns(ctx.config as unknown as ServerConfig, ctx.appId, t1.id);
     assert.equal(runs[0]?.status, "ok");
     assert.equal(runs[0]?.missed, 2);
-    const files = await readdir(join(ctx.project, "comex", "tareas", t1.id, "runs"));
+    const files = await readdir(join(ctx.project, resolveDataDir(ctx.project), "tareas", t1.id, "runs"));
     assert.equal(files.length, 1, "the same single evidence file is updated in place");
-    const evidence = JSON.parse(await readFile(join(ctx.project, "comex", "tareas", t1.id, "runs", files[0]!), "utf8")) as { status: string };
+    const evidence = JSON.parse(await readFile(join(ctx.project, resolveDataDir(ctx.project), "tareas", t1.id, "runs", files[0]!), "utf8")) as { status: string };
     assert.equal(evidence.status, "ok");
   });
 });
@@ -278,9 +279,9 @@ test("3. OBSERVE FAILED: an engine error mid-prompt marks the task failed with r
     assert.equal(typeof detail, "string");
     assert.ok((detail as string).length > 3, "failure detail must be readable, never empty");
     assert.match(detail as string, /500/, "detail must name the engine failure");
-    const files = await readdir(join(ctx.project, "comex", "tareas", task.id, "runs"));
+    const files = await readdir(join(ctx.project, resolveDataDir(ctx.project), "tareas", task.id, "runs"));
     assert.equal(files.length, 1);
-    const evidence = JSON.parse(await readFile(join(ctx.project, "comex", "tareas", task.id, "runs", files[0]!), "utf8")) as { status: string; detail: string | null };
+    const evidence = JSON.parse(await readFile(join(ctx.project, resolveDataDir(ctx.project), "tareas", task.id, "runs", files[0]!), "utf8")) as { status: string; detail: string | null };
     assert.equal(evidence.status, "failed");
     assert.equal(evidence.detail, detail);
   });
@@ -341,7 +342,7 @@ test("5. DRY-RUN during a real run: no claim conflict, no runs-log/count entry, 
     const countBefore = running.runs;
     const startedAtBefore = running.running!.startedAt;
     const sessionBefore = running.running!.sessionId;
-    const evidenceBefore = await readdir(join(ctx.project, "comex", "tareas", t1.id, "runs"));
+    const evidenceBefore = await readdir(join(ctx.project, resolveDataDir(ctx.project), "tareas", t1.id, "runs"));
     const dry = await ctx.scheduler.dryRun(ctx.appId, t1.id);
     assert.equal(dry.ok, true, "dryRun must succeed alongside a real run");
     assert.equal(typeof dry.sessionId, "string");
@@ -360,7 +361,7 @@ test("5. DRY-RUN during a real run: no claim conflict, no runs-log/count entry, 
     assert.equal(afterDry.lastStatus, "running");
     const runsAfter = await listRuns(ctx.config as unknown as ServerConfig, ctx.appId, t1.id);
     assert.equal(runsAfter.length, runsBefore.length, "dryRun must add nothing to the runs log");
-    const evidenceAfter = await readdir(join(ctx.project, "comex", "tareas", t1.id, "runs"));
+    const evidenceAfter = await readdir(join(ctx.project, resolveDataDir(ctx.project), "tareas", t1.id, "runs"));
     assert.equal(evidenceAfter.length, evidenceBefore.length, "dryRun must write no evidence");
     // Close the real run honestly.
     ctx.state.completed = true;

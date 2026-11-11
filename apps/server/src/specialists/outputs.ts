@@ -4,9 +4,10 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { readCitation } from "./sources.js";
+import { dataPath } from "./project-data.js";
 
 /** Studio outputs ([7] del plan): one dataset/source, many digestions (mindmap, report, cards,
- *  quiz, table). Every output is a workspace FILE under comex/salidas/<id>/ — versionable,
+ *  quiz, table). Every output is a workspace FILE under <datos>/salidas/<id>/ — versionable,
  *  pack-portable, and never hostage of a cloud. The AI authors the content with a template;
  *  this store validates the per-kind shape and checks that citations actually resolve:
  *  an output that claims sources without a single valid anchor says so (fallar en voz alta). */
@@ -37,7 +38,7 @@ export const outputMetaSchema = z.object({
 export type SpecialistOutputMeta = z.infer<typeof outputMetaSchema>;
 
 const failure = (message: string) => new ApiError(422, "invalid_output", message);
-const salidasRoot = (directory: string) => join(directory, "comex", "salidas");
+const salidasRoot = (directory: string) => dataPath(directory, "salidas");
 const outputDir = (directory: string, id: string) => {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) throw failure("El id de la salida no es válido.");
   return join(salidasRoot(directory), id);

@@ -211,10 +211,10 @@ test("the scheduler claims before dispatch, records the run and finalizes it", a
       assert.equal(done.running, null);
       // The run left auditable evidence inside the project, not just in the config dir.
       const { readdir } = await import("node:fs/promises");
-      const runFiles = await readdir(join(project, "comex", "tareas", task.id, "runs"));
+      const runFiles = await readdir(join(project, (await import("../src/specialists/project-data.js")).resolveDataDir(project), "tareas", task.id, "runs"));
       assert.equal(runFiles.length, 1);
       assert.match(runFiles[0]!, /\.json$/);
-      const evidence = JSON.parse(await readFile(join(project, "comex", "tareas", task.id, "runs", runFiles[0]!), "utf8")) as { status: string; sessionId: string | null };
+      const evidence = JSON.parse(await readFile(join(project, (await import("../src/specialists/project-data.js")).resolveDataDir(project), "tareas", task.id, "runs", runFiles[0]!), "utf8")) as { status: string; sessionId: string | null };
       assert.equal(evidence.status, "ok");
       assert.equal(evidence.sessionId, "ses_auto_1");
       const runs = await listRuns(config, app.id, task.id);

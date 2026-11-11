@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { ApiError } from "../errors.js";
 import { scheduledTasksEnabled } from "../comex/features.js";
 import { specialistStore } from "./store.js";
+import { dataPath, dataRelative } from "./project-data.js";
 import { appendRun, finishRun, identifyRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
 import type { ServerConfig } from "../types.js";
 
@@ -57,14 +58,14 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
   const ensureFolder = async (path: string) => {
     await mkdir(path, { recursive: true });
     const stat = await lstat(path);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new ApiError(409, "task_conflict", "La carpeta comex/tareas no puede ser un enlace simbólico.");
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new ApiError(409, "task_conflict", "La carpeta de tareas del proyecto no puede ser un enlace simbólico.");
   };
 
   const writeEvidence = async (rootPath: string, taskId: string, stamp: string, run: SpecialistTaskRun) => {
-    const folder = join(rootPath, "comex", "tareas", taskId, "runs");
+    const folder = dataPath(rootPath, "tareas", taskId, "runs");
     await ensureFolder(folder);
     await writeFile(join(folder, `${stamp}.json`), JSON.stringify(run, null, 2), { mode: 0o600 });
-    return `comex/tareas/${taskId}/runs/${stamp}.json`;
+    return dataRelative(rootPath, "tareas", taskId, "runs", `${stamp}.json`);
   };
 
   const dispatch = async (applicationId: string, task: SpecialistTask, mode: "scheduled" | "manual") => {

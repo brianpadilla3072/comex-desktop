@@ -9,6 +9,7 @@ import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
+import { ensureProjectDataDir } from "./project-data.js";
 import { registerSpecialistToolRoutes, syncLibraryToolPlugin } from "./library-tool-api.js";
 import { registerSpecialistMcpRoutes, syncPanelAppMcpEntry } from "./panel-app.js";
 import { listProposals, parsePlanProposalContent, parseTaskProposalContent, rawProposal, removeProposal, restoreProposal, proposalSchema } from "./proposals.js";
@@ -92,6 +93,9 @@ export function registerSpecialistRoutes(options: {
     if (!workspaceId) {
       const folderPath = join(specialistDirectory(config), id, "projects", "Principal");
       workspaceId = await createWorkspace(ctx, { folderPath, name: app.name, preset: "specialist", applicationId: id });
+      // A new app's data folder (`proyecto/`) exists from the start, so memory, datasets and
+      // outputs never land in a `comex/` folder for an app that is not about trade.
+      await ensureProjectDataDir(folderPath);
     }
     return jsonResponse({ application: app, workspaceId, catalog: await catalog() }, 201);
   });
@@ -116,6 +120,7 @@ export function registerSpecialistRoutes(options: {
     const folderPath = join(specialistDirectory(config), app.id, "projects", randomUUID());
     await mkdir(folderPath, { recursive: true });
     const workspaceId = await createWorkspace(ctx, { folderPath, name: parsed.data.name, preset: "specialist", applicationId: app.id });
+    await ensureProjectDataDir(folderPath);
     store.activate(app.id);
     return jsonResponse({ workspaceId, catalog: await catalog() }, 201);
   });

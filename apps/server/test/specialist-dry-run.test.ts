@@ -11,6 +11,7 @@ import { createSpecialistScheduler } from "../src/specialists/scheduler.js";
 import { registerSpecialistRoutes } from "../src/specialists/routes.js";
 import { matchRoute, type RequestContext, type Route } from "../src/routes/registry.js";
 import type { ServerConfig } from "../src/types.js";
+import { resolveDataDir } from "../src/specialists/project-data.js";
 
 const input = (name: string) => applicationInput.parse({ userName: "Usuario de prueba", name, specialty: `Especialidad ${name}`, personality: `PERSONA_${name}`, template: "custom" });
 
@@ -88,7 +89,7 @@ test("dry-run rehearses without touching task state, run log or evidence", async
       assert.equal(after.lastStatus, null);
       assert.equal(after.nextRunAt, before.nextRunAt);
       assert.deepEqual(await listRuns(config, app.id, task.id), []);
-      const runsDir = join(root, "project", "comex", "tareas");
+      const runsDir = join(root, "project", resolveDataDir(join(root, "project")), "tareas");
       await assert.rejects(readFile(join(runsDir, task.id, "runs"), "utf8").catch(e => { throw e; })).catch(() => undefined);
       // The real scheduler still sees the task as due-able: dry-run didn't consume a slot.
       assert.ok(after.nextRunAt && after.nextRunAt > Date.now());

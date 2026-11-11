@@ -366,12 +366,16 @@ cualquier profesión, no solo Comex.
 - Un especialista puede leer rutas absolutas fuera de su proyecto con `read`/`shell` (el motor
   corre con cwd en el proyecto, no en un sandbox). Es el mismo poder que el chat principal y queda
   bajo el modo de permisos, pero conviene decirlo en la biblioteca.
-- **Deuda de nombre (acoplamiento a Comex)**: los datos de CUALQUIER aplicación viven en
-  `<proyecto>/comex/` (estado, sesiones, datasets, fuentes, salidas, tareas). En una app de estudio,
-  obra o programación eso se lee raro. El arreglo correcto es una raíz de datos por aplicación
-  (nueva: `proyecto/`; Comex y proyectos existentes siguen leyendo `comex/`), pero toca
-  `tasks/sources/datasets/panels/outputs/instructions/seed` y sus tests; no se hizo en este barrido
-  para no dejar una migración a medias.
+- **Raíz de datos por aplicación (hecho)**: cada proyecto guarda memoria, sesiones, datasets,
+  fuentes, salidas y corridas en UNA carpeta de datos. Las aplicaciones nuevas usan `proyecto/`;
+  Comex y los proyectos anteriores siguen en `comex/` (los archivos no se mueven y las citas
+  existentes siguen resolviendo). La resolución mira el disco
+  (`apps/server/src/specialists/project-data.ts`), así que ningún módulo tiene que saber la
+  plantilla. Al crear una aplicación especialista ya no se siembra el pack de Comex (antes creaba
+  `comex/` con instrucciones de comercio exterior en apps de arquitectura o contabilidad).
+  Verificado por UI: la app "Nutricion" nace con `proyecto/estado.md`, `proyecto/sesiones/` y el
+  CSV en `proyecto/`, sin `comex/`; "Estudio" (anterior) sigue leyendo `comex/fuentes` y sus
+  salidas.
 
 ## Pendiente (alcance)
 
@@ -387,7 +391,7 @@ cualquier profesión, no solo Comex.
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # engines 35/1 + parallel 737/10 = 772 pass / 11 skip / 0 fail, exit 0 (2026-11-10)
+pnpm --filter openwork-server test          # engines 35/1 + parallel 738/10 = 773 pass / 11 skip / 0 fail, exit 0 (2026-11-10)
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2050 pass / 0 fail, 208 archivos (2026-11-10)
 pnpm --filter openwork-server exec tsc --noEmit && pnpm --filter @openwork/app typecheck   # limpios

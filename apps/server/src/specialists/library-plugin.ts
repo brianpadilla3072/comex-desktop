@@ -117,7 +117,7 @@ export function createSpecialistLibraryPlugin(descriptorFile: string) {
         const url = new URL(descriptor.url);
         if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.pathname !== "/specialist-tool" || url.search || url.hash) throw new Error();
         return descriptor;
-      } catch { throw new Error("La biblioteca de la aplicación no está disponible en este proyecto. Revisá el menú de la aplicación en Comex."); }
+      } catch { throw new Error("La biblioteca de la aplicación no está disponible en este proyecto. Revisá la biblioteca desde el menú de la aplicación."); }
     };
     const registration = await context.tool.transform(editor => {
       for (const definition of TOOLS) {

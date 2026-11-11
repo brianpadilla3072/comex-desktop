@@ -4,6 +4,7 @@ import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { comexContinuityEnabled, comexWorkspaceEnabled } from "./features.js";
 import { readComexCheckpoint, redactMemorySecrets } from "./continuity.js";
+import { resolveDataDir } from "../specialists/project-data.js";
 
 const queues = new Map<string, Promise<boolean>>();
 const sha = (text: string | Uint8Array) => createHash("sha256").update(text).digest("hex");
@@ -102,7 +103,18 @@ export function sessionMemoryPath(sessionId: string): string {
 export async function ensureComexSession(root: string, sessionId: string, specialist = false): Promise<void> {
   if (!comexWorkspaceEnabled() && !specialist) return;
   const canonical = await realpath(root);
-  await createIfMissing(canonical, sessionMemoryPath(sessionId), "# Notas de esta sesión\n\n## Objetivo\nPendiente.\n\n## Avances y decisiones\nSin notas guardadas.\n\n## Próximo paso\nPendiente.\n");
+  await createIfMissing(canonical, sessionMemoryPathFor(canonical, sessionId), "# Notas de esta sesión\n\n## Objetivo\nPendiente.\n\n## Avances y decisiones\nSin notas guardadas.\n\n## Próximo paso\nPendiente.\n");
+}
+
+/** Session notes live in the project's data folder (proyecto/ in new projects, comex/ in
+ *  Comercio Exterior and older ones). */
+export function sessionMemoryPathFor(root: string, sessionId: string): string {
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(sessionId)) throw new Error("Identificador de sesión inválido");
+  return `${resolveDataDir(root)}/sesiones/${sessionId}.md`;
+}
+
+export function projectMemoryPathFor(root: string): string {
+  return `${resolveDataDir(root)}/estado.md`;
 }
 
 export async function ensureComexWorkspace(root: string, packOverride?: string): Promise<boolean> {
@@ -136,6 +148,6 @@ export async function readComexMemory(root: string, sessionId: string) {
     const text = await readFile(path, "utf8");
     return { path, text: comexContinuityEnabled() ? redactMemorySecrets(text.slice(0, limit)) : text.slice(0, limit), truncated: text.length > limit };
   };
-  return { project: await load(PROJECT_MEMORY_PATH, 12_000), session: await load(sessionMemoryPath(sessionId), 6_000),
+  return { project: await load(projectMemoryPathFor(canonical), 12_000), session: await load(sessionMemoryPathFor(canonical, sessionId), 6_000),
     ...(comexContinuityEnabled() ? { continuity: await readComexCheckpoint(canonical, sessionId) } : {}) };
 }
