@@ -334,6 +334,11 @@ cualquier profesión, no solo Comex.
 - **Programador**: en una app "Codigo" el asistente escribió `suma.js` + `suma.test.js`, corrió
   `bun test suma.test.js` y mostró la salida real (**2 pass / 0 fail**), con el registro en la
   memoria del proyecto.
+- **Contador** (corrido con un modelo **gratuito** de OpenCode Go, `DeepSeek V4.1 Flash Free`):
+  `balances.csv` con tres meses, panel "Balances mensuales" con tabla + `stat` de saldo
+  (1.550.000) + lectura en Markdown, salida "Balances 2026" (kind table) y memoria en
+  `proyecto/estado.md`. El modelo chocó con un 422 real (el bloque `table` no acepta `title`),
+  leyó el error, lo corrigió y lo contó en la respuesta.
 
 ### Arreglos que salieron de este barrido
 
