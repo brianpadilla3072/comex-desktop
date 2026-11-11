@@ -84,7 +84,13 @@
     "test:comex:eval": "node --test scripts/comex-eval.test.mjs",
     "models:catalog:check": "node scripts/model-catalog.mjs check",
     "models:catalog:export": "node scripts/model-catalog.mjs export",
-    "models:catalog:schema": "node scripts/model-catalog.mjs schema"
+    "models:catalog:schema": "node scripts/model-catalog.mjs schema",
+    "models:catalog:refresh": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/refresh-model-catalog.mjs",
+    "fork:inventory": "node scripts/fork-maintenance.mjs inventory",
+    "fork:check": "node scripts/fork-maintenance.mjs check",
+    "fork:review": "node scripts/fork-maintenance.mjs review",
+    "backup:local": "node scripts/local-backup.mjs",
+    "test:maintenance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs --test scripts/local-backup.test.mjs scripts/refresh-model-catalog.test.mjs scripts/fork-maintenance.test.mjs"
   },
   "devDependencies": {
     "@stoplight/spectral-cli": "6.16.3",

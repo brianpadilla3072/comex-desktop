@@ -383,6 +383,13 @@
       "development": "./src/workspace.ts",
       "default": "./src/workspace.ts"
     },
+    "./desktop-companion": {
+      "types": {
+        "openwork-build": "./dist/types/src/desktop-companion.d.ts",
+        "default": "./src/desktop-companion.ts"
+      },
+      "default": "./src/desktop-companion.ts"
+    },
     "./desktop-ipc": {
       "types": {
         "openwork-build": "./dist/types/src/desktop-ipc.d.ts",

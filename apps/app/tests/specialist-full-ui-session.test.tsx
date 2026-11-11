@@ -393,7 +393,7 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   await flush(120);
   const createCall = taskCalls.find(entry => entry.method === "POST");
   expect(createCall).toBeDefined();
-  expect(createCall!.body).toEqual({ name: "vigilar aranceles", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
+  expect(createCall!.body).toEqual({ catchUp: false, name: "vigilar aranceles", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
   expect(hasText("Tarea creada y activada.")).toBe(true);
   const newRow = rowFor("vigilar aranceles");
   expect(newRow.textContent).toContain("Cada 20 min");

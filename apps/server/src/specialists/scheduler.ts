@@ -31,10 +31,12 @@ let active: SpecialistScheduler | undefined;
 export function currentSpecialistScheduler(): SpecialistScheduler | undefined { return active; }
 
 export async function createSpecialistScheduler(config: ServerConfig, request: (request: Request) => Promise<Response>) {
+  const bootedAt = Date.now();
   let stopped = false;
   let ticking: Promise<void> | undefined;
 
   const call = async (workspaceId: string, path: string, body?: unknown): Promise<unknown> => {
+    if (body !== undefined && (stopped || config.readOnly || !scheduledTasksEnabled())) throw new ApiError(409, "scheduled_tasks_disabled", "Las tareas locales están pausadas en esta instalación.");
     const response = await request(new Request(`http://127.0.0.1:${config.port}/workspace/${encodeURIComponent(workspaceId)}/opencode2/api${path}`, {
       method: body === undefined ? "GET" : "POST",
       headers: { authorization: `Bearer ${config.token}`, "content-type": "application/json", "x-openwork-task-recovery": "off" },
@@ -156,7 +158,8 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       // The engine pages newest-first: take the FIRST assistant, not the oldest of the window.
       const assistant = messages.find(message => isRecord(message) && message.type === "assistant");
       if (!assistant || !isRecord(assistant) || !isRecord(assistant.time) || !Number(assistant.time.completed)) return;
-      await finish("ok", null);
+      const failed = assistant.outcome === "failed" || assistant.outcome === "interrupted" || assistant.error != null;
+      await finish(failed ? "failed" : "ok", failed ? "El motor terminó con un error o una interrupción. Revisá el chat de la tarea." : null);
     } catch {
       // Engine unavailable right now: the timeout will retire the run if it never comes back.
     }
@@ -189,7 +192,17 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
             if (fresh?.running && fresh.enabled && fresh.nextRunAt !== null && fresh.nextRunAt <= Date.now()) await markSkipped(application.id, fresh).catch(() => undefined);
             continue;
           }
-          if (task.enabled && task.nextRunAt !== null && task.nextRunAt <= Date.now()) await dispatch(application.id, task, "scheduled").catch(() => undefined);
+          if (task.enabled && task.nextRunAt !== null && task.nextRunAt <= Date.now()) {
+            if (!task.catchUp && (task.nextRunAt < bootedAt || Date.now() - task.nextRunAt > 60_000)) {
+              const now = Date.now();
+              const skipped = await patchTask(config, application.id, task.id, current => {
+                if (current.running || current.nextRunAt !== task.nextRunAt || !current.enabled) throw new ApiError(409, "task_changed", "La tarea cambió durante la revisión del horario.");
+                return { ...current, nextRunAt: nextRun(current.schedule, now), lastStatus: "skipped", ...(current.schedule.kind === "once" ? { enabled: false } : {}) };
+              }).catch(() => null);
+              if (!skipped) continue;
+              await appendRun(config, application.id, task.id, { at: now, mode: "scheduled", missed: missedOccurrences(task.schedule, task.nextRunAt, now), workspaceId: roots[0]?.workspaceId ?? "none", sessionId: null, status: "skipped_missed", detail: "El horario pasó con la aplicación cerrada o suspendida. No se ejecutó." });
+            } else await dispatch(application.id, task, "scheduled").catch(() => undefined);
+          }
         }
       }
     })().finally(() => { ticking = undefined; });

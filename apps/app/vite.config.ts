@@ -141,6 +141,7 @@ export default defineConfig(({ command, isPreview }) => {
       rollupOptions: {
         input: {
           app: resolve(appRoot, "index.html"),
+          companion: resolve(appRoot, "companion.html"),
         },
       },
     },

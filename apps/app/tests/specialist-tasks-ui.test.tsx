@@ -24,12 +24,14 @@ const scheduleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("interval"), everyMinutes: z.number().int().min(1).max(43_200) }),
   z.object({ kind: z.literal("daily"), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
   z.object({ kind: z.literal("weekly"), daysOfWeek: uniqueDays, hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
+  z.object({ kind: z.literal("monthly"), dayOfMonth: z.number().int().min(1).max(31), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
   z.object({ kind: z.literal("once"), at: z.number().int() }),
 ]);
 const taskInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   prompt: z.string().trim().min(1).max(8000),
   schedule: scheduleSchema,
+  catchUp: z.boolean().optional(),
 });
 
 let host: HTMLDivElement;
@@ -239,7 +241,7 @@ test("el usuario guarda una propuesta y administra una tarea desde el menú de l
   expect(create).toBeDefined();
   const parsed = taskInputSchema.safeParse(create?.body);
   expect(parsed.success).toBe(true);
-  expect(create?.body).toEqual({ name: "actualizar precios", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
+  expect(create?.body).toEqual({ catchUp: false, name: "actualizar precios", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
 
   // Confirmación visible y la tarea aparece en la lista con su horario.
   expect(hasText("Tarea creada y activada.")).toBe(true);
@@ -310,4 +312,25 @@ test("library=false y scheduledTasks=false: el ítem del menú desaparece", asyn
   await openMenu();
   expect(hasText("Contexto, agentes y skills")).toBe(false);
   expect(hasText("Personalidad y nombre")).toBe(true);
+});
+
+test("una tarea mensual se crea con día del mes y se lee en la lista", async () => {
+  await renderAt();
+  await openLibraryDialog();
+  await clickText("Gestionar");
+  await clickText("Nueva tarea");
+  await edit("task-name", "cierre mensual");
+  await edit("task-prompt", "Revisá los balances del mes y avisá diferencias.");
+  await clickText("Mensual");
+  const day = document.getElementById("task-day") as HTMLInputElement | null;
+  expect(day?.value).toBe("1");
+  await edit("task-day", "1");
+  await edit("task-clock", "09:00");
+  // La estimación de costo de una tarea mensual se lee por mes, no como "0 corridas/día".
+  expect(hasText("1 corrida/mes")).toBe(true);
+  await clickText("Crear tarea");
+  const create = taskRequests.find(entry => entry.method === "POST" && entry.path === "/specialist-applications/app_test/tasks");
+  expect(create?.body).toEqual({ catchUp: false, name: "cierre mensual", prompt: "Revisá los balances del mes y avisá diferencias.", schedule: { kind: "monthly", dayOfMonth: 1, hour: 9, minute: 0 } });
+  expect(taskInputSchema.safeParse(create?.body).success).toBe(true);
+  expect(hasText("Día 1 de cada mes a las 09:00")).toBe(true);
 });

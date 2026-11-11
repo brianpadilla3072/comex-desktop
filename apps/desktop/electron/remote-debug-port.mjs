@@ -19,8 +19,9 @@ export function portIsFree(port) {
  * run picks a free one unless told which.
  */
 export async function resolveRemoteDebugPort({ packaged, requested, isFree = portIsFree }) {
-  const port = Number.parseInt(requested?.trim() ?? "", 10);
-  if (Number.isFinite(port) && port > 0) return port;
+  const value = requested?.trim() ?? "";
+  const port = /^\d+$/.test(value) ? Number(value) : 0;
+  if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
   if (packaged) return 0;
   for (const candidate of DEVELOPMENT_PORTS) {
     if (await isFree(candidate)) return candidate;

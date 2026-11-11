@@ -1,0 +1,41 @@
+html:has(.companion), body:has(.companion), #root:has(.companion) { background: transparent !important; min-height: 0; height: auto; margin: 0; }
+.companion { color: var(--foreground); font: var(--text-sm)/1.5 var(--font-sans); padding: 0 6px 6px; }
+.companion .companion-pill { display: flex; height: 36px; width: 68px; padding: 0 12px; margin: auto; gap: 5px; border-radius: 0 0 var(--dls-radius) var(--dls-radius); background: var(--background); box-shadow: var(--dls-card-shadow); transition-property: width; }
+.companion .companion-pill.peeking { width: 72px; }
+.companion-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted-foreground); flex: none; }
+.companion[data-state=waiting] .companion-dot { background: var(--amber-9); }
+.companion[data-state=error] .companion-dot { background: var(--red-9); }
+.companion-panel { background: var(--background); border-radius: var(--dls-radius-lg); padding: 12px 14px 14px; margin-top: 6px; box-shadow: var(--dls-shell-shadow); max-height: calc(100dvh - 48px); overflow-y: auto; scrollbar-width: thin; }
+.companion-panel header { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.companion-title { font-weight: 500; flex-shrink: 0; }
+.companion-subtitle { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--muted-foreground); font-size: 11px; }
+.companion-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: end; gap: 12px; }
+.companion-pet { padding-bottom: 10px; }
+.companion-chat { min-width: 0; }
+.companion-navigation { display: flex; gap: 12px; margin: 12px 0; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.companion-navigation [aria-pressed=true], .companion-panel [aria-pressed=true] { background: var(--muted); }
+.companion-transcript { max-height: 240px; overflow-y: auto; overflow-wrap: anywhere; scrollbar-width: thin; }
+.companion-message { white-space: pre-wrap; margin-bottom: 12px; }
+.companion-message.user { background: var(--muted); padding: 8px 10px; border-radius: var(--dls-radius) var(--dls-radius) 4px var(--dls-radius); margin-left: 20px; }
+.companion-composer { background: var(--muted); border-radius: var(--dls-radius); padding: 10px; margin-top: 12px; }
+.companion-composer textarea { background: transparent; border: none; padding: 0; box-shadow: none; min-height: 50px; max-height: 120px; font-size: 13px; }
+.companion-composer-tools { display: flex; gap: 7px; align-items: center; margin-top: 6px; }
+.companion-composer-tools>span { flex: 1; font-size: 11px; color: var(--muted-foreground); }
+.companion-files { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 7px; }
+.companion-files>span { display: inline-flex; gap: 4px; align-items: center; font-size: 11px; overflow-wrap: anywhere; }
+.companion-request { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.companion-request strong { font-weight: 500; }
+.companion-request p { white-space: pre-wrap; max-height: 120px; overflow-y: auto; overflow-wrap: anywhere; color: var(--muted-foreground); font-size: 12px; margin: 8px 0; }
+.companion-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.companion-request fieldset { border: 0; padding: 0; margin: 0 0 10px; }
+.companion-request legend { margin-bottom: 8px; }
+.companion-option { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 12px; }
+.companion-other { width: 100%; margin-top: 5px; background: var(--muted); padding: 6px 8px; border-radius: var(--radius); }
+.companion-status { font-size: 12px; margin-top: 10px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.companion-empty { padding: 16px 0; display: flex; align-items: start; gap: 12px; flex-direction: column; }
+.companion-settings { padding-top: 12px; display: grid; gap: 12px; }
+.companion-settings label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.companion-settings input[type=file] { width: 100%; min-width: 0; font-size: 11px; }
+.companion-settings select { color: var(--foreground); background: var(--muted); padding: 5px 8px; border-radius: var(--radius); }
+@media(max-width:400px) { .companion-row { grid-template-columns: 42px minmax(0,1fr); gap: 8px; } .companion-pet canvas { width: 42px !important; height: 42px !important; } .companion-panel { padding-inline: 10px; } }
+@media(prefers-reduced-motion:reduce) { .companion * { transition: none !important; } }

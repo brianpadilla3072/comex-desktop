@@ -321,3 +321,23 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
     });
   } finally { await rmAll(root); }
 });
+
+test("a monthly task runs on the chosen day and falls back to the last day of short months", async () => {
+  const monthly = { kind: "monthly" as const, dayOfMonth: 31, hour: 9, minute: 0 };
+  // 2026-01-15 → 2026-01-31 09:00
+  const january = nextRun(monthly, new Date(2026, 0, 15, 12, 0).getTime());
+  assert.equal(new Date(january!).getDate(), 31);
+  assert.equal(new Date(january!).getMonth(), 0);
+  // From Feb 1st, day 31 becomes Feb 28 (2026 is not a leap year).
+  const february = nextRun(monthly, new Date(2026, 1, 1, 0, 0).getTime());
+  assert.equal(new Date(february!).getMonth(), 1);
+  assert.equal(new Date(february!).getDate(), 28);
+  // April has 30 days.
+  const april = nextRun(monthly, new Date(2026, 3, 2, 0, 0).getTime());
+  assert.equal(new Date(april!).getMonth(), 3);
+  assert.equal(new Date(april!).getDate(), 30);
+  // Same day but earlier hour still waits for the clock.
+  const sameDay = nextRun({ kind: "monthly", dayOfMonth: 5, hour: 9, minute: 0 }, new Date(2026, 4, 5, 8, 0).getTime());
+  assert.equal(new Date(sameDay!).getDate(), 5);
+  assert.equal(new Date(sameDay!).getHours(), 9);
+});

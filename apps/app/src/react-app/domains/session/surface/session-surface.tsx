@@ -9,7 +9,7 @@ import { verifyChildTarget } from "@/lib/verify-child-target";
 import { isTaskToolPart, taskChildSessionId } from "@/lib/build-in-tools";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { UIMessage } from "ai";
+import { isToolUIPart, type UIMessage } from "ai";
 import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import { Check, Minimize2 } from "lucide-react";
@@ -90,6 +90,8 @@ import {
   subscribeQueuedDrain,
 } from "./queued-drain-machine";
 import { DevProfiler } from "@/react-app/shell/dev-profiler";
+import { useCompanionHost } from "@/react-app/domains/desktop-companion/use-companion-host";
+import { describePermissionRequest } from "../chat/permission-approval-modal";
 import { PaperGrainGradient } from "@openwork/ui/react";
 import { useShellConfig } from "@/react-app/shell/shell-config";
 import { useReactRenderWatchdog } from "@/react-app/shell/react-render-watchdog";
@@ -3105,6 +3107,56 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setComposerAttachments,
     setComposerDraft,
   ]);
+
+  useCompanionHost({
+    active: props.isControlTarget && isDesktopRuntime(), owner: sessionOwner,
+    snapshot: {
+      sessionId: props.sessionId, title: props.sessionTitle ?? "Conversación", project: props.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? "Proyecto",
+      model: sessionModel.modelLabel,
+      state: runSyncHealth.degraded ? "offline" : props.activePermission || props.activeQuestion ? "waiting" : error ? "error" : composerBusy ? "working" : "idle",
+      canSend: !archived && archiveStateKnown && !composerBusy && !runSyncHealth.degraded && !props.activePermission && !props.activeQuestion && !props.modelUnavailable,
+      messages: renderedMessages.filter(message => message.role === "user" || message.role === "assistant").slice(-8).map(message => ({
+        id: message.id, role: message.role, text: message.parts.filter(part => part.type === "text").map(part => part.text).join("\n").slice(-6000),
+      })),
+      activity: renderedMessages.slice(-4).flatMap(message => message.parts.filter(isToolUIPart).map(part =>
+        part.state === "output-available" ? "Herramienta completada" : part.state === "output-error" ? "Falló una herramienta" : "Usando una herramienta")),
+      permission: props.activePermission ? {
+        id: props.activePermission.id, title: describePermissionRequest(props.activePermission).title,
+        detail: [describePermissionRequest(props.activePermission).message, describePermissionRequest(props.activePermission).scopeValue,
+          typeof props.activePermission.metadata?.command === "string" ? props.activePermission.metadata.command : ""].filter(Boolean).join("\n"),
+        busy: props.permissionReplyBusy === true,
+      } : null,
+      question: props.activeQuestion ? { id: props.activeQuestion.id, busy: props.questionReplyBusy === true,
+        questions: props.activeQuestion.questions.map(question => ({ text: question.question, multiple: question.multiple === true, options: question.options.map(option => option.label) })) } : null,
+    },
+    execute: async action => {
+      if (action.kind === "permission") {
+        if (!props.respondPermission || props.activePermission?.id !== action.requestId || props.permissionReplyBusy) return { ok: false, error: "La solicitud ya cambió." };
+        props.respondPermission(action.requestId, action.reply); return { ok: true };
+      }
+      if (action.kind === "question") {
+        if (!props.respondQuestion || props.activeQuestion?.id !== action.requestId || props.questionReplyBusy) return { ok: false, error: "La pregunta ya cambió." };
+        await props.respondQuestion(action.requestId, action.answers); return { ok: true };
+      }
+      if (action.kind === "stop") { await handleAbort(); return { ok: true }; }
+      if (archived || !archiveStateKnown || composerBusy || props.modelUnavailable || runSyncHealth.degraded || props.activePermission || props.activeQuestion
+        || sessionWorkHeld(props.opencodeBaseUrl, props.sessionId)) return { ok: false, error: "El chat no está disponible para enviar." };
+      if (action.files.length && !props.attachmentsEnabled) return { ok: false, error: props.attachmentsDisabledReason ?? "Los adjuntos no están disponibles." };
+      const files: ComposerAttachment[] = action.files.map(item => {
+        const bytes = Uint8Array.from(atob(item.data), char => char.charCodeAt(0));
+        const file = new File([bytes], item.name, { type: item.type });
+        const metadata = resolveAttachmentFileMetadata(file);
+        return { id: `att-${crypto.randomUUID()}`, name: file.name, mimeType: metadata.mime, size: file.size, kind: metadata.kind, file };
+      });
+      const messageId = createPromptMessageID();
+      dispatchQueuedDrain(props.sessionId, { type: "user_retry" });
+      if (!claimQueuedSend(props.sessionId, messageId, true)) return { ok: false, error: "Hay un envío pendiente en este chat." };
+      const next = { ...buildDraft(action.text, files, { draft: action.text, attachments: files, mentions: {}, pasteParts: [], revertMessageId: null }), messageId };
+      const result = await sendDraft(next, messageId);
+      if (result.outcome === "sent" || result.outcome === "accepted") return { ok: true };
+      return { ok: false, uncertain: result.outcome === "unknown", error: result.outcome === "unknown" ? "No se pudo confirmar el envío. Revisá el chat antes de reenviar." : "El mensaje no se envió. Revisá el chat en la app." };
+    },
+  });
 
   const handleRemoveAttachment = useCallback((id: string) => {
     const target = attachments.find((item) => item.id === id);

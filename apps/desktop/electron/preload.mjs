@@ -155,6 +155,18 @@ try {
   desktopDistribution = null;
 }
 
+contextBridge.exposeInMainWorld("__OPENWORK_COMPANION_HOST__", {
+  state: () => ipcRenderer.invoke("openwork:companion:host-state"),
+  publish: value => ipcRenderer.send("openwork:companion:publish", value),
+  clear: target => ipcRenderer.send("openwork:companion:clear", target),
+  reply: (id, result) => ipcRenderer.send("openwork:companion:reply", id, result),
+  onCommand: callback => {
+    const handler = (_event, value) => callback(value);
+    ipcRenderer.on("openwork:companion:command", handler);
+    return () => ipcRenderer.removeListener("openwork:companion:command", handler);
+  },
+});
+
 contextBridge.exposeInMainWorld("__OPENWORK_ELECTRON__", {
   invokeDesktop(command, ...args) {
     return ipcRenderer.invoke("openwork:desktop", command, ...args);

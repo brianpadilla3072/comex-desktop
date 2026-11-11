@@ -88,6 +88,7 @@ test("assessed models come first inside providers without mixing billing groups,
 
 test("estimates are visibly approximate, disclose uncertainty and do not fabricate a benchmark score", () => {
   const catalog = modelGuideCatalogSchema.parse(JSON.parse(readFileSync(new URL("../../server/src/model-guide/catalog.json", import.meta.url), "utf8")));
+  for (const row of catalog.models) delete row.pricing; // fixed cost fixtures are independent of live price refreshes
   const model = catalog.models.find(row => row.modelID === "kimi-k3");
   assert.ok(model?.reasoningEstimate);
   const bars = renderToStaticMarkup(<ReasoningBars level={model.reasoningEstimate.level} estimated />);
@@ -107,6 +108,7 @@ test("value comparison uses a fixed token workload and never invents a price or 
   assert.equal(referenceCost({ input: 1, output: 4 }), 2);
   assert.equal(referenceCost(null), null);
   const catalog = modelGuideCatalogSchema.parse(JSON.parse(readFileSync(new URL("../../server/src/model-guide/catalog.json", import.meta.url), "utf8")));
+  for (const row of catalog.models) delete row.pricing; // fixed cost fixtures are independent of live price refreshes
   const model = catalog.models.find(row => row.modelID === "glm-5.3-flash");
   const peer = catalog.models.find(row => row.modelID === "hy4");
   assert.ok(model); assert.ok(peer);
@@ -124,6 +126,7 @@ test("value comparison uses a fixed token workload and never invents a price or 
 test("overlapping editorial ranges never assert a better-value alternative", async () => {
   const { modelValueComparison } = await import("../src/react-app/domains/models/model-guide-value");
   const catalog = modelGuideCatalogSchema.parse(JSON.parse(readFileSync(new URL("../../server/src/model-guide/catalog.json", import.meta.url), "utf8")));
+  for (const row of catalog.models) delete row.pricing; // fixed cost fixtures are independent of live price refreshes
   const model = catalog.models.find(row => row.modelID === "kimi-k3");
   const peer = catalog.models.find(row => row.modelID === "deepseek-v4.1-flash");
   assert.ok(model); assert.ok(peer);
@@ -136,6 +139,7 @@ test("overlapping editorial ranges never assert a better-value alternative", asy
 test("a cheaper model in the same six-bar band is not presented as equally capable when its published score is lower", async () => {
   const { modelValueComparison } = await import("../src/react-app/domains/models/model-guide-value");
   const catalog = modelGuideCatalogSchema.parse(JSON.parse(readFileSync(new URL("../../server/src/model-guide/catalog.json", import.meta.url), "utf8")));
+  for (const row of catalog.models) delete row.pricing; // fixed cost fixtures are independent of live price refreshes
   const model = catalog.models.find(row => row.modelID === "hy4");
   const peer = catalog.models.find(row => row.modelID === "mimo-v2.6-pro");
   assert.ok(model?.reasoning); assert.ok(peer?.reasoning);

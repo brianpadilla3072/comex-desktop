@@ -87,7 +87,7 @@ export function registerSpecialistRoutes(options: {
     let workspaceId: string;
     if (before.applications.length === 0 && parsed.data.template === "comex" && !parsed.data.packPath && config.workspaces.length) {
       const local = config.workspaces.filter(workspace => workspace.workspaceType === "local");
-      for (const workspace of local) { await ensureComexWorkspace(workspace.path); store.bind(workspace.id, id, workspace.path); }
+      for (const workspace of local) { await ensureComexWorkspace(workspace.path, undefined, { install: true }); store.bind(workspace.id, id, workspace.path); }
       workspaceId = local.find(workspace => workspace.id === body.preferredWorkspaceId)?.id ?? local[0]?.id ?? "";
     } else workspaceId = "";
     if (!workspaceId) {

@@ -240,6 +240,11 @@ export function createWorkspaceKvStore<T>(options: WorkspaceKvStoreOptions<T>) {
 
   return {
     serialize: options.serialize,
+    /** Raw local journal for schema recovery; callers must quarantine before replacing it. */
+    getSerialized: async (serverConfig: ServerConfig, workspaceId: string): Promise<string | undefined> => {
+      const db = await readableWorkspaceKvDb(runtimeDbPath(serverConfig), config);
+      return db?.get(workspaceId)?.valueJson;
+    },
     getRow,
     get: async (serverConfig: ServerConfig, workspaceId: string): Promise<T | undefined> => {
       return (await getRow(serverConfig, workspaceId))?.value;

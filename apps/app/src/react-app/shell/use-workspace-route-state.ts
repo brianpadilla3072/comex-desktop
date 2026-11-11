@@ -302,6 +302,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
   const hydratedRouteSessionIdsRef = useRef<Record<string, string>>({});
   const startupRetryTimerRef = useRef<number | null>(null);
   const [retryingWorkspaceIds, setRetryingWorkspaceIds] = useState<string[]>([]);
+  const [sessionListErrorsByWorkspaceId, setSessionListErrorsByWorkspaceId] = useState<Record<string, string>>({});
   const reconnectAttemptedWorkspaceIdRef = useRef("");
   const backgroundSessionLoadCoalescerRef = useRef(createRouteWorkspaceLoadCoalescer());
   const workspaceSessionLoadScopesRef = useRef(new Map<string, string | null>());
@@ -500,6 +501,9 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
               setSessionReferenceLoad(workspace.id, { scope, sessionIds: new Set([...itemIds, ...createdSessionIds]), createdSessionIds });
               loadedWorkspaceIdsRef.current.add(workspace.id);
               setErrorsByWorkspaceId((current) => ({ ...current, [workspace.id]: null }));
+              setSessionListErrorsByWorkspaceId(current => {
+                const next = { ...current }; delete next[workspace.id]; return next;
+              });
               setWorkspaceConnectionOverrides((current) => {
                 if (current[workspace.id]?.status !== "error") return current;
                 const next = { ...current };
@@ -526,6 +530,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
                 return;
               }
               invalidateSessionInventory(workspace.id);
+              setSessionListErrorsByWorkspaceId(current => ({ ...current, [workspace.id]: error instanceof Error ? error.message : "No se pudo consultar el historial." }));
               // OpenCode refuses this folder until its config is fixed; show
               // the file and field rather than an empty chat list.
               if (error instanceof Error && "code" in error && error.code === "opencode_config_invalid") {
@@ -1460,6 +1465,7 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     legacySelectedWorkspaceId,
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
+    sessionListErrorsByWorkspaceId,
     setRetryingWorkspaceIds,
     startupRetryTimerRef,
     selectedWorkspaceId,

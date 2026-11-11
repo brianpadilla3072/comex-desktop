@@ -1,3 +1,4 @@
+import { recoverJournal } from "./recover-journal.js";
 import { z } from "zod";
 import { goalInputSchema, taskStateSchema, type GoalInput, type TaskState } from "@openwork/types/task-continuity";
 import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
@@ -41,7 +42,7 @@ export function goalPrompt(state: TaskState) {
 
 export async function createTaskContinuity(config: ServerConfig, request: (req: Request) => Promise<Response>, beforeRun: () => Promise<void> = async () => {}) {
   const records = new Map<string, TaskState>();
-  for (const state of await store.get(config, "desktop") ?? []) records.set(key(state.workspaceId, state.sessionId), state);
+  for (const state of await recoverJournal(config, "task_continuity", await store.getSerialized(config, "desktop"), taskStateSchema)) records.set(key(state.workspaceId, state.sessionId), state);
   // A process restart never silently repeats an admission with an unknown outcome.
   for (const [id, s] of records) if (s.status === "active") records.set(id, { ...s, status: "paused", awaiting: true, reason: "Aplicación reiniciada. Revisá el avance y retomá el objetivo.", revision: s.revision + 1 });
   let stopped = false;

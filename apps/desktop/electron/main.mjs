@@ -1,8 +1,10 @@
 import { processBlankSlateProfile, resolveBlankSlateLaunch } from "./blank-slate-profile.mjs";
+import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
+import { createDesktopCompanion } from "./desktop-companion.mjs";
 import { DESKTOP_POLICY_ENFORCEMENT_ENABLED } from "@openwork/types/den/desktop-policies-runtime";
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import net from "node:net";
+import { resolveRemoteDebugPort } from "./remote-debug-port.mjs";
 import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import {
   cp,
@@ -138,6 +140,8 @@ const desktopPackageMetadata = require("../package.json");
 const {
   app,
   BrowserWindow,
+  Tray,
+  globalShortcut,
   clipboard,
   dialog,
   ipcMain,
@@ -1192,41 +1196,19 @@ if (process.platform === "darwin" && INITIAL_APP_ICON_IMAGE && !INITIAL_APP_ICON
   app.dock.setIcon(INITIAL_APP_ICON_IMAGE);
 }
 
-// Expose the Chrome DevTools Protocol for local debugging and test harnesses.
-// Use OPENWORK_ELECTRON_REMOTE_DEBUG_PORT to pin a specific port; otherwise
-// probe for a free one starting at 9223.
-// Must resolve before app.commandLine.appendSwitch (before `ready`).
-function probePort(port) {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.once("error", () => resolve(false));
-    srv.listen({ port, host: "127.0.0.1" }, () => {
-      srv.close(() => resolve(true));
-    });
-  });
-}
-
-async function findFreeCdpPort(candidates) {
-  for (const port of candidates) {
-    if (await probePort(port)) return port;
-  }
-  return 0;
-}
-
-const explicitCdpPort = Number.parseInt(
-  process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT?.trim() ?? "",
-  10,
-);
-const remoteDebugPort = Number.isFinite(explicitCdpPort) && explicitCdpPort > 0
-  ? explicitCdpPort
-  : await findFreeCdpPort([9223, 9224, 9225, 9226, 9227]);
+// Packaged builds expose CDP only when explicitly requested for diagnostics.
+// Native browser tools use the conversation-scoped bridge, not this port.
+const remoteDebugPort = await resolveRemoteDebugPort({
+  packaged: app.isPackaged,
+  requested: process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT,
+});
 if (remoteDebugPort > 0) {
   app.commandLine.appendSwitch("remote-debugging-port", String(remoteDebugPort));
   app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
+  process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT = String(remoteDebugPort);
+} else {
+  delete process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT;
 }
-// Publish the resolved port; child processes (and the shells they spawn)
-// inherit it through the environment.
-process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT = String(remoteDebugPort);
 if (isDevMode && !app.isPackaged) {
   const cdpAddress = remoteDebugPort > 0 ? `http://127.0.0.1:${remoteDebugPort}` : "disabled";
   console.log(`[openwork] dev profile=${app.getPath("userData")} cdp=${cdpAddress}`);
@@ -1304,6 +1286,21 @@ const IDLE_ROUTER_INFO = Object.freeze({
 });
 
 let mainWindow = null;
+const companionFeatureContext = parseFeatureEnvironment(process.env);
+const desktopCompanion = createDesktopCompanion({
+  enabled: !companionFeatureContext.problems.some(problem => problem.fatal)
+    && DESKTOP_DISTRIBUTION.flavor === "public"
+    && resolveFeature("desktopCompanion", { ...companionFeatureContext, rollouts: {}, overrides: {} }).enabled,
+  app, BrowserWindow, Tray, Menu, globalShortcut, screen, ipcMain,
+  icon: APP_ICON_IMAGE ?? nativeImage.createEmpty(), directory: app.getPath("userData"), preload: path.join(__dirname, "companion-preload.cjs"),
+  getMain: () => mainWindow, quitting: () => quitInProgress(),
+  openMain: async () => { const window = await createMainWindow(); window.show(); window.focus(); },
+  load: async window => {
+    const start = process.env.OPENWORK_ELECTRON_START_URL?.trim() || process.env.ELECTRON_START_URL?.trim();
+    if (start) await window.loadURL(new URL("companion.html", start).href);
+    else await window.loadFile(app.isPackaged ? path.join(process.resourcesPath, "app-dist", "companion.html") : path.resolve(__dirname, "../../app/dist/companion.html"));
+  },
+});
 const pendingDeepLinks = [];
 const nativeContextMenus = createNativeContextMenus({ Menu, clipboard, getWindow: () => mainWindow });
 
@@ -1693,6 +1690,7 @@ const keepAwakeSenders = new Set();
 
 const quitSequencer = createQuitSequencer({
   stop: async () => {
+    desktopCompanion.dispose();
     keepAwake.releaseAll();
     showShutdownScreen();
     desktopAutomationRunner.stop();
@@ -2909,6 +2907,7 @@ async function createMainWindowInner() {
       plugins: true,
     },
   });
+  desktopCompanion.attachMain(mainWindow);
   if (cachedBrandImage && bootSourceUrl) {
     await applyCachedBrandIcon(cachedBrandImage, bootSourceUrl);
   }
@@ -3084,6 +3083,13 @@ async function createMainWindowInner() {
     const packagedIndexPath = path.join(process.resourcesPath, "app-dist", "index.html");
     const devIndexPath = path.resolve(__dirname, "../../app/dist/index.html");
     await mainWindow.loadFile(app.isPackaged ? packagedIndexPath : devIndexPath);
+  }
+
+  if (desktopCompanion.enabled()) {
+    void desktopCompanion.start().catch(error => {
+      desktopCompanion.dispose();
+      console.warn("[companion] Could not start; normal window closing remains available", error);
+    });
   }
 
   return mainWindow;

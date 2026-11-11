@@ -1,3 +1,4 @@
+import { recoverJournal } from "./recover-journal.js";
 import { z } from "zod";
 import { createWorkspaceKvStore, isRecord } from "./workspace-kv-store.js";
 import type { ServerConfig, WorkspaceInfo } from "./types.js";
@@ -44,7 +45,7 @@ export async function createTaskRecovery(
   const failures = new Map<string, { count: number; retryAt: number }>();
   const key = (record: Pick<RecoveryRecord, "workspaceId" | "engine" | "sessionId">) =>
     JSON.stringify([record.workspaceId, record.engine, record.sessionId]);
-  for (const record of await store.get(config, "desktop") ?? []) {
+  for (const record of await recoverJournal(config, "desktop_task_recovery", await store.getSerialized(config, "desktop"), recordSchema)) {
     if (record.phase !== "running") continue;
     records.set(key(record), record);
     startup.add(key(record));

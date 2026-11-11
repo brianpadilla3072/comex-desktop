@@ -20,6 +20,7 @@ import { SpecialistLibraryDialog } from "./library-dialog";
 const DEFAULT_PERSONALITY = "Sos una asistente metódica, clara y amable. Explicá en castellano simple, verificá las fuentes y señalá lo que falte. Priorizá que la persona entienda y pueda defender el resultado.";
 const COMEX_SPECIALTY = "Comercio Exterior: investigaciones, cotizaciones y trabajos académicos con fuentes verificables.";
 type State = {
+  client: OpenworkServerClient | null;
   catalog: SpecialistCatalog | null;
   active: SpecialistApplication | null;
   busy: boolean;
@@ -107,7 +108,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear el proyecto."); }
     finally { setBusy(false); }
   }
-  const value: State = { catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
+  const value: State = { client: query.data?.client ?? null, catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
     createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active), refresh: query.refetch };
   return <Context.Provider value={value}>
     {children}

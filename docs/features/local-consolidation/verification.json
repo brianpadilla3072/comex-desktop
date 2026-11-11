@@ -1,0 +1,78 @@
+{
+  "verifiedOn": "2026-11-11",
+  "scope": "Consolidación local general del fork; pruebas de código y componentes con fixtures, sin publicación.",
+  "runtimes": {
+    "node": "24.22.1",
+    "bun": "1.4.4"
+  },
+  "suites": [
+    {
+      "name": "Servidor: recuperación, concurrencia, scheduler y especialistas",
+      "passed": 46,
+      "failed": 0
+    },
+    {
+      "name": "Servidor: catálogo, alcance general, memoria y permisos",
+      "passed": 30,
+      "failed": 0
+    },
+    {
+      "name": "Interfaz: chat, modelos, tareas y arranque",
+      "passed": 95,
+      "failed": 0
+    },
+    {
+      "name": "Interfaz: comprobación final imágenes y entrada de tareas",
+      "passed": 7,
+      "failed": 0,
+      "overlapsPrevious": true,
+      "newImageRaceRegression": true
+    },
+    {
+      "name": "Escritorio: CDP y session-runner",
+      "passed": 36,
+      "failed": 0
+    },
+    {
+      "name": "Mantenimiento, catálogo, respaldo y verificador",
+      "passed": 14,
+      "failed": 0
+    }
+  ],
+  "checks": {
+    "serverTypecheck": "passed",
+    "appTypecheck": "passed",
+    "serverBuild": "passed",
+    "uiBuild": "passed",
+    "featureRegistry": "passed",
+    "helmRender": "not_run_helm_unavailable",
+    "workflowYaml": "parsed",
+    "catalogRevision": 5,
+    "catalogOffers": 42,
+    "exactPricesUpdated": 35
+  },
+  "ui": {
+    "components": "real",
+    "http": "fixtures",
+    "screenshots": 5,
+    "viewportMobileWidth": 390,
+    "javascriptErrors": 0,
+    "horizontalOverflow": false,
+    "nativeInference": false,
+    "createdRealTask": false
+  },
+  "buildNote": "Las compilaciones concurrentes tuvieron una carrera al regenerar packages/types/dist; ambas pasaron al ejecutarlas en secuencia. El build UI conserva advertencia de tamaño de chunks.",
+  "pendingExternalValidation": [
+    "Instalación limpia Windows",
+    "Actualización instalada A→B",
+    "Restauración de un perfil real",
+    "Comparación con inferencia real: motor instalado inaccesible durante esta corrida",
+    "Publicación y permisos de los workflows en GitHub"
+  ],
+  "publication": {
+    "release": false,
+    "workflowDispatched": false,
+    "pullRequestCreated": false
+  },
+  "evidence": "README.md"
+}

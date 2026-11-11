@@ -551,6 +551,7 @@ export function SessionRoute() {
     legacySelectedWorkspaceId,
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
+    sessionListErrorsByWorkspaceId,
     setRetryingWorkspaceIds,
     startupRetryTimerRef,
     selectedWorkspaceId,
@@ -872,8 +873,8 @@ export function SessionRoute() {
   const workspaceSessionGroups = useMemo(() => {
     const lists = withPendingSessionPublication(sessionsByWorkspaceId, pendingConversations, sessionDraftScope);
     // Session-list failures already land in errorsByWorkspaceId; there is no second map here.
-    return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds));
-  }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
+    return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds), sessionListErrorsByWorkspaceId);
+  }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionListErrorsByWorkspaceId, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
   useEffect(() => {
     for (const entry of Object.values(pendingConversations)) {
       if (entry.scope === sessionDraftScope && entry.session && sessionsByWorkspaceId[entry.destination.workspaceId]?.some((session) => session.id === entry.sessionId)) {

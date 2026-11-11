@@ -1,3 +1,4 @@
+import { LocalAutomationsPage } from "./local-automations-page";
 /** @jsxImportSource react */
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
@@ -170,7 +171,18 @@ function LoadingState() {
   )
 }
 
-export function AutomationsPage(props: {
+/** One entry, two explicit storage locations; the local view has no Den hooks. */
+export function AutomationsPage(props: Parameters<typeof DenAutomationsPage>[0] = {}) {
+  const local = useComexWorkspaceEnabled();
+  const [showDen, setShowDen] = useState(false);
+  if (local && !showDen) return <LocalAutomationsPage onShowDen={() => setShowDen(true)} />;
+  return <>
+    {local && <Button variant="ghost" size="sm" className="m-3" onClick={() => setShowDen(false)}><ArrowLeft />Tareas de esta computadora</Button>}
+    <DenAutomationsPage {...props} />
+  </>;
+}
+
+function DenAutomationsPage(props: {
   providerCatalog?: AutomationProviderCatalog
   workspaceId?: string | null
   /** Titlebar slot for New Automation, matching Library and Dashboard. */

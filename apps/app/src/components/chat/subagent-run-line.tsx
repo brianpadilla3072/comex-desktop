@@ -1,5 +1,6 @@
 "use client"
 
+import { AgentMark } from "./agent-mark";
 import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useEffect, useRef, useState } from "react"
 
@@ -168,7 +169,7 @@ export function SubagentRunLine({ part, className, parentActive = true }: Subage
     : stopped && !childRunning ? `${title} · Detenido`
     : isFailed || activity === "failed" ? `${title} · Falló`
     : inFlight ? `La actividad de ${title} ha comenzado` : `La actividad de ${title} ha finalizado`;
-  const lines = referenceFeedback ? <span className="flex min-w-0 items-center gap-2"><span aria-hidden className="text-purple-400">✣</span><span className="truncate">{referenceLabel}</span></span> : (
+  const lines = referenceFeedback ? <span className="flex min-w-0 items-center gap-2"><AgentMark id={part.toolCallId} /><span className="truncate">{referenceLabel}</span></span> : (
     <>
       <span className="flex min-w-0 items-center gap-2">
         <span className={cn("min-w-0 truncate", activity === "shimmer" && "ow-text-shimmer")}>

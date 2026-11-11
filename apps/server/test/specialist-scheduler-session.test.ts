@@ -482,3 +482,34 @@ test("a task that pins a model selects it on the run session before prompting", 
     assert.ok(calls.some(call => /^POST \/session\/ses_fake_\d+\/model$/.test(call)), calls.join(" | "));
   });
 });
+
+test("a missed schedule with catchUp disabled is recorded without dispatch or duplicate receipts", async () => {
+  const ctx = await session();
+  await withFlags(async () => {
+    const task = await createTask(ctx.config, ctx.appId, { name: "skip missed", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 }, catchUp: false });
+    await patchTask(ctx.config, ctx.appId, task.id, entry => ({ ...entry, nextRunAt: Date.now() - 50 * 60_000 }));
+    const before = ctx.state.sessions;
+    await ctx.scheduler.tick(); await ctx.scheduler.tick();
+    const saved = await taskById(ctx, task.id);
+    assert.equal(saved.lastStatus, "skipped");
+    assert.equal(saved.running, null);
+    assert.equal(ctx.state.sessions, before);
+    const runs = await listRuns(ctx.config, ctx.appId, task.id);
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0]?.status, "skipped_missed");
+  });
+});
+
+test("a completed native assistant with an error cannot become a successful scheduled run", async () => {
+  const ctx = await session();
+  await withFlags(async () => {
+    const task = await createTask(ctx.config, ctx.appId, { name: "native failed", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 } });
+    await ctx.scheduler.trigger(ctx.appId, task.id);
+    ctx.state.history = [{ type: "assistant", time: { completed: Date.now() }, error: { type: "provider", message: "fixture failure" } }];
+    try {
+      await ctx.scheduler.tick();
+      assert.equal((await taskById(ctx, task.id)).lastStatus, "failed");
+      assert.equal((await listRuns(ctx.config, ctx.appId, task.id))[0]?.status, "failed");
+    } finally { ctx.state.history = null; }
+  });
+});

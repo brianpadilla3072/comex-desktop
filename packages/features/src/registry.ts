@@ -104,6 +104,17 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  desktopCompanion: {
+    label: "Desktop companion",
+    description: "Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.",
+    category: "experience",
+    added: "2026-11-11",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/desktop-companion/README.md",
+    deployments: ["self_hosted"],
+    default: false,
+  },
   taskContinuity: {
     label: "Persistent goals and automatic continuity",
     description: "Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.",

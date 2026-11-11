@@ -1,0 +1,36 @@
+name: Review upstream releases
+on:
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fork-upstream-review
+  cancel-in-progress: false
+jobs:
+  review:
+    if: github.repository == 'brianpadilla3072/comex-desktop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: node --test scripts/fork-maintenance.test.mjs
+      - run: node scripts/fork-maintenance.mjs review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: maintenance/upstream-review
+          title: 'maintenance: review upstream release and overlapping files'
+          commit-message: 'docs: record upstream review candidate'
+          add-paths: docs/maintenance/upstream-review.json
+          body: |
+            Review candidate only: release, comparison and files overlapping this fork.
+            No source was merged or executed. Check the full Git diff before selecting changes.
+            No automatic merge.

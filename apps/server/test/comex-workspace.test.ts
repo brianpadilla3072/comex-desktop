@@ -122,3 +122,24 @@ test("Python runtime caches never enter the installed pack", async () => {
   await assert.rejects(access(join(root, ".opencode/skills/example/script.pyc")));
   await assert.rejects(access(join(root, ".opencode/skills/example/__pycache__")));
 });
+
+test("opening a general workspace neither installs a specialty nor derives subject from a legacy directory", async () => {
+  const previous = process.env.DEN_FEATURE_COMEX_WORKSPACE;
+  process.env.DEN_FEATURE_COMEX_WORKSPACE = "true";
+  const { root } = await setup();
+  try {
+    assert.equal(await ensureComexWorkspace(root), false);
+    await assert.rejects(access(join(root, ".opencode/.comex-pack-hashes.json")));
+    const { generalProjectInstructions } = await import("../src/comex/general-instructions.js");
+    const general = generalProjectInstructions(root, "ses_fixture", {});
+    assert.match(general, /propósito general/);
+    assert.ok(general.includes("proyecto/estado.md"));
+    assert.ok(!general.includes("encuesta"));
+    await mkdir(join(root, "comex"));
+    const legacy = generalProjectInstructions(root, "ses_fixture", {});
+    assert.ok(legacy.includes("comex/estado.md"));
+    assert.ok(!legacy.includes("Comercio Exterior"));
+  } finally {
+    if (previous === undefined) delete process.env.DEN_FEATURE_COMEX_WORKSPACE; else process.env.DEN_FEATURE_COMEX_WORKSPACE = previous;
+  }
+});

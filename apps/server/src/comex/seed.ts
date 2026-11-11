@@ -117,10 +117,13 @@ export function projectMemoryPathFor(root: string): string {
   return `${resolveDataDir(root)}/estado.md`;
 }
 
-export async function ensureComexWorkspace(root: string, packOverride?: string): Promise<boolean> {
+export async function ensureComexWorkspace(root: string, packOverride?: string, options: { install?: boolean } = {}): Promise<boolean> {
   // A specialist project owns its pack, even when its management UI is disabled.
   if (await info(await safePath(root, ".opencode/specialist-application.json"))) return false;
   if (!comexWorkspaceEnabled()) return false;
+  // Opening an ordinary project does not select an academic pack. Explicit installation
+  // and updates of already-installed packs retain their previous behavior.
+  if (!packOverride && !options.install && !await info(await safePath(root, ".opencode/.comex-pack-hashes.json"))) return false;
   const canonical = await realpath(root);
   const previous = queues.get(canonical) ?? Promise.resolve(false);
   const operation = previous.catch(() => false).then(async () => {

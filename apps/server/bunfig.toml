@@ -4,5 +4,10 @@
 # undici's coarse timer internals (the shipped transport is Node's). Bun's fetch/Agent do not
 # expose them, so five of its cases fail for runner reasons. Run it with:
 #   pnpm --filter openwork-server test:approval-transport
+#
+# `test/runtime-db-concurrency.test.ts` needs Node's native SQLite (`node:sqlite`) and a worker
+# holding a write transaction: under Bun the driver is `bun:sqlite` and the contention scenario
+# cannot be reproduced. Run it with:
+#   pnpm --filter openwork-server test:runtime-db
 [test]
-pathIgnorePatterns = ["test/browser-approval-transport.test.ts"]
+pathIgnorePatterns = ["test/browser-approval-transport.test.ts", "test/runtime-db-concurrency.test.ts"]

@@ -1,0 +1,44 @@
+name: Review model catalog updates
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: model-catalog-review
+  cancel-in-progress: false
+jobs:
+  propose:
+    if: github.repository == 'brianpadilla3072/comex-desktop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: node --test scripts/refresh-model-catalog.test.mjs
+      - run: node scripts/refresh-model-catalog.mjs
+      - run: node scripts/model-catalog.mjs check
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: maintenance/model-catalog
+          title: 'data: review model price updates'
+          commit-message: 'data: propose sourced model price updates'
+          add-paths: |
+            apps/server/src/model-guide/catalog.json
+            model-catalog-review.json
+          body: |
+            Exact provider/model price matches from models.dev; assessments and provider routing are unchanged.
+            Review model-catalog-review.json before merging. No automatic approval or merge.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-catalog-candidate
+          path: |
+            apps/server/src/model-guide/catalog.json
+            model-catalog-review.json

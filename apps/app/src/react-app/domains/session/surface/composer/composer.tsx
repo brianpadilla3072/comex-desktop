@@ -1,3 +1,4 @@
+import { EngineIdentity } from "./engine-identity";
 import { cn } from "@/lib/utils";
 import { indexSlashOptions, searchSlashOptions } from "../../commands/search-index";
 import { CHAT_COMMAND_ICONS } from "../../commands/icons";
@@ -1671,6 +1672,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   </DropdownMenu>
                 </div>
 
+                {compactComposer && <EngineIdentity model={props.selectedModel} option={props.modelOptions?.find(option => option.providerID === props.selectedModel.providerID && option.modelID === props.selectedModel.modelID)} />}
                 <ModelSelect
                   compact={compactComposer}
                   open={props.modelPickerOpen}

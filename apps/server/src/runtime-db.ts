@@ -1,3 +1,4 @@
+import { chmod } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { openworkConfigDir } from "@openwork/paths";
 import type { Database as BunDatabase } from "bun:sqlite";
@@ -55,6 +56,7 @@ export async function openRuntimeSqliteDatabase(path: string): Promise<RuntimeSq
     const { Database } = await import("bun:sqlite");
     const { drizzle } = await import("drizzle-orm/bun-sqlite");
     const sqlite = new Database(path, { create: true });
+    try { await chmod(path, 0o600); } catch (error) { sqlite.close(); throw error; }
     sqlite.exec("PRAGMA journal_mode=WAL");
     sqlite.exec("PRAGMA busy_timeout=5000");
     return {
@@ -67,6 +69,7 @@ export async function openRuntimeSqliteDatabase(path: string): Promise<RuntimeSq
 
   const { DatabaseSync } = await importNodeSqlite();
   const sqlite = new DatabaseSync(path);
+  try { await chmod(path, 0o600); } catch (error) { sqlite.close(); throw error; }
   sqlite.exec("PRAGMA journal_mode=WAL");
   sqlite.exec("PRAGMA busy_timeout=5000");
   return {

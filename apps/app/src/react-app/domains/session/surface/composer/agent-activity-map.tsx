@@ -2,11 +2,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isToolUIPart, type UIMessage } from "ai";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { agentName, useSubagentRunState, useElapsedSeconds } from "@/components/chat/subagent-run-line";
+import { AgentMark } from "@/components/chat/agent-mark";
 import { ExecutionRunHeader, ExecutionToolRow } from "@/components/chat/execution-feedback";
 import { taskChildSessionId, isTaskToolPart, type TaskToolPart } from "@/lib/build-in-tools";
 import { replyModelLabel } from "@/react-app/domains/session/sync/reply-model";
@@ -35,7 +36,7 @@ export function agentMapState(state: ReturnType<typeof useSubagentRunState>, syn
 
 function StateDot({ kind }: { kind: AgentState["kind"] }) {
   return <span aria-hidden data-agent-state={kind} className={cn("size-2 shrink-0 rounded-full bg-muted-foreground/50",
-    kind === "running" && "bg-green-9", kind === "waiting" && "bg-amber-9", kind === "error" && "bg-red-9")} />;
+    kind === "running" && "bg-muted-foreground", kind === "waiting" && "bg-amber-9", kind === "error" && "bg-red-9")} />;
 }
 
 function ObserveAgent({ part, workspaceId, parentActive, syncDegraded, report }: {
@@ -73,15 +74,15 @@ export function AgentActivityMap({ messages, workspaceId, owner, parentTitle, pa
   const observers = tasks.map(part => <ObserveAgent key={part.toolCallId} part={part} workspaceId={workspaceId} parentActive={parentActive} syncDegraded={syncDegraded} report={report} />);
   const summary = [running ? `${running} procesando` : "", waitingCount ? `${waitingCount} esperando respuesta` : "", unknown ? `${unknown} sin confirmar` : "", failed ? `${failed} con errores` : "", stopped ? `${stopped} detenidos` : "", done ? `${done} ${done === 1 ? "listo" : "listos"}` : ""].filter(Boolean).join(" · ");
   const content = <>
-    <header className="flex min-h-10 items-center gap-2 border-b border-border px-4 text-sm">
+    <header className="sticky top-0 z-10 flex h-12 min-w-0 items-center gap-3 border-b border-border bg-background px-4 text-sm">
       {selected ? <Button variant="ghost" size="icon-xs" aria-label="Volver a subagentes" onClick={() => setSelectedId(null)}><ArrowLeft /></Button> : null}
-      <span className="truncate">{selected ? selected.input?.description || "Detalle del agente" : "Subagentes"}</span>
-      <span className="ml-auto text-xs text-muted-foreground">{selected ? agentName(selected.input?.subagent_type ?? "") : summary}</span>
+      <span className="min-w-0 truncate font-medium">{selected ? selected.input?.description || "Detalle del agente" : "Subagentes"}</span>
+      <span className="ml-auto min-w-0 truncate text-xs font-normal text-muted-foreground">{selected ? agentName(selected.input?.subagent_type ?? "") : summary}</span>
     </header>
-    <div className="mx-auto w-full max-w-3xl px-4 py-7 pb-32">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 pb-32 sm:px-6">
       {selected ? <AgentDetails key={selected.toolCallId} part={selected} state={states[selected.toolCallId] ?? UNKNOWN} owner={owner} readChild={readChild} onOpenChild={onOpenChild} compact={presentation === "workspace"} active={visible} /> : <div data-agent-flow className="divide-y divide-border">
-        {tasks.map((part, index) => { const state = states[part.toolCallId] ?? UNKNOWN; return <Button key={part.toolCallId} variant="ghost" className="h-auto min-h-16 w-full justify-start gap-3 rounded-none text-left" onClick={() => setSelectedId(part.toolCallId)} data-agent-node={part.toolCallId}>
-          <AgentMark index={index} /><span className="min-w-0 flex-1"><span className="block truncate text-sm">{part.input?.description || agentName(part.input?.subagent_type ?? "")}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{state.label}</span></span><StateDot kind={state.kind} />
+        {tasks.map(part => { const state = states[part.toolCallId] ?? UNKNOWN; return <Button key={part.toolCallId} variant="ghost" className="h-auto min-h-16 w-full justify-start gap-3 rounded-none px-1 py-3 text-left" onClick={() => setSelectedId(part.toolCallId)} data-agent-node={part.toolCallId}>
+          <AgentMark id={part.toolCallId} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{part.input?.description || agentName(part.input?.subagent_type ?? "")}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{state.label}</span></span><StateDot kind={state.kind} /><ChevronRight strokeWidth={1.5} className="size-3.5 shrink-0 text-muted-foreground/60" />
         </Button>; })}
       </div>}
     </div>
@@ -89,18 +90,14 @@ export function AgentActivityMap({ messages, workspaceId, owner, parentTitle, pa
   if (presentation === "workspace") return <div className="h-full overflow-y-auto" data-agents-workspace>{observers}{content}</div>;
   return <>
     {observers}
-    <Button variant="ghost" size="xs" className={presentation === "summary" ? "h-8 w-full justify-start gap-2 px-1 text-xs font-normal" : "gap-1.5 rounded-full bg-muted/60 text-muted-foreground"} aria-label="Ver agentes en segundo plano" data-agent-map-button
+    <Button variant="ghost" size="xs" className={presentation === "summary" ? "h-auto min-h-8 w-full justify-start gap-2.5 rounded-md px-1 py-1 text-xs font-normal" : "gap-1.5 rounded-full bg-muted/60 text-muted-foreground"} aria-label="Ver agentes en segundo plano" data-agent-map-button
       onClick={() => { setSelectedId(null); if (onOpenWorkspace) onOpenWorkspace(); else setOpen(true); }}>
-      {presentation === "summary" ? <span className="inline-flex -space-x-0.5" aria-hidden>{tasks.slice(0, 3).map((part, index) => <AgentMark key={part.toolCallId} index={index} />)}</span> : <StateDot kind={running ? "running" : waiting ? "waiting" : unknown ? "unknown" : failed ? "error" : "done"} />}
-      {presentation === "summary" ? summary : `${tasks.length} ${tasks.length === 1 ? "agente" : "agentes"}`}
+      {presentation === "summary" ? <span className="inline-flex shrink-0 items-center gap-0.5" aria-hidden>{tasks.slice(0, 3).map(part => <AgentMark key={part.toolCallId} id={part.toolCallId} />)}</span> : <StateDot kind={running ? "running" : waiting ? "waiting" : unknown ? "unknown" : failed ? "error" : "done"} />}
+      <span className="min-w-0 flex-1 whitespace-normal text-left leading-5">{presentation === "summary" ? summary : `${tasks.length} ${tasks.length === 1 ? "agente" : "agentes"}`}</span>
       <span className="sr-only">{tasks.length} subagentes · {running} en ejecución</span>
     </Button>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto lg:max-w-4xl" data-agent-map-dialog><DialogHeader><DialogTitle>Mapa de agentes</DialogTitle></DialogHeader>{content}</DialogContent></Dialog>
   </>;
-}
-
-function AgentMark({ index }: { index: number }) {
-  return <span aria-hidden className={cn("shrink-0 text-base", ["text-purple-400", "text-amber-400", "text-teal-400"][index % 3])}>{["✣", "✳", "◈"][index % 3]}</span>;
 }
 
 function inputField(input: unknown, field: string): string | null {
@@ -132,13 +129,13 @@ function AgentDetails({ part, state, owner, readChild, onOpenChild, compact = fa
   return <div className="grid min-w-0 gap-4" data-agent-details>
     {compact && (state.kind === "running" || state.kind === "waiting" || state.kind === "unknown") ? <ExecutionRunHeader seconds={elapsed} disconnected={state.label === "Sin conexión"} unconfirmed={state.kind === "unknown"} retrying={state.label === "Reintentando"} waiting={state.kind === "waiting"} /> : null}
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><StateDot kind={state.kind} /><span>{state.label}</span><span>· {agentName(part.input?.subagent_type ?? "")}</span>{model ? <span className="ml-auto">{model}</span> : null}</div>
-    <Collapsible defaultOpen={!compact}><CollapsibleTrigger className="text-sm font-medium">Prompt del agente</CollapsibleTrigger><CollapsibleContent>
+    <Collapsible defaultOpen={!compact}><CollapsibleTrigger className="group flex min-h-8 w-full items-center justify-between gap-2 rounded-sm text-left text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">Prompt del agente<ChevronRight strokeWidth={1.5} className="size-3.5 transition-transform group-data-panel-open:rotate-90 motion-reduce:transition-none" /></CollapsibleTrigger><CollapsibleContent>
       <pre className="mt-2 max-h-52 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 font-sans text-sm">{part.input?.prompt || "El motor no informó el prompt."}</pre>
     </CollapsibleContent></Collapsible>
     {!childId ? <p className="text-sm text-muted-foreground">El agente todavía no informó su conversación.</p> : null}
     {query.isPending && childId ? <div aria-label="Cargando actividad del agente" className="h-20 rounded-lg bg-muted/40 motion-safe:animate-pulse" /> : null}
     {query.isError ? <div role="alert" className="flex items-center gap-2 text-sm"><span>No se pudo actualizar la actividad.</span><Button size="xs" variant="outline" onClick={() => void query.refetch()}>Reintentar</Button></div> : null}
-    {query.data ? <Collapsible defaultOpen><CollapsibleTrigger className="text-sm font-medium">Herramientas y comandos ({calls.length})</CollapsibleTrigger><CollapsibleContent className="mt-2 grid gap-2">
+    {query.data ? <Collapsible defaultOpen><CollapsibleTrigger className="group flex min-h-8 w-full items-center justify-between gap-2 rounded-sm text-left text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">Herramientas y comandos ({calls.length})<ChevronRight strokeWidth={1.5} className="size-3.5 transition-transform group-data-panel-open:rotate-90 motion-reduce:transition-none" /></CollapsibleTrigger><CollapsibleContent className="mt-2 grid gap-2">
       {calls.length === 0 ? <p className="text-sm text-muted-foreground">Todavía no hay comandos registrados.</p> : calls.map(call => {
         const name = call.type === "dynamic-tool" ? call.toolName : call.type.slice(5);
         const label = inputField(call.input, "description") || inputField(call.input, "filePath") || name;

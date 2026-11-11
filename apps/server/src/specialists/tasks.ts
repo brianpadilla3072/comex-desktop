@@ -18,6 +18,9 @@ export const scheduleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("interval"), everyMinutes: z.number().int().min(1).max(43_200) }),
   z.object({ kind: z.literal("daily"), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
   z.object({ kind: z.literal("weekly"), daysOfWeek: uniqueDays, hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
+  // Monthly closes (a balance, a report) are an everyday cadence; "every 43200 minutes" is not.
+  // Day 31 in a 30-day month runs on the last day of that month.
+  z.object({ kind: z.literal("monthly"), dayOfMonth: z.number().int().min(1).max(31), hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }),
   z.object({ kind: z.literal("once"), at: z.number().int() }),
 ]);
 export type SpecialistSchedule = z.infer<typeof scheduleSchema>;
@@ -36,12 +39,13 @@ export const taskSchema = z.object({
   schedule: scheduleSchema,
   model: taskModelSchema.nullable().default(null),
   enabled: z.boolean(),
+  catchUp: z.boolean().default(true),
   createdAt: z.number(),
   updatedAt: z.number(),
   nextRunAt: z.number().nullable(),
   lastRunAt: z.number().nullable(),
   /** The last outcome the scheduler observed; "running" while a dispatch is in flight. */
-  lastStatus: z.enum(["ok", "failed", "blocked", "running"]).nullable(),
+  lastStatus: z.enum(["ok", "failed", "blocked", "running", "skipped"]).nullable(),
   runs: z.number().int().nonnegative(),
   /** Claim written before dispatch and cleared when the run is observed to finish. */
   running: z.object({
@@ -65,7 +69,7 @@ export const runSchema = z.object({
   missed: z.number().int().nonnegative(),
   workspaceId: z.string(),
   sessionId: z.string().nullable(),
-  status: z.enum(["dispatched", "ok", "failed", "blocked", "skipped_overlap"]),
+  status: z.enum(["dispatched", "ok", "failed", "blocked", "skipped_overlap", "skipped_missed"]),
   detail: z.string().max(2000).nullable(),
 });
 export type SpecialistTaskRun = z.infer<typeof runSchema>;
@@ -75,6 +79,7 @@ export const taskInputSchema = z.object({
   prompt: z.string().trim().min(1).max(8000),
   schedule: scheduleSchema,
   model: taskModelSchema.nullable().optional(),
+  catchUp: z.boolean().optional(),
 });
 export type SpecialistTaskInput = z.infer<typeof taskInputSchema>;
 
@@ -109,6 +114,17 @@ async function writeJson(path: string, value: unknown) {
 export function nextRun(schedule: SpecialistSchedule, from: number): number | null {
   if (schedule.kind === "once") return schedule.at > from ? schedule.at : null;
   if (schedule.kind === "interval") return from + schedule.everyMinutes * 60_000;
+  if (schedule.kind === "monthly") {
+    const start = new Date(from);
+    // 14 months of lookahead always contains the next occurrence, even in February.
+    for (let offset = 0; offset <= 14; offset += 1) {
+      const monthStart = new Date(start.getFullYear(), start.getMonth() + offset, 1, schedule.hour, schedule.minute, 0, 0);
+      const lastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+      const candidate = new Date(monthStart.getFullYear(), monthStart.getMonth(), Math.min(schedule.dayOfMonth, lastDay), schedule.hour, schedule.minute, 0, 0);
+      if (candidate.getTime() > from) return candidate.getTime();
+    }
+    return null;
+  }
   const start = new Date(from);
   for (let day = 0; day <= 7; day++) {
     const candidate = new Date(start.getFullYear(), start.getMonth(), start.getDate() + day, schedule.hour, schedule.minute, 0, 0);
@@ -160,7 +176,7 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
       id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule, model: value.model ?? null,
       // Accepted proposals are born PAUSED (the plan's rule): a task that runs unseen once is the
       // recipe for ghost data. Re-enabling recalculates nextRunAt from the current instant.
-      enabled, createdAt: Date.now(), updatedAt: Date.now(),
+      catchUp: value.catchUp ?? true, enabled, createdAt: Date.now(), updatedAt: Date.now(),
       nextRunAt: enabled ? nextRun(value.schedule, Date.now()) : null, lastRunAt: null, lastStatus: null, runs: 0, running: null,
     };
     await writeJson(tasksFile(config, id), [task, ...tasks]);

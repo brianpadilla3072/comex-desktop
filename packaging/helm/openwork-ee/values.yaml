@@ -26,6 +26,7 @@ config:
   #   "false" off for everyone; /admin shows "Set by deployment config"
   # The /admin kill switch still turns a feature off, even when locked on.
   features:
+    desktopCompanion: ""          # default off · Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.
     taskContinuity: ""            # default off · Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.
     comexModelGuide: ""           # default off · Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates.
     comexChatCommands: ""         # default off · Manage chats, inspect status, sketch and review local share copies from the composer command menu.
@@ -37,6 +38,15 @@ config:
     agentActivityMap: ""          # default on · Show delegated agents in the composer, with a live task map, their prompts and executed tool calls.
     conversationNavigator: ""     # default on · Jump between conversation turns using a side rail with message previews and keyboard navigation.
     specialistApplications: ""    # default on · Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite.
+    specialistLibrary: ""         # default on · Edit, create and delete each specialist application's context, agents and skills from the app or on request in chat, and materialize them into the application's projects.
+    scheduledTasks: ""            # default on · Recurring and one-shot tasks per specialist application: the local server runs the saved prompt on schedule (every N minutes, daily, weekly or once), records each run, and survives restarts by coalescing missed occurrences.
+    specialistDatasets: ""        # default on · Give each research query an identity: a re-runnable query.json plus timestamped snapshots under comex/datasets/ in the project, so tasks and panels can re-consult the same sources.
+    specialistSources: ""         # default on · Register every piece of retrieved evidence as a citable source (comex/fuentes/index.json) with lazy chunks, so [fuente:id#n] citations resolve to the exact passage instead of model memory.
+    taskDryRun: ""                # default on · Let a person rehearse a scheduled task once before activating it: the prompt runs in a disposable session that writes nothing, so the task's real effect can be reviewed safely.
+    sourcesLocalFiles: ""         # default on · Register local workspace files (text, CSV, Markdown, HTML) as citable sources with the same [fuente:id#n] anchors as research evidence — local grounding without a cloud.
+    specialistPanels: ""          # default on · Declarative *.panel.json views over datasets or workspace files: deterministic stat/line/bar/table/markdown blocks that repaint when the latest snapshot changes, with no AI code in the render path.
+    specialistPanelApps: ""       # default on · Render a specialist panel inline in the chat through a loopback-only, project-scoped MCP server: read-only tools and a deterministic ui:// resource, with no network and no AI-authored code in the widget.
+    studioOutputs: ""             # default on · Turn one dataset or set of sources into many digestions (mindmap, report, flashcards, quiz, table) stored as workspace files under comex/salidas/, with citation audits that fail loud.
     openworkPromotions: ""        # default off · Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.
     comexWorkspace: ""            # default on · Local Word previews, project memory and the Comex research pack.
     googleCalendarRecurrence: ""  # default off · Create and change recurring meeting series through the native Google Calendar capabilities.

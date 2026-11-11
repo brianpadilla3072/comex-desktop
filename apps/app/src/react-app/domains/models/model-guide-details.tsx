@@ -1,3 +1,4 @@
+import { modelUsageHints } from "./model-guide-usage";
 import { useEffect, useRef } from "react";
 import { ModelValueGraphic } from "./model-guide-value";
 import { X } from "lucide-react";
@@ -17,7 +18,7 @@ export function guideBillingLabel(providerID: string, provider?: GuideProvider, 
   if (providerID === "opencode-go") return "Go · suscripción";
   if (provider?.billing === "subscription") return "Suscripción";
   const price = model?.pricing ?? observation?.pricing;
-  if (model?.pricing ? price?.input === 0 && price.output === 0 && price.cacheRead === 0 && price.cacheWrite === 0 : observation?.freeVerified) return "Gratis con límites";
+  if (model?.pricing ? price?.input === 0 && price.output === 0 && (price.cacheRead === 0 && price.cacheWrite === 0 || observation?.freeVerified && (price.cacheRead === undefined || price.cacheRead === 0) && (price.cacheWrite === undefined || price.cacheWrite === 0)) : observation?.freeVerified) return "Gratis con límites";
   if (price || provider?.billing === "metered") return "Pago por uso";
   return "Costo sin verificar";
 }
@@ -48,6 +49,7 @@ function Assessment({ label, assessment, estimate }: { label: string; assessment
   </details>}</div>;
 }
 export function ModelGuideBody({ option, model, provider, observation, snapshot, onClose }: { onClose?: () => void; option: ModelOption; model?: GuideModel; provider?: GuideProvider; observation?: GuideObservation; snapshot?: GuideSnapshot }) {
+  const usage = modelUsageHints(model, observation);
   const price = model?.pricing ?? observation?.pricing;
   const lastSeen = snapshot?.observations.find(row => row.providerID === option.providerID && row.modelID === option.modelID)?.lastSeen;
   const subscription = provider?.billing === "subscription" || option.providerID === "opencode-go";
@@ -56,12 +58,14 @@ export function ModelGuideBody({ option, model, provider, observation, snapshot,
     <div className="flex items-start justify-between gap-2"><div><p className="font-medium">{option.title}</p><p className="text-muted-foreground">{option.description ?? option.providerID}</p></div>{onClose && <Button type="button" variant="ghost" size="icon-sm" className="size-6" aria-label="Cerrar información del modelo" onClick={onClose}><X aria-hidden="true" className="size-3.5" /></Button>}</div>
     <p className="font-medium">{guideBillingLabel(option.providerID, provider, observation, model)}</p>
     <ModelValueGraphic option={option} model={model} observation={observation} provider={provider} snapshot={snapshot} />
+    {usage.length > 0 && <p className="text-muted-foreground">Uso orientativo: {usage.join(" · ")}</p>}
     <details><summary className="cursor-pointer text-muted-foreground">Ver capacidades y fuentes</summary><div className="mt-2 space-y-2">
     <div className="space-y-1"><p className="font-medium">{guideBillingLabel(option.providerID, provider, observation, model)}</p>
       {price ? <p>Referencia: US$ {displayPrice(price.input)} entrada / US$ {displayPrice(price.output)} salida por millón de tokens.</p>
         : <p className="text-muted-foreground">Precio por token sin verificar.</p>}
     </div>
     <Assessment label={model?.assessmentScope === "base-reference" ? "Capacidad del modelo base*" : "Capacidad general"} assessment={model?.reasoning} estimate={model?.reasoningEstimate} />
+    <p className="text-muted-foreground">Rendimiento por tarea sin medir; la orientación usa capacidad general y funciones declaradas.</p>
     <Assessment label="Desempeño con agentes" assessment={model?.agentic} estimate={model?.agenticEstimate} />
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
       <dt className="text-muted-foreground">Herramientas</dt><dd>{observation?.tools === true ? "Admite herramientas; autonomía sin verificar" : observation?.tools === false ? "No declaradas" : "Sin verificar"}</dd>
@@ -80,6 +84,7 @@ export function ModelGuideBody({ option, model, provider, observation, snapshot,
     <p className="text-xs text-muted-foreground">{snapshot ? `Catálogo r${snapshot.catalog.revision} · ${snapshot.status.source === "bundled" ? "Incluido en la aplicación" : "Actualizado desde JSON"} · ${new Date(snapshot.catalog.publishedAt).toLocaleDateString("es-AR")}` : "Catálogo no disponible; mostrando datos de esta conexión."}</p>
     {lastSeen && <p className="text-xs text-muted-foreground">Detectado el {new Date(lastSeen).toLocaleString("es-AR")}</p>}
     </div></details>
+    {snapshot && !snapshot.status.remoteConfigured && <p className="text-xs text-muted-foreground">Actualización mediante releases · JSON remoto sin configurar</p>}
     {snapshot?.status.error && <p role="status" className="text-xs text-muted-foreground">{snapshot.status.error}</p>}
   </div>;
 }

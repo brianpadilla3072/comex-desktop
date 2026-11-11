@@ -61,6 +61,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "desktopCompanion": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Desktop companion: Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden. Renders DEN_FEATURE_DESKTOP_COMPANION."
+            },
             "taskContinuity": {
               "enum": [
                 "",
@@ -170,6 +180,96 @@
                 false
               ],
               "description": "Specialist applications: Local user and independent specialist profiles with names, personalities, projects and imported agent/skill packs, stored in SQLite. Renders DEN_FEATURE_SPECIALIST_APPLICATIONS."
+            },
+            "specialistLibrary": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist library: Edit, create and delete each specialist application's context, agents and skills from the app or on request in chat, and materialize them into the application's projects. Renders DEN_FEATURE_SPECIALIST_LIBRARY."
+            },
+            "scheduledTasks": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist scheduled tasks: Recurring and one-shot tasks per specialist application: the local server runs the saved prompt on schedule (every N minutes, daily, weekly or once), records each run, and survives restarts by coalescing missed occurrences. Renders DEN_FEATURE_SCHEDULED_TASKS."
+            },
+            "specialistDatasets": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist research datasets: Give each research query an identity: a re-runnable query.json plus timestamped snapshots under comex/datasets/ in the project, so tasks and panels can re-consult the same sources. Renders DEN_FEATURE_SPECIALIST_DATASETS."
+            },
+            "specialistSources": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist citable sources: Register every piece of retrieved evidence as a citable source (comex/fuentes/index.json) with lazy chunks, so [fuente:id#n] citations resolve to the exact passage instead of model memory. Renders DEN_FEATURE_SPECIALIST_SOURCES."
+            },
+            "taskDryRun": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist task dry-run: Let a person rehearse a scheduled task once before activating it: the prompt runs in a disposable session that writes nothing, so the task's real effect can be reviewed safely. Renders DEN_FEATURE_TASK_DRY_RUN."
+            },
+            "sourcesLocalFiles": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist local file sources: Register local workspace files (text, CSV, Markdown, HTML) as citable sources with the same [fuente:id#n] anchors as research evidence — local grounding without a cloud. Renders DEN_FEATURE_SOURCES_LOCAL_FILES."
+            },
+            "specialistPanels": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist data panels: Declarative *.panel.json views over datasets or workspace files: deterministic stat/line/bar/table/markdown blocks that repaint when the latest snapshot changes, with no AI code in the render path. Renders DEN_FEATURE_SPECIALIST_PANELS."
+            },
+            "specialistPanelApps": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist panel apps: Render a specialist panel inline in the chat through a loopback-only, project-scoped MCP server: read-only tools and a deterministic ui:// resource, with no network and no AI-authored code in the widget. Renders DEN_FEATURE_SPECIALIST_PANEL_APPS."
+            },
+            "studioOutputs": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Specialist studio outputs: Turn one dataset or set of sources into many digestions (mindmap, report, flashcards, quiz, table) stored as workspace files under comex/salidas/, with citation audits that fail loud. Renders DEN_FEATURE_STUDIO_OUTPUTS."
             },
             "openworkPromotions": {
               "enum": [

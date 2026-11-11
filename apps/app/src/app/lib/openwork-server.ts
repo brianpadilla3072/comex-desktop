@@ -162,27 +162,29 @@ export interface SpecialistSyncResult {
 }
 export interface SpecialistLibraryWriteResult { item: SpecialistLibraryFile; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }
 export interface SpecialistTaskSchedule {
-  kind: "interval" | "daily" | "weekly" | "once";
+  kind: "interval" | "daily" | "weekly" | "monthly" | "once";
   everyMinutes?: number;
   hour?: number;
   minute?: number;
   daysOfWeek?: number[];
+  dayOfMonth?: number;
   at?: number;
 }
 export interface SpecialistTaskModel {
   providerID: string; modelID: string;
 }
 export interface SpecialistTask {
+  catchUp?: boolean;
   id: string; name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean;
   /** Pinned model for each run; null means the engine's default. */
   model?: SpecialistTaskModel | null;
   createdAt: number; updatedAt: number; nextRunAt: number | null; lastRunAt: number | null;
-  lastStatus: "ok" | "failed" | "blocked" | "running" | null; runs: number;
+  lastStatus: "ok" | "failed" | "blocked" | "running" | "skipped" | null; runs: number;
   running: { workspaceId: string; sessionId: string | null; startedAt: number; mode: "scheduled" | "manual"; missed: number } | null;
 }
 export interface SpecialistTaskRun {
   at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
-  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap"; detail: string | null;
+  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap" | "skipped_missed"; detail: string | null;
 }
 export interface SpecialistDataset {
   id: string; name: string; question: string; provider: string; operation: string;
@@ -2577,8 +2579,8 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; applied?: SpecialistAppliedPiece[]; counts?: { agents: number; skills: number }; sync?: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     dismissSpecialistProposal: (id: string, proposalId: string) => requestJson<{ dismissed: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}`, { token, hostToken, method: "DELETE" }),
     getSpecialistTasks: (id: string) => requestJson<{ tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken }),
-    createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule; model?: SpecialistTaskModel | null }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
-    updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
+    createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule; catchUp?: boolean; model?: SpecialistTaskModel | null }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
+    updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean; catchUp: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
     deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     dryRunSpecialistTask: (id: string, taskId: string) => requestJson<{ started: boolean; sessionId: string | null; workspaceId: string | null; detail: string | null; note: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/dry-run`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),

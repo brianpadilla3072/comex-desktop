@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "bun run test:engines && bun run test:parallel",
-    "test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-v2-restart.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-boot.test.ts' --path-ignore-patterns 'test/engine-fresh-forced-start-failure.test.ts' --path-ignore-patterns 'test/engine-fresh-install-default.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-safety.test.ts' --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts'",
+    "test:parallel": "bun test --isolate --max-concurrency=4 --path-ignore-patterns 'test/engine-v2-restart.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-boot.test.ts' --path-ignore-patterns 'test/engine-fresh-forced-start-failure.test.ts' --path-ignore-patterns 'test/engine-fresh-install-default.test.ts' --path-ignore-patterns 'test/engine-auto-upgrade-safety.test.ts' --path-ignore-patterns '**/*.vitest.test.ts' --path-ignore-patterns 'test/browser-approval-transport.test.ts' --path-ignore-patterns 'test/runtime-db-concurrency.test.ts'",
     "test:engines": "bun test --isolate --max-concurrency=1 test/engine-v2-restart.test.ts test/engine-auto-upgrade-boot.test.ts test/engine-fresh-forced-start-failure.test.ts test/engine-fresh-install-default.test.ts test/engine-auto-upgrade-safety.test.ts",
     "dev": "OPENWORK_DEV_MODE=1 bun --conditions=development src/cli.ts",
     "build:enterprise-mcp-client": "pnpm --filter @openwork/enterprise-mcp-client build",
@@ -28,7 +28,8 @@
     "test:fresh-install-engine": "bun test test/engine-fresh-install-default.test.ts test/managed-opencode-foreign-storage.test.ts",
     "test:live-provider-sync": "bun test test/live-provider-sync.test.ts",
     "test:history-migration": "bun test test/opencode-history.test.ts",
-    "prepublishOnly": "pnpm build:npm-bundle"
+    "prepublishOnly": "pnpm build:npm-bundle",
+    "test:runtime-db": "node --conditions=development --import tsx --test test/runtime-db-concurrency.test.ts"
   },
   "files": [
     "bin",

@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ui/checkbox";
 /** @jsxImportSource react */
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ function describeSchedule(schedule: SpecialistTaskSchedule): string {
   if (schedule.kind === "interval") return `Cada ${schedule.everyMinutes && schedule.everyMinutes >= 60 ? `${Math.round(schedule.everyMinutes / 60 * 10) / 10} h` : `${schedule.everyMinutes} min`}`;
   if (schedule.kind === "daily") return `Todos los días a las ${clock(schedule.hour, schedule.minute)}`;
   if (schedule.kind === "weekly") return `${(schedule.daysOfWeek ?? []).map(day => DAY_LABELS[day] ?? "?").join(", ")} a las ${clock(schedule.hour, schedule.minute)}`;
+  if (schedule.kind === "monthly") return `Día ${schedule.dayOfMonth ?? 1} de cada mes a las ${clock(schedule.hour, schedule.minute)} (si el mes es más corto, el último día)`;
   return `Una vez: ${schedule.at ? new Date(schedule.at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "—"}`;
 }
 
@@ -66,7 +68,7 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRu
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "tasks" ? <TasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "tasks" ? <SpecialistTasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} localFiles={localFiles} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} panelApps={panelApps} onBack={() => setView({ kind: "home" })} /> : null}
@@ -905,7 +907,7 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
 
 const RUNS_KEY = (client: OpenworkServerClient, app: SpecialistApplication, taskId: string) => ["specialist-task-runs", client.baseUrl, app.id, taskId] as const;
 
-function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; dryRun: boolean; onBack(): void }) {
+export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; dryRun: boolean; onBack(): void }) {
   const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -922,7 +924,9 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
   const [clock, setClock] = useState("09:00");
   const [days, setDays] = useState<number[]>([1]);
   const [once, setOnce] = useState("");
+  const [dayOfMonth, setDayOfMonth] = useState("1");
   const [modelChoice, setModelChoice] = useState("__default__");
+  const [catchUp, setCatchUp] = useState(false);
   // The catalog comes from the engine; only needed while the form is open.
   const models = useQuery({
     queryKey: ["specialist-engine-models", client.baseUrl, app.workspaceIds[0] ?? ""],
@@ -932,7 +936,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       return list.flatMap(entry => {
         const providerID = typeof entry.providerID === "string" ? entry.providerID : "";
         const modelID = typeof entry.id === "string" ? entry.id : typeof entry.modelID === "string" ? entry.modelID : "";
-        return providerID && modelID ? [{ key: `${providerID}/${modelID}`, providerID, modelID, name: typeof entry.name === "string" ? entry.name : modelID }] : [];
+        return providerID && modelID ? [{ key: JSON.stringify([providerID, modelID]), providerID, modelID, name: typeof entry.name === "string" ? entry.name : modelID }] : [];
       });
     },
     enabled: creating && Boolean(app.workspaceIds[0]),
@@ -953,23 +957,32 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
     if (kind === "interval") schedule = { kind, everyMinutes: minutes };
     else if (kind === "daily") schedule = { kind, hour, minute };
     else if (kind === "weekly") schedule = { kind, daysOfWeek: [...days].sort(), hour, minute };
+    else if (kind === "monthly") schedule = { kind, dayOfMonth: Number(dayOfMonth), hour, minute };
     else schedule = { kind, at: once ? new Date(once).getTime() : 0 };
-    const [providerID, modelID] = modelChoice.split("/");
-    const model = modelChoice !== "__default__" && providerID && modelID ? { providerID, modelID } : null;
+    const selected = models.data?.find(entry => entry.key === modelChoice);
+    const model = selected ? { providerID: selected.providerID, modelID: selected.modelID } : null;
     await run(async () => {
-      await client.createSpecialistTask(app.id, { name: name.trim(), prompt: prompt.trim(), schedule, ...(model ? { model } : {}) });
+      await client.createSpecialistTask(app.id, { name: name.trim(), prompt: prompt.trim(), schedule, catchUp, ...(model ? { model } : {}) });
       setName(""); setPrompt(""); setModelChoice("__default__"); setCreating(false);
     }, model ? `Tarea creada y activada con ${model.providerID}/${model.modelID}.` : "Tarea creada y activada.");
   }
   const minutesValue = Number(every);
+  const dayValue = Number(dayOfMonth);
   const scheduleProblem = kind === "interval" && (!Number.isInteger(minutesValue) || minutesValue < 1 || minutesValue > 43_200)
     ? "Indicá cada cuántos minutos: un entero entre 1 y 43200."
-    : kind === "weekly" && !days.length ? "Elegí al menos un día de la semana." : null;
+    : kind === "weekly" && !days.length ? "Elegí al menos un día de la semana."
+      : kind === "monthly" && (!Number.isInteger(dayValue) || dayValue < 1 || dayValue > 31) ? "Indicá el día del mes: un entero entre 1 y 31." : null;
   // F4 live estimate (mirrors the server's estimateTaskBudget): time/space cost in local terms.
   const budgetEstimate = (() => {
     if (!prompt.trim() || scheduleProblem) return null;
-    const runsPerDay = kind === "interval" && Number.isInteger(minutesValue) && minutesValue >= 1 ? 1440 / minutesValue : kind === "daily" ? 1 : kind === "weekly" ? 1 / 7 : 0;
+    const runsPerDay = kind === "interval" && Number.isInteger(minutesValue) && minutesValue >= 1 ? 1440 / minutesValue : kind === "daily" ? 1 : kind === "weekly" ? 1 / 7 : kind === "monthly" ? 1 / 30 : 0;
     if (kind === "once") return "Una sola corrida: sin costo recurrente.";
+    // A monthly close is one run a month: "0 corridas/día" read like it would never run.
+    if (kind === "monthly") {
+      const monthlyTokens = Math.round(((prompt.length / 4) * 8) / 1000);
+      const monthlyMb = Math.round(((prompt.length * 2) / 1_000_000) * 10) / 10;
+      return `≈ 1 corrida/mes · ≈ ${monthlyTokens}k tokens/mes · ≈ ${monthlyMb} MB/mes de snapshots en el proyecto.`;
+    }
     const tokens = Math.round(((prompt.length / 4) * 8) * runsPerDay / 1000);
     const mb = Math.round(((prompt.length * 2) * runsPerDay / 1_000_000) * 10) / 10;
     return `≈ ${Math.round(runsPerDay * 10) / 10} corridas/día · ≈ ${tokens}k tokens/día · ≈ ${mb} MB/día de snapshots en el proyecto.`;
@@ -983,12 +996,13 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       <h3 className="font-medium">Tareas programadas de {app.name}</h3>
       {!creating ? <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="size-4" />Nueva tarea</Button> : null}
     </div>
-    <p className="text-xs text-muted-foreground">Cada corrida abre un chat propio en el proyecto de la aplicación con el prompt guardado. Si la PC estuvo apagada, la próxima corrida corre ya (las perdidas se consolidan en una).</p>
+    <p className="text-xs text-muted-foreground">Cada corrida abre un chat propio en el proyecto de la aplicación con el prompt guardado. Requiere esta aplicación abierta. Las ejecuciones perdidas se omiten, salvo que autorices recuperar una al retomar.</p>
     {creating ? <form className="grid gap-2 rounded-md border p-3" onSubmit={event => { event.preventDefault(); void create(); }}>
       <div className="grid gap-1.5"><Label htmlFor="task-name">Nombre</Label><Input id="task-name" autoFocus value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder="por ejemplo: actualizar precios" required /></div>
       <div className="grid gap-1.5"><Label htmlFor="task-prompt">Qué debe hacer el agente en cada corrida</Label><Textarea id="task-prompt" rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} required placeholder="Consultá las fuentes de costo de flete y actualizá la planilla del proyecto." /></div>
-      <div className="flex flex-wrap gap-1">{(["interval", "daily", "weekly", "once"] as const).map(option => <Button key={option} type="button" size="sm" variant={kind === option ? "default" : "outline"} onClick={() => setKind(option)}>{option === "interval" ? "Cada X tiempo" : option === "daily" ? "Diaria" : option === "weekly" ? "Semanal" : "Una vez"}</Button>)}</div>
+      <div className="flex flex-wrap gap-1">{(["interval", "daily", "weekly", "monthly", "once"] as const).map(option => <Button key={option} type="button" size="sm" variant={kind === option ? "default" : "outline"} onClick={() => setKind(option)}>{option === "interval" ? "Cada X tiempo" : option === "daily" ? "Diaria" : option === "weekly" ? "Semanal" : option === "monthly" ? "Mensual" : "Una vez"}</Button>)}</div>
       {kind === "interval" ? <div className="grid gap-1.5"><Label htmlFor="task-every">Cada cuántos minutos</Label><Input id="task-every" type="number" min={1} max={43200} value={every} onChange={event => setEvery(event.target.value)} className="max-w-40" /></div> : null}
+      {kind === "monthly" ? <div className="grid gap-1.5"><Label htmlFor="task-day">Día del mes</Label><Input id="task-day" type="number" min={1} max={31} value={dayOfMonth} onChange={event => setDayOfMonth(event.target.value)} className="max-w-40" /><p className="text-xs text-muted-foreground">Si el mes tiene menos días, corre el último.</p></div> : null}
       {kind !== "interval" && kind !== "once" ? <div className="grid gap-1.5"><Label htmlFor="task-clock">Hora</Label><Input id="task-clock" type="time" value={clock} onChange={event => setClock(event.target.value)} className="max-w-40" /></div> : null}
       {kind === "weekly" ? <div className="flex flex-wrap gap-1">{DAY_LABELS.map((label, day) => <Button key={label} type="button" size="sm" variant={days.includes(day) ? "default" : "outline"} onClick={() => setDays(current => current.includes(day) ? current.filter(entry => entry !== day) : [...current, day])}>{label}</Button>)}</div> : null}
       {kind === "once" ? <div className="grid gap-1.5"><Label htmlFor="task-once">Fecha y hora</Label><Input id="task-once" type="datetime-local" value={once} onChange={event => setOnce(event.target.value)} required /></div> : null}
@@ -1008,6 +1022,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
         </Select>
         <p className="text-xs text-muted-foreground">{models.isError ? "No se pudo leer el catálogo de modelos; se usará el predeterminado del motor." : "Se usa en cada corrida. Elegí uno barato si la tarea corre seguido."}</p>
       </div>
+      <Label className="flex items-center gap-2"><Checkbox checked={catchUp} onCheckedChange={value => setCatchUp(value === true)} />Ejecutar una vez al retomar si se perdió el horario</Label>
       <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim() || (kind === "once" && !once) || scheduleProblem !== null}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
       {scheduleProblem ? <p role="alert" className="text-xs text-destructive">{scheduleProblem}</p> : null}
       {budgetEstimate ? <p role="status" className="text-xs text-muted-foreground">Costo estimado: {budgetEstimate}</p> : null}
@@ -1023,7 +1038,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
       <div className="flex flex-wrap items-center gap-2">
         <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{task.name}</span>
-        {task.running ? <Badge variant="secondary">Corriendo…</Badge> : !task.enabled ? <Badge variant="outline">Pausada</Badge> : task.lastStatus ? <Badge variant={task.lastStatus === "ok" ? "outline" : "destructive"}>{task.lastStatus === "ok" ? "Última: ok" : task.lastStatus === "failed" ? "Última: falló" : task.lastStatus === "blocked" ? "Última: bloqueada" : "Última: corriendo"}</Badge> : null}
+        {task.running ? <Badge variant="secondary">Corriendo…</Badge> : !task.enabled ? <Badge variant="outline">Pausada</Badge> : task.lastStatus ? <Badge variant={task.lastStatus === "ok" ? "outline" : "destructive"}>{task.lastStatus === "ok" ? "Última: ok" : task.lastStatus === "failed" ? "Última: falló" : task.lastStatus === "blocked" ? "Última: bloqueada" : task.lastStatus === "skipped" ? "Última: omitida" : "Última: corriendo"}</Badge> : null}
       </div>
       <p className="text-xs text-muted-foreground">{describeSchedule(task.schedule)} · próxima {task.enabled ? formatWhen(task.nextRunAt) : "—"} · {task.runs} corrida{task.runs === 1 ? "" : "s"}{task.running?.missed ? ` · ${task.running.missed} perdidas consolidadas` : ""} · {task.model ? `${task.model.providerID}/${task.model.modelID}` : "modelo predeterminado"}</p>
       <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
@@ -1031,6 +1046,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
         {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mirá el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} aria-pressed={task.catchUp !== false} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { catchUp: task.catchUp === false }))}>{task.catchUp === false ? "Horarios perdidos: omitir" : "Horarios perdidos: recuperar una vez"}</Button>
         <Button size="sm" variant="ghost" aria-expanded={runsFor?.id === task.id} onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
         <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => setPendingDelete({ id: task.id, name: task.name })}><Trash2 className="size-4" /></Button>
       </div>
@@ -1039,7 +1055,7 @@ function TasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication
           : runs.isPending ? <span>…</span>
           : (runs.data?.runs.length ?? 0) ? (runs.data?.runs ?? []).map(entry => <div key={`${entry.at}-${entry.status}`} className="flex items-center gap-2">
             <span>{formatWhen(entry.at)}</span>
-            <Badge variant={entry.status === "ok" ? "outline" : entry.status === "dispatched" ? "secondary" : "destructive"}>{entry.status === "ok" ? "ok" : entry.status === "dispatched" ? "corriendo" : entry.status === "failed" ? "falló" : entry.status === "blocked" ? "bloqueada" : "solapada"}</Badge>
+            <Badge variant={entry.status === "ok" ? "outline" : entry.status === "dispatched" ? "secondary" : "destructive"}>{entry.status === "ok" ? "ok" : entry.status === "dispatched" ? "corriendo" : entry.status === "failed" ? "falló" : entry.status === "blocked" ? "bloqueada" : entry.status === "skipped_missed" ? "horario omitido" : "solapada"}</Badge>
             <span>{entry.mode === "manual" ? "a pedido" : "programada"}{entry.missed ? ` · ${entry.missed} perdidas` : ""}</span>
             {entry.detail ? <span className="truncate">{entry.detail}</span> : null}
           </div>) : <span>Sin corridas todavía.</span>}

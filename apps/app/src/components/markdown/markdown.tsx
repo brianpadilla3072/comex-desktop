@@ -1,3 +1,4 @@
+import { hydrateLocalImages, releaseLocalImages } from "./local-images";
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -87,8 +88,8 @@ function MarkdownBlockInner({
   useEffect(() => () => {
     videoCleanups.current.forEach((cleanup) => cleanup());
     videoCleanups.current.clear();
-    for (const pending of localImageUrls.current.values()) void pending.then((url) => { if (url) URL.revokeObjectURL(url); });
-    localImageUrls.current.clear();
+    releaseLocalImages(rootRef.current, localImageUrls.current);
+    localImageUrls.current = new Map();
   }, [client, workspaceId, workspaceRoot, sessionId]);
   const [linkMenu, setLinkMenu] = useState<{ target: OpenTarget; anchor: HTMLElement } | null>(null);
   useEffect(() => setLinkMenu(null), [client, workspaceId, workspaceRoot]);
@@ -304,30 +305,7 @@ function MarkdownBlockInner({
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    for (const image of root.querySelectorAll("img[data-openwork-image-path]")) {
-      if (!(image instanceof HTMLImageElement) || image.dataset.openworkImageState) continue;
-      image.dataset.openworkImageState = "loading";
-      const href = image.dataset.openworkImagePath ?? "";
-      const decode = image.dataset.openworkPathDecode === "true";
-      const key = `${decode}:${href}`;
-      let pending = localImageUrls.current.get(key);
-      if (!pending) {
-        pending = loadLocalImage(href, image, decode).catch(() => null);
-        localImageUrls.current.set(key, pending);
-      }
-      const cache = localImageUrls.current;
-      void pending.then((url) => {
-        // A file that is not there yet (still saving) is tried again on the next render.
-        if (!url) { if (cache.get(key) === pending) cache.delete(key); return; }
-        if (!image.isConnected) return;
-        image.addEventListener("load", () => {
-          const box = image.closest("[data-openwork-image]");
-          const preview = image.closest("[data-openwork-image-preview]");
-          if (box && preview) box.replaceWith(preview);
-        }, { once: true });
-        image.src = url;
-      });
-    }
+    return hydrateLocalImages(root, localImageUrls.current, loadLocalImage);
   }, [loadLocalImage, rendered]);
 
   useEffect(() => {

@@ -124,3 +124,9 @@ El control de permisos existente se muestra en Comex escritorio con texto del mo
 Validación en navegador real: selección de modelo y variante Alto, cierre del menú al elegir, tamaño de escritorio/390 px y ausencia de errores de JavaScript. No se enviaron prompts ni se cambiaron permisos. Typecheck de la aplicación sin errores. Reglas P3, P5, P10, S7 y T5 de `DESIGN.md`; al desactivar Comex se recupera el compositor anterior.
 
 El control de permisos fue ampliado después de la revisión del compositor: ahora Comex tiene una implementación nativa v2 disponible también en la vista web local conectada, con los tres modos iniciales y creación de perfiles. Sustituye en Comex la limitación del control anterior descrita arriba. [Documentación actual de modos de permisos](../comex-permission-modes/README.md).
+
+## Consolidación r5 (11 de noviembre de 2026)
+
+Se incorporaron 35 precios con coincidencia exacta de proveedor/modelo desde models.dev, sin cambiar evaluaciones ni estimaciones. Los formatos de costo no reconocidos se conservan sin aplanar. La fuente y fecha se guardan por oferta; Go sigue siendo suscripción. La ficha incluye orientación basada en capacidades, con rendimiento por tarea sin medir.
+
+El workflow model-catalog-review propone actualizaciones diarias en PR revisables, sin autoaprobar ni modificar proveedores. La publicación requiere integrar ese workflow en la rama predeterminada y permisos de creación de PR; no fue ejecutado en esta validación. El JSON sigue incluido en el release y su hosting estático continúa siendo opcional. Ver [consolidación y pruebas](../local-consolidation/README.md).
