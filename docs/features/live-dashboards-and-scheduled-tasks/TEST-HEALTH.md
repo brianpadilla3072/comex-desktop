@@ -327,6 +327,10 @@ cualquier profesión, no solo Comex.
   tarea queda pausada. Descartar no deja rastro.
 - **Fallo en voz alta**: con el modelo gratuito saturado, el chat dice "The free starter model is
   busy right now…" con la salida (conectar otro proveedor), no un 500.
+- **Big Pickle / Zen sin saldo**: el motor lista el modelo pero el turno termina vacío; el error
+  real ("Timed out waiting for response headers") viajaba solo en `retry.error` y el chat mostraba
+  silencio. Ahora la proyección v2 lo expone como error del turno (unit test incluido). Para usar
+  Big Pickle hace falta saldo en OpenCode Zen: la cuenta de prueba no tiene créditos.
 - **Programador**: en una app "Codigo" el asistente escribió `suma.js` + `suma.test.js`, corrió
   `bun test suma.test.js` y mostró la salida real (**2 pass / 0 fail**), con el registro en la
   memoria del proyecto.
@@ -391,7 +395,7 @@ cualquier profesión, no solo Comex.
 ## Cómo verificarlo
 
 ```bash
-pnpm --filter openwork-server test          # engines 35/1 + parallel 738/10 = 773 pass / 11 skip / 0 fail, exit 0 (2026-11-10)
+pnpm --filter openwork-server test          # engines 35/1 + parallel 739/10 = 774 pass / 11 skip / 0 fail, exit 0 (2026-11-10)
 pnpm --filter openwork-server test:approval-transport   # 6/6 en Node
 pnpm --filter @openwork/app test            # 2050 pass / 0 fail, 208 archivos (2026-11-10)
 pnpm --filter openwork-server exec tsc --noEmit && pnpm --filter @openwork/app typecheck   # limpios
