@@ -15,7 +15,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import { DesktopUpdateButton } from "../../settings/state/desktop-updater-provider";
-import { ArrowLeft, CheckCheck, Cloud, Columns2, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
+import { ArrowLeft, Brain, CheckCheck, Cloud, Columns2, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
 
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { t } from "../../../../i18n";
@@ -55,6 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScopedMemoryPanel } from "@/react-app/domains/session/comex/scoped-memory-panel";
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useDenAuth } from "../../cloud/den-auth-provider";
@@ -596,6 +597,7 @@ export function SessionPage(props: SessionPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
@@ -1947,6 +1949,10 @@ export function SessionPage(props: SessionPageProps) {
                     <FileText className="size-4" />
                     Files{artifactTargetCount > 0 ? ` (${artifactTargetCount})` : ""}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMemoryOpen(true)}>
+                    <Brain className="size-4" />
+                    Consolidar memoria
+                  </DropdownMenuItem>
                   {showCloudSignIn ? (
                     <DropdownMenuItem onClick={openCloudSignIn}>
                       <Cloud className="size-4" />
@@ -2443,6 +2449,14 @@ export function SessionPage(props: SessionPageProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Consolidar memoria</DialogTitle>
+          </DialogHeader>
+          {props.openworkServerClient ? <ScopedMemoryPanel client={props.openworkServerClient} workspaceId={props.selectedWorkspaceId} sessionId={props.selectedSessionId ?? ""} /> : <p className="text-sm text-muted-foreground">No hay servidor OpenWork disponible.</p>}
+        </DialogContent>
+      </Dialog>
 
       {/* Cloud provider notifications are now handled globally by CloudProvidersToast in app-root.tsx */}
     </div>
