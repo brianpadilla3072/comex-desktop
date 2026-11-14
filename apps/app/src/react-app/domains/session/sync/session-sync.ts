@@ -1509,7 +1509,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
 
   if (event.type === "message.updated") {
     const props = (event.properties ?? {}) as {
-      info?: { id?: string; role?: UIMessage["role"] | string; sessionID?: string; parentID?: string; time?: { created?: number; completed?: number } };
+      info?: { id?: string; role?: UIMessage["role"] | string; sessionID?: string; parentID?: string; finish?: string; time?: { created?: number; completed?: number } };
     };
     const info = props.info;
     if (!info?.id || !info.sessionID || (info.role !== "user" && info.role !== "assistant" && info.role !== "system")) {
@@ -1522,6 +1522,9 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     }
     useSessionActivityStore.getState().markMessageRole(workspaceId, info.sessionID, info.id, info.role);
     if (info.role === "assistant" && typeof info.time?.completed === "number") {
+      if (info.finish && info.finish !== "tool-calls" && info.finish !== "unknown" && !("error" in info && info.error) && !("summary" in info && info.summary === true)) {
+        useSessionActivityStore.getState().recordAssistantResponse(workspaceId, info.sessionID, info.time.completed);
+      }
       if (usageRun && !("error" in info && info.error)) usageRun.responseCompleted = true;
       const observedAt = perfNow();
       entry.assistantMessageCompletedAt.set(info.sessionID, observedAt);
@@ -1542,6 +1545,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
       metadata: { opencode: {
         ...(typeof created === "number" ? { created } : {}),
         ...(typeof completed === "number" ? { completed } : {}),
+        ...(typeof info.finish === "string" ? { finish: info.finish } : {}),
         ...(typeof info.parentID === "string" ? { parentID: info.parentID } : {}),
         ...(replyModelFromInfo(info) ? { replyModel: replyModelFromInfo(info) } : {}),
       } },

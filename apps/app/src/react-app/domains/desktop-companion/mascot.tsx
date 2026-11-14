@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CompanionPreferences, CompanionSnapshot } from "@/app/lib/desktop-companion";
 
 /** Original character. Canvas 2D, capped DPR/FPS; no 3D engine or copied Coucou artwork. */
-export function Mascot({ state, preferences, size = 64 }: { state: CompanionSnapshot["state"]; preferences: CompanionPreferences; size?: number }) {
+export function Mascot({ state, preferences, size = 64, active = true }: { state: CompanionSnapshot["state"]; preferences: CompanionPreferences; size?: number; active?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -10,13 +10,13 @@ export function Mascot({ state, preferences, size = 64 }: { state: CompanionSnap
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    let frame = 0, timer: ReturnType<typeof setTimeout> | undefined, visible = true, blink = false, last = 0, pokeUntil = 0, pokeCount = 0, lastPoke = 0;
+    let frame: ReturnType<typeof setTimeout> | undefined, timer: ReturnType<typeof setTimeout> | undefined, visible = true, blink = false, pokeUntil = 0, pokeCount = 0, lastPoke = 0;
     let image: HTMLImageElement | null = null;
     const draw = (now: number) => {
       const dpr = Math.min(devicePixelRatio || 1, 2);
       if (canvas.width !== size * dpr) { canvas.width = size * dpr; canvas.height = size * dpr; }
       ctx.setTransform(canvas.width / 100, 0, 0, canvas.height / 100, 0, 0); ctx.clearRect(0, 0, 100, 100);
-      const moving = preferences.motion && !reduced.matches && state === "working";
+      const moving = active && preferences.motion && !reduced.matches && state === "working";
       ctx.save(); ctx.translate(50, 54); ctx.rotate(moving ? Math.sin(now / 330) * .035 : 0); ctx.translate(-50, -54);
       if (image) { const scale = Math.min(80 / image.width, 80 / image.height); ctx.drawImage(image, 50 - image.width * scale / 2, 50 - image.height * scale / 2, image.width * scale, image.height * scale); ctx.restore(); return; }
       const warm = preferences.mascot === "ember";
@@ -31,11 +31,11 @@ export function Mascot({ state, preferences, size = 64 }: { state: CompanionSnap
       if (state === "waiting" || state === "error") ctx.ellipse(49, 62, 2.5, 3, 0, 0, Math.PI * 2);
       else { ctx.moveTo(45, 61); ctx.quadraticCurveTo(49, 66, 54, 61); } ctx.stroke(); ctx.restore();
     };
-    const animate = (now: number) => { frame = 0; if (document.hidden || !visible) return;
-      if (now - last > 1000 / 24) { draw(now); last = now; }
-      if (preferences.motion && !reduced.matches && state === "working") frame = requestAnimationFrame(animate);
+    const animate = () => { frame = undefined; if (document.hidden || !visible) return;
+      draw(performance.now());
+      if (active && preferences.motion && !reduced.matches && state === "working") frame = setTimeout(animate, 1000 / 12);
     };
-    const wake = () => { if (frame) cancelAnimationFrame(frame); frame = 0; draw(performance.now()); if (visible && !document.hidden && preferences.motion && !reduced.matches && state === "working") frame = requestAnimationFrame(animate); };
+    const wake = () => { clearTimeout(frame); frame = undefined; if (!visible || document.hidden) return; draw(performance.now()); if (active && preferences.motion && !reduced.matches && state === "working") frame = setTimeout(animate, 1000 / 12); };
     const blinkLater = () => { clearTimeout(timer); if (!visible || document.hidden || !preferences.motion || reduced.matches) return;
       timer = setTimeout(() => { blink = true; draw(performance.now()); timer = setTimeout(() => { blink = false; wake(); blinkLater(); }, 130); }, 4200);
     };
@@ -45,7 +45,7 @@ export function Mascot({ state, preferences, size = 64 }: { state: CompanionSnap
     const observer = new IntersectionObserver(entries => { visible = entries[0].isIntersecting; visibility(); }); observer.observe(canvas);
     canvas.addEventListener("pointerdown", poke); document.addEventListener("visibilitychange", visibility); reduced.addEventListener("change", visibility);
     wake(); blinkLater();
-    return () => { cancelAnimationFrame(frame); clearTimeout(timer); observer.disconnect(); canvas.removeEventListener("pointerdown", poke); document.removeEventListener("visibilitychange", visibility); reduced.removeEventListener("change", visibility); if (image) image.onload = null; };
-  }, [preferences.mascot, preferences.image, preferences.motion, size, state]);
+    return () => { clearTimeout(frame); clearTimeout(timer); observer.disconnect(); canvas.removeEventListener("pointerdown", poke); document.removeEventListener("visibilitychange", visibility); reduced.removeEventListener("change", visibility); if (image) image.onload = null; };
+  }, [preferences.mascot, preferences.image, preferences.motion, size, state, active]);
   return <canvas ref={ref} style={{ width: size, height: size }} role="img" aria-label="Mascota del asistente" />;
 }

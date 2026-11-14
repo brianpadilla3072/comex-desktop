@@ -90,6 +90,7 @@ import {
   subscribeQueuedDrain,
 } from "./queued-drain-machine";
 import { DevProfiler } from "@/react-app/shell/dev-profiler";
+import { companionMessages, latestCompanionResponseTime } from "@/react-app/domains/desktop-companion/snapshot-projection";
 import { useCompanionHost } from "@/react-app/domains/desktop-companion/use-companion-host";
 import { describePermissionRequest } from "../chat/permission-approval-modal";
 import { PaperGrainGradient } from "@openwork/ui/react";
@@ -3108,18 +3109,19 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setComposerDraft,
   ]);
 
+  const companionResponseAt = props.isControlTarget && isDesktopRuntime() ? latestCompanionResponseTime(renderedMessages) : 0;
   useCompanionHost({
-    active: props.isControlTarget && isDesktopRuntime(), owner: sessionOwner,
-    snapshot: {
-      sessionId: props.sessionId, title: props.sessionTitle ?? "Conversación", project: props.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? "Proyecto",
+    active: props.isControlTarget && isDesktopRuntime() && props.draftScope !== null, owner: sessionOwner, scope: props.draftScope ?? "local",
+    urgentKey: JSON.stringify([composerBusy, runSyncHealth.degraded, Boolean(error), archived, archiveStateKnown, props.modelUnavailable, props.activePermission?.id, props.permissionReplyBusy, props.activeQuestion?.id, props.questionReplyBusy, companionResponseAt]),
+    snapshot: detail => ({
+      sessionId: props.sessionId, workspaceId: props.workspaceId, title: props.sessionTitle ?? "Conversación", project: props.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? "Proyecto",
+      responseAt: companionResponseAt,
       model: sessionModel.modelLabel,
       state: runSyncHealth.degraded ? "offline" : props.activePermission || props.activeQuestion ? "waiting" : error ? "error" : composerBusy ? "working" : "idle",
       canSend: !archived && archiveStateKnown && !composerBusy && !runSyncHealth.degraded && !props.activePermission && !props.activeQuestion && !props.modelUnavailable,
-      messages: renderedMessages.filter(message => message.role === "user" || message.role === "assistant").slice(-8).map(message => ({
-        id: message.id, role: message.role, text: message.parts.filter(part => part.type === "text").map(part => part.text).join("\n").slice(-6000),
-      })),
-      activity: renderedMessages.slice(-4).flatMap(message => message.parts.filter(isToolUIPart).map(part =>
-        part.state === "output-available" ? "Herramienta completada" : part.state === "output-error" ? "Falló una herramienta" : "Usando una herramienta")),
+      messages: detail ? companionMessages(renderedMessages) : [],
+      activity: detail ? renderedMessages.slice(-4).flatMap(message => message.parts.filter(isToolUIPart).map(part =>
+        part.state === "output-available" ? "Herramienta completada" : part.state === "output-error" ? "Falló una herramienta" : "Usando una herramienta")).slice(-12) : [],
       permission: props.activePermission ? {
         id: props.activePermission.id, title: describePermissionRequest(props.activePermission).title,
         detail: [describePermissionRequest(props.activePermission).message, describePermissionRequest(props.activePermission).scopeValue,
@@ -3127,8 +3129,8 @@ export function SessionSurface(props: SessionSurfaceProps) {
         busy: props.permissionReplyBusy === true,
       } : null,
       question: props.activeQuestion ? { id: props.activeQuestion.id, busy: props.questionReplyBusy === true,
-        questions: props.activeQuestion.questions.map(question => ({ text: question.question, multiple: question.multiple === true, options: question.options.map(option => option.label) })) } : null,
-    },
+        questions: props.activeQuestion.questions.map(question => ({ text: question.question, multiple: question.multiple === true, custom: question.custom !== false, options: question.options.map(option => option.label) })) } : null,
+    }),
     execute: async action => {
       if (action.kind === "permission") {
         if (!props.respondPermission || props.activePermission?.id !== action.requestId || props.permissionReplyBusy) return { ok: false, error: "La solicitud ya cambió." };
@@ -3136,6 +3138,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
       }
       if (action.kind === "question") {
         if (!props.respondQuestion || props.activeQuestion?.id !== action.requestId || props.questionReplyBusy) return { ok: false, error: "La pregunta ya cambió." };
+        if (action.answers !== null && (action.answers.length !== props.activeQuestion.questions.length || action.answers.some((answers, index) => {
+          const question = props.activeQuestion!.questions[index];
+          return !answers.length || (!question.multiple && answers.length !== 1)
+            || (question.custom === false && answers.some(answer => !question.options.some(option => option.label === answer)));
+        }))) return { ok: false, error: "Revisá las respuestas en el chat completo." };
         await props.respondQuestion(action.requestId, action.answers); return { ok: true };
       }
       if (action.kind === "stop") { await handleAbort(); return { ok: true }; }

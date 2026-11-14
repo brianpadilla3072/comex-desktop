@@ -1,14 +1,15 @@
 /** @jsxImportSource react */
-import { Blocks, Clock3, Folder, Home, LayoutGrid, Search, type LucideIcon } from "lucide-react";
+import { Blocks, Clock3, Download, Folder, Home, LayoutGrid, Search, type LucideIcon } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDashboard, dashboardLabel = "Resultados", dashboardActive,
-  onAutomations, automationsActive, automationsNeedAttention, onExtensions, extensionsActive, referenceLabels = false, onProjects }: {
+  onAutomations, automationsActive, automationsNeedAttention, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
   referenceLabels?: boolean; onProjects?: () => void;
   onNewTask: () => void; newTaskDisabled?: boolean; onSearch?: () => void; onDashboard?: () => void;
   dashboardLabel?: string; dashboardActive?: boolean; onAutomations?: () => void; automationsActive?: boolean;
   automationsNeedAttention?: boolean; onExtensions: () => void; extensionsActive?: boolean;
+  onInstallSkillsTools?: () => void;
 }) {
   const { setOpen } = useSidebar();
   const entries: { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean }[] = [
@@ -16,6 +17,7 @@ export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDash
     ...(onSearch ? [{ label: "Buscar conversaciones", icon: Search, action: onSearch }] : []),
     ...(onDashboard ? [{ label: dashboardLabel, icon: Blocks, action: onDashboard, active: dashboardActive }] : []),
     ...(onAutomations ? [{ label: referenceLabels ? "Tareas programadas" : "Automatizaciones", icon: Clock3, action: onAutomations, active: automationsActive, attention: automationsNeedAttention }] : []),
+    ...(onInstallSkillsTools ? [{ label: "Instalar skills y herramientas", icon: Download, action: onInstallSkillsTools }] : []),
     { label: "Proyectos y conversaciones", icon: Folder, action: onProjects ?? (() => setOpen(true)) },
     { label: referenceLabels ? "Complementos" : "Biblioteca", icon: LayoutGrid, action: onExtensions, active: extensionsActive },
   ];

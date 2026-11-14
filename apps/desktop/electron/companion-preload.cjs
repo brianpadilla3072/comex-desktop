@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld("__OPENWORK_COMPANION__", {
   command: value => ipcRenderer.invoke("openwork:companion:command", value),
   openMain: () => ipcRenderer.invoke("openwork:companion:open-main"),
   preferences: value => ipcRenderer.invoke("openwork:companion:preferences", value),
+  selectSession: key => ipcRenderer.invoke("openwork:companion:select-session", key),
+  readSession: key => ipcRenderer.invoke("openwork:companion:read-session", key),
 });

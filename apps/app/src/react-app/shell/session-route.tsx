@@ -417,9 +417,15 @@ function focusedWorkbenchPaneOwner() {
 }
 
 export function SessionRoute() {
-  const specialistApplicationId = useSpecialistApplications()?.active?.id;
+  // Only bind a newly created workspace to the specialist app when we are
+  // actually inside that app's workspace. On dashboard/home routes the active
+  // app is just a fallback (often the first one, e.g. Comex), so binding to
+  // it would silently switch the whole app to that specialist.
+  const specialistApplications = useSpecialistApplications();
   const navigate = useNavigate();
   const location = useLocation();
+  const inWorkspaceRoute = /^\/workspace\/[^/]+/.test(location.pathname);
+  const specialistApplicationId = inWorkspaceRoute ? specialistApplications?.active?.id : undefined;
   const appsRouteActive = /^(?:\/apps|\/dashboard\/apps)(?:\/|$)/.test(location.pathname);
   const automationsRouteRequested = /^\/automations(?:\/|$)/.test(location.pathname);
   const dashboardRouteRequested = /^\/dashboard(?:\/|$)/.test(location.pathname);

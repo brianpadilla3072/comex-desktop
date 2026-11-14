@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/react-app/domains/specialists/provider";
+import { CompanionRecentsBridge } from "../../desktop-companion/companion-recents-bridge";
 import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
 import { CompactSidebarNav } from "./compact-sidebar-nav";
 import { useNewTaskDraftState } from "../sync/draft-store";
@@ -851,11 +852,13 @@ export function AppSidebar(inputProps: AppSidebarProps) {
 
   return (
     <SidebarContext.Provider value={contextValue}>
+      <CompanionRecentsBridge source={props} />
       {referenceLayout ? <aside data-permanent-navigation className="relative z-20 flex w-12 shrink-0 flex-col border-r border-border bg-sidebar">
         <CompactSidebarNav onNewTask={() => props.onCreateTaskInWorkspace(props.selectedWorkspaceId)} newTaskDisabled={props.newTaskDisabled}
           onSearch={props.onOpenSessionSearch} onDashboard={props.onOpenDashboard} dashboardLabel={props.dashboardLabel} dashboardActive={props.dashboardActive}
           onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
+          onInstallSkillsTools={props.onOpenExtensions}
           referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}

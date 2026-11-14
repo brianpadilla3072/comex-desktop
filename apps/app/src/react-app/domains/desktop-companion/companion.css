@@ -1,10 +1,15 @@
 html:has(.companion), body:has(.companion), #root:has(.companion) { background: transparent !important; min-height: 0; height: auto; margin: 0; }
 .companion { color: var(--foreground); font: var(--text-sm)/1.5 var(--font-sans); padding: 0 6px 6px; }
-.companion .companion-pill { display: flex; height: 36px; width: 68px; padding: 0 12px; margin: auto; gap: 5px; border-radius: 0 0 var(--dls-radius) var(--dls-radius); background: var(--background); box-shadow: var(--dls-card-shadow); transition-property: width; }
+.companion-bar { display: flex; align-items: center; width: max-content; max-width: 100%; height: 36px; margin: auto; background: var(--background); border-radius: 0 0 var(--dls-radius) var(--dls-radius); box-shadow: var(--dls-card-shadow); }
+.companion .companion-pill { display: flex; height: 36px; width: 68px; padding: 0 12px; margin: auto; gap: 5px; border-radius: 0 0 var(--dls-radius) var(--dls-radius); background: transparent; transition-property: width; }
 .companion .companion-pill.peeking { width: 72px; }
-.companion-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted-foreground); flex: none; }
-.companion[data-state=waiting] .companion-dot { background: var(--amber-9); }
-.companion[data-state=error] .companion-dot { background: var(--red-9); }
+.companion-bar.has-recents .companion-pill { width: 48px; margin: 0; padding: 0 6px; }
+.companion-recents { display: flex; align-items: center; padding-right: 6px; }
+.companion .companion-recent { width: 24px; height: 24px; border-radius: 50%; }
+.companion-recent[aria-pressed=true] { background: var(--muted); }
+.companion-session-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-foreground); flex: none; }
+.companion-session-dot[data-status=waiting] { background: var(--amber-9); }
+.companion-session-dot[data-status=unread] { background: var(--sky-9); }
 .companion-panel { background: var(--background); border-radius: var(--dls-radius-lg); padding: 12px 14px 14px; margin-top: 6px; box-shadow: var(--dls-shell-shadow); max-height: calc(100dvh - 48px); overflow-y: auto; scrollbar-width: thin; }
 .companion-panel header { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .companion-title { font-weight: 500; flex-shrink: 0; }

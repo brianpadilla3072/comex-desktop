@@ -1,5 +1,5 @@
+import { companionEnabled } from "./companion-platform.mjs";
 import { processBlankSlateProfile, resolveBlankSlateLaunch } from "./blank-slate-profile.mjs";
-import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
 import { createDesktopCompanion } from "./desktop-companion.mjs";
 import { DESKTOP_POLICY_ENFORCEMENT_ENABLED } from "@openwork/types/den/desktop-policies-runtime";
 import { execFile, execFileSync, spawn } from "node:child_process";
@@ -1286,15 +1286,12 @@ const IDLE_ROUTER_INFO = Object.freeze({
 });
 
 let mainWindow = null;
-const companionFeatureContext = parseFeatureEnvironment(process.env);
 const desktopCompanion = createDesktopCompanion({
-  enabled: !companionFeatureContext.problems.some(problem => problem.fatal)
-    && DESKTOP_DISTRIBUTION.flavor === "public"
-    && resolveFeature("desktopCompanion", { ...companionFeatureContext, rollouts: {}, overrides: {} }).enabled,
-  app, BrowserWindow, Tray, Menu, globalShortcut, screen, ipcMain,
+  enabled: companionEnabled,
+  app, BrowserWindow, Tray, Menu, globalShortcut, screen, ipcMain, powerMonitor,
   icon: APP_ICON_IMAGE ?? nativeImage.createEmpty(), directory: app.getPath("userData"), preload: path.join(__dirname, "companion-preload.cjs"),
   getMain: () => mainWindow, quitting: () => quitInProgress(),
-  openMain: async () => { const window = await createMainWindow(); window.show(); window.focus(); },
+  openMain: async () => { const window = await createMainWindow(); if (window.isMinimized()) window.restore(); window.show(); window.focus(); },
   load: async window => {
     const start = process.env.OPENWORK_ELECTRON_START_URL?.trim() || process.env.ELECTRON_START_URL?.trim();
     if (start) await window.loadURL(new URL("companion.html", start).href);
@@ -3088,6 +3085,7 @@ async function createMainWindowInner() {
   if (desktopCompanion.enabled()) {
     void desktopCompanion.start().catch(error => {
       desktopCompanion.dispose();
+      if (mainWindow && !mainWindow.isDestroyed() && !quitInProgress()) mainWindow.show();
       console.warn("[companion] Could not start; normal window closing remains available", error);
     });
   }

@@ -128,6 +128,10 @@ export default defineConfig(({ command, isPreview }) => {
     server: {
       port: devPort,
       strictPort: true,
+      watch: {
+        usePolling: true,
+        interval: 300,
+      },
       ...(allowedHosts.size > 0 || headlessBrowserHostSuffix
         ? { allowedHosts: [...allowedHosts, ...(headlessBrowserHostSuffix ? [headlessBrowserHostSuffix] : [])] }
         : {}),

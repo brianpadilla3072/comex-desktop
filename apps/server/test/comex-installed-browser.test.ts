@@ -63,6 +63,27 @@ test("a stale managed bridge whose plugin path no longer exists is rewritten, wh
   } finally { await integration.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test("a generated bridge migrates between profiles while its previous plugin still exists", async () => {
+  const root = await mkdtemp(join(tmpdir(), "comex-browser-profile-"));
+  const project = join(root, "project"); await mkdir(project);
+  const first = createInstalledBrowserIntegration({ configPath: join(root, "first/config.json"), workspaces: [{ path: project }] });
+  const second = createInstalledBrowserIntegration({ configPath: join(root, "second/config.json"), workspaces: [{ path: project }] });
+  try {
+    await first.install(project);
+    const file = join(project, ".opencode/plugins/comex-browser/server.js");
+    const previous = await readFile(file, "utf8");
+    await second.install(project);
+    const current = await readFile(file, "utf8");
+    assert.notEqual(current, previous);
+    assert.ok(current.includes("second"));
+    await writeFile(file, current + "// Personalizado\n");
+    const third = createInstalledBrowserIntegration({ configPath: join(root, "third/config.json"), workspaces: [{ path: project }] });
+    try { await assert.rejects(third.install(project), /No se sobrescribió/); }
+    finally { await third.close(); }
+    assert.equal(await readFile(file, "utf8"), current + "// Personalizado\n");
+  } finally { await first.close(); await second.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test("browser tools use the engine's session, forward attachments and reject foreign endpoints or projects", async () => {
   const root = await mkdtemp(join(tmpdir(), "comex-browser-plugin-"));
   const descriptor = join(root, "descriptor.json");

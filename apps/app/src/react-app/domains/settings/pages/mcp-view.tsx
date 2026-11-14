@@ -2120,6 +2120,27 @@ export function McpView(props: McpViewProps) {
           {!props.allowManageExtensions ? <p className="mb-5 text-sm text-muted-foreground">{manageExtensionsDisabledReason()}</p> : null}
         </>}
         catalog={<div className="space-y-10">
+          <section>
+            <h3 className="mb-5 text-sm font-medium">Catálogo sugerido de skills</h3>
+            <p className="mb-4 text-sm text-muted-foreground">Packs de alto valor para precargar. No consumen nada hasta que los instalás. Cloná el repo y luego usá “Elegir carpeta” para importarlo.</p>
+            <div className="grid gap-x-12 gap-y-4 xl:grid-cols-2">
+              {[
+                { name: "Impeccable", description: "Diseño UI/UX, auditoría visual y eliminación de “AI slop”.", url: "https://github.com/pbakaus/impeccable" },
+                { name: "Anthropic Skills", description: "Colección oficial de Anthropic (documentos, MCP builder, frontend-design, etc.).", url: "https://github.com/anthropics/skills" },
+                { name: "Superpowers", description: "Flujos completos de ingeniería de software (TDD, debugging, arquitectura).", url: "https://github.com/obra/superpowers" },
+                { name: "Vercel Agent Skills", description: "Buenas prácticas de React, Next.js y despliegue.", url: "https://github.com/vercel-labs/agent-skills" },
+              ].filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase())).map(item => <ExtensionCard
+                key={item.url}
+                name={item.name}
+                description={item.description}
+                iconSlug="skill"
+                url={item.url}
+                connected={false}
+                onClick={() => { void navigator.clipboard?.writeText(`git clone ${item.url}`); }}
+                trailing={<Button variant="ghost" size="sm" onClick={() => { void navigator.clipboard?.writeText(`git clone ${item.url}`); }}>Copiar comando</Button>}
+              />)}
+            </div>
+          </section>
           {connectorPresets.length > 0 ? <section>
             <h3 className="mb-5 text-sm font-medium">Disponibles para conectar</h3>
             <div className="grid gap-x-12 gap-y-4 xl:grid-cols-2">

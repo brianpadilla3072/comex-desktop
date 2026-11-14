@@ -2,6 +2,9 @@
 export type CompanionSnapshot = {
   target: string;
   sessionId: string;
+  workspaceId?: string;
+  scope?: string;
+  responseAt?: number;
   title: string;
   project: string;
   model: string;
@@ -10,7 +13,7 @@ export type CompanionSnapshot = {
   messages: { id: string; role: string; text: string }[];
   activity: string[];
   permission: { id: string; title: string; detail: string; busy: boolean } | null;
-  question: { id: string; busy: boolean; questions: { text: string; multiple: boolean; options: string[] }[] } | null;
+  question: { id: string; busy: boolean; questions: { text: string; multiple: boolean; custom: boolean; options: string[] }[] } | null;
 };
 
 export type CompanionFile = { name: string; type: string; data: string };
@@ -22,4 +25,14 @@ export type CompanionAction =
 export type CompanionCommand = { id: string; target: string; action: CompanionAction };
 export type CompanionResult = { ok: boolean; error?: string; uncertain?: boolean };
 export type CompanionPreferences = { mascot: "sprout" | "ember" | "image"; image: string; motion: boolean; openOnHover: boolean; autoClose: number; alerts: boolean };
-export type CompanionState = { enabled: boolean; expanded: boolean; snapshot: CompanionSnapshot | null; preferences: CompanionPreferences; updatedAt: number };
+export type CompanionRecentSession = {
+  key: string;
+  workspaceId: string;
+  sessionId: string;
+  title: string;
+  status: "idle" | "waiting" | "unread";
+  selected: boolean;
+  responseAt: number;
+  readAt: number;
+};
+export type CompanionState = { enabled: boolean; visible?: boolean; connected: boolean; expanded: boolean; snapshot: CompanionSnapshot | null; preferences: CompanionPreferences; updatedAt: number; recentSessions: CompanionRecentSession[]; recentsUpdatedAt: number };

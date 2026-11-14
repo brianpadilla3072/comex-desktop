@@ -1,13 +1,24 @@
 import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { runtimeStorageDir } from "../runtime-db.js";
 import { createV2BrowserBridge } from "../opencode-v2-browser-bridge.js";
 import type { ServerConfig } from "../types.js";
 
 const MARKER = "// Managed by Comex: installed-browser-v1\n";
-const PLUGIN_IMPORT = /import \{ installedBrowserPlugin \} from ("[^"]+")/;
+const MANAGED_SOURCE = /^\/\/ Managed by Comex: installed-browser-v1\nimport \{ installedBrowserPlugin \} from ("(?:[^"\\]|\\.)*");\nexport default installedBrowserPlugin\(("(?:[^"\\]|\\.)*")\);\n$/;
+export function isManagedBrowserSource(source: string): boolean {
+  const match = MANAGED_SOURCE.exec(source);
+  if (!match) return false;
+  try {
+    const plugin: unknown = JSON.parse(match[1]);
+    const descriptor: unknown = JSON.parse(match[2]);
+    return typeof plugin === "string" && plugin.startsWith("file://")
+      && /\/(?:installed-browser-plugin\.(?:js|ts)|installed-browser\/plugin\.mjs)$/.test(plugin)
+      && typeof descriptor === "string";
+  } catch { return false; }
+}
 export function createInstalledBrowserIntegration(config: Pick<ServerConfig, "configPath" | "workspaces">) {
   let bridge: ReturnType<typeof createV2BrowserBridge> | undefined;
   const descriptors = new Set<string>();
@@ -58,14 +69,9 @@ export function createInstalledBrowserIntegration(config: Pick<ServerConfig, "co
       try { const stat = await lstat(file); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("El puente de navegador existente no es un archivo regular."); previous = await readFile(file, "utf8"); }
       catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error; }
       if (previous !== undefined && previous !== source) {
-        // Our own marker plus a plugin path that no longer exists is a stale
-        // install from an ephemeral mount, not a person's edit: refresh it.
-        const quoted = PLUGIN_IMPORT.exec(previous)?.[1];
-        let staleMissing = false;
-        if (previous.startsWith(MARKER) && quoted !== undefined) {
-          try { staleMissing = !await existsPath(JSON.parse(quoted)); } catch { staleMissing = true; }
-        }
-        if (!staleMissing) throw new Error("Este proyecto tiene otro puente de navegador o una copia modificada. No se sobrescribió.");
+        // Exact generated wrappers may point to a still-existing older version
+        // or another profile's descriptor. Extra or altered code stays protected.
+        if (!isManagedBrowserSource(previous)) throw new Error("Este proyecto tiene otro puente de navegador o una copia modificada. No se sobrescribió.");
       }
       if (previous !== source) await writeFile(file, source, { flag: previous === undefined ? "wx" : "w", mode: 0o600 });
     })();
@@ -77,11 +83,4 @@ export function createInstalledBrowserIntegration(config: Pick<ServerConfig, "co
     await Promise.allSettled([...descriptors].map(file => writeFile(file, "{}", { mode: 0o600 })));
     if (bridge) await (await bridge.catch(() => undefined))?.close();
   } };
-}
-
-async function existsPath(fileUrl: string): Promise<boolean> {
-  try {
-    await lstat(fileUrl.startsWith("file://") ? fileURLToPath(fileUrl) : fileUrl);
-    return true;
-  } catch { return false; }
 }

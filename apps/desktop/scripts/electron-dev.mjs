@@ -2,6 +2,9 @@ import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
+import { resolveDesktopDistribution } from "../electron/desktop-distribution.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -285,7 +288,15 @@ const cdpPortRaw = process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT?.trim() ?? ""
 const cdpPort = cdpPortRaw === "" || cdpPortRaw === "0" ? "" : cdpPortRaw;
 
 const blankSlateArgs = process.argv.includes("--blank-slate") ? ["--blank-slate"] : [];
-electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs", ...blankSlateArgs], {
+const companionContext = parseFeatureEnvironment(process.env);
+const metadata = JSON.parse(readFileSync(resolve(desktopRoot, "package.json"), "utf8"));
+const distribution = resolveDesktopDistribution({ isPackaged: false, packageFlavor: metadata.openworkDistribution,
+  environmentFlavor: process.env.OPENWORK_DESKTOP_DISTRIBUTION });
+const companionEnabled = distribution.flavor === "public" && !companionContext.problems.some(problem => problem.fatal)
+  && resolveFeature("desktopCompanion", { ...companionContext, rollouts: {}, overrides: {} }).enabled;
+const platformArgs = companionEnabled && process.platform === "linux" && process.env.DISPLAY
+  && !/(?:^|\s)--ozone-platform(?:=|\s)/.test(process.env.ELECTRON_EXTRA_LAUNCH_ARGS ?? "") ? ["--ozone-platform=x11"] : [];
+electronChild = run(pnpmCmd, ["exec", "electron", ...platformArgs, "./electron/main.mjs", ...blankSlateArgs], {
   cwd: desktopRoot,
   env: {
     ...process.env,

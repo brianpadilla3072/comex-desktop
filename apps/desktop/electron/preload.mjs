@@ -155,10 +155,32 @@ try {
   desktopDistribution = null;
 }
 
+ipcRenderer.on("openwork:companion:ping", (_event, id) => ipcRenderer.send("openwork:companion:pong", id));
 contextBridge.exposeInMainWorld("__OPENWORK_COMPANION_HOST__", {
   state: () => ipcRenderer.invoke("openwork:companion:host-state"),
+  onEnabled: callback => {
+    const handler = (_event, enabled) => callback(enabled === true);
+    ipcRenderer.on("openwork:companion:enabled", handler);
+    return () => ipcRenderer.removeListener("openwork:companion:enabled", handler);
+  },
+  onView: callback => {
+    const handler = (_event, expanded) => callback(expanded === true);
+    ipcRenderer.on("openwork:companion:view-state", handler);
+    return () => ipcRenderer.removeListener("openwork:companion:view-state", handler);
+  },
   publish: value => ipcRenderer.send("openwork:companion:publish", value),
   clear: target => ipcRenderer.send("openwork:companion:clear", target),
+  recentSessions: sessions => ipcRenderer.send("openwork:companion:recents", sessions),
+  onSelectSession: callback => {
+    const handler = (_event, key) => callback(key);
+    ipcRenderer.on("openwork:companion:select-session", handler);
+    return () => ipcRenderer.removeListener("openwork:companion:select-session", handler);
+  },
+  onReadSession: callback => {
+    const handler = (_event, key, responseAt) => callback(key, responseAt);
+    ipcRenderer.on("openwork:companion:read-session", handler);
+    return () => ipcRenderer.removeListener("openwork:companion:read-session", handler);
+  },
   reply: (id, result) => ipcRenderer.send("openwork:companion:reply", id, result),
   onCommand: callback => {
     const handler = (_event, value) => callback(value);
