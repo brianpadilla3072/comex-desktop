@@ -1,0 +1,41 @@
+[
+  {
+    "id": "n1",
+    "from": "coordinator",
+    "project": "A",
+    "need": "research_competitor",
+    "context_short": "Investigar alternativas de notificación (email, push, in-app)",
+    "priority": "high",
+    "status": "resolved",
+    "claimed_by": "researcher",
+    "claimed_at": "2026-11-14T14:00:00Z",
+    "result_ref": "proyecto/entregables/n1.md",
+    "created_at": "2026-11-14T14:00:00Z"
+  },
+  {
+    "id": "n2",
+    "from": "coordinator",
+    "project": "A",
+    "need": "draft_spec",
+    "context_short": "Redactar spec del approval gate",
+    "priority": "high",
+    "status": "resolved",
+    "claimed_by": "drafter",
+    "claimed_at": "2026-11-14T14:00:00Z",
+    "result_ref": "proyecto/entregables/n2.md",
+    "created_at": "2026-11-14T14:00:00Z"
+  },
+  {
+    "id": "n3",
+    "from": "coordinator",
+    "project": "B",
+    "need": "review_spec",
+    "context_short": "Revisar spec de approval gate (cross-project)",
+    "priority": "normal",
+    "status": "claimed",
+    "claimed_by": "reviewer",
+    "claimed_at": "2026-11-14T14:00:00Z",
+    "result_ref": null,
+    "created_at": "2026-11-14T14:00:00Z"
+  }
+]

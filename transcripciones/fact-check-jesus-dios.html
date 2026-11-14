@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fact-check — How Jesus Was Turned Into a God! (Towards Eternity, Ep. 1)</title>
+<style>
+/* ====== CABEZA CONGELADA — no editar este bloque ni el <head>.
+   Los componentes disponibles y cuándo usarlos están en references/componentes.md.
+   Validar con: python3 scripts/validar_html.py borrador.html ====== */
+:root{
+  --texto:#1c1e21; --fondo:#ffffff; --suave:#5b6470;
+  --acento:#0b5c6b; --borde:#d9e2e3; --fondo-info:#eef6f8;
+  --alerta:#b4232a; --fondo-alerta:#fdf0ef;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  --ancho:840px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.6 var(--serif)}
+main,header,footer{max-width:var(--ancho);margin:0 auto;padding:0 24px}
+h1,h2,h3,h4,button,.kpi--etiqueta,.badge,nav{font-family:var(--sans)}
+a{color:var(--acento)}
+
+/* portada */
+.doc-header{padding:64px 24px 48px;text-align:center;max-width:var(--ancho)}
+.doc-header h1{font-size:2em;margin:0 0 8px;color:var(--acento)}
+.doc-header .portada-meta{color:var(--suave);font-family:var(--sans);font-size:.95em;margin-top:4px}
+
+/* jerarquía */
+main h2{font-size:1.45em;border-bottom:2px solid var(--borde);padding-bottom:6px;margin-top:2em}
+main h3{font-size:1.15em;margin-top:1.5em}
+
+/* tablas */
+.tabla-datos{border-collapse:collapse;width:100%;font-size:.95em;margin:1em 0}
+.tabla-datos th{background:var(--fondo-info);font-family:var(--sans);font-size:.9em;text-align:left}
+.tabla-datos th,.tabla-datos td{border:1px solid var(--borde);padding:8px 12px}
+.tabla-datos td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* callouts */
+.callout{border-left:4px solid var(--acento);background:var(--fondo-info);padding:12px 16px;margin:1em 0;border-radius:0 8px 8px 0;font-size:.97em}
+.callout--alerta{border-left-color:var(--alerta);background:var(--fondo-alerta)}
+.callout--fuente{border-left-color:var(--borde);background:none;color:var(--suave);font-size:.88em;font-style:italic;padding:4px 16px}
+.callout p{margin:0}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:1em 0}
+.kpi{border:1px solid var(--borde);border-radius:10px;padding:14px;text-align:center;background:#fbfdfd}
+.kpi--valor{font-size:1.5em;font-weight:700;color:var(--acento);font-family:var(--sans)}
+.kpi--etiqueta{font-size:.82em;color:var(--suave)}
+
+/* pestañas (comparar opciones/escenarios) */
+.tabs{margin:1em 0;border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+.tabs-nav{display:flex;gap:0;background:#f2f6f7;font-family:var(--sans)}
+.tabs-nav .tab{flex:0 0 auto;border:0;border-bottom:2px solid transparent;background:none;padding:10px 18px;cursor:pointer;font-size:.92em;color:var(--suave)}
+.tabs-nav .tab.activo{border-bottom-color:var(--acento);color:var(--texto);font-weight:600}
+.tab-panel{display:none;padding:16px 20px}
+.tab-panel.activo{display:block}
+
+/* colapsables */
+details{border:1px solid var(--borde);border-radius:10px;padding:0 16px;margin:0.8em 0}
+summary{cursor:pointer;font-family:var(--sans);font-weight:600;padding:10px 0;font-size:.95em}
+details[open]{padding-bottom:8px}
+
+/* código, figuras, badges */
+.codigo{background:#f5f7f8;border:1px solid var(--borde);border-radius:8px;padding:12px 16px;overflow-x:auto;font:13px/1.5 var(--mono);white-space:pre}
+.figura{margin:1.2em 0;text-align:center}
+.figura img{max-width:100%}
+.figura figcaption{font-size:.85em;color:var(--suave);font-style:italic;margin-top:6px}
+.badge{display:inline-block;background:var(--fondo-info);color:var(--acento);border:1px solid var(--borde);border-radius:99px;padding:1px 10px;font-size:.78em;font-weight:600}
+hr{border:0;border-top:1px solid var(--borde);margin:2em 0}
+
+/* acción copiar-como-prompt */
+.acciones{font-family:var(--sans);margin:1em 0}
+.copiar{background:var(--acento);color:#fff;border:0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.9em}
+.copiar:hover{filter:brightness(1.15)}
+.doc-footer{color:var(--suave);font-family:var(--sans);font-size:.85em;text-align:center;padding:32px 24px;border-top:1px solid var(--borde);margin-top:48px}
+
+/* imprimir/exportar: todo desplegado, como quedará en Word */
+@media print{
+  .tab-panel{display:block!important}
+  details{border:0}
+  .acciones,.copiar{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="doc-header"
+  data-titulo="Fact-check: ¿Cómo convirtieron a Jesús en Dios?"
+  data-subtitulo="Análisis de las afirmaciones del video de Towards Eternity (Ep. 1)"
+  data-autor="" data-materia="Historia del cristianismo primitivo y cristología" data-institucion="" data-tutor="" data-fecha="2026-11-11">
+  <h1>Fact-check: ¿Cómo convirtieron a Jesús en Dios?</h1>
+  <p class="portada-meta">Verificación de las afirmaciones del video de Towards Eternity (Ep. 1) contra la academia mayoritaria en estudios del Nuevo Testamento, cristología e historia de la iglesia · 11-nov-2026</p>
+</header>
+
+<main>
+
+<p>Este informe verifica una por una las afirmaciones fácticas del episodio 1 de la serie <em>The Forgotten Jesus</em> del canal Towards Eternity (39:48 min), titulado <em>How Jesus Was Turned Into a God!</em>. El episodio argumenta que tres creencias —Jesús es Dios, es el Hijo de Dios, y murió en la cruz por los pecados de la humanidad— fueron una deformación del mensaje original, introducida por Pablo y consumada en Nicea. La referencia para cada veredicto es la investigación académica mainstream — crítica (Ehrman, Meier, Lüdemann, Crossan) como confesional y conservadora (Wallace, Bauckham, Hurtado, Wright, Ayres) —, sin adoptar la teología del video ni la apologética cristiana.</p>
+
+<div class="callout"><p><strong>Qué se evalúa y qué no:</strong> se chequean afirmaciones históricas y textuales verificables (citas bíblicas y coránicas, cronología, hechos sobre Pablo, Nicea, la crucifixión, las fuentes islámicas). Las afirmaciones de fe de cualquier lado —que Jesús es Dios, que es solo profeta, que murió o no murió en la cruz, que el Corán es palabra divina— no son hechos comprobables por esta vía y se etiquetan como tales.</p></div>
+
+<div class="callout callout--alerta"><p>⚠ <strong>Resumen en una línea:</strong> a diferencia del Ep. 2 (que citaba datos reales y sacaba conclusiones falsas), el Ep. 1 <em>cita casi siempre con fidelidad</em> —casi todos los versículos citados existen y dicen eso— y en cambio falla en casi todas las <strong>atribuciones causales e históricas</strong>: que Lucas 18:19 "niega explícitamente" la divinidad, que Pablo "inventó la cruz" e "abolió la ley", que Nicea "decidió" que Jesús es Dios, que la crucifixión no ocurrió, que los eruditos cristianos "no supieron responder". El ratio de afirmaciones engañosas sube de 6/40 (Ep. 2) a 16/40 (Ep. 1) porque el episodio migra de la paleografía a la teología — y ahí el video no audita nada: presupone.</p></div>
+
+<h2>Cifras clave</h2>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi--valor">40</div><div class="kpi--etiqueta">Afirmaciones verificadas</div></div>
+  <div class="kpi"><div class="kpi--valor">8</div><div class="kpi--etiqueta">Exactas</div></div>
+  <div class="kpi"><div class="kpi--valor">16</div><div class="kpi--etiqueta">Exactas pero con matices</div></div>
+  <div class="kpi"><div class="kpi--valor">16</div><div class="kpi--etiqueta">Engañosas o incorrectas</div></div>
+</div>
+
+<h2>El patrón general</h2>
+
+<p>El material citacional del video es genuino: los pasajes evangélicos que se leen en voz alta (Marcos 12:29-32; Lucas 18:18-19; Marcos 13:32; Mateo 5:9; Juan 8:44; Salmo 2:7; Jeremías 31:9; Éxodo 4:22; Lucas 3:38; Hechos 14:11-13; Gálatas 2 y 5; Romanos 3:28; Santiago 2; Mateo 7:21-23; Mateo 19:16ss; Ezequiel 18:20) existen y dicen aproximadamente lo que el video lee. Lo mismo en el lado coránico (el Shemá de los milagros de Jesús en Q 3:49/5:110, el nacimiento virginal en Q 3:47/19:20, la sura 19 llamada <em>Maryam</em>). Quien revise solo las citas, le dará la razón al video en casi todo.</p>
+
+<p>La distorsión está en tres capas distintas que la del Ep. 2. <strong>Primera — las exégesis presentadas como hechos:</strong> "Jesús niega <em>explícitamente</em> ser Dios" [07:29], "no hay <em>nada</em> en la Biblia que hable de la Trinidad" [10:01], "este versículo lo dice todo" [28:20]: posiciones que la mitad del gremio exegético —incluidos los no creyentes— no sostiene, vendidas como obviedades. <strong>Segunda — el mecanismo histórico inventado:</strong> Pablo como oportunista que buscaba el poder, que "eliminó la ley de un golpe", que "inventó la cruz", y Nicea como el momento en que "decidieron que Jesús es igual al Padre". Ninguna de esas cuatro afirmaciones resiste la literatura especializada; la cronología real (credos pre-paulinos de los años 30-35, himnos pre-paulinos, ignaciano ~110, justiniano ~155) las invierte. <strong>Tercera — el cambio de tribunal a mitad de juicio:</strong> el método prometido [04:53] es "los textos, la historia y la lógica"; el paso crucial —"la crucifixión nunca ocurrió"— se funda explícitamente en "sabemos por el Corán" [33:06], una autoridad que el video ha pasado 30 minutos demostrando que no se puede usar con el lado contrario.</p>
+
+<h2>Veredicto afirmación por afirmación</h2>
+
+<h3>Bloque 1 — Jesús en el islam (introducción)</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>[03:43] No se puede ser musulmán si se rechaza la profecía de Jesús; el islam lo honra entre los mayores profetas</td><td><span class="badge">Exacta</span></td><td>Autodescripción correcta: creer en todos los profetas incl. Jesús es artículo de fe (Q 2:136; 4:163); el Corán lo llama "eminente en esta vida y en la otra" (Q 3:45) y "siervo" y "palabra" suya.</td></tr>
+    <tr><td>[03:55-04:03] El Corán habla de sus milagros: curar ciegos, resucitar muertos, nacimiento virginal de María</td><td><span class="badge">Exacta</span></td><td>Correcto: Q 3:49 y 5:110 (milagros "con permiso de Allah"), Q 3:47 y 19:19-21 (nacimiento sin padre). Nota honesta del video: los milagros son atribuidos siempre "por permiso de Dios", no por poder propio.</td></tr>
+    <tr><td>[04:05] El Corán menciona a María 34 veces; la Biblia, solo 19</td><td><span class="badge">Con matices</span></td><td>El 34 coránico es el conteo estándar de menciones nominales de Maryam. El "19 bíblico" solo vale contando las menciones explícitas de María <em>la madre de Jesús</em>: "Maria" aparece ~40 veces en el NT (hay varias mujeres llamadas María: Magdalena, de Betania, la de Cleofás...). Comparación real pero con métodos distintos por lado.</td></tr>
+    <tr><td>[04:15-04:20] El Corán protege la dignidad de María de las calumnias y nombra una sura entera en su honor</td><td><span class="badge">Exacta</span></td><td>Correcto: Q 4:156 y 19:27-28 defienden a María de la "calumnia" contra ella; la sura 19 es <em>Maryam</em>. (La calumnia que el Corán niega —la acusación de adulterio— tampoco está en los evangelios canónicos; aparece en literatura polemica tardía.)</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 2 — La Trinidad</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>[05:12-06:05] Ante el mandamiento mayor, Jesús cita el Shemá ("el Señor es uno") y no la Trinidad — "en otras palabras, yo no soy Dios"</td><td><span class="badge">Con matices</span></td><td>La cita de Marcos 12:29-32 es fiel, y es verdad que Jesús no predicó la Trinidad como fórmula (consenso: Meier). Pero "en otras palabras, yo no soy Dios" es inferencia del locutor, no texto: el interlocutor de la escena es un maestro judío que <em>tampoco</em> está negando la divinidad porque no la está discutiendo. Además el video corta la escena antes de 12:34-37, donde Jesús aprueba al escriba y luego cita el Salmo 110 aplicándolo a sí mismo ("el Señor dijo a mi Señor") — texto que la cristología primitiva hizo propio.</td></tr>
+    <tr><td>[07:04-07:10] La palabra "Trinidad" no aparece en la Biblia, ni una sola vez</td><td><span class="badge">Exacta</span></td><td>Verdadero. El término es posterior: Theophilo de Antioquía (c. 170-180) en griego, <em>Trinitas</em> en Tertuliano (c. 200). Ningún erudito serio lo discute.</td></tr>
+    <tr><td>[07:24] "Hay muchos pasajes que apuntan exactamente en la dirección opuesta" [10:01] "No hay nada en la Biblia que hable de la Trinidad"</td><td><span class="badge">Engañosa</span></td><td>Falso como descripción del contenido del libro: el video nunca menciona Juan 1:1 ("el Verbo era Dios"), Juan 8:58 con intento de lapidación, Juan 20:28 ("¡Señor mío y Dios mío!"), Filipenses 2:6-11, Colosenses 2:9, Hebreos 1:3, ni las fórmulas triples de Mateo 28:19 y 2 Corintios 13:13 — que están en TODOS los manuscritos, no son interpolaciones. Se puede discutir qué significan; no se puede decir que "no hay nada". Es una auditoría donde la evidencia del acusado no se abre.</td></tr>
+    <tr><td>[07:29-07:47] En Lucas 18:19 Jesús "niega explícitamente ser Dios"</td><td><span class="badge">Engañosa</span></td><td>"Explícitamente" es falso: es una exégesis controvertida presentada como hecho. En contexto el hombre lo llama "Maestro bueno" (título de respetabilidad rabínica, no confesión de divinidad); los comentaristas —incluidos católicos críticos como Fitzmyer y Brown— leen la réplica como rechazo del halago o como pregunta retórica que <em>deja abierta</em> más de lo que cierra. Ningún erudito serio escribe que el versículo "niega explícitamente la divinidad" porque la categoría "divinidad" del concilio de Nicea no está en la boca del interlocutor.</td></tr>
+    <tr><td>[08:19-08:43] La tentación del desierto: Satanás le pide "renunciar a su fe" — ¿eso lo convierte en Dios o en profeta?</td><td><span class="badge">Con matices</span></td><td>El relato existe (Mateo 4 / Lucas 4), pero la entrevistada lo parafrasea libremente: el texto dice "si te postras ante mí" (adoración), no "renuncia a tu fe". Su inferencia presupone lo que prueba: la teología cristiana lee justamente Hebreos 4:15 ("tentado en todo igual que nosotros") como doctrina normativa —que un hombre divino pueda ser tentado sin pecar es el modelo desde el s. IV.</td></tr>
+    <tr><td>[08:53-09:08] Marcos 13:32: "ni siquiera el Hijo sabe el día ni la hora"</td><td><span class="badge">Exacta</span></td><td>Cita fiel; la autenticidad del versículo en Marcos no está en disputa (prácticamente ningún manuscrito lo omite en Mc 13). Es un <em>crux</em> real de la cristología: los primeros concilios lo discutieron seriamente. Lo que el video omite está en la siguiente fila.</td></tr>
+    <tr><td>[09:17-09:25] "Un Dios con conocimiento limitado es lógicamente imposible; Jesús admite sus limitaciones como ser creado"</td><td><span class="badge">Con matices</span></td><td>La "lógica" es un axioma teológico, no una ley: "divinidad y humanidad no pueden coexistir en un mismo sujeto" es <em>precisamente la cuestión en debate</em>. La iglesia definió la respuesta en Calcedia (451): dos naturalezas "sin confusión y sin cambio" —y el video no la menciona ni para refutarla. Además: en el paralelo Mateo 24:36, parte de los manuscritos antiguos <em>omiten</em> "ni el Hijo" — ejemplo favorito del propio Ehrman de alteración textual motivada por doctrina (<em>The Orthodox Corruption of the New Testament</em>, 1993): si el aparato que el video admira puede borrar esa frase en Mateo por conveniencia teológica, su "knockout" en Marcos depende de que en Marcos nadie la tocó.</td></tr>
+    <tr><td>[09:33-10:04] "El único versículo trinitario de la Biblia es falso: fue añadido. Sin él, no hay nada sobre la Trinidad"</td><td><span class="badge">Engañosa</span></td><td>El dato es real (la Coma Johanneum: testimonio sólido primero en latín, en griego apenas en unos pocos manuscritos tardíos s. XIV-XV, impresa desde Erasmo 1522; las Biblias modernas la eliminaron). "El único trinitario" es falso (Mt 28:19 está en todos los manuscritos; 2 Co 13:13; Jn 1:1) y contradice al video mismo, que 2 minutos antes dijo que la Trinidad "no aparece ni una vez". El entrevistado (que no es vocero académico sino narrador) hace las dos afirmaciones sin advertir la contradicción.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 3 — Oración, Hijos de Dios y el molde pagano</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>[10:06-11:01] En Getsemaní, si Jesús es Dios, ¿a quién adora? ¿se reza a sí mismo? "Es evidente que es un profeta humano"</td><td><span class="badge">Con matices</span></td><td>La escena está bien leída (Marcos 14:33-36: postrarse, "abbá", "no mi voluntad"). El dilema es antiguo y respetable —pero la tradición lo conoce y respondió: III Concilio de Constantinopla (681) definió dos voluntades naturales en Cristo; la oración es acto de la humanidad asumida. El video ataca la versión de bolsillo ("Dios completo rezándole a sí mismo"), no la conciliar, y llama "evidente" a lo que es una opción metafísica.</td></tr>
+    <tr><td>[11:10-11:47] En la cruz Jesús perdona al ladrón y luego dice "¿por qué me has abandonado?": ¿a quién le habla?</td><td><span class="badge">Con matices</span></td><td>Las escenas existen (Lucas 23:39-43; Marcos 15:34). Dos datos que el video no dice: (a) Marcos 15:34 es una <em>cita del Salmo 22</em>, cuyo final es una confesión de que Dios respondió (22:25-32) — citar un verso de un salmo era citar el salmo entero en la memoria del oyente; (b) el video usa la crucifixión como escenario histórico real aquí… y 20 minutos después declara que no ocurrió.</td></tr>
+    <tr><td>[12:51-13:27] Ningún profeta anterior enseñó la Trinidad: "o todos malinterpretaron a Dios, o la Trinidad se inventó siglos después"</td><td><span class="badge">Con matices</span></td><td>La observación es académica: la doctrina trinitaria no es explícita en el AT ni en la predicación de Jesús (consenso, Meier). La disyuntiva es falsa: hay una tercera opción que toda teología clásica sostiene — desarrollo <em>orgánico</em> de lo implícito, no "invención" ni "todos fracasaron". El propio cristianismo tiene su mecanismo declarado (Juan 16:13: el Espíritu que guía "a toda la verdad")."Siglos después" además no cuadra con las fechas de la devolución a Jesús (ver bloque 5).</td></tr>
+    <tr><td>[14:13-16:05] El título "Hijo de Dios" no es exclusivo de Jesús: se usa para los pacificadores, Israel, David, Adán (Mt 5:9; Jn 8:44; Sal 2:7; Jer 31:9; Ex 4:22; Lc 3:38)</td><td><span class="badge">Exacta</span></td><td>Todas las citas son fieles y la observación es estándar en la literatura: "hijos de Dios" es un título plural en la Biblia (incluso "hijos del diablo" como contra-título). La teología cristiana responde con la distinción filiación "por naturaleza" vs. "por adopción/gracia" — pero el hecho textual que señala el video es real.</td></tr>
+    <tr><td>[16:07-17:03] Si "hijo" es metáfora para Adán, la iglesia lo hizo literal solo para Jesús "para encajar en una narrativa política del Imperio romano"</td><td><span class="badge">Engañosa</span></td><td>Doble error: (a) la cristología distingue filiaturas desde el NT mismo, no desde un decreto; (b) el anacronismo es demoledor: la devoción alta a Jesús como "Dios" está atestiguada <em>antes de cualquier política imperial</em> — himno de Filipenses 2:6-11 (¿años 50-60?), Juan 1:1 y 20:28 (c. 90-110), Ignacio de Antioquía llamando a Jesús "nuestro Dios" (c. 110), Justino rindiéndole culto "en el nombre del Señor" y llamándolo Dios (c. 155). Roma presionó a los cristianos para adorar al <em>emperador</em>, y murieron miles negándose. La "narrativa política del Imperio" en los años 30-110 no existe.</td></tr>
+    <tr><td>[18:29-19:40] El molde de Zeus-Danae-Perseo (dios en forma humana) explica que un mundo pagano viera a Jesús como dios; "la sociedad lo forzó a entrar en el molde de un semidiós romano"</td><td><span class="badge">Con matices</span></td><td>La mitología está bien contada. La tesis causal —que la cristología vino de los mitos grecorromanos— es un programa del s. XIX (Frazer, Price) que la investigación actual revirtió: la adoración de Jesús nació <em>dentro</em> del monoteísmo judío palestino, en la primera generación, sin mediación helenística (Hurtado, <em>Lord Jesus Christ</em>, 2003; Bauckham, <em>Jesus and the God of Israel</em>, 2008): los judeocristianos que la produccían eran los mismos que no adoraban emperadores. Y el video no aplica a sí mismo el criterio genético: el léxico ritual del islam (sala, zakat, hiyab, hasta el "sello de los profetas") también circulaba en su entorno.</td></tr>
+    <tr><td>[20:27-20:45] "En esa sociedad, aunque Jesús hubiera declarado que no era Dios, habrían encontrado la manera de verlo como tal" (con el episodio de Listra como prueba)</td><td><span class="badge">Engañosa</span></td><td>El video corta su propia cita antes del v. 14: Pablo y Bernabé rasgan sus vestidos, se lanzan a la multitud y gritan "también nosotros somos hombres como vosotros… convertíos a Dios vivo" (Hch 14:14-18) — el texto se esfuerza en <em>rechazar</em> la lectura pagana. Presentar Listra como evidencia de "absorción politeísta" sin los versículos siguientes es usar el capítulo 14 del libro que supuestamente "no es fiable" a la medida del argumento.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 4 — Pablo, el arquitecto</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>[21:35-22:30] Saulo con autoridad del sumo sacerdote: entraba en casas, arrastraba hombres y mujeres a la cárcel, aprobó la lapidación de Esteban y votaba por las ejecuciones</td><td><span class="badge">Exacta</span></td><td>Fiel a Hechos 8:3 ("entrando en las casas… arrestaba a hombres y mujeres"), 22:4-5, 7:58 y 26:10 ("yo… no sólo encerré… sino que votaba contra ellos"). La dramatización ("coto de caza") es del guion, pero los datos están en el texto que el video cita.</td></tr>
+    <tr><td>[22:46-23:05] Pablo se convirtió por oportunismo: "derramar sangre no apagaba el fuego", "no quería quedarse del lado perdedor, quería estar donde estaba el poder"</td><td><span class="badge">Engañosa</span></td><td>No está en ninguna fuente — ni en Hechos, ni en las cartas, ni en la historiografía: es psicología moderna de dawah vendida como "la historia". Contra el video: el movimiento al que se pasó no tenía poder alguno (él mismo narra la persecución sanedrínta; Roma lo ilegalizó hasta 313 — 250 años después de la muerte de Pablo), y lo que ganó fue naufragios, azotes y (tradición unánime) decapitación. El móvil del ascenso al poder requiere que la religión convertida en "ganadora" existiera cuando él se convirtió: no existía.</td></tr>
+    <tr><td>[23:09-23:30] "Pablo nunca había visto a Jesús ni una sola vez en toda su vida", y fundó su autoridad en una visión en el camino a Damasco</td><td><span class="badge">Con matices</span></td><td>Verdadero respecto del Jesús terrenal; pero el video omite que Pablo <em>afirmó</em> haber visto al resucitado (1 Corintios 9:1; 15:8) y que esa afirmación pública —verificable y controvertida en su propio tiempo, no una leyenda posterior— es la base de su autoridad. Un historiador escéptico puede juzgar la visión ilusoria; no puede consignar como hecho que "no vio a Jesús" sin registrar la afirmación que el propio Pablo deja en 1 Corintios.</td></tr>
+    <tr><td>[23:33-23:54] Para hacer la religión atractiva a las masas, Pablo "simplemente las eliminó todas de golpe": circuncisión, normas, prohibiciones</td><td><span class="badge">Engañosa</span></td><td>Falso en los hechos: Pablo liberó a los <em>gentiles</em> de la ley ritual (Gálatas; Romanos 14) pero vivió como judío observante de la Torá (Hechos 21:24-26; circuncidó a Timoteo, Hch 16:3) y mantuvo los mandamientos morales (Rom 13:9). "Todas de golpe" es la caricatura: el proceso fue de décadas, negociado con la iglesia de Jerusalén (Hch 15; Gal 2), y el borrón y cuenta nuevo completo lo hizo Marción a mediados del s. II — y la iglesia lo rechazó como hereje, que es exactamente lo contrario de "la versión de Pablo ganó".</td></tr>
+    <tr><td>[23:58-24:23] Pablo "introdujo un concepto radicalmente nuevo": Jesús murió en la cruz por los pecados de la humanidad; la cruz fue su herramienta para reemplazar las enseñanzas de Jesús</td><td><span class="badge">Engañosa</span></td><td>La tesis "Pablo inventó la expiación" cae con la cronología: el credo de 1 Corintios 15:3 —"Cristo murió por nuestros pecados según las Escrituras"— Pablo dice haberlo <em>recibido</em>, no inventarlo, y la crítica lo data en los primeros 2-3 años tras la crucifixión incluso por sus lectores más escépticos (Lüdemann —ateo confeso—: años 30-33; Funk/Jesús Seminar: "dos o tres años a lo sumo"; Crossan: inicios de los 30). Independiente de Pablo: Marcos 10:45 ("rescate por muchos") y 14:24, tradición sinóptica. La teología de la cruz es el dato más temprano del cristianismo, no la ocurrencia de un converso tardío.</td></tr>
+    <tr><td>[24:46-25:08] "La voz de Pablo se oye tan fuerte como la de Jesús en el NT"; los evangelios "se redactaron bajo la fuerte influencia de Pablo"</td><td><span class="badge">Con matices</span></td><td>Carácterización razonable sobre volumen (14 cartas pablinas vs. dichos; y las cartas son los documentos <em>más antiguos</em> del NT, ~50 d.C.). La "fuerte influencia" paulina sobre los evangelios es seria para Lucas (compañero de Pablo para gran parte de la crítica), discutible para Marcos y Mateo. Presentarlo como hecho cerrado excede lo que la literatura sostiene.</td></tr>
+    <tr><td>[25:28-26:23] Pedro y Santiago se "oponían ferozmente" a Pablo; él desestimó a los apóstoles (Gal 2:6), los acusó de hipocresía (Gal 2:11-13) y maldijo a los circuncidadores (Gal 5:12)</td><td><span class="badge">Con matices</span></td><td>Las citas son fieles y el conflicto de Antioquía es histórico. Pero "se oponían ferozmente" omite la otra mitad del mismo capítulo: Gal 2:9 registra que Santiago, Cefas y Juan "dieron a Pablo y a Bernabé la diestra de confraternidad" y reconocieron su misión a los gentiles; Hechos 15, un acuerdo. La pelea es real; el framing de guerra sin tregua entre "el Jesús original" y "el falsificador" es del guion de 2026, no de los textos.</td></tr>
+    <tr><td>[26:29-27:00] Romanos 3:28 (fe sin obras) y Santiago 2:20/26 (fe sin obras es muerta) son "dos enseñanzas opuestas conviviendo en las mismas Escrituras"</td><td><span class="badge">Con matices</span></td><td>La tensión es real y fue el gancho de la Reforma (Luther llamó a Santiago "epístola de paja" y casi lo expulsa del canon). Pero la exégesis mayoritaria hoy: no contradicen la misma proposición — Pablo niega las "obras de la ley" como marca de identidad judía (Gal 2:15-16), Santiago niega una fe sin misericordia práctica; ambos citan el mismo Abraham (Génesis 15:6). Que estén "uno al lado del otro en el mismo libro" es el argumento: correcto; que sean "opuestas" es la lectura, no el dato.</td></tr>
+    <tr><td>[27:33-27:38] "El Corán no es así en absoluto: en sus versículos solo oyes la palabra de Dios"</td><td><span class="badge">Engañosa</span></td><td>Comparación trampa: lo plural de las voces del NT es <em>género literario confesado</em> (cartas con autor, occasion, destinatarios) —no un defecto que el Corán carece de tener por decreto: el Corán canónico es la colección mediada por un solo hombre (recitación de Zayd b. Thabit según la tradición), con variantes documentadas en sus propios sunitas: códices rivales que Utmán ordenó quemar (Bukhari 4971), el texto inferior de Saná no-utmánico, las qira'at (Fatiha 1:4 malik/maliki). La "pureza de voz" coránica es un artículo de fe presentado como característica textual verificable — y es la autoridad que el video invoca justo donde más le conviene.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 5 — Nicea, la expiación y el cierre</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>[27:42-28:30] Mateo 7:21-23 ("muchos me dirán: Señor, Señor… nunca los conocí, obradores de iniquidad") es una advertencia de Jesús contra quien predicaría una fe sin leyes — leída como profecía contra Pablo</td><td><span class="badge">Engañosa</span></td><td>La cita es fiel (Mateo 7:22-23). La lectura como anti-Pablo es alegoría del video sin ningún apoyo: el pasaje habla de falsos profetas que <em>profetizan, expulsan demonios y hacen milagros</em> en el nombre de Jesús — cosas que Hechos registra de Pablo más que de nadie (Hch 16:18; 19:11-12)— y condena a los que obran "iniquidad" (anomia), término que el propio guion aplica a Pablo. El texto no nombra ni predice a Pablo; ningún lector del s. I lo leyó así. Condenar por asociación requiere olvidar que la espada corta los dos filos del mismo capítulo.</td></tr>
+    <tr><td>[28:33-29:09] "El Imperio romano decidió adoptar la versión de Pablo como religión oficial; Constantino convocó el Concilio de Nicea para unir trinitarios y unitarios"</td><td><span class="badge">Con matices</span></td><td>Mezcla dos momentos: Constantino toleró (313) y convocó Nicea (325); la religión <em>oficial</em> vino con el edicto de Tesalónica de Teodosio (380). "Trinitarios vs unitarios" proyecta categorías posteriores sobre una pelea intra-nicena (Arrio no era "unitario" moderno: para él el Logos era un ser divino supremo, criatura primera). La "versión de Pablo" como etiqueta de la fe imperial es construcción del propio video.</td></tr>
+    <tr><td>[29:12-29:28] "Allí [en Nicea] decidieron que Jesús es igual al Padre; los unitarios fueron declarados herejes y excomulgados; la historia la escriben quienes ganan las guerras políticas"</td><td><span class="badge">Engañosa</span></td><td>Es el error central del episodio, y el mismo que auditamos en el Ep. 2. Nicea no "decidió" una novedad: formalizó con <em>homoousios</em> la fe de una mayoría que ya existía (Fil 2; Jn 1; Ignacio c. 110; Justino c. 155). Ehrman —la estrella del Ep. 2— dedica <em>How Jesus Became God</em> (2014) a desmontar el mito constantiniano; Ayres (<em>Nicaea and Its Legacy</em>, 2004) es el estándar académico: la "victoria" nicena tampoco fue limpia: el partido homoeo dominó la iglesia una generación (Rímini y Seleucia, 359-360, con emperadores a favor). La leyenda "los evangelios fueron votados/dios decidido por política" es hagiografía inversa del s. XX, no historia.</td></tr>
+    <tr><td>[29:55-31:35] Objeciones lógicas a la expiación: un Dios que muere no es todopoderoso; "¿a quién pagó el precio? si a sí mismo, absurdo; si a una ley superior, esa ley es más grande que Dios"; ningún juez ejecuta al hijo inocente</td><td><span class="badge">Con matices</span></td><td>Los dilemas son respetables pero atacan una sola teoría —la sustitución penal forense, afinada en la Reforma— y las llaman "la enseñanza cristiana". La tradición tuvo al menos cuatro modelos con 16 siglos de refinamiento: rescate al diablo (Orígenes, Gregorio de Nisa — que se hicieron exactamente esta pregunta), satisfacción (Anselmo, <em>Cur Deus Homo</em> c. 1098), influencia moral (Abelardo), <em>Christus Victor</em> (Aulén, 1931); y Calcedia responde a "Dios murió": la muerte pertenece a la naturaleza humana, experimentada por la persona del Hijo. Los modelos católico y ortodoxo, mayoritarios en la cristiandad histórica, no requieren "pago a un acreedor externo".</td></tr>
+    <tr><td>[31:38-32:16] El islam: cada individuo será juzgado por sus propios pecados; responsabilidad personal (y en Ezequiel el AT dice lo mismo)</td><td><span class="badge">Exacta</span></td><td>Autodescripción correcta (Q 53:38: "ninguno cargará con la carga de otro"; Q 6:164; Ezequiel 18:20 citado con fidelidad). La observación de que la responsabilidad personal es un valor transversal es justa — lo que se discute más abajo es lo que el video omita: la shafa'a (intercesión) como dogma islámico propio.</td></tr>
+    <tr><td>[32:18-32:50] "Jesús dijo que el camino a la salvación es creencia correcta y buenas obras" (Mt 19:16ss; Ezequiel; "el AT lo dice, Jesús lo dijo, el Corán lo dice, la lógica lo dice")</td><td><span class="badge">Con matices</span></td><td>La cita de Mateo 19:16-20 es fiel — pero Jesús allí dice "guarda los <em>mandamientos</em>", no "creencia correcta + obras": ese resumen es del entrevistador. Y Ezequiel 18:20 coexiste en el mismo AT con el castigo generacional (Éxodo 20:5; 2 Samuel 24:1-17; Lamentaciones 5:7): "el AT dice X" no es un hecho, es una selección entre versículos que dice X e Y.</td></tr>
+    <tr><td>[33:06-33:14] "Sabemos por el Corán que la crucifixión nunca ocurrió realmente: Jesús no fue asesinado ni crucificado; Allah lo salvó y lo elevó"</td><td><span class="badge">Engañosa</span></td><td>El paso donde el video cambia de método: la promesa [04:53] era Biblia+historia+lógica; aquí la autoridad es el Corán ("como musulmanes sabemos"). La crucifixión bajo Poncio Pilato es uno de los hechos mejor establecidos de la antigüedad: cuádruple atestiguación evangélica, credo pre-paulino (1 Cor 15, años 30), criterios de atestiguación múltiple y vergüenza, y testimonio externo romano (Tácito, <em>Anales</em> 15.44) y Flavio Josefo (<em>Antigüedades</em> 18.3.3, núcleo admitido). Y el propio relato coránico no ofrece un sustituto histórico: los tafsires clásicos (Tabarí) <em>no se ponen de acuerdo</em> sobre a quién "se hizo parecerse" a Jesús. El video no lo muestra.</td></tr>
+    <tr><td>[33:33-33:52] "Jesús nunca dijo: esperen unos días, voy a morir, créanme muerto y resucitado; ese es el camino al paraíso". Esa teología la construyeron después</td><td><span class="badge">Engañosa</span></td><td>Falsa incluso dentro de los textos que el video usa: en los sinópticos Jesús <em>anuncia tres veces</em> su muerte y resurrección en primera persona (Marcos 8:31; 9:31; 10:33-34), Juan pone en su boca la fe sin ver como bienaventurada (Jn 20:29) y comer-su-carne como condición (Jn 6:53-56). Si esas predicciones son vaticinium ex eventu es debate académico legítimo — pero el "nunca lo dijo" categórico es negar lo que los documentos que el video cita tienen escritos.</td></tr>
+    <tr><td>[34:23-34:36] El cristiano "siempre necesita a alguien entre él y Dios: el sacerdote, el ministro; algunos rezan a la Virgen". En el islam, nadie se interpone</td><td><span class="badge">Engañosa</span></td><td>Falsa generalización + doble estándar. (~800-900 M protestantes no tienen sacerdocio mediador: sacerdocio universal y <em>sola fide</em> son su plataforma; y la teología católica distingue latría/hiperdulía — "rezar a María como diosa" es la versión callejera, no la doctrina auditada.) En el lado del video: la shafa'a es dogma — la gente del juicio final buscará intercesores por una cadena de profetas hasta Muhammad (Bukhari 4712; Muslim 194), el Corán manda buscar la "wasila" hacia Dios (Q 5:35), y la intercesión del Profeta, de los ángeles y de los santos es artículo de fe. El video prohíbe a la otra mitad lo que su propia mitad tiene por texto canónico.</td></tr>
+    <tr><td>[35:39-36:06] "La palabra cristiano significa ser como Cristo… el verdadero seguidor de Cristo es un musulmán: Jesús era musulmán y llamaba al islam"</td><td><span class="badge">Engañosa</span></td><td>Equivocación definicional: "islam" léxicamente es sumisión —en ese sentido la frase es tautológica y vacía de información; como religión histórica (Libro + profeta + sharía) no existía en el s. I y la palabra no está en el arameo de Jesús ni en el griego de los evangelios. Probar que "Jesús era musulmán" redefiniendo la palabra es exactamente el vicio que el video denuncia en el cristianismo ("convirtieron la metáfora en hecho"). Bonus: el etimón "cristiano = ser como Cristo" tampoco es filología (Χριστιανός = "perteneciente a Cristo", Hch 11:26).</td></tr>
+    <tr><td>[38:07-38:15] "Ninguno de los evangelios fue escrito por testigos presenciales… ni por las personas cuyos nombres llevan"</td><td><span class="badge">Con matices</span></td><td>Anonimato interno: consenso. Que "ninguno fue escrito por testigos presenciales" es mayoria pero no cerrada: Bauckham (<em>Jesus and the Eyewitnesses</em>, 2006/2017) defiende que la tradición de nombres conserva cadena de testigos; Hengel vinculó los evangelios a círculos apostólicos. Matices de Ep. 2 en adelante: la tesis del video es la posición estándar; la posición estándar no es una prueba de corrupción (ver Ep. 2).</td></tr>
+    <tr><td>[01:55-02:04] "Desafiamos directamente a destacados teólogos cristianos con los argumentos que van a escuchar. Sin embargo, no pudieron dar respuestas convincentes"</td><td><span class="badge">Engañosa</span></td><td>Claim empírico no verificable, sin nombre, sin fecha, sin transcripción —y falsado en detalle: los mismos argumentos tienen respuestas publicadas por exégetas de todas las confesiones (y por especialistas que no comparten ninguna de las dos tesis (Dunn, Bauckham) y no encuentran en el NT el cuadro que el video dibuja); el video cita a un ex-evangelista musulmán (Nabeel Qureshi) que <em>no</em> aparece: usó exactamente estos argumentos para el lado contrario y se hizo cristiano tras auditarlos (<em>Seeking Allah, Finding Jesus</em>, 2014). "Los desafío y callaron" es la fórmula de inmunización del género, no un dato.</td></tr>
+  </tbody>
+</table>
+
+<h2>Los seis silencios que cambian la película</h2>
+
+<ol>
+  <li><strong>Ni un solo texto pro-Trinidad analizado.</strong> El video dice usar "los textos de la Biblia" [04:53] y nunca menciona Juan 1:1, Juan 8:58, Juan 20:28, Filipenses 2:6-11, Colosenses 1:15-20, Hebreos 1:3, Mateo 28:19, 2 Corintios 13:13. Un debate de cristología sin la evidencia contraria en la mesa no es un debate: es un monólogo.</li>
+  <li><strong>Los credos pre-paulinos.</strong> 1 Corintios 15:3 y 11:23 ("lo que <em>recibí</em>, os <em>transmití</em>") datan la teología de la cruz <em>antes</em> de Pablo —años 30, aceptado por Lüdemann (ateo), Funk, Crossan, Koester—. Es justo el dato que desarma la tesis del "arquitecto". Silenciado.</li>
+  <li><strong>La cristología alta dentro del monoteísmo judío.</strong> Hurtado y Bauckham muestran devoción a Jesús como "Señor" en círculos judeocristianos palestinos en la primera generación —sin contacto con el molde de Perseo. Si la divinización necesitó a los gentiles politeístas, las fuentes dicen que no esperaron a los gentiles.</li>
+  <li><strong>Las respuestas cristianas que "no existieron".</strong> Calcedia (451) sobre las dos naturalezas, Constantinopla III (681) sobre las dos voluntades, y siglos de teoría de la expiación. El video responde a la versión de caricatura (un Dios unipersonal con cuerpo), no a la formulada — y cita "desafiaron a destacados teólogos que no supieron responder" sin una sola cita de desafío con nombre.</li>
+  <li><strong>La historia textual del Corán.</strong> Como en Ep 2: el palimpsesto de Saná (Sadeghi &amp; Goudarzi, <em>Der Islam</em> 87, 2012), los códices de Ibn Masud y Ubayy (Sadeghi &amp; Bergmann, <em>Arabica</em> 57, 2010), Utmán quemando rivales (Bukhari 4971), las qira'at canónicas. El video pide al NT un "texto único inalterado" que ni su propia Escritura puede mostrar por sus fuentes sunitas.</li>
+  <li><strong>La contracara de los convertidos.</strong> Nabeel Qureshi: apologista islámico de dawah entrenado en estos mismos argumentos que auditó el cristianismo y se convirtió <em>hacia</em> él; la literatura académica sobre conversión (Rambo, <em>Understanding Religious Conversion</em>, Yale 1993) trata el testimonio del converso como narrativa de identidad, no prueba de verdad. Los 20+ entrevistados del video son la muestra, no la evidencia.</li>
+</ol>
+
+<h2>Estructura retórica: las falacias del video</h2>
+
+<p>El video casi no falsifica citas: selecciona, enmarca y concluye. Estas son las maniobras que convierten citas verdaderas en una conclusión que las citas no sostienen, con su minuto:</p>
+
+<table class="tabla-datos">
+  <thead><tr><th>Falacia</th><th>Minuto</th><th>Cómo funciona</th></tr></thead>
+  <tbody>
+    <tr><td>Hombre de paja contra Calcedia</td><td>[09:17], [13:36-14:06], [29:55]</td><td>"Un Dios que muere/tiene hambre/ora es lógicamente imposible." La posición oficial de las tres confesiones cristianas desde 451 es exactamente que las dos naturalezas coexisten "sin confusión": la oración y la muerte son atribuidas a la persona según la naturaleza humana. El video refuta la versión que nadie con mitra sostiene.</td></tr>
+    <tr><td>Argumento de silencio del término</td><td>[07:04-07:24]</td><td>"La palabra Trinidad aparece cero veces, luego no hay nada." Simetría letal: la palabra <em>tawhid</em> —el pilar del video— tampoco aparece en el Corán (lo reconocen las propias enciclopedias islámicas; WikiShia: "the term 'tawhid' is not mentioned in the Qur'an"). Si el silencio del término condena al libro, condena a los dos; el video lo aplica uno.</td></tr>
+    <tr><td>Falacia genética</td><td>[18:29-19:40]</td><td>"La idea entró en un mundo con mitos de dioses-humanos (Perseo), luego es un préstamo falso." Origen sociológico ≠ valor de verdad. Aplicado consistentemente, acusaría también al islam: léxico y prácticas rituales preexistentes (sala, zakat, ka'ba), y la idea coránica de la "palabra" divina tiene entorno tardoantiguo documentado.</td></tr>
+    <tr><td>Falsos dilemas</td><td>[13:14-13:27], [16:47-17:00], [30:11-30:24]</td><td>"O todos los profetas fracasaron o se inventó la Trinidad" / "o el título es metáfora para todos o la iglesia lo fabricó por política" / "o el pago fue a sí mismo o a una ley sobre Dios". En cada par hay una tercera posición desarrollada por la propia tradición (desarrollo orgánico; filiatura natural vs. adoptiva; satisfacción intra-trinitaria). El dilema no es lógica, es escenografía.</td></tr>
+    <tr><td>Anacronismo como evidencia</td><td>[27:46-28:30], [28:42-29:09]</td><td>Mateo 7 leída como profecía anti-Pablo (ningún lector del s. I la leyó así); Nicea descrita con dicotomías del s. XVI ("trinitarios vs unitarios"); "narrativa política del Imperio" aplicada a los años 30-110 d.C. El video lee textos del s. I con el mapa de polemicas del s. XXI y llama "historia" a la operación.</td></tr>
+    <tr><td>Premisa cargada disfrazada de lógica</td><td>[04:57-05:02], [09:22], [14:06]</td><td>"No apagues tu lógica" + "un Dios que no sabe X es lógicamente imposible" + "nadie puede ignorar todas estas contradicciones". Las "verdades lógicas" del video son axiomas teológicos en disputa (la encarnación es la premisa en debate, no algo que se refuta asumiendo su imposibilidad). La lógica real sería: "Dado que no puedo representar ambas premisas, ¿por qué una es absurda y la otra es la evidencia?"</td></tr>
+    <tr><td>Selección de textos (cherry-picking quirúrgico)</td><td>[20:01-20:45], [12:31-12:40], [32:35-32:40]</td><td>Hechos 14 cortado antes de la protesta anti-pagana de los apóstoles (v. 14-18); Marcos 12 antes del Salmo 110 autoatribuido (v. 35-37); Ezequiel 18 sin Éxodo 20:5; Lucas 18 sin su contexto de la pregunta ("maestro bueno", no "¿eres Dios?"). El método no es leer la Biblia contra la Trinidad: es leer solo el verso que cabe en el titular.</td></tr>
+    <tr><td>Anécdota como prueba</td><td>[06:12-06:41], [11:47-12:47], [17:04-17:55], [35:16-35:45]</td><td>Más de 20 convertidos, la abuela que "no quiere hablar", el pastor que responde "solo ten fe": testimonios sin control, con sesgo de selección del canal que produce la serie. La evidencia del "islam es verdad" son personas que ya están en el canal. El caso documentado en dirección contraria (Qureshi) ni se nombra.</td></tr>
+    <tr><td>Inmunización conspirativa</td><td>[00:00-00:26], [12:20-12:47], [17:39-17:49]</td><td>El "nunca te lo contaron", el pastor que responde "eso es solo fe", la abuela asustada: cualquier negativa eclesial a la conversación se convierte de antemano en confirmación de la supresión. La objeción está vacunada; el espectador ya no puede refutar sin "confirma el patrón".</td></tr>
+    <tr><td>Equivocación por definición</td><td>[36:13-36:30]</td><td>"Islam = sumisión; Jesús se sometió; luego Jesús fue musulmán y su religión era el islam." La conclusión se prueba redefiniendo el término de la conclusión — el mismo movimiento de "hacer literal la metáfora" que el video denuncia en la iglesia. Con la misma regla, cualquier monoteísta de la historia es "musulmán", y la afirmación pierde todo contenido histórico.</td></tr>
+  </tbody>
+</table>
+
+<h2>Contradicciones internas del video</h2>
+
+<p>Siete veces el episodio se desmiente a sí mismo:</p>
+
+<ol>
+  <li><strong>"Cero menciones" vs "el único versículo trinitario" [07:07 vs 09:33].</strong> En dos minutos y medio, el video afirma que la Trinidad no aparece "ni una sola vez" en la Biblia y que existe "el único versículo trinitario". Las dos no pueden ser ciertas a la vez del mismo libro.</li>
+  <li><strong>La cruz como escena vs la cruz como ficción [10:06, 11:22, 12:01 vs 33:06].</strong> Getsemaní, el ladrón perdonado y el "Dios mío, ¿por qué me has abandonado?" se usan como historia real para los argumentos del alma; veinte minutos después la crucifixión "nunca ocurrió". Si no hubo cruz, se caen las escenas; si hubo, se cae Q 4:157. El video necesita ambas versiones según el minuto.</li>
+  <li><strong>Método prometido vs método usado [04:53 vs 33:06].</strong> "Solo usarás los textos de la Biblia, la historia y la lógica" — el único punto que no puede fundamentarse en ningún texto (que no murieron Jesús en la cruz) se funda en "sabemos por el Corán": la autoridad externa que el video acaba de pasarse media hora reprochando a la iglesia ("hicieron literal la metáfora por narrativa", "los vencedores escriben la historia").</li>
+  <li><strong>Pablo anarquista de la ley vs el versículo anti-anomia [23:52 vs 28:15].</strong> Según el video Pablo abolió las leyes de un golpe; según el video, Jesús en Mateo 7:23 condena a los "obradores de iniquidad (anomia)". En la lógica del propio episodio, el Jesús de Mateo 7 condena a los transgresores de la ley — y Pablo, descrito como su abolidor, quedaría del lado de los condenados por una razón opuesta a la que el video usa. La espada del versículo, leída literal, corta al personaje que el video arma con él.</li>
+  <li><strong>El oportunista sin "lado ganador" [22:50 vs 28:36].</strong> Pablo se pasa "al lado que estaba ganando" — pero por la propia narrativa del video, el cristianismo era perseguido por el Sanedrín (21:26-22:30) y por Roma hasta el s. IV (28:36). No había "lado del poder" al que cambiarse en los años 30; la versión coherente de "buscaba poder" exigiría que Pablo se convirtiera al sanedrinismo, que era el establishment. El móvil político es anacrónico dentro del propio guion.</li>
+  <li><strong>"El islam te deja preguntar" [12:38-12:47] vs el cierre [33:06 + 36:46-37:02].</strong> La conversión se celebra porque "el islam permite cuestionar y decir 'no entiendo'" — y el video mismo convierte en innegociables (sin argumento) la no-crucifixión, la profecía de Muhammad y "la cadena pura e ininterrumpida" de los profetas. El estándar de auditabilidad que se celebra en un lado es exactamente el que la conclusión prohibe en el otro.</li>
+  <li><strong>La Biblia no es fiable para lo propio, pero sí para lo contrario [38:19-38:26 vs todo el capitulo].</strong> El episodio cierra anunciando que el Ep. 2 probará "versículos alterados y contradicciones interminables" — y todo su caso depende de que Marcos 12, Lucas 18, Marcos 13:32, Hechos 14, Gálatas, Romanos, Santiago y Mateo 7 digan exactamente lo que acaban de decir. O el texto es corrupto (y el monoteísmo "original" no tiene dónde leerse) o es fiable (y Juan 1:1 y 20:28 tienen el mismo derecho). El video necesita el texto vivo y muerto al mismo tiempo, y usa el estado que conviene según el minuto.</li>
+</ol>
+
+<h2>El doble estándar: la auditoría que el video no aplica a su propio lado</h2>
+
+<p>Simetría mínima de la investigación honesta: los criterios del Ep. 1 aplicados a sus propias afirmaciones, con fuentes que el propio video usaría (sus episodios futuros ya auditaron el texto coránico):</p>
+
+<table class="tabla-datos">
+  <thead><tr><th>Criterio que el video exige al cristianismo</th><th>Lo que muestra su aplicación al lado islámico</th></tr></thead>
+  <tbody>
+    <tr><td>"Si una creencia es el fundamento de la religión, el libro sagrado debería estar lleno de ella" [06:43-07:07]</td><td>El término <em>tawhid</em> — el pilar del que el video habla como "puro monoteísmo" [34:19-34:22] — no aparece como palabra en el Corán (lo admiten las referencias islámicas estándar; WikiShia). Aplicar el argumento del video sería devolverle el golpe con su propio material: el fundamento nombrado tampoco "aparece".</td></tr>
+    <tr><td>"La iglesia convirtió la metáfora en hecho para encajar en una narrativa política" [16:47-17:00]</td><td>El Corán canónico es producto de decisiones políticas con destrucción de alternativas: Utmán estandarizó el mushaf y <em>ordenó quemar los códices discrepantes</em> (Bukhari 4971 — fuente sunita canónica), y las lecturas "canónicas" quedaron siete por decreto de comités humanos (Ibn Mujāhid, s. X). Mismo criterio, misma consecuencia: el "texto único" islámico también tiene historia editorial.</td></tr>
+    <tr><td>"Si Jesús es Dios, ¿a quién reza? Es lógicamente imposible" [10:06-10:48]</td><td>En la escatología del propio video: los hombres del Día del Juicio buscarán intercesores — Adán, Noé, Abraham, Moisés, Jesús… — y Muhammad se postra bajo el Trono para serle concedida la intercesión (Bukhari 4712; Muslim 194). El modelo "el creyente necesita a alguien entre él y Dios" [34:23] no se superó: se reubicó.</td></tr>
+    <tr><td>"Ningún testimonio humano basta para establecer un evento cósmico; ¿nadie estaba presente?" [Ep. 2 y aquí 23:09]</td><td>La revelación coránica: un solo hombre en una cueva, sin testigos del evento fundacional (la primera revelación), con su esposa como única fuente doméstica, transmitido por cadena de memoria. Criterio del video, aplicado con simetría, no deja en pie la "evidencia" de ninguna religión — que es exactamente lo que el video no puede admitir.</td></tr>
+    <tr><td>"El mensaje de Jesús se perdió por transmisión; solo volvió intacto con el islam" [36:06, 37:36]</td><td>El video no da ningún mecanismo verificable de la recuperación: los siglos entre "la corrupción" (s. I-IV) y la "restauración" (s. VII) son, por sus propios criterios de Ep. 2, transmisión oral y textos posteriores sin testigo. Que lo recuperado coincida con la tesis del recuperador no es evidencia; es la hipótesis nula.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout"><p><strong>Nota de simetría (la parte que también incumbe al lado cristiano):</strong> este video tiene razón en varias cosas que la predicación popular no quiere oír. La Trinidad no es una palabra bíblica; la doctrina no fue predicada explícitamente por Jesús; "hijo de Dios" es un título plural en la Escritura; la devoción imperial posterior existió y contaminó prácticas; y las teorías de la expiación más cruentas (el Dios que exige sangre) son, en efecto, opciones teológicas recientes y no el único cristianismo histórico. El defensor de "la Biblia dice Trinidad 100 veces" pierde con este video — pero con él no termina de ganar el otro lado: la evidencia de cristología alta no se anula con Nicea (la precede), Pablo no inventa la cruz (la recibe), y Mateo 19 no dice "creencia correcta". La verdad objetiva otra vez: los <em>datos</em> son compartidos y auditados; la <em>interpretación</em> del mismo paquete —¿desarrollo legítimo o corrupción?— es un juicio que cada corpus hace desde su teología, y ningún comité de manuscritos puede dirimirlo.</p></div>
+
+<h2>La verdad objetiva: qué se sabe, qué se debate, qué es fe</h2>
+
+<table class="tabla-datos">
+  <thead><tr><th>Tema</th><th>Establecido</th><th>En debate legítimo</th><th>Artículo de fe (no verificable)</th></tr></thead>
+  <tbody>
+    <tr><td>La crucifixión de Jesús</td><td>Ocurrió bajo Pilato: atestiguación múltiple, credos pre-paulinos (años 30), Tácito 15.44 y Josefo 18.3.3; criterio de vergüenza.</td><td>Detalles de la cronología y del proceso; qué entendió Jesús mismo de su muerte.</td><td>Que "no fue ni asesinado ni crucificado, sólo se les hizo parecer" (Q 4:157); que Dios sustituyó a otro.</td></tr>
+    <tr><td>Jesús y la divinidad</td><td>Jesús no predicó la fórmula trinitaria (consenso, Meier); el NT contiene textos de cristología alta (Jn 1, 20:28; Fil 2) y textos de subordinación (Mc 13:32; Lc 18:19).</td><td>Qué afirmó el Jesús histórico sobre sí mismo (¿"Hijo del Hombre" escatológico?); cómo leer las dos series de textos.</td><td>Que "Jesús es Dios" como definición conciliar (fe). Que "Jesús jamás se consideró divino" (fe inversa con el mismo estatus).</td></tr>
+    <tr><td>Pablo</td><td>Primera voz escrita del NT; apóstol a los gentiles; conflicto real con la iglesia de Jerusalén (Gal 2); vivió como judío observante; recibió tradiciones sobre la cruz que no inventó.</td><td>Cuánto del "cristianismo" es pablinesco (Sanders y la Nueva Perspectiva vs. la lectura clásica); grado de continuidad con el Jesús histórico.</td><td>Que fue un oportunista sediento de poder o un falsificador deliberado (nadie con fuentes lo sostiene).</td></tr>
+    <tr><td>Nicea y Constantino</td><td>325: concilio convocado por Constantino contra Arrio, define homoousios; no votó canon ni texto; no inventó la divinidad de Jesús (que estaba antes: Fil 2, Ignacio, Justino).</td><td>Qué presionó exactamente Constantino y qué papel jugó su teología personal; la compleja historia homoea post-Nicea.</td><td>Que la Biblia "tal como se conoce" se armó en Nicea (leyenda de Dan Brown).</td></tr>
+    <tr><td>El Corán y su preservación</td><td>Recolección y estandarización bajo Utmán con destrucción de códices rivales (Bukhari 4971); texto inferior de Saná no-utmánico (Sadeghi &amp; Goudarzi 2012); qira'at canónicas con diferencias de palabra (Fatiha 1:4); "tawhid" como término ausente del libro.</td><td>El alcance de las variantes pre-utmánicas; la datación exacta de la fijación definitiva.</td><td>Que es palabra de Dios preservada sin fisura; que su texto llega idéntico desde el cielo.</td></tr>
+    <tr><td>La comparación del video</td><td>—</td><td>Qué grado de confianza merece cada cadena de transmisión (cristiana e islámica).</td><td>"El verdadero cristiano es un musulmán; Jesús era musulmán y llamaba al islam" [35:59-36:06] — definición reordenada para que la conclusión salga ganando antes de la evidencia.</td></tr>
+  </tbody>
+</table>
+
+<p>Síntesis objetiva del episodio: el Jesús de los evangelios es un judío monoteísta que no predicó la Trinidad —eso el video lo acierta—, y también un judío cuya primera comunidad lo adoró como "Señor" dentro del monoteísmo, antes de Nicea, antes de Pablo y sin contacto con Perseo —eso el video lo omite. La crucifixión es el hecho mejor atestiguado de su vida; negarla requiere cerrar los ojos a Tácito, Josefo y el credo de 1 Corintios 15 con los mismos ojos que el video abre para citar a Ireneo. La "transformación" que el video denuncia es en parte una construcción legítima de la historia de las religiones (la doctrina desarrolló, el canon se cerró con disputas, el Imperio contaminó) y en parte una novela de tesis donde el arquitecto (Pablo), el escenario (Nicea) y el móvil (el poder) están escritos al revés de las fuentes. Un investigador honesto sale del Ep. 1 con un buen puñado de versículos bien citados y la misma certeza cero que al entrar: si el criterio es la evidencia, este episodio tampoco discrimina entre religiones — solo reordena sus preferencias con formato documental.</p>
+
+<h2>Imprecisiones menores (bonus, no computadas como engañosas)</h2>
+
+<ul>
+  <li>[21:18] El Sanedrín: Mishná Sanhedrin 1:6 dice 71 miembros, no "70 ancianos y un sumo sacerdote" como descripción estándar (la tradición es posterior al s. I; su composición real es discutida).</li>
+  <li>[18:08] DIVI F = "hijo del divinizado" (Julio César), no "hijo de Dios" a secas.</li>
+  <li>[35:39] "Cristiano" = "de Cristo/perteneciente a Cristo" (Hch 11:26), no "ser como Cristo" (eso sería "cristiforme").</li>
+  <li>[33:18] La tradición del regreso de Jesús con "muerte natural posterior" (Abu Dawud 4324) muestra un detalle que el video suaviza: el propio Jesús <em>muere</em> en la escatología islámica — la no-crucifixión queda más rara cuando el profeta vuelve y se muere igual.</li>
+  <li>[22:23-22:28] "Cada vez que se votaba para ejecutar a un creyente": Hechos 26:10 documenta "votaba contra" en ejecuciones — el video dramatiza el "siempre" sin fuente, aunque la base está.</li>
+</ul>
+
+<h2>Conclusión</h2>
+
+<p>El episodio 1 es mejor como folklore devocional que como investigación: sus citas son honestas, sus exégesis son una facción del gremio vendida como consenso, y sus cinco momentos históricos decisivos (Nicea, Pablo, la cruz como invención, la no-crucifixión, la "política imperial" de los años 30-110) están al revés o sin soporte de las fuentes. Sobre el Ep. 2 ya auditado, Ep. 1 es el "por qué" espiritual de su "evidencia": Ep. 2 mostraba un texto con historia; Ep. 1 necesita que esa historia sea un crimen, y para ello inventa un móvil (el poder), un autor (Pablo) y un jurado (Nicea) que los documentos que el propio video cita contradicen.</p>
+
+<p>Como en Ep. 2, la regla sigue siendo: el video es un buen índice de qué pasajes existen y un mal auditor de qué significan, y es peor historiador de sí mismo que de su rival — los datos que no puede tolerar (cristología alta del s. I, credos pre-paulinos, Saná y Utmán, Qureshi) son siempre los que incomodan a su tesis, nunca los que refutarían al otro lado. La "verdad objetiva" del título —volver al Jesús real— es la última cosa que el método del video permite alcanzar: quien exija del NT autoría verificable, brecha mínima, cero variantes y cero interpolaciones, no puede tomar ningún Jesús histórico de ninguna fuente. Ni del coránico.</p>
+
+<div class="callout"><p><strong>Transparencia metodológica:</strong> como en el informe del Ep. 2, todas las citas bíblicas y coránicas fueron cotejadas contra texto (NRSV/RVR y mushaf estándar); las fechas y credos, contra la literatura crítica citada; los hadices, contra sunnah.com con sus números. La diferencia de veredicto con Ep. 2 (16 engañosas vs 6) no es cambio de criterio: es que este episodio hace afirmaciones históricas duras (Pablo-oportunista, Nicea-decisor, cruz-inventada, crucifixión-negada) donde Ep. 2 hacía malabares con datos verdaderos. Todas son verificables y todas fallan: por eso sube el número.</p></div>
+
+<h2>Fuentes principales</h2>
+
+<ul>
+  <li>Citas bíblicas: cotejadas contra NRSV / Nestle-Aland 28; Juan 1:1, 8:58, 20:28; Mateo 28:19; 2 Corintios 13:13; Filipenses 2:6-11; Colosenses 1:15-20; Hebreos 1:3 — los textos ausentes del video.</li>
+  <li>Credo pre-paulino y su datación temprana (Lüdemann, Funk, Crossan, Koester — todos escépticos de la resurrección): G. Lüdemann, <em>The Resurrection of Jesus</em> (Forthcoming Fortress English ed. / SCM 1994), pp. 38, 171-172 ("within the first two years"); resumen con citas: <a href="https://en.wikipedia.org/wiki/1_Corinthians_15">1 Corinthians 15 — Wikipedia</a>; D. MacGregor, <em>JETS</em> 49/2 (2006): <a href="https://etsjets.org/wp-content/uploads/2010/06/files_JETS-PDFs_49_49-2_JETS_49-2_225-234_MacGregor.pdf">PDF</a>.</li>
+  <li>Mateo 24:36 "ni el Hijo" (omisión en manuscritos antiguos; ejemplo del propio Ehrman de alteración doctrinal): B. Metzger, <em>A Textual Commentary on the Greek NT</em> (2ª ed. 2005), nota ad loc.; nota textual NET con los manuscritos: <a href="https://www.stepbible.org/?q=version=NET2full|reference=Matt.24.36">STEP Bible</a>; B. Ehrman, <em>The Orthodox Corruption of the New Testament</em> (OUP 1993).</li>
+  <li>Cristología alta en contexto judeocristiano: L. Hurtado, <em>Lord Jesus Christ: Devotion to Jesus in Earliest Christianity</em> (Eerdmans 2003); R. Bauckham, <em>Jesus and the God of Israel</em> (Eerdmans 2008).</li>
+  <li>Nicea y su legado real (contra el mito constantiniano): L. Ayres, <em>Nicaea and Its Legacy</em> (OUP 2004); B. Ehrman, <em>How Jesus Became God</em> (HarperOne 2014), cap. final sobre Constantino.</li>
+  <li>Ignacio de Antioquía (~110) llama a Jesús "nuestro Dios": <em>Carta a los Efesios</em> 18.2; Justino (~155) sobre la adoración de Cristo junto al Padre: <em>1 Apología</em> 6.1; 13; 60-67; <em>Diálogo con Trifón</em> 48; 61.</li>
+  <li>Calcedia (451) — dos naturalezas: Definitio, ed. Schaff, <em>The Creeds of Christendom</em> vol. III (texto: https://www.ccel.org (Schaff vol. 3)). Constantinopla III (681) — dos voluntades: mismo corpus. El video no las nombra.</li>
+  <li>Aulén, <em>Christus Victor</em> (1931) — taxonomía clásica de modelos de expiación; Anselmo, <em>Cur Deus Homo</em> (c. 1098).</li>
+  <li>Pablo observante de la Torá: Hechos 16:3; 21:24-26; E.P. Sanders, <em>Paul and Palestinian Judaism</em> (Fortress 1977); M. Nanos, <em>The Mystery of Romans</em> (Fortress 1996).</li>
+  <li>Hechos 26:10 (Pablo y los votos), 8:3 (persecución doméstica), 14:11-18 (Listra con su continuación silenciada).</li>
+  <li>Crucifixión atestiguada: Tácito, <em>Anales</em> 15.44 (traducción: "Cristo… sufrió el suplicio extremo bajo Poncio Pilato"); Josefo, <em>Antigüedades</em> 18.3.3 (núcleo admitido por la mayoría crítica).</li>
+  <li>Intercesión (shafa'a) en el islam suní canónico: Sahih al-Bukhari 4712 y Sahih Muslim 194: <a href="https://sunnah.com/bukhari:4712">sunnah.com/bukhari:4712</a>; wasila: Q 5:35.</li>
+  <li>El término <em>tawhid</em> no aparece en el Corán: enciclopedias islámicas estándar (Wikishia, <em>Tawhid</em>: "Although the term 'tawhid' is not mentioned in the Qur'an"; Britannica describe tawhid como doctrina y término técnico de la teología posterior).</li>
+  <li>Transmisión del Corán (misma sección del informe Ep. 2): Sadeghi &amp; Goudarzi, <em>Der Islam</em> 87 (2012); Bukhari 4971 (quema de códices bajo Utmán); Hilali 2017.</li>
+  <li>Qureshi, <em>Seeking Allah, Finding Jesus</em> (Zondervan 2014) — conversión en dirección contraria con los mismos argumentos; Rambo, <em>Understanding Religious Conversion</em> (Yale 1993) — psicología del testimonio del converso.</li>
+  <li>Meier, <em>A Marginal Jew</em> vol. 1-4 (Yale) — Jesús no predicó la Trinidad; y los criterios aplicados a la crucifixión (vol. 1).</li>
+  <li>Mishná Sanhedrin 1:6 (los 71): <a href="https://www.sefaria.org/Mishnah_Sanhedrin.1.6">sefaria.org</a>.</li>
+</ul>
+
+<div class="callout"><p><strong>Nota:</strong> los datos de transmisión de los entrevistados no son verificables en pantalla; el video no los identifica con nombre, y sus formulaciones (especialmente el versículo trinitario "falso añadido") coinciden con el libreto popularizado por Ehrman y la polemica clásica — sin que ello implique que él participe. Las cifras de manuscritos, fechas y dataciones se mantuvieron idénticas al informe del Ep. 2 (mismas fuentes, mismos resultados). Transcripción con la que se trabajó: <code>transcripciones/jesus-fue-convertido-en-dios.md</code> — pista manual en español de YouTube, video id 4cf0si1xff4.</p></div>
+
+</main>
+
+<footer class="doc-footer">Generado como borrador HTML — exportable a Word cuando esté conforme.</footer>
+
+<script>
+/* JS mínimo del template (no tocar). Tabs + botón copiar-como-prompt. */
+document.querySelectorAll('.tabs').forEach(function (grupo) {
+  var botones = grupo.querySelectorAll('.tabs-nav .tab');
+  var paneles = grupo.querySelectorAll('.tab-panel');
+  botones.forEach(function (b, i) {
+    b.addEventListener('click', function () {
+      botones.forEach(function (x) { x.classList.remove('activo'); });
+      paneles.forEach(function (x) { x.classList.remove('activo'); });
+      b.classList.add('activo');
+      if (paneles[i]) paneles[i].classList.add('activo');
+    });
+  });
+});
+document.querySelectorAll('.copiar').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var destino = document.querySelector(btn.getAttribute('data-destino'));
+    if (!destino) return;
+    navigator.clipboard.writeText(destino.innerText).then(function () {
+      var t = btn.textContent; btn.textContent = '¡Copiado!';
+      setTimeout(function () { btn.textContent = t; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>

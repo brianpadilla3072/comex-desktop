@@ -1,0 +1,20 @@
+[
+  {
+    "project_id": "A",
+    "session_id": "s1",
+    "agent_id": "coordinator",
+    "title": "Proyecto A",
+    "status": "active",
+    "last_update": "2026-11-14T14:00:00Z",
+    "one_liner": "Investigando notificaciones + redactando spec approval gate"
+  },
+  {
+    "project_id": "B",
+    "session_id": "s2",
+    "agent_id": "coordinator",
+    "title": "Proyecto B",
+    "status": "active",
+    "last_update": "2026-11-14T14:00:00Z",
+    "one_liner": "Esperando spec de A para revisar"
+  }
+]

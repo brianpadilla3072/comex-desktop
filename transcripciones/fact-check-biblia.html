@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fact-check — Who Really Wrote the Bible? (Towards Eternity, Ep. 2)</title>
+<style>
+/* ====== CABEZA CONGELADA — no editar este bloque ni el <head>.
+   Los componentes disponibles y cuándo usarlos están en references/componentes.md.
+   Validar con: python3 scripts/validar_html.py borrador.html ====== */
+:root{
+  --texto:#1c1e21; --fondo:#ffffff; --suave:#5b6470;
+  --acento:#0b5c6b; --borde:#d9e2e3; --fondo-info:#eef6f8;
+  --alerta:#b4232a; --fondo-alerta:#fdf0ef;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  --ancho:840px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.6 var(--serif)}
+main,header,footer{max-width:var(--ancho);margin:0 auto;padding:0 24px}
+h1,h2,h3,h4,button,.kpi--etiqueta,.badge,nav{font-family:var(--sans)}
+a{color:var(--acento)}
+
+/* portada */
+.doc-header{padding:64px 24px 48px;text-align:center;max-width:var(--ancho)}
+.doc-header h1{font-size:2em;margin:0 0 8px;color:var(--acento)}
+.doc-header .portada-meta{color:var(--suave);font-family:var(--sans);font-size:.95em;margin-top:4px}
+
+/* jerarquía */
+main h2{font-size:1.45em;border-bottom:2px solid var(--borde);padding-bottom:6px;margin-top:2em}
+main h3{font-size:1.15em;margin-top:1.5em}
+
+/* tablas */
+.tabla-datos{border-collapse:collapse;width:100%;font-size:.95em;margin:1em 0}
+.tabla-datos th{background:var(--fondo-info);font-family:var(--sans);font-size:.9em;text-align:left}
+.tabla-datos th,.tabla-datos td{border:1px solid var(--borde);padding:8px 12px}
+.tabla-datos td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* callouts */
+.callout{border-left:4px solid var(--acento);background:var(--fondo-info);padding:12px 16px;margin:1em 0;border-radius:0 8px 8px 0;font-size:.97em}
+.callout--alerta{border-left-color:var(--alerta);background:var(--fondo-alerta)}
+.callout--fuente{border-left-color:var(--borde);background:none;color:var(--suave);font-size:.88em;font-style:italic;padding:4px 16px}
+.callout p{margin:0}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:1em 0}
+.kpi{border:1px solid var(--borde);border-radius:10px;padding:14px;text-align:center;background:#fbfdfd}
+.kpi--valor{font-size:1.5em;font-weight:700;color:var(--acento);font-family:var(--sans)}
+.kpi--etiqueta{font-size:.82em;color:var(--suave)}
+
+/* pestañas (comparar opciones/escenarios) */
+.tabs{margin:1em 0;border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+.tabs-nav{display:flex;gap:0;background:#f2f6f7;font-family:var(--sans)}
+.tabs-nav .tab{flex:0 0 auto;border:0;border-bottom:2px solid transparent;background:none;padding:10px 18px;cursor:pointer;font-size:.92em;color:var(--suave)}
+.tabs-nav .tab.activo{border-bottom-color:var(--acento);color:var(--texto);font-weight:600}
+.tab-panel{display:none;padding:16px 20px}
+.tab-panel.activo{display:block}
+
+/* colapsables */
+details{border:1px solid var(--borde);border-radius:10px;padding:0 16px;margin:0.8em 0}
+summary{cursor:pointer;font-family:var(--sans);font-weight:600;padding:10px 0;font-size:.95em}
+details[open]{padding-bottom:8px}
+
+/* código, figuras, badges */
+.codigo{background:#f5f7f8;border:1px solid var(--borde);border-radius:8px;padding:12px 16px;overflow-x:auto;font:13px/1.5 var(--mono);white-space:pre}
+.figura{margin:1.2em 0;text-align:center}
+.figura img{max-width:100%}
+.figura figcaption{font-size:.85em;color:var(--suave);font-style:italic;margin-top:6px}
+.badge{display:inline-block;background:var(--fondo-info);color:var(--acento);border:1px solid var(--borde);border-radius:99px;padding:1px 10px;font-size:.78em;font-weight:600}
+hr{border:0;border-top:1px solid var(--borde);margin:2em 0}
+
+/* acción copiar-como-prompt */
+.acciones{font-family:var(--sans);margin:1em 0}
+.copiar{background:var(--acento);color:#fff;border:0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.9em}
+.copiar:hover{filter:brightness(1.15)}
+.doc-footer{color:var(--suave);font-family:var(--sans);font-size:.85em;text-align:center;padding:32px 24px;border-top:1px solid var(--borde);margin-top:48px}
+
+/* imprimir/exportar: todo desplegado, como quedará en Word */
+@media print{
+  .tab-panel{display:block!important}
+  details{border:0}
+  .acciones,.copiar{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="doc-header"
+  data-titulo="Fact-check: ¿Quién escribió realmente la Biblia?"
+  data-subtitulo="Análisis de las afirmaciones del video de Towards Eternity (Ep. 2)"
+  data-autor="" data-materia="Crítica textual del Nuevo Testamento" data-institucion="" data-tutor="" data-fecha="2026-11-11">
+  <h1>Fact-check: ¿Quién escribió realmente la Biblia?</h1>
+  <p class="portada-meta">Verificación de las afirmaciones del video de Towards Eternity (Ep. 2) contra la academia mayoritaria en crítica textual y estudios del Nuevo Testamento · 11-nov-2026</p>
+</header>
+
+<main>
+
+<p>Este informe verifica una por una las afirmaciones fácticas del episodio 2 de la serie <em>The Forgotten Jesus</em> del canal Towards Eternity (34 min), titulado <em>Who Really Wrote the Bible? Christian Scholars Admit It!</em>. La referencia para cada veredicto es la investigación académica mainstream sobre el Nuevo Testamento — tanto crítica (Bart Ehrman, Raymond Brown, John Meier) como conservadora (Daniel Wallace, Craig Blomberg, Richard Bauckham, Martin Hengel) —, sin adoptar la teología del video ni la apologética cristiana.</p>
+
+<div class="callout"><p><strong>Qué se evalúa y qué no:</strong> se chequean solo afirmaciones históricas verificables (autoría, fechas, manuscritos, variantes, contradicciones). Las afirmaciones de fe de cualquier lado —que la Biblia es o no es Palabra de Dios, que el Corán está preservado, que el mensaje original de Jesús se perdió o se restauró— quedan fuera: no son hechos comprobables por esta vía.</p></div>
+
+<div class="callout callout--alerta"><p>⚠ <strong>Resumen en una línea:</strong> el video cita datos reales de la academia bíblica (anonimato de los evangelios, fechas, P52, variantes, interpolaciones célebres) pero los infla con tres operaciones sistemáticas: cifras presentadas sin su contexto, conclusiones discutidas expuestas como consenso cerrado, y omisión de toda la evidencia que apunta en la otra dirección. El salto final —"los evangelios son anónimos y tardíos, luego el texto está corrompido y la fe cristiana es infundada"— no se sigue de ninguno de los datos que lo anteceden.</p></div>
+
+<h2>Cifras clave</h2>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi--valor">40</div><div class="kpi--etiqueta">Afirmaciones verificadas</div></div>
+  <div class="kpi"><div class="kpi--valor">23</div><div class="kpi--etiqueta">Exactas</div></div>
+  <div class="kpi"><div class="kpi--valor">11</div><div class="kpi--etiqueta">Exactas pero con matices</div></div>
+  <div class="kpi"><div class="kpi--valor">6</div><div class="kpi--etiqueta">Engañosas o incorrectas</div></div>
+</div>
+
+<h2>El patrón general</h2>
+
+<p>El video no inventa su bibliografía: casi todo el material central (evangelios anónimos, composición en griego 40–70 años después de Jesús, P52 como fragmento más antiguo, prioridad de Marcos, las 7 cartas auténticas de Pablo, el final largo de Marcos y la Comma Johanneum como adiciones tardías) es efectivamente la posición de la mayoría de los especialistas en el Nuevo Testamento, creyentes y no creyentes incluidos. En ese sentido, el título "los eruditos cristianos lo admiten" no es una falsedad.</p>
+
+<p>La distorsión aparece en tres capas. <strong>Primera:</strong> las cifras. Se citan números enormes (400.000 variantes) o pequeños ("30 hojas de 112") sin decir qué cuentan, cuándo se resolvieron o qué significa cada categoría; los propios eruditos citados por el video y la caracterización estándar del campo (Ehrman, Metzger, Wallace) explican que más del 99 % de esas variantes son errores de ortografía y orden de palabras sin consecuencia textual. <strong>Segunda:</strong> lo debatido se presenta como cerrado (que ningún autor pudo estar presente en la cruz, que las 4.000 "discrepancias significativas" quedan sin resolver, que hay "más de 300 contradicciones"). <strong>Tercera:</strong> los silencios. El video omite deliberadamente la evidencia que debilita su narrativa: Papías, Marción, el Diatesarón, Ireneo citando los cuatro evangelios con nombre hacia 180 d.C., la existencia de P66/P75 hacia el año 200, y el hecho de que la crítica textual reconstruye el texto original con alta confianza precisamente porque hay tantos manuscritos.</p>
+
+<h2>Veredicto afirmación por afirmación</h2>
+
+<h3>Bloque 1 — Autoría y fechas</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>Los cuatro evangelios son anónimos: el texto interno no nombra a ningún autor</td><td><span class="badge">Exacta</span></td><td>Consenso de la academia. Los nombres están solo en los títulos, no en el cuerpo del texto.</td></tr>
+    <tr><td>Los títulos "Según Mateo/Marcos/…" fueron añadidos después</td><td><span class="badge">Exacta</span></td><td>Mayoría académica: los encabezamientos (kata Matthaion) son añadidos, probablemente de inicios del siglo II.</td></tr>
+    <tr><td>Escritos en griego koiné, lengua que Jesús no hablaba (hablaba arameo)</td><td><span class="badge">Exacta</span></td><td>Cierto. Jesús hablaba arameo (y probablemente algo de griego); ningún evangelio se conserva en arameo.</td></tr>
+    <tr><td>Marcos ~70 d.C.; Mateo y Lucas ~80-90; Juan ~90-100</td><td><span class="badge">Exacta</span></td><td>Es la datación de la mayoría crítica. Los conservadores (F.F. Bruce, D.A. Carson, Blomberg, Hengel) empujan Marcos a los años 50-60, pero son minoría en facultades seculares.</td></tr>
+    <tr><td>No había escribas siguiendo a Jesús y registrando sus dichos en el momento</td><td><span class="badge">Exacta</span></td><td>Ningún documento contemporáneo de Jesús existe; la transmisión inicial fue oral.</td></tr>
+    <tr><td>Mateo reutiliza más del 90 % del material de Marcos</td><td><span class="badge">Exacta</span></td><td>Prioridad de Marcos + material sinóptico compartido: consenso sólido desde el siglo XIX.</td></tr>
+    <tr><td>Solo 7 de los 27 libros del NT fueron escritos por sus autores atribuidos (las cartas de Pablo)</td><td><span class="badge">Con matices</span></td><td>Consenso crítico, sí, pero es lo más lejos que llega: "solo 7" es una postura de la corriente mayoritaria, no un hecho cerrado; la autoría paulina de las 7 es la parte mejor atestiguada del NT, no una excepción sospechosa.</td></tr>
+    <tr><td>Ireneo: Marcos puso por escrito la predicación de Pedro tras la muerte de este</td><td><span class="badge">Con matices</span></td><td>Ireneo (~180) efectivamente lo dice (AH 3.1.1). Recoge (no inventa) la tradición de Papías (c. 120-130, Eusebio HE 3.39), que vincula a Marcos con Pedro y a Mateo con los logia. El video cita a Ireneo como evidencia de la cadena, pero omite que Ireneo está reproduciendo tradición anterior, y omite la versión de Eusebio (HE 2.15, vía Clemente) según la cual Marcos escribió <em>mientras</em> Pedro vivía: el "tras la muerte" no es versión unánime. Tampoco decide la polisemia del término: en Ireneo puede significar muerte o partida (ya Jerónimo, De viris ill. 8, lo leyó distinto).</td></tr>
+    <tr><td>Juan 21:24 habla en tercera persona y en plural ("sabemos que su testimonio es verdadero")</td><td><span class="badge">Exacta</span></td><td>El dato textual es correcto; se lee como endoso de una comunidad al testimonio del "discípulo amado".</td></tr>
+    <tr><td>Los "alogos" del siglo II negaron la autoría joánica</td><td><span class="badge">Con matices</span></td><td>Se los conoce casi solo por una nota de Epifanio (Panarion 61, s. IV), que los describe con tendencias modalistas; a veces se asocian al rechazo del Juan y el Apocalipsis por Gayo de Roma (~200, Eusebio HE 3.28). Si formaron un grupo real se discute; en todo caso, minoría que perdió.</td></tr>
+    <tr><td>Los evangelios se formaron tras décadas de transmisión oral</td><td><span class="badge">Exacta</span></td><td>Ningún erudito serio lo niega. Lo que no se sigue: que la transmisión oral fuera inevitablemente distorsionadora.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 2 — Manuscritos y variantes textuales</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>P52 (fragmento de Juan, ~125-175 d.C.) es el fragmento evangelístico más antiguo</td><td><span class="badge">Exacta</span></td><td>Consenso actual. Matiz: en años recientes (Nongbua) se propuso re-datarlo hacia el s. II tardío o III, mostrando que la horquilla no es tan firme como el manual lo presenta; la datación 125-175 sigue siendo la estándar.</td></tr>
+    <tr><td>El 90 % de los papiros de los siglos II-III son fragmentos pequeños</td><td><span class="badge">Exacta</span></td><td>Cierto en lo esencial: casi todos son restos de unas pocas líneas o páginas.</td></tr>
+    <tr><td>P45 (~250 d.C.): se conservan 30 hojas de 112 originales</td><td><span class="badge">Con matices</span></td><td>Las 30 hojas son correctas; "112" no aparece en los manuales: la reconstrucción estándar (Kenyon, Metzger) estima ~110 hojas (unas 220 páginas). El punto del video (sobrevive ~27 %) se salva; el número es redondeo propio del guion.</td></tr>
+    <tr><td>Sinaí (~350) y Vaticano (~325) son los primeros evangelios completos</td><td><span class="badge">Exacta</span></td><td>Cierto: primeros códices completos del NT (Vaticano pierde algunos libros finales).</td></tr>
+    <tr><td>Existen ~5.700 manuscritos griegos del NT</td><td><span class="badge">Exacta</span></td><td>El inventario INTF/Münster cuenta ~5.800 griegos, más versiones y padres. El video redondea a la baja, no a la alta.</td></tr>
+    <tr><td>Más del 90 % de los manuscritos griegos datan de los siglos VIII-XVI</td><td><span class="badge">Exacta</span></td><td>Direccionalmente correcto: el grueso son minúsculas medievales (~3.800). El video lo usa como golpe, pero en crítica textual la abundancia tardía es ventaja, no problema.</td></tr>
+    <tr><td>Hay más de 400.000 variantes textuales</td><td><span class="badge">Exacta</span></td><td>La cifra es real (estimación 300.000-400.000, Ehrman y Wallace coinciden en la horquilla).</td></tr>
+    <tr><td>"No existen dos manuscritos idénticos"</td><td><span class="badge">Engañosa</span></td><td>Frase de efecto (viene de Metzger, la repite Ehrman): es casi verdadera contando cada detalle ortográfico de cada copia, pero sin contexto sugiere un caos que no existe — al nivel del texto sustantivo, la inmensa mayoría de los pasajes del NT no tiene disputa alguna.</td></tr>
+    <tr><td>"Las diferencias superan a las palabras del propio texto"</td><td><span class="badge">Engañosa</span></td><td>Depende exclusivamente de cómo se cuentan: una palabra deletreada distinto en 2.000 copias suma 2.000 "variantes". Los ~138.000 vocablos del griego conviven con un aparato donde el 70 % de las variantes son solo ortografía.</td></tr>
+    <tr><td>"Aun aceptando que el 99 % es inofensivo, quedan ~4.000 discrepancias significativas"</td><td><span class="badge">Engañosa</span></td><td>Doble inflado: (a) las variantes "significativas y viables" son menos del 1 % (Diálogo Ehrman-Wallace 2011), que Wallace acota a ~0,25 % — unos 1.000 casos, no 4.000; (b) de esas, la gran mayoría tiene solución clara por crítica textual. El propio Ehrman afirma que ninguna doctrina central de la cristiandad depende de una variante; los dos casos con relevancia (final de Marcos, perícopa de la adúltera) no crean ninguna enseñanza nueva.</td></tr>
+    <tr><td>"El 99 % de las variantes son inofensivas" (lo dice como coartada de los eruditos)</td><td><span class="badge">Exacta</span></td><td>Es la caracterización académica estándar, presentada aquí con desprecio ("en un texto de Dios nada es menor"), que es un criterio teológico, no histórico.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 3 — Padres de la Iglesia y canon</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>En los primeros ~140 años, los escritos cristianos restantes citan poco los evangelios</td><td><span class="badge">Con matices</span></td><td>Cierto con reglas estrictas: las citas nominales explícitas abundan recién desde ~170-180. Pero hay ecos y alusiones en Clemente, Ignacio, Policarpo y el Didajé cuya identificación es debatida.</td></tr>
+    <tr><td>"Todos juntos apenas cubren el 10 % del texto evangélico actual" (primeros 150 años)</td><td><span class="badge">Con matices</span></td><td>La observación cualitativa es académica: hasta ~150 las citas identificables de los evangelios son escasas (Ehrman lo documenta en los Padres Apostólicos). Pero el número "10 %" no tiene fuente precisa, y el video lo usa para sugerir que los evangelios no circulaban, cuando justo después la evidencia se invierte: Justino (150-165) usa abundantemente material evangélico (entre ~65 citas claras y ~270 contando alusiones, según las tablas clásicas de McDowell y las reservas de Kiddle), el Diatesarón armoniza los cuatro hacia 170, e Ireneo (~180) los cita unas 626 veces con nombre (ntcannon.org).</td></tr>
+    <tr><td>La afirmación "todo el NT puede reescribirse desde los Padres" fue refutada por los eruditos</td><td><span class="badge">Exacta</span></td><td>Correcto y bien documentado (Wallace, CrossExamined 2019, Ehrman): la anécdota de Dalrymple ("salvo 11 versículos") es una leyenda de apologética del siglo XIX, no un estudio. Metzger, el erudito que sí midió esto, hablaba de "prácticamente todo el NT" usando todos los padres hasta el siglo IV, no solo los primeros.</td></tr>
+    <tr><td>Nicea (325) ocurrió antes de los primeros códices completos — con la insinuación de que los concilios fijaron el texto o el canon</td><td><span class="badge">Con matices</span></td><td>La cronología es correcta; la insinuación, falsa. Nicea no trató el canon (eso fue un proceso de los siglos II-IV, y Sinaí mismo incluye Bernabé y Hermas). La idea "Constantino creó la Biblia" es un mito popular que la academia rechaza en bloque.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 4 — Contradicciones evangélicas</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>Los evangelios difieren en orden, detalles y datos sobre los mismos hechos</td><td><span class="badge">Exacta</span></td><td>Evidente y reconocido desde Griesbach (s. XVIII); es el motivo del género "armonía de los evangelios".</td></tr>
+    <tr><td>Marcos: crucifixión a la hora 3; Juan: Jesús aún ante Pilato a la hora 6</td><td><span class="badge">Con matices</span></td><td>Los textos dicen eso, pero son dos momentos distintos (juicio vs crucifixión); "como la hora 6" en Juan 19:14 es aproximado y podría referirse al tiempo de rezo de sexta, o a cómputo romano. Tensión real, no la contradicción burda que sugiere el video.</td></tr>
+    <tr><td>Última Cena: sinópticos la comen en Pascua; Juan muere antes de la Pascua</td><td><span class="badge">Exacta</span></td><td>Es el crux cronológico más reconocido entre los especialistas (Brown, Meier lo discuten con soluciones como calendarios distintos, Jaubert, Humphreys). Dificultad genuina.</td></tr>
+    <tr><td>Judas: se ahorca (Mateo) vs cae y revienta (Hechos)</td><td><span class="badge">Exacta</span></td><td>La tensión textual es real; las armonías (colgado, la cuerda/rama cede, cae) son antiguas pero el video tiene razón en que los dos textos no cuentan lo mismo.</td></tr>
+    <tr><td>Bastón y sandalias: Marcos 6 dice que lleven; Mateo/Lucas dicen que no</td><td><span class="badge">Con matices</span></td><td>Tensión de superficie real, pero Marcos 6:8 tiene "excepto un bastón" que Mateo 10:10 y Lucas 9:3 omiten; la mayoría de comentaristas (incluidos críticos) ve reescrituras teológicas del mismo dicho, no "mentiras" incompatibles.</td></tr>
+    <tr><td>Éxodo 34:7 (castigo hasta la 3ª-4ª generación) vs Ezequiel 18:20 (el hijo no carga la culpa del padre)</td><td><span class="badge">Con matices</span></td><td>Desarrollo interno del pensamiento bíblico, sí; "contradicción legal" no tanto: Éxodo habla de consecuencias generacionales en una narrativa sobre idolatría; Ezequiel refuta un proverbio sobre juicio individual. Los propios rabinos y padres leyeron la tensión como pedagogía, no como error.</td></tr>
+    <tr><td>Noé: un par de cada animal (Génesis 6:19) vs siete pares de animales limpios (Génesis 7:2): "contradicción dentro del mismo libro"</td><td><span class="badge">Con matices</span></td><td>La tensión es real y célebre. Pero presentarla como contradicción burda es exagerar: la lectura tradicional ve en 7:2 una especificación (limpios extra para sacrificio, Gn 8:20), y la propia crítica de fuentes (J/P) la explica como doble redacción, no como "error". Queda como dificultad, no como mentira del texto.</td></tr>
+    <tr><td>"Los eruditos han encontrado más de 300 contradicciones en el AT y NT"</td><td><span class="badge">Engañosa</span></td><td>No existe ese conteo académico. El número proviene de la polémica islamo-cristiana del siglo XIX: el <em>Izhar al-Haqq</em> de Rahmatullah Kairanawi (335 errores), gestado en los debates de Ágra de 1854, primera edición en árabe 1867 (traducción parcial inglesa de C. Vicars, 1866; completa, de M. Wali Razi, Ta-Ha 1989). La literatura académica reconoce decenas de cruces hermenéuticos, y el campo completo de la armonística los discute uno a uno.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 5 — Interpolaciones célebres</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>1 Juan 5:7-8 (Comma Johanneum, fórmula trinitaria) es una adición tardía, ausente de los manuscritos griegos antiguos</td><td><span class="badge">Exacta</span></td><td>Consenso total: se documenta primero en latín (s. VI-VIII, con anterioridad en citas discutidas); al griego entra apenas en unos pocos manuscritos tardíos (s. XIV-XV) y a la edición impresa con Erasmo en 1522. La NIV y todas las modernas la omiten.</td></tr>
+    <tr><td>La perícopa de la adúltera (Juan 7:53-8:11) no está en los manuscritos más antiguos</td><td><span class="badge">Exacta</span></td><td>Cierto (ausente en P66, P75, Sinaí, Vaticano; situada en Lucas en el cursivo 1333). Matiz: varios eruditos la consideran historia oral auténtica tardíamente insertada, no "falsificación".</td></tr>
+    <tr><td>El final largo de Marcos (16:9-20) falta en los manuscritos más antiguos; Marcos terminaba en 16:8</td><td><span class="badge">Exacta</span></td><td>Consenso mayoritario que el original terminaba en 16:8. Matiz: sí existen manuscritos completos que terminan ahí — Sinaítico y Vaticano cierran Marcos en 16:8, y Vaticano deja un espacio en blanco tras el versículo —, pero todos los manuscritos griegos posteriores contienen el final largo y unos pocos testigos añaden un "final breve" alternativo. Que el original concluyera en 16:8 (frase terminando en γάρ) es posición fuerte pero discutida (Bell, Gardner, Edwards).</td></tr>
+    <tr><td>"Hijo de Dios" en Marcos 1:1 falta en algunos manuscritos antiguos</td><td><span class="badge">Exacta</span></td><td>Cierto (Sinaí*, A*, D, versiones), pero la crítica textual lo retiene como original casi unánimemente: los copistas omitían, no inventaban cristologías que contradicen el resto de Marcos.</td></tr>
+  </tbody>
+</table>
+
+<h3>Bloque 6 — Conclusiones presentadas como hechos</h3>
+
+<table class="tabla-datos">
+  <thead><tr><th>Afirmación del video</th><th>Veredicto</th><th>Qué dice la evidencia</th></tr></thead>
+  <tbody>
+    <tr><td>"Ninguno de los que relataron estas palabras estuvo realmente presente en la crucifixión"</td><td><span class="badge">Engañosa</span></td><td>El video lo afirma como hecho probado cuando es una inferencia disputada. Juan 19:35 y 21:24 reclaman explícitamente testimonio ocular; para la corriente (Bauckham, <em>Testigos oculares</em>, 2006) los evangelios se apoyan en testigos nombrables. La posición anónima es mayoritaria; la "certeza" del video, no.</td></tr>
+    <tr><td>"Los eruditos admiten que la Biblia no es un libro perfecto, luego no es confiable como guía de vida"</td><td><span class="badge">Engañosa</span></td><td>Dos errores: (a) los entrevistados (Ehrman, Crossan, Price) son una vertiente; la mitad conservadora del campo ("la Biblia no tiene errores" vs "es infalible textualmente") también es "académica". (b) La conclusión escapa de cualquier dato mostrado: que el texto tenga historia de transmisión humana no demuestra que "el mensaje de Jesús fuera cambiado"; como mucho, que hay que estudiar el texto con las herramientas de siempre.</td></tr>
+  </tbody>
+</table>
+
+<h2>Los tres silencios que cambian la película</h2>
+
+<p>El video acumula datos ciertos hacia una conclusión, pero la evidencia que apunta en sentido contrario no aparece en ningún momento. Las omisiones más cargosas:</p>
+
+<ul>
+  <li><strong>Papías (~110-130).</strong> Primera fuente (en fragmentos) que vincula Marcos con Pedro y Mateo con los logia, recogida con reservas por Eusebio (HE 3.39). Su ausencia en el video es sistemática (el video cita a Ireneo en el siglo II pero nunca a la tradición que Ireneo está reproduciendo).</li>
+  <li><strong>Marción y el Diatesarón (~140-170).</strong> Marción usaba Lucas como escritura; el Diatesarón de Tatiano (Edesa, ~170) armoniza material de los cuatro evangelios. Dos documentos fechables antes de 175 que ya presuponen los cuatro evangelios como bloque, usados en tres regiones distintas (Roma, Edesa, Egipto).</li>
+  <li><strong>Ireneo (~180) nombrando a los cuatro evangelios.</strong> El video deja pasar su propia cita: Ireneo no solo los cita 600+ veces, sino que argumenta en <em>Contra las Herejías</em> 3.1.1-2 que <strong>deben ser exactamente cuatro</strong>, con sus autores tradicionales. Ese es el punto de llegada del anonimato: la atribución estaba fija y se defendía como artículo de fe a fines del s. II.</li>
+  <li><strong>P66 y P75 (~175-225).</strong> El video menciona P45 (c. 250) pero ignora que Juan (P66) y Lucas+Marcos (P75) ya existían en papiros casi continuos hacia ~200 d.C., en Egipto, lejos de cualquier "comité" que pudiera manipularlos. Y los papiros no son "distintas biblias": su texto es sustancialmente el mismo que el texto crítico que se imprime hoy.</li>
+  <li><strong>La reconstrucción del texto.</strong> El video cierra con la cifra de 400.000 variantes como si el texto original fuera indecidible. Los métodos de la crítica textual (colación, familias, versiones, padres) sí deciden: la edición crítica (NA28/UBS5) es el resultado, y sus aparatos muestran que los casos sin consenso son unas decenas en todo el NT. La propia confesión de Metzger —"prácticamente todo el NT puede reconstruirse desde las citas patrísticas"— queda cortada.</li>
+  <li><strong>La comparación de escala.</strong> Ninguna obra de la antigüedad tiene transmisión comparable (Homero: ~1.900 manuscritos pero tardíos; Tácito: 2; Josefo: ~250 griegos). "Decenas de miles de copias y un acuerdo masivo" es la situación textual del NT; sin ese marco, las cifras suenan a crisis cuando son una ventaja.</li>
+</ul>
+
+<h2>El salto lógico final</h2>
+
+<p>La arquitectura retórica del video es la siguiente: una premisa académica (los evangelios son anónimos y tardíos) + una concesión académica (hay miles de variantes, algunas interpolaciones) + una conclusión teológica ajena a las premisas (el cristianismo perdió el mensaje puro de Jesús y el islam lo restauró). Las dos primeras partes son verificables y en lo esencial ciertas; la tercera no se sigue de ellas para nadie que no acepte de antemano que "la inspiración divina exige transmisión sin variantes ortográficas". Los eruditos citados (Ehrman, Crossan) sí pasan al escepticismo, pero por premisas filosóficas (naturalismo), no por los manuscritos: el mismo Ehrman reconoce que ninguna doctrina central depende de una variante (aunque él documente, en <em>The Orthodox Corruption of the New Testament</em>, cambios de copistas motivados por polémicas teológicas). Esa distinción entre "el texto tuvo historia" y "el mensaje está corrompido" es exactamente el punto donde el título ("¡los eruditos lo admiten!") hace todo el trabajo persuasivo.</p>
+
+<h2>Estructura retórica: las falacias del video</h2>
+
+<p>El video no falsifica datos: selecciona, enmarca y concluye. Estas son las maniobras lógicas que convierten premisas verdaderas en una conclusión que las premisas no sostienen, con su minuto:</p>
+
+<table class="tabla-datos">
+  <thead><tr><th>Falacia</th><th>Minuto</th><th>Cómo funciona</th></tr></thead>
+  <tbody>
+    <tr><td>Falso dilema</td><td>[08:08–08:30]</td><td>"Si Dios es perfecto, su libro es perfecto; la Biblia no es perfecta, luego no viene de Dios." Equivoca "perfección": ninguna teología seria (católica, ortodoxa, protestante clásica) define la inspiración como dictado con transmisión física impecable. Se refuta una caricatura fundamentalista como si fuera la posición cristiana estándar.</td></tr>
+    <tr><td>Hombre de paja</td><td>[15:12–15:37]</td><td>"Tuvieron que crear un relato de autoridad divina" — presenta la doctrina de la inspiración como una coartada desesperada. Los modelos de inspiración (inclusión del proceso humano, género literario, canon como discernimiento comunitario) existían antes del siglo IV; nadie "inventó la excusa" después del hecho.</td></tr>
+    <tr><td>Analogía falsa del teléfono</td><td>[01:41–01:57]</td><td>Trata la cultura oral del siglo I como un juego infantil de susurros. La transmisión oral controlada (comunidades que retienen y corrigen, perícopas fijas, testigos vivos durante décadas) no funciona así; y la analogía, aplicada a la transmisión del Corán y del hadiz (también oral, también por cadenas de memoria), destruiría la tesis del video.</td></tr>
+    <tr><td>Argumento de ignorancia</td><td>[09:14–09:23]</td><td>"Si no sabemos quién es el autor, ¿cómo confiar en este testimonio?" No conocer al autor no implica falsedad: la historiografía usa a diario fuentes anónimas fiables (el autor de 2 Macabeos, los manuscritos de Qumrán, crónicas romanas anónimas). Anonimato ≠ incorrección.</td></tr>
+    <tr><td>Equivocación de "variante"</td><td>[01:02], [22:18–22:46], [23:50–24:05]</td><td>Salta sin aviso entre dos sentidos: "variante" como diferencia de copiado (400.000, casi todas triviales) y "variante" como manipulación doctrinal (docenas, ya detectadas por la crítica). El mismo número sirve para alarmar y para acusar.</td></tr>
+    <tr><td>Criterio ad hoc (mover el arco)</td><td>[23:16–23:34]</td><td>Si el 99 % de las variantes es inofensivo, eso es "la justificación de los eruditos"; porque "en un texto de Dios nada puede ser menor". El criterio no es histórico sino teológico: así ningún dato puede jamás significar "transmisión razonablemente estable".</td></tr>
+    <tr><td>Evidencia anecdótica como prueba</td><td>[07:55], [17:37–18:27], [21:25–21:41], [26:05–27:50]</td><td>La profesora y su pregunta, la chica de 14 años, el anticuario que perdió "versículos", el coleccionista de 300 Biblias: testimonios personales sin control. El caso del anticuario es lo opuesto a la corrupción: una KJV de 1836 "pierde" versículos cuando se la compara con ediciones modernas porque la edición moderna corrigió interpolaciones — el sistema funcionando.</td></tr>
+    <tr><td>Apelación a la emoción + encuadre conspirativo</td><td>[00:00–00:26]</td><td>"Algo impactante", "una verdad que al cristiano promedio nunca se le cuenta". Vacuna al espectador contra cualquier objeción posterior: si un cristiano corrige, confirma la conspiración del silencio.</td></tr>
+    <tr><td>Red herring (Nicea)</td><td>[03:31–03:42]</td><td>Invoca un concilio que no tocó ni el canon ni el texto; la cronología es cierta y la irrelevancia total, pero la palabra "irónicamente" hace el trabajo retórico.</td></tr>
+    <tr><td>Selección de autoridades (cherry-picking)</td><td>todo el video</td><td>Los clips de eruditos pertenecen al ala escéptico-crítica del campo (varias formulaciones coinciden con las difundidas por Ehrman; el video no los nombra en pantalla, y la atribución exacta no es verificable). La otra mitad del gremio — Metzger, Bruce, Carson, Evans, Bauckham, Dunn — no aparece ni una vez. Es como auditar un hospital citando solo a los demandantes por mala praxis.</td></tr>
+  </tbody>
+</table>
+
+<h2>Contradicciones internas del video</h2>
+
+<p>Además de falacias, el video se contradice a sí mismo en siete puntos:</p>
+
+<ol>
+  <li><strong>Autodestrucción epistémica [00:53–01:10 + 14:54–15:10].</strong> Sostiene que no podemos saber qué dijo Jesús (fuentes anónimas, brecha de décadas, miles de variantes), y en el mismo aliento afirma con certeza qué era el mensaje real: un monoteísmo simple que "un noble profeta jamás" habría mezclado con dogmas. Con sus propios criterios, esa recuperación es imposible — el mensaje "original" del video no viene de ningún manuscrito auditado, sino de una fuente del siglo VII. El escepticismo que aplica a los evangelios, aplicado a su alternativa, se traga su propia conclusión.</li>
+  <li><strong>Usa al Padre que dice no conocer [07:17–07:48 vs 03:52–04:11].</strong> Reconstruye la cadena "Marcos copia la prédica de Pedro (según Ireneo)" como evidencia de memoria no verificada; pero si Ireneo (~180) es testimonio histórico suficiente para acusar, también lo es —y con más antigüedad— para atribuir. Y el video a la vez sostiene que los Padres de los primeros 150 años casi no conocían los evangelios: entonces, ¿de dónde sacó Ireneo su información sobre Marcos?</li>
+  <li><strong>La crítica textual vale y no vale [22:18–25:59].</strong> Para declarar 1 Juan 5:7, Jn 7:53-8:11 y Mc 16:9-20 interpolaciones, el video necesita todo el aparato de la crítica textual (colación, familias, códices antiguos). Pero ese mismo aparato es el que establece que el texto transmitido es ~99 % estable. No puede usarse el método para lo uno y descalificarse para lo otro.</li>
+  <li><strong>Distingue lo auténtico de la mezcla sin criterio [14:40–14:50].</strong> Afirmación: "podemos ver exactamente cómo los dogmas irracionales se mezclaron con las verdaderas enseñanzas de Jesús". Si ninguna palabra de Jesús sobrevive en su lengua [14:35] y ningún evangelio tiene autor verificable, la operación "extraer la enseñanza pura" es la afirmación menos fundamentada del video — exactamente el tipo de movimiento que critica en los evangelistas.</li>
+  <li><strong>Certeza selectiva por evangelio [09:56–10:23 vs 11:50–11:56].</strong> A Juan lo somete a sospecha histórica total (los "Yo soy" "probablemente no los dijo"). A los sinópticos les concede tácitamente que guardan la enseñanza real. El video no explica por qué la memoria falló estrepitosamente en Juan (el último) y funcionó razonablemente en Marcos (igualmente tardío y anónimo).</li>
+  <li><strong>"Silencio absoluto" auto-refutado [13:22–13:27].</strong> "Hubo un silencio absoluto [sobre la autenticidad] durante décadas" — pero los minutos previos del propio video citan atribuciones, títulos, alogos, Ireneo, disputas: un siglo II lleno de ruido sobre exactamente el origen de esos libros. El silencio que postula es lo único que sus propias citas no dejan existir.</li>
+  <li><strong>"Supuesta crucifixión" [16:18].</strong> El adjetivo delata que el video no es una investigación histórica: la crucifixión de Jesús es uno de los hechos mejor establecidos de la antigüedad (Tacito, Anales 15.44; Josefo, Ant. 18.3.3 con núcleo generalmente admitido; criterio de vergüenza). Negarla es dogma coránico (4:157) que el video introduce como escepticismo neutral sin dar ni una razón histórica.</li>
+</ol>
+
+<h2>El doble estándar: la auditoría que el video no aplica a su propio lado</h2>
+
+<p>La regla de oro de la investigación objetiva es la simetría: los mismos criterios que se usan contra una fuente se aplican a la propia. El video exige para los evangelios: autoría verificada, brecha mínima entre hechos y manuscritos, cero variantes significativas. Llevado honestamente al Corán —con las fuentes académicas que el video cita para otros temas—, su tesis de preservación perfecta no pasa su propia prueba:</p>
+
+<table class="tabla-datos">
+  <thead><tr><th>Criterio que el video exige a la Biblia</th><th>Lo que la evidencia islámica muestra (sin que el video lo mencione)</th></tr></thead>
+  <tbody>
+    <tr><td>"Si Dios protegiera su libro, ¿no tendríamos un único texto?" [23:50]</td><td>La tradición islámica auténtica (Bukhari 4971) documenta que Utmán estandarizó el texto y <em>ordenó quemar los códices discrepantes</em>. La unidad del texto coránico es el resultado de una centralización editorial con destrucción de rivales: exactamente el escenario de "alteración" que el video denuncia en el cristianismo. Ibn Masud y Ubayy b. Ka'b tenían códices con diferencias reportadas en la propia literatura islámica; en evidencia física, el único texto confirmado no-utmánico es el inferior de Saná, y los primeros manuscritos (Birmingham, Parisino-Petropolitanus) difieren en detalles menores del texto estandarizado posterior.</td></tr>
+    <tr><td>"No hay un solo versículo en el que todos los manuscritos coincidan" [22:10]</td><td>El palimpsesto de Saná (Ṣanʿāʾ 1): el texto inferior (datado ~650–670 d.C., a menos de 50 años de la muerte de Mahoma en 632) es <em>no-utmánico</em>, con cientos de variantes — varias coinciden con las lecturas reportadas de los códices de los Compañeros, otras con ninguna tradición conocida (Sadeghi &amp; Goudarzi, Der Islam 87, 2012). Y las siete lecturas coránicas canónicas admiten diferencias con palabra incluida: Fatiha 1:4 se lee canónicamente "malik" (rey) o "maliki" (dueño) del día del juicio.</td></tr>
+    <tr><td>"40 años de brecha es demasiado" [00:38]</td><td>El Corán fue estandarizado bajo Utmán ~20 años después de Mahoma, y varios especialistas (Sadeghi, Hilali) sitúan la fijación ortográfica definitiva en época omeya (~680-690, unos 60 años después). Los primeros manuscritos (Birmingham: radiocarbono 568–645 d.C.) ya son de tipo utmánico. Por escala de brecha, la transmisión coránica es <em>más rápida</em> que la cristiana — lo cual es honesto decirlo a favor del Corán — pero el "texto único inalterado desde el cielo" no es un dato verificable: es un artículo de fe que el video presenta como conclusión de la evidencia.</td></tr>
+    <tr><td>"¿Qué tan buena era la memoria de los narradores?" [13:15]</td><td>El islam respondió a esta pregunta sobre sus propias fuentes — con la ciencia del hadiz y sus cadenas (isnad), y clasificó miles de cadenas como débiles o fabricadas. Conceder que la memoria requiere auditoría y luego eximir a la propia Escritura de esa auditoría es el doble estándar que el video no puede sostener sin contradecirse.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout"><p><strong>Nota de simetría (la parte que también incumbe al lado cristiano):</strong> la verdad objetiva no sale "ganando el cristianismo" tampoco. Las objeciones del video tienen base real contra la apologética popular: los evangelios <em>son</em> anónimos, las fechas <em>son</em> tardías, el griego <em>no</em> es la lengua de Jesús, hay interpolaciones <em>reales</em> que las Biblias populares arrastraron siglos (KJV). La inerrancia verbal de las copias nunca fue doctrina cristiana universal ni histórica. Quien defiende la Biblia como dictado físico inmaculado juega en la cancha que el video armó; y quien defiende al Corán como preservación sin fisuras hace lo propio con la suya. La asimetría real está entre el <em>dato</em> (estable, auditado, corregible) y la <em>providencia textual</em> (fe, no verificable en ningún sentido de la palabra) — y el video usa el primero para vender la segunda.</p></div>
+
+<h2>La verdad objetiva: qué se sabe, qué se debate, qué es fe</h2>
+
+<table class="tabla-datos">
+  <thead><tr><th>Tema</th><th>Establecido</th><th>En debate legítimo</th><th>Artículo de fe (no verificable)</th></tr></thead>
+  <tbody>
+    <tr><td>Autoría de los evangelios</td><td>Anónimos en su forma actual; títulos añadidos después; tradición posterior (Papías, Ireneo) los vincula a Marcos/Pedro, Mateo, Lucas y el discípulo amado.</td><td>Qué valor histórico tienen esas vinculaciones (Bauckham vs. Ehrman); qué papel jugó la comunidad joánica.</td><td>Que fueron dictados por apóstoles testigos en todo su detalle.</td></tr>
+    <tr><td>Fechas</td><td>Marcos ~65-75, Mateo/Lucas ~80-95, Juan ~90-110 (consenso).</td><td>¿Marcos antes de 70? ¿Juan más temprano?, los fragmentos y los debates de paleografía.</td><td>—</td></tr>
+    <tr><td>Transmisión del texto</td><td>~5.800 testigos griegos; texto crítico estable en >99 %; interpolaciones célebres detectadas (Comma, adúltera, final de Marcos, Hijo de Dios en Mc 1:1).</td><td>La lectura original de Mc 16: ¿8, final largo o "final breve"?, más decenas de casos puntuales.</td><td>"El mensaje de Jesús fue corrompido" — no se sigue de ningún dato del video, ni del propio Ehrman.</td></tr>
+    <tr><td>Jesús histórico</td><td>Bautizado por Juan; crucificado bajo Pilato; seguidores con experiencias que interpretaron como resurrección; predicador del Reino en parábolas y dichos arameos.</td><td>Qué dichos son ipsissima verba; cronología de la Última Cena; alcance de sus afirmaciones mesiánicas.</td><td>Que era Dios, que era solo profeta, que el Hijo unigénito, que fue "el musulmán".</td></tr>
+    <tr><td>Corán</td><td>Recolección bajo Utmán con estandarización y destrucción de códices; variantes tempranas atestiguadas (Saná, códices de Compañeros, qira'at canónicas).</td><td>El proceso exacto de canonización; alcance de las variantes pre-utmánicas.</td><td>"Preservado letra por letra sin intervención humana".</td></tr>
+    <tr><td>La comparación del video</td><td>—</td><td>Qué grado de confianza merece cada cadena de transmisión.</td><td>"Toda investigación honesta conduce al Corán" [28:13–28:21] — la premisa es fe, y el "resultado" está puesto antes de la investigación.</td></tr>
+  </tbody>
+</table>
+
+<p>La síntesis objetiva queda así: los evangelios son documentos humanos, anónimos y tardíos, de transmisión notablemente estable y con adiciones detectables; ni el "dictado inerrante de las copias" ni "la Biblia corrompida hasta perder el mensaje" son conclusiones que la evidencia soporte — el video, con su título y su cierre, vende la segunda fe con los datos de la primera. Un investigador honesto sale de estos 34 minutos sabiendo más sobre crítica textual del NT y exactamente tan lejos de "el Corán" como entró: los datos que presenta el video no discriminan entre religiones; solo describen un texto antiguo con historia.</p>
+
+<h2>Conclusión</h2>
+
+<div class="callout"><p><strong>Balance (tras re-verificación):</strong> de 40 afirmaciones verificadas, 23 son correctas (el esqueleto académico del video es real), 11 son verdades con matices que el video presenta como cerradas, y 6 son engañosas o incorrectas: se concentran en los números inflados sin contexto ("4.000 significativas", "no hay dos idénticas"), la atribución del conteo de contradicciones a "los estudiosos", y las dos conclusiones finales. Un espectador que salga del video pensando "la Biblia fue corrompida" habrá aprendido una tesis que sus propias fuentes citadas no sostienen; si sale pensando "los evangelios no los escribió un testigo ocular", coincide con la mayoría académica… pero con un mapa bastante incompleto de por qué, y hasta dónde llega ese "por qué".</p></div>
+
+<h2>Fuentes principales</h2>
+
+<ul>
+  <li>B. Ehrman &amp; D. Wallace, <em>The Reliability of the New Testament: Bart D. Ehrman and Daniel B. Wallace in Dialogue</em>, ed. R. Stewart (Fortress Press, 2011), horquilla de variantes y categorías "meaningful/viable": <a href="https://ms.fortresspress.com/downloads/0800697731Chapter1.pdf">PDF del cap. 1</a></li>
+  <li>D. Wallace, <em>Misquoting Jesus? — A JETS Review</em> (2006): <a href="https://etsjets.org/wp-content/uploads/2010/06/files_JETS-PDFs_49_49-2_JETS_49-2_327-349_Wallace.pdf">PDF</a></li>
+  <li>INTF Münster, <em>New Testament Virtual Manuscript Room</em> (inventario 5.800+ griegos): <a href="https://ntvmr.uni-muenster.de/community-ntvmr/list-all-greek-manuscripts">ntvmr.uni-muenster.de</a></li>
+  <li>Chester Beatty Papyri / <em>Papyrus 45</em>: <a href="https://en.wikipedia.org/wiki/Papyrus_45">P45 — Wikipedia</a></li>
+  <li>Proyecto Codex Sinaiticus (British Library): <a href="https://codexsinaiticus.org">codexsinaiticus.org</a></li>
+  <li>Desarrollo del canon e Ireneo (~180, 626 citas de los evangelios): <a href="http://www.ntcanon.org/Irenaeus.shtml">ntcanon.org/Irenaeus</a></li>
+  <li>Dalrymple "11 versículos": trazado histórico en <a href="https://crossexaminedblog.com/2019-06-10/can-we-reconstruct-the-new-testament-from-the-writings-of-church-fathers">Cross Examined (2019)</a> y <a href="https://ehrmanblog.org/can-we-reconstruct-the-entire-new-testament-from-quotations-of-the-church-fathers">Bart Ehrman Blog (2019)</a></li>
+  <li>Papías, Ireneo 3.1.1, Marción, Diatesarón: Metzger &amp; Ehrman, <em>The Text of the NT</em> (4ª ed., 2005) y Ehrman, <em>Lost Christianities</em> (2003).</li>
+  <li>Crucifixión atestiguada: Tácito, <em>Anales</em> 15.44 ("su suplicio fue el último; lo ejecutó uno de nuestros procuradores, Poncio Pilato" — en traducción, no en latín, para no parafrasear la lengua original); Josefo, <em>Antigüedades</em> 18.3.3 (núcleo admitido por la mayoría crítica); el negarla (Q 4:157) es teología coránica, no historia.</li>
+  <li>Palimpsesto de Saná y códices pre-utmánicos: B. Sadeghi &amp; M. Goudarzi, "Ṣanʿāʾ 1 and the Origins of the Qurʾān", <em>Der Islam</em> 87 (2012) 1–129; A. Hilali, <em>The Sanaa Palimpsest</em> (Oxford, 2017); B. Sadeghi &amp; U. Bergmann, "The Codex of a Companion of the Prophet", <em>Arabica</em> 57 (2010). PDF: https://bible-quran.com/wp-content/uploads/2013/01/Sadeghi-Goudarzi-sana-Origins-of-the-Quran.pdf
+  </li>
+  <li>Quema de códices bajo Utmán: <em>Sahih al-Bukhari</em> 4971 (tradición islámica canónica, no fuente polémica externa).</li>
+  <li>Catálogo polémico "335 errores": R. Kairanawi, <em>Izhar al-Haqq</em> (árabe 1867; Vicars 1866 parcial; Wali Razi, Ta-Ha 1989): https://www.emaanlibrary.com/wp-content/uploads/2015/04/Kairanvi-Kairanawi-Izhar-ul-haq-or-Truth-Revealed-Part-2-1864-1989.pdf</li>
+  <li>Lecturas canónicas variantes (qira'at) en Fatiha 1:4: cualquier mushaf con Hafs vs. Warsh/Duri; describen los propios manuales de las ʿulūm al-qurʾān.</li>
+</ul>
+
+<div class="callout callout--fuente"><p>Fuentes: consulta web de nov-2026 sobre literatura académica citada (Ehrman, Wallace, Metzger, INTF) y registros de manuscritos; veredictos del autor del informe. El video analizado: Towards Eternity, "Who Really Wrote the Bible?" Ep. 2, YouTube, id 0qSnaX5RmAc.</p></div>
+
+</main>
+
+<footer class="doc-footer">Generado como borrador HTML — exportable a Word cuando esté conforme.</footer>
+
+<script>
+/* JS mínimo del template (no tocar). Tabs + botón copiar-como-prompt. */
+document.querySelectorAll('.tabs').forEach(function (grupo) {
+  var botones = grupo.querySelectorAll('.tabs-nav .tab');
+  var paneles = grupo.querySelectorAll('.tab-panel');
+  botones.forEach(function (b, i) {
+    b.addEventListener('click', function () {
+      botones.forEach(function (x) { x.classList.remove('activo'); });
+      paneles.forEach(function (x) { x.classList.remove('activo'); });
+      b.classList.add('activo');
+      if (paneles[i]) paneles[i].classList.add('activo');
+    });
+  });
+});
+document.querySelectorAll('.copiar').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var destino = document.querySelector(btn.getAttribute('data-destino'));
+    if (!destino) return;
+    navigator.clipboard.writeText(destino.innerText).then(function () {
+      var t = btn.textContent; btn.textContent = '¡Copiado!';
+      setTimeout(function () { btn.textContent = t; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>
