@@ -113,3 +113,5 @@ interface PreviewUnavailableProps extends React.ComponentProps<"div"> {}
 export function PreviewUnavailable({ className, ...props }: PreviewUnavailableProps) {
   return <div className={cn("p-4 text-sm text-muted-foreground", className)} {...props}>Preview unavailable. Open externally to view this file.</div>;
 }
+
+export { MdxPreview } from "./mdx-preview";

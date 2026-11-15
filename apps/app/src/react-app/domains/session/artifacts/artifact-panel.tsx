@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { usePlatform } from "@/react-app/kernel/platform";
 import { type ArtifactPanelTab, usePanelTabStore } from "../panel/panel-tab-store";
 import { isCollectibleArtifactTarget, openTargetFromWorkspaceFile, type BinaryData, type Data, type OpenTarget, type TextData } from "./open-target";
-import { HTMLPreview, ImagePreview, MarkdownPreview, PdfPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
+import { HTMLPreview, ImagePreview, MarkdownPreview, MdxPreview, PdfPreview, PlainText, PreviewError, PreviewLoading, PreviewUnavailable } from "./preview";
 
 const DocxPreview = lazy(() => import("./docx-preview").then(module => ({ default: module.DocxPreview })));
 
@@ -410,6 +410,8 @@ function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, targ
           <PreviewError message={error instanceof Error ? error.message : "Failed to load artifact" } />
         ) : data?.kind === "text" && (editing || isDirectTextEdit) ? (
           <TextEditor value={draft} language={target.preview === "markdown" ? "markdown" : "text"} onChange={setDraft} />
+        ) : target.preview === "markdown" && data?.kind === "text" && /\.mdx$/i.test(target.name) ? (
+          <MdxPreview content={data.data} />
         ) : target.preview === "markdown" && data?.kind === "text" ? (
           <MarkdownPreview content={data.data} mermaidSource={isMermaidArtifact} />
         ) : target.preview === "code" && data?.kind === "text" ? (

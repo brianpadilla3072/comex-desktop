@@ -1,0 +1,41 @@
+# Demo MDX — renderizado con componentes
+
+Este archivo es un **MDX** de prueba para el visor de artefactos de OpenWork.
+
+## Markdown normal
+
+- Lista con **negrita** y *cursiva*
+- Código inline: `const x = 42`
+
+## Componente con hooks (useState)
+
+import { useState } from "react"
+
+export function Counter() {
+  const [n, setN] = useState(0);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
+      <button onClick={() => setN(n - 1)} style={{ padding: "4px 10px" }}>−</button>
+      <span style={{ fontVariantNumeric: "tabular-nums", minWidth: 24, textAlign: "center" }}>{n}</span>
+      <button onClick={() => setN(n + 1)} style={{ padding: "4px 10px" }}>+</button>
+    </div>
+  );
+}
+
+<Counter />
+
+## Componente presentacional
+
+export function Badge({ label, color = "#3b82f6" }) {
+  return (
+    <span style={{
+      display: "inline-block", padding: "2px 10px", borderRadius: 999,
+      background: color, color: "white", fontSize: 13, fontWeight: 600, margin: "4px 2px",
+    }}>{label}</span>
+  );
+}
+
+<Badge label="MDX OK" color="#16a34a" />
+<Badge label="Hooks OK" color="#7c3aed" />
+
+> Cita de prueba.
