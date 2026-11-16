@@ -132,9 +132,11 @@ export default defineConfig(({ command, isPreview }) => {
         usePolling: true,
         interval: 300,
       },
-      ...(allowedHosts.size > 0 || headlessBrowserHostSuffix
-        ? { allowedHosts: [...allowedHosts, ...(headlessBrowserHostSuffix ? [headlessBrowserHostSuffix] : [])] }
-        : {}),
+      ...(process.env.VITE_ALLOWED_HOSTS === "*" || process.env.VITE_ALLOWED_HOSTS === "true"
+        ? { allowedHosts: true }
+        : allowedHosts.size > 0 || headlessBrowserHostSuffix
+          ? { allowedHosts: [...allowedHosts, ...(headlessBrowserHostSuffix ? [headlessBrowserHostSuffix] : [])] }
+          : {}),
       proxy: {
         ...denProxy,
         ...openworkProxy,

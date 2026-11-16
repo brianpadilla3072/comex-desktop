@@ -294,8 +294,8 @@ const distribution = resolveDesktopDistribution({ isPackaged: false, packageFlav
   environmentFlavor: process.env.OPENWORK_DESKTOP_DISTRIBUTION });
 const companionEnabled = distribution.flavor === "public" && !companionContext.problems.some(problem => problem.fatal)
   && resolveFeature("desktopCompanion", { ...companionContext, rollouts: {}, overrides: {} }).enabled;
-const platformArgs = companionEnabled && process.platform === "linux" && process.env.DISPLAY
-  && !/(?:^|\s)--ozone-platform(?:=|\s)/.test(process.env.ELECTRON_EXTRA_LAUNCH_ARGS ?? "") ? ["--ozone-platform=x11"] : [];
+const platformArgs = ["--no-sandbox", "--disable-gpu", "--disable-software-rasterizer", ...(companionEnabled && process.platform === "linux" && process.env.DISPLAY
+  && !/(?:^|\s)--ozone-platform(?:=|\s)/.test(process.env.ELECTRON_EXTRA_LAUNCH_ARGS ?? "") ? ["--ozone-platform=x11"] : [])];
 electronChild = run(pnpmCmd, ["exec", "electron", ...platformArgs, "./electron/main.mjs", ...blankSlateArgs], {
   cwd: desktopRoot,
   env: {
