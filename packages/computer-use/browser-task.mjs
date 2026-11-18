@@ -605,6 +605,9 @@ async function attachFiles(contents, point, files, signal, waitMs, beforeShare =
 }
 
 export function createBrowserTaskHost({ getTab, tabsFor, ownerOf, activeFor, isVisible, openTab, navigate,
+  // Hosts that can destroy a browser view pass this so the agent may free the shared tab
+  // limit by closing tabs it owns. Hosts that cannot just report the operation unavailable.
+  closeTab = async (_tab) => { fail("close_unavailable", "This browser host cannot close tabs."); },
   allowed, enabled, changed, siteTools, runSiteTool, beforeInput = async (_tab) => {}, inFlight = (_tab, _since) => 0,
   prepare = async (_tab) => {}, inputScale = (_tab) => 1, capture = (_tab, _viewport) => null,
   // A page receives files only after the person approves exactly these, in the chat.
@@ -882,6 +885,26 @@ export function createBrowserTaskHost({ getTab, tabsFor, ownerOf, activeFor, isV
         }
         publish(tab.tabId, "idle");
         return { ok: true, provider: "builtin", tabId: tab.tabId, url: safeUrl(tab.view.webContents.getURL()), visible: isVisible(tab.tabId), next: "observe" };
+      }
+      if (operation === "close") {
+        // Free the shared tab limit. Only tabs owned by this conversation may be closed:
+        // resolve() enforces ownership for a single tab; for all=true we filter by ownerOf.
+        const targets = args.all === true
+          ? tabsFor(sessionId).filter(item => ownerOf(item.tabId) === sessionId)
+          : [await Promise.race([resolve(sessionId, args.tabId, true), canceled])];
+        requestSignal.throwIfAborted();
+        if (!targets.length) fail("tab_closed", "This conversation has no live browser tabs to close.");
+        const closed = [];
+        for (const item of targets) {
+          if (!item || item.view.webContents.isDestroyed()) continue;
+          const tabId = item.tabId;
+          forget(states.get(tabId));
+          await Promise.race([closeTab(item), canceled]);
+          closed.push(tabId);
+        }
+        requestSignal.throwIfAborted();
+        return { ok: true, closed, count: closed.length, remaining: tabsFor(sessionId).filter(item => !item.view.webContents.isDestroyed()).length,
+          next: "tabs" };
       }
       tab = await Promise.race([resolve(sessionId, args.tabId, ["navigate", "pause", "handoff"].includes(operation)), canceled]);
       requestSignal.throwIfAborted();

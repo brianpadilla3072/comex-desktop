@@ -312,6 +312,13 @@ export function createCloudBrowser({ statePath, assertActive, enabled, beforeInp
       await tab.navigate(url);
       return tab;
     },
+    async closeTab(tab) {
+      host.invalidate(tab.tabId, { closed: true });
+      try { tab.close(); } catch { /* already closed */ }
+      tabs.delete(tab.tabId);
+      owners.delete(tab.tabId);
+      await persist().catch(() => {});
+    },
     navigate: (tab, url) => tab.navigate(url),
     inFlight: (tab, since) => [...tab.inFlight.values()].filter((started) => started >= since).length,
     siteTools: async () => ({ ok: true, tools: [] }), runSiteTool: async () => ({ ok: false, dispatched: false, code: "unsupported" }),
