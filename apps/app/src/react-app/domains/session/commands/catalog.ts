@@ -20,7 +20,6 @@ export type ChatCommandRuntime = { hasSession: boolean; busy: boolean; nativeV2:
 export function chatCommandOptions(runtime: ChatCommandRuntime): ChatCommandOption[] {
   return CHAT_COMMANDS.map(command => {
     const disabledReason = runtime.pending ? "Hay otro comando en curso." : command.session && !runtime.hasSession ? "Abrí una conversación primero."
-      : command.id === "compact" && !runtime.nativeV2 ? "Requiere OpenCode v2."
       : command.id === "archive" && !runtime.canArchive ? "No hay conexión para archivar."
       : command.id === "fork" && runtime.hasMessages === false ? "Todavía no hay mensajes para bifurcar."
       : command.id === "fork" && !runtime.canFork ? "No hay conexión para bifurcar."

@@ -131,6 +131,16 @@
               ],
               "description": "Git review and isolated work: Review local changes and create isolated Git worktrees from the current committed revision. Renders DEN_FEATURE_COMEX_GIT_WORKSPACE."
             },
+            "comexArtifacts": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Artifact panel and shell: Open mini-Studio outputs in a persistent artifact shell in the session side panel, with versions, sources and split chat/artifact view. Renders DEN_FEATURE_COMEX_ARTIFACTS."
+            },
             "browserAgentPointer": {
               "enum": [
                 "",
@@ -710,6 +720,16 @@
                 false
               ],
               "description": "Outlook attachments: Agents read the files attached to Outlook messages and create Outlook drafts and replies with workspace files attached, after the member approves each draft. Drafts are never sent. Renders DEN_FEATURE_OUTLOOK_ATTACHMENTS."
+            },
+            "agentEcosystem": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Agent ecosystem board: Coordinate several agents across projects with a shared need board (atomic claim), a cross-project index and a deliverables board. External actions still use the native permission system. Renders DEN_FEATURE_AGENT_ECOSYSTEM."
             },
             "gatewayDashboard": {
               "enum": [

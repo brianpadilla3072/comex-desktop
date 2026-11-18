@@ -13,6 +13,7 @@ import { ScopedMemoryPanel } from "./scoped-memory-panel";
 import { ComexContinuityPanel } from "./continuity-panel";
 import { TaskContinuityPanel } from "./task-panel";
 import { ComexGitPanel } from "./git-panel";
+import { AgentEcosystemPanel } from "./agent-ecosystem-panel";
 import { readMemoryDraft, writeMemoryDraft } from "./memory-draft";
 
 const projectPath = "comex/estado.md";
@@ -53,6 +54,7 @@ export function ComexProjectPanel({ client, workspaceId, sessionId, onOpenTarget
     {!features.isError && features.data?.taskContinuity && <TaskContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
     {!features.isError && features.data?.comexContinuity && <ComexContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
     {!features.isError && features.data?.comexGitWorkspace && <ComexGitPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={features.data?.taskContinuity ? sessionId : undefined} />}
+    {!features.isError && features.data?.agentEcosystem && <AgentEcosystemPanel key={workspaceId} client={client} workspaceId={workspaceId} />}
     </div></ProjectDisclosure>
     <ProjectDisclosure collapsible={referenceLayout} title="Memoria">
       {features.data?.comexScopedMemory ? <ScopedMemoryPanel client={client} workspaceId={workspaceId} sessionId={sessionId} /> : <>

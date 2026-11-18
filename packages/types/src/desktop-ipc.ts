@@ -586,6 +586,10 @@ export type DesktopCommandMap = {
     args: [projectDir: string, sourceDir: string, options?: { overwrite?: boolean }];
     result: ExecResult;
   };
+  importSkillRepo: {
+    args: [projectDir: string, url: string];
+    result: { ok: boolean; status: number; stdout: string; stderr: string; imported: string[]; skipped: string[] };
+  };
   installSkillTemplate: {
     args: [projectDir: string, name: string, content: string, options?: { overwrite?: boolean }];
     result: ExecResult;

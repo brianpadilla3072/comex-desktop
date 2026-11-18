@@ -37,6 +37,7 @@ Lo que te devuelve vive en carpetas (brief, fuentes, datos, análisis, informe):
 | Skill `analisis-mercados` | Matriz de preselección, PESTEL, DOFA, indicadores (TCAC, cuotas, VCA), dimensionamiento. |
 | Skill `cotizacion-exportacion` | Incoterms, precios FOB/CFR/CIF, landed cost + calculadora. |
 | Skill `investigacion-con-fuentes` | Reglas de citación y verificación: todo dato lleva fuente, nada se inventa. |
+| Skill `limitaciones-honestas` | Audita las promesas de cualquier curso/producto/flujo con IA: qué se prometió, por qué no es posible tal cual, qué necesitaría la IA y qué se puede hacer hoy. Bloqueos de acceso, permisos, dinero, tiempo y leyes. |
 | Skill `informe-academico` | Estructura de TFI/monografía, contenido por capítulo, APA 7 completo. |
 | Skill `documento-docx` | Genera los documentos de Word: tapa, índice, tablas y figuras numeradas. |
 | Skill `planilla-xlsx` | Genera planillas de Excel: datos, matrices, tablas con gráficos. |

@@ -322,7 +322,7 @@ export function WelcomeRoute() {
         manualFolder={manualFolder}
         onManualFolderChange={setManualFolder}
         onUseManualFolder={handleUseManualFolder}
-        showManualFolder={import.meta.env.DEV && isDesktopRuntime()}
+        showManualFolder={import.meta.env.DEV || isDesktopRuntime()}
         onTeamSignIn={shellConfig.cloudSignin ? handleTeamSignIn : undefined}
         onJoinOrganization={shellConfig.cloudSignin ? () => setJoinOrganizationOpen(true) : undefined}
       />
@@ -345,9 +345,9 @@ export function WelcomeRoute() {
         }
         submitting={state.createBusy}
         localError={state.createError}
-        localDisabled={!isDesktopRuntime()}
+        localDisabled={!isDesktopRuntime() && !import.meta.env.DEV}
         localDisabledReason={
-          isDesktopRuntime()
+          isDesktopRuntime() || import.meta.env.DEV
             ? undefined
             : t("app.local_disabled_reason")
         }

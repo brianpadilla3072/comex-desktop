@@ -11,6 +11,9 @@ import { agentsRespectMode, permissionHash } from "./comex/permission-modes.js";
 import { registerModelGuideRoutes } from "./model-guide/routes.js";
 import { registerComexGitRoutes } from "./comex/git-routes.js";
 import { registerContinuityRoutes } from "./comex/continuity-routes.js";
+import { registerAgentEcosystemRoutes } from "./comex/agent-ecosystem-routes.js";
+import { expireStaleClaims } from "./comex/agent-ecosystem.js";
+import { agentEcosystemEnabled } from "./comex/features.js";
 import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
 import { createSpecialistScheduler } from "./specialists/scheduler.js";
@@ -821,6 +824,7 @@ export async function startServer(
   let continuity: Awaited<ReturnType<typeof createTaskContinuity>> | undefined;
   let taskRecovery: Awaited<ReturnType<typeof createTaskRecovery>> | undefined;
   let specialistScheduler: Awaited<ReturnType<typeof createSpecialistScheduler>> | undefined;
+  let ecosystemExpiryTimer: ReturnType<typeof setInterval> | undefined;
   const approvals = new ApprovalService(config.approval);
   const uiControl = new UiControlMailbox();
   const reloadEvents = new ReloadEventStore();
@@ -1271,6 +1275,17 @@ export async function startServer(
       ...serverOptions,
       idleTimeout: 120,
     });
+    // Expire stale agent-ecosystem claims periodically (setInterval unref, like
+    // task continuity). Runs only while the feature is on; a workspace with no
+    // board is a no-op. This is a system job, so it uses the local store.
+    if (agentEcosystemEnabled() && !config.readOnly) {
+      ecosystemExpiryTimer = setInterval(() => {
+        for (const workspace of config.workspaces) {
+          void expireStaleClaims(config, workspace.id).catch(() => undefined);
+        }
+      }, 5 * 60_000);
+      ecosystemExpiryTimer.unref?.();
+    }
   } catch (error) {
     await continuity?.stop().catch(() => undefined);
     await specialistScheduler?.stop().catch(() => undefined);
@@ -1392,6 +1407,7 @@ export async function startServer(
       stopped = true;
       if (startupAuthRetryTimer) clearTimeout(startupAuthRetryTimer);
       let recoveryError: unknown;
+      if (ecosystemExpiryTimer) clearInterval(ecosystemExpiryTimer);
       await continuity?.stop();
       await specialistScheduler?.stop().catch(() => undefined);
       try { await taskRecovery?.stop(); } catch (error) { recoveryError = error; }
@@ -3975,6 +3991,7 @@ function createRoutes(
     },
   });
   registerModelGuideRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });
+  registerAgentEcosystemRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });
   registerComexGitRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable, resolveWorkspace, resolveSessionDirectory: (workspace, sessionId) => resolveV2SessionExecutionDirectory(config, engineV2Preview, workspace, sessionId) });
   registerContinuityRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable,
     authorizeSession: async (workspaceId, sessionId) => {

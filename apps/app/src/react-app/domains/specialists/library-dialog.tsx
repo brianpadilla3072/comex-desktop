@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistOutput, SpecialistOutputAudit, SpecialistPanelBlock, SpecialistPanelResolution, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
 import { MarkdownPreview } from "@/react-app/domains/session/artifacts/preview";
+import { comexDefaultTheme } from "@/react-app/design-system/comex-theme";
+import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
+import { useArtifactUiStore } from "../artifacts/state/artifact-store";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -586,7 +589,7 @@ function PanelCanvas({ app, client, name }: { app: SpecialistApplication; client
   </div>;
 }
 
-function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPanelResolution; spec: { blocks: SpecialistPanelBlock[]; source: { dataset: string } | { file: string } } }) {
+export function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPanelResolution; spec: { blocks: SpecialistPanelBlock[]; source: { dataset: string } | { file: string } } }) {
   if (!resolution.ok) {
     return <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">Este panel no se puede dibujar acá: {resolution.error ?? "sin detalle"}</p>;
   }
@@ -670,7 +673,7 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
             <svg viewBox={`0 0 300 80`} className="h-20 w-full" role="img" aria-label={`Gráfico de líneas: ${block.title ?? block.y.join(", ")}`}>
               {lineMin < 0 && lineMax > 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="#9ca3af" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
               {series.map((entry, seriesIndex) => {
-                const color = ["#2563eb", "#dc2626", "#059669", "#d97706"][seriesIndex % 4];
+                const color = comexDefaultTheme.chartSeries[seriesIndex % 4];
                 const coords = entry.values.map((value, pointIndex) => value === null ? null : { x: (pointIndex / Math.max(1, entry.values.length - 1)) * 300, y: yFor(value) });
                 // Split on gaps: interpolation across missing data would be a lie.
                 const segments: Array<Array<{ x: number; y: number }>> = [];
@@ -685,7 +688,7 @@ function PanelResolutionBlocks({ resolution, spec }: { resolution: SpecialistPan
               })}
             </svg>
             <div className="flex flex-wrap gap-2">{series.map((entry, seriesIndex) => <span key={entry.field} className="flex items-center gap-1 text-muted-foreground">
-              <span className="inline-block size-2 rounded-full" style={{ background: ["#2563eb", "#dc2626", "#059669", "#d97706"][seriesIndex % 4] }} />{entry.field}</span>)}</div>
+              <span className="inline-block size-2 rounded-full" style={{ background: comexDefaultTheme.chartSeries[seriesIndex % 4] }} />{entry.field}</span>)}</div>
           </div>;
         }
         default: return null;
@@ -714,6 +717,9 @@ function OutputsSummary({ app, client }: { app: SpecialistApplication; client: O
 function OutputsView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
   const query = useQuery(outputsQuery(client, app));
   const queryClient = useQueryClient();
+  const artifactsEnabled = useComexArtifactsFeature(client);
+  const requestArtifactTab = useArtifactUiStore(state => state.requestArtifactTab);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SpecialistOutput | null>(null);
@@ -721,6 +727,16 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
     setError(null);
     try { await client.deleteSpecialistOutput(app.id, output.id, output.workspaceId); await queryClient.invalidateQueries({ queryKey: OUTPUTS_KEY(client, app) }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar la salida."); }
+  }
+  async function openInPanel(output: SpecialistOutput) {
+    setError(null);
+    setOpeningId(output.id);
+    try {
+      const result = await client.createArtifactFromOutput(app.id, output.id, output.workspaceId);
+      requestArtifactTab({ artifactId: result.meta.id, appId: app.id, label: output.title, ...(output.workspaceId ? { workspaceId: output.workspaceId } : {}) });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo abrir el artefacto en el panel.");
+    } finally { setOpeningId(null); }
   }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las salidas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
@@ -742,6 +758,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
         <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
         <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
         <Button size="sm" variant="ghost" aria-expanded={openId === output.id} onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
+        {artifactsEnabled ? <Button size="sm" variant="outline" aria-label={`Abrir ${output.title} en el panel`} disabled={openingId === output.id} onClick={() => void openInPanel(output)}>{openingId === output.id ? "Abriendo…" : "Abrir en el panel"}</Button> : null}
         <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => setPendingDelete(output)}><Trash2 className="size-4" /></Button>
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}

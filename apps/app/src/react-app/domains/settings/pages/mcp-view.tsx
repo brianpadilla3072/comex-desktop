@@ -61,6 +61,7 @@ import {
   openDesktopPath,
   readOpencodeConfig,
   revealDesktopItemInDir,
+  importSkillRepo,
   type OpencodeConfigFile,
 } from "../../../../app/lib/desktop";
 import { markFeatureUsed, readDenSettings, type DenExternalMcpPreset } from "../../../../app/lib/den";
@@ -434,6 +435,7 @@ export function McpView(props: McpViewProps) {
   const [onlyNeedsSignIn, setOnlyNeedsSignIn] = useState(props.initialState === "needs_signin");
   const [screen, setScreen] = useState<LibraryScreen>({ kind: "list" });
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [importingRepo, setImportingRepo] = useState<string | null>(null);
   const [, setExtensionStateVersion] = useState(0);
 
   const [localState, dispatchLocal] = useReducer(
@@ -688,6 +690,30 @@ export function McpView(props: McpViewProps) {
       throw new Error(t("common.something_went_wrong"));
     }
     return props.createLibraryItem(kind, input);
+  };
+
+  const handleImportRepo = async (url: string) => {
+    if (!isDesktopRuntime()) {
+      toast.error("La importación automática requiere la app de escritorio.");
+      return;
+    }
+    setImportingRepo(url);
+    try {
+      const result = await importSkillRepo(props.selectedWorkspaceRoot, url);
+      if (!result?.ok) {
+        toast.error(result?.stderr || "No se pudo importar el repositorio.");
+        return;
+      }
+      const importedCount = result.imported?.length ?? 0;
+      const skippedCount = result.skipped?.length ?? 0;
+      toast.success(`Importadas ${importedCount} skills${skippedCount ? ` (omitidas ${skippedCount} ya existentes)` : ""}.`);
+      props.onLibraryListsRefresh?.();
+      props.onRefresh?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo importar el repositorio.");
+    } finally {
+      setImportingRepo(null);
+    }
   };
 
   const addsPersonalConnection = libraryAddOptions.cloudSignedIn && !canManageCloudConnections && personalConnectorsEnabled;
@@ -2129,6 +2155,10 @@ export function McpView(props: McpViewProps) {
                 { name: "Anthropic Skills", description: "Colección oficial de Anthropic (documentos, MCP builder, frontend-design, etc.).", url: "https://github.com/anthropics/skills" },
                 { name: "Superpowers", description: "Flujos completos de ingeniería de software (TDD, debugging, arquitectura).", url: "https://github.com/obra/superpowers" },
                 { name: "Vercel Agent Skills", description: "Buenas prácticas de React, Next.js y despliegue.", url: "https://github.com/vercel-labs/agent-skills" },
+                { name: "Claude Skills (Alirezarezvani)", description: "Colección amplia de skills para Claude (investigación, documentos, código, etc.). Repo grande: la importación puede tardar.", url: "https://github.com/alirezarezvani/claude-skills" },
+                { name: "Microsoft Skills", description: "Skills, MCP y agentes para Azure SDK y Foundry. ~211 skills.", url: "https://github.com/microsoft/skills" },
+                { name: "Azure Skills", description: "Skills y MCP para escenarios Azure. ~89 skills.", url: "https://github.com/microsoft/azure-skills" },
+                { name: "Power Platform Skills", description: "Plugins para Power Platform (Copilot/Claude). ~134 skills.", url: "https://github.com/microsoft/power-platform-skills" },
               ].filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase())).map(item => <ExtensionCard
                 key={item.url}
                 name={item.name}
@@ -2137,7 +2167,10 @@ export function McpView(props: McpViewProps) {
                 url={item.url}
                 connected={false}
                 onClick={() => { void navigator.clipboard?.writeText(`git clone ${item.url}`); }}
-                trailing={<Button variant="ghost" size="sm" onClick={() => { void navigator.clipboard?.writeText(`git clone ${item.url}`); }}>Copiar comando</Button>}
+                trailing={<div className="flex items-center gap-1">
+                  {isDesktopRuntime() ? <Button variant="ghost" size="sm" disabled={importingRepo === item.url} onClick={() => void handleImportRepo(item.url)}>{importingRepo === item.url ? "Importando..." : "Instalar"}</Button> : null}
+                  <Button variant="ghost" size="sm" onClick={() => { void navigator.clipboard?.writeText(`git clone ${item.url}`); }}>Copiar comando</Button>
+                </div>}
               />)}
             </div>
           </section>

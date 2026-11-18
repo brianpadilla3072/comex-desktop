@@ -10,6 +10,7 @@ const { createRoot } = await import("react-dom/client");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { MemoryRouter } = await import("react-router");
 const { SpecialistApplicationsProvider, SpecialistApplicationSwitcher } = await import("../src/react-app/domains/specialists/provider");
+const { useArtifactUiStore } = await import("../src/react-app/domains/artifacts/state/artifact-store");
 
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -18,6 +19,7 @@ let restoreFetch: () => void;
 
 type FakeOutput = { id: string; kind: string; title: string; fromDatasets: string[]; fromSources: string[]; focus: string; createdAt: number; updatedAt: number; workspaceId: string; workspaceName: string };
 let flags: { libraryEnabled: boolean; scheduledTasksEnabled: boolean; datasetsEnabled: boolean; sourcesEnabled: boolean; panelsEnabled: boolean; outputsEnabled: boolean };
+let artifactsEnabled = true;
 let outputs: FakeOutput[];
 let outputRequests: Array<{ method: string; path: string }> = [];
 
@@ -49,6 +51,7 @@ beforeEach(() => {
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
   flags = { libraryEnabled: true, scheduledTasksEnabled: false, datasetsEnabled: true, sourcesEnabled: true, panelsEnabled: true, outputsEnabled: true };
+  artifactsEnabled = true;
   outputs = [
     { id: "out_good", kind: "report", title: "Informe soja", fromDatasets: [], fromSources: ["src_soja"], focus: "", createdAt: 1_700_000_100_000, updatedAt: 1_700_000_500_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
     { id: "out_unanchored", kind: "table", title: "Tabla de aranceles", fromDatasets: [], fromSources: [], focus: "", createdAt: 1_700_000_000_000, updatedAt: 1_700_000_400_000, workspaceId: "ws_test", workspaceName: "proyecto-principal" },
@@ -62,7 +65,8 @@ beforeEach(() => {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-    if (path.includes("/outputs")) outputRequests.push({ method, path });
+    if (path.includes("/outputs") || path.includes("/artifacts")) outputRequests.push({ method, path });
+    if (path === "/comex/features" && method === "GET") return Response.json({ enabled: true, comexArtifacts: artifactsEnabled });
     if (path === "/specialist-applications" && method === "GET") return Response.json(catalog());
     if (path === "/specialist-applications/app_test/library" && method === "GET") return Response.json({ application: { id: APP.id, name: APP.name }, agents: [], skills: [], files: [], context: { exists: false, bytes: 0 }, counts: { agents: 0, skills: 0 } });
     if (path === "/specialist-applications/app_test/library/proposals" && method === "GET") return Response.json({ proposals: [] });
@@ -86,6 +90,11 @@ beforeEach(() => {
       const target = outputs.find(entry => entry.id === byId[1]);
       if (!target) return Response.json({ code: "output_not_found", message: "Esa salida no existe." }, { status: 404 });
       return Response.json({ output: target, content: KINDS[target.id] ?? "", truncated: false });
+    }
+    const fromOutput = path.match(/^\/specialist-applications\/app_test\/artifacts\/from-output\/(out_\w+)$/);
+    if (fromOutput && method === "POST") {
+      if (!artifactsEnabled) return Response.json({ code: "artifacts_disabled", message: "desactivados" }, { status: 404 });
+      return Response.json({ meta: { id: "art_test", type: "doc", title: "Informe soja", status: "draft", sources: [], versions: [{ id: "v1", createdAt: 1, author: "agent", contentRef: "versions/v1.content.md" }], metadata: { workspaceId: "ws_test", schemaVersion: 1 }, createdAt: 1, updatedAt: 1 }, created: true }, 201);
     }
     return Response.json({ code: "not_found", message: `Ruta no emulada: ${method} ${path}` }, { status: 404 });
   });
@@ -197,4 +206,25 @@ test("flashcards flip and a quiz marks the answer right or wrong", async () => {
   await act(async () => { (wrong as HTMLButtonElement).click(); });
   await flush();
   expect(hasText("Incorrecto: la respuesta es \"Consumidores\".")).toBe(true);
+});
+
+test("Abrir en el panel crea el artefacto detrás del flag y pide su tab", async () => {
+  await openOutputsView();
+  const openPanel = [...document.querySelectorAll("button")].find(button =>
+    (button.getAttribute("aria-label") ?? "") === "Abrir Informe soja en el panel");
+  expect(openPanel).toBeTruthy();
+  await act(async () => { (openPanel as HTMLButtonElement).click(); });
+  await flush(60);
+  expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts/from-output/out_good"))).toBe(true);
+  expect(useArtifactUiStore.getState().requestedTab?.artifactId).toBe("art_test");
+  expect(useArtifactUiStore.getState().requestedTab?.appId).toBe("app_test");
+});
+
+test("sin el flag, la salida no ofrece abrir el artefacto en el panel", async () => {
+  artifactsEnabled = false;
+  await openOutputsView();
+  const openPanel = [...document.querySelectorAll("button")].find(button =>
+    (button.getAttribute("aria-label") ?? "") === "Abrir Informe soja en el panel");
+  expect(openPanel).toBeUndefined();
+  expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts"))).toBe(false);
 });

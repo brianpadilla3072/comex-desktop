@@ -2,30 +2,33 @@
 
 ## Objetivo
 
-Validar empíricamente si el patrón "coordinador + agentes de volumen + approval gate + need bus + índice cross-proyecto" mejora la experiencia real de OpenWork, midiendo antes/después en tareas multi-proyecto.
+Validar empíricamente si el patrón "coordinador + agentes de volumen + need bus + índice cross-proyecto" mejora la experiencia real de OpenWork, midiendo antes/después en tareas multi-proyecto. La aprobación de acciones externas usa el permission system nativo de OpenWork (no se construye una propia).
 
 ## Hipótesis
 
-1. **Approval gate** reduce acciones no deseadas (publicaciones, contactos) a 0 sin frenar el trabajo.
+1. **Permission system nativo de OpenWork** (`allow`/`ask`/`deny` + `thread-approvals`) bloquea acciones externas no aprobadas sin frenar el trabajo. No se construye un approval gate propio.
 2. **Need bus con claim atómico** elimina trabajo duplicado cuando 2+ agentes corren en paralelo.
 3. **Índice cross-proyecto on-demand** reduce tokens de contexto en ≥40 % vs. cargar todos los proyectos.
 4. **Board de entregables** evita pérdida de contexto entre sesiones.
 
 ## MVP scope (v0) — lo mínimo testeable
 
-### Componente 1: Approval Gate (primitivo)
+### Componente 1: Approval Gate → usa el permission system NATIVO de OpenWork
 
-**Estado:** `pending` → `approved` | `rejected` | `modified`
+**No se construye un approval gate propio.** OpenWork ya tiene uno robusto y probado:
+decisiones `allow`/`ask`/`deny` (`AGENT_PERMISSION_DECISIONS`), estado `approval-required`
+en el diagnóstico, `approvalLoopbackFetch` (espera la respuesta humana sin timeout), y
+`thread-approvals.ts` (recuerda `always` por thread).
 
-**Flujo:**
-1. Un agente (o el coordinador) propone una acción externa: `approval.propose({action, reason, payload})`.
-2. Se crea un registro en estado `pending`.
-3. El agente **no ejecuta** la acción. Continúa con otras tareas o se detiene.
-4. El usuario ve la propuesta (en UI o chat) y decide: aprobar, rechazar, o modificar.
-5. Si aprueba → la acción se ejecuta. Si rechaza → se descarta. Si modifica → se re-propone.
+**Flujo real:**
+1. Un worker intenta una acción externa (enviar email, publicar, subir archivo).
+2. El motor evalúa el permiso → `ask`. La acción queda en espera del reply.
+3. El usuario decide `once` / `always` / `reject`.
+4. Si aprueba → se ejecuta. Si rechaza → no. Si `always` → se recuerda por thread.
+5. El worker no ejecuta ni simula la aprobación por su cuenta.
 
-**Almacenamiento v0:** archivo JSON en el proyecto (`proyecto/aprobaciones.json`).
-**Métrica:** # de acciones externas ejecutadas sin aprobación (debe ser 0).
+**Detalle:** `docs/features/approval-gate/README.md`.
+**Métrica:** # de acciones externas ejecutadas sin aprobación (debe ser 0). Ya lo garantiza el producto.
 
 ### Componente 2: Need Bus (claim atómico)
 
@@ -96,10 +99,11 @@ Usar el propio proyecto OpenWork con 3 tareas en 2 "proyectos" simulados:
 ## Implementación v0 (sin código nuevo)
 
 Todo se implementa con:
-- Archivos JSON en `proyecto/` (aprobaciones.json, needs.json, indice-proyectos.json, board.json).
+- Archivos JSON en `proyecto/` (needs.json, indice-proyectos.json, board.json).
 - Locks de archivo con `flock` (Linux) o `mkdir` (portable).
 - Skills que codifican el flujo (coordinador + workers).
 - Automations para los relojes (cada 30 min, 2×/día, semanal).
+- Aprobación de acciones externas: permission system nativo de OpenWork (no propio).
 
 No se toca el código de la app. Si el MVP valida, se convierte en código real.
 
@@ -119,8 +123,13 @@ No se toca el código de la app. Si el MVP valida, se convierte en código real.
 - Roles formales (usa convención de nombres en las skills).
 - Multi-tenant (un solo usuario).
 
+## Estado (validado Nov 2026)
+
+La skill `ecosistema-agentes` ya existe y el escenario se ejecutó con agentes reales:
+3/3 needs resueltos, 0 duplicados, 0 acciones sin aprobación (permission system nativo),
+halt respetado. Ver `docs/features/approval-gate/README.md` para el mapeo al gate nativo.
+
 ## Próximo paso
 
-Crear la skill `ecosistema-agentes` que codifica el flujo del MVP y ejecutar el
-escenario de prueba. Si las métricas se cumplen, convertir a código (empezando
-por el approval gate, que es el cuello de botella).
+Convertir el need bus / índice / board a código real (SQLite + API) si el volumen lo
+justifica. El approval gate **no** se convierte: ya existe en el producto.

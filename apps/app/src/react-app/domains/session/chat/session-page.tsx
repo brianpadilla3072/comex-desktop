@@ -56,6 +56,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScopedMemoryPanel } from "@/react-app/domains/session/comex/scoped-memory-panel";
+import { useConsolidateMemoryStore } from "@/react-app/domains/session/comex/consolidate-memory-store";
+import { useComposerStateStore } from "@/react-app/domains/session/surface/composer-state-store";
+import { markComposerAutoSend } from "@/react-app/domains/session/surface/composer-auto-send";
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useDenAuth } from "../../cloud/den-auth-provider";
@@ -115,6 +118,8 @@ import { useSteadyLiveTurnStore } from "@/components/chat/steady-live-turn-store
 import { useComputerEndTurn } from "../computer/computer-store";
 import { TerminalDock } from "../terminal/terminal-dock";
 import { useActivePanelTab, usePanelTabStore, useSessionPanelState } from "../panel/panel-tab-store";
+import { useComexArtifactsFeature } from "../comex/use-comex-feature";
+import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { cn } from "@/lib/utils";
@@ -562,6 +567,9 @@ export function SessionPage(props: SessionPageProps) {
   ));
   const sessionPanelState = useSessionPanelState(sidePanelSessionKey);
   const activePanelTab = useActivePanelTab(sidePanelSessionKey);
+  const artifactsEnabled = useComexArtifactsFeature(props.openworkServerClient);
+  const studioActive = artifactsEnabled && activePanelTab?.type === "studio";
+  const artifactFocusMode = useArtifactUiStore(state => state.focusMode);
   const [hiddenTargetRevision, setHiddenTargetRevision] = useState(0);
   const hiddenAccessibleTargetIds = useMemo(
     () => readHiddenAccessibleTargetIds(props.selectedWorkspaceId, props.selectedSessionId),
@@ -597,7 +605,58 @@ export function SessionPage(props: SessionPageProps) {
     workspaceCount: props.workspaces.length,
   });
 
-  const [memoryOpen, setMemoryOpen] = useState(false);
+  const consolidateMemoryStore = useConsolidateMemoryStore();
+  const memoryOpen = consolidateMemoryStore.open && consolidateMemoryStore.sessionId === (props.selectedSessionId ?? "");
+  const setMemoryOpen = (value: boolean) => {
+    if (!value) consolidateMemoryStore.close();
+  };
+  const [memoryDiff, setMemoryDiff] = useState<{ open: boolean; scope: "conversation"; revision: number; current: string; proposed: string } | null>(null);
+  const sessionClient = useMemo(() => {
+    const url = props.opencodeBaseUrl?.trim();
+    if (!url) return null;
+    return isOpencodeV2BaseUrl(url)
+      ? createClientV2(url, props.selectedWorkspaceRoot ?? "", { token: props.openworkServerToken ?? "" })
+      : createClient(url, props.selectedWorkspaceRoot ?? "", { token: props.openworkServerToken ?? "", mode: "openwork" });
+  }, [props.opencodeBaseUrl, props.selectedWorkspaceRoot, props.openworkServerToken]);
+  const saveLastAssistantSummary = async () => {
+    if (!sessionClient || !props.selectedSessionId || !props.openworkServerClient) {
+      toast.error("No hay conexión para guardar el resumen.");
+      return;
+    }
+    try {
+      const result = await sessionClient.session.messages({ sessionID: props.selectedSessionId });
+      const messages = Array.isArray(result?.data) ? result.data : [];
+      let text = "";
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const message = messages[i] as { info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> };
+        if (message?.info?.role !== "assistant") continue;
+        const parts = Array.isArray(message.parts) ? message.parts : [];
+        text = parts.filter((part) => part?.type === "text" && typeof part.text === "string").map((part) => part.text as string).join("\n").trim();
+        if (text) break;
+      }
+      if (!text) {
+        toast.error("Todavía no hay respuesta del asistente para guardar.");
+        return;
+      }
+      const scope = "conversation";
+      const snapshot = await props.openworkServerClient.getScopedMemory(props.selectedWorkspaceId, props.selectedSessionId, scope);
+      const current = (snapshot.notes ?? []).map((note: { text?: string }) => note.text ?? "").filter(Boolean).join("\n\n");
+      setMemoryDiff({ open: true, scope, revision: snapshot.revision, current, proposed: text });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el resumen.");
+    }
+  };
+  const applyMemoryDiff = async () => {
+    if (!memoryDiff || !props.openworkServerClient || !props.selectedSessionId) return;
+    try {
+      await props.openworkServerClient.saveScopedMemory(props.selectedWorkspaceId, props.selectedSessionId, memoryDiff.scope, memoryDiff.revision, memoryDiff.proposed);
+      toast.success("Resumen guardado en la memoria de la conversación.");
+      setMemoryDiff(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el resumen.");
+    }
+  };
+
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
@@ -2021,6 +2080,7 @@ export function SessionPage(props: SessionPageProps) {
             onLayoutChanged={sidePanelOpen ? commitBrowserPanelWidth : undefined}
             className={cn("min-h-0 flex-1 max-lg:rounded-none", !referenceLayout && props.primarySurface !== "flat" && "lg:rounded-[14px]")}
           >
+            {!(studioActive && artifactFocusMode) ? (
             <ResizablePanel minSize={isMobile ? "0px" : "360px"} className="min-w-0">
               <main data-session-pane className={cn("flex h-full min-w-0 flex-col overflow-hidden bg-dls-surface", !referenceLayout && props.primarySurface !== "flat" && "max-lg:rounded-none max-lg:border-0 max-lg:shadow-none lg:rounded-[14px] lg:border lg:border-border lg:shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:lg:shadow-[0_10px_30px_rgba(0,0,0,0.45)] mac:bg-dls-surface/85 mac:backdrop-blur-2xl mac:backdrop-saturate-150")}>
           {showNarrowPaneSwitcher ? (
@@ -2307,14 +2367,15 @@ export function SessionPage(props: SessionPageProps) {
 
               </main>
             </ResizablePanel>
+            ) : null}
               {sidePanelOpen && !isMobile ? (
               <>
                 {/* Discoverable: a grip shows on hover and keyboard focus, so a narrow artifact can be widened. */}
                 <ResizableHandle withHandle aria-label="Resize side panel" className="hidden bg-transparent transition-colors hover:bg-border focus-visible:bg-border lg:flex [&>div]:opacity-0 [&>div]:transition-opacity hover:[&>div]:opacity-100 focus-visible:[&>div]:opacity-100" />
                 <ResizablePanel
                   panelRef={browserPanelRef}
-                  defaultSize={`${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
-                  minSize={activeSidePanel === "extensions" ? "420px" : "320px"}
+                  defaultSize={studioActive ? "58%" : `${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
+                  minSize={studioActive ? "40%" : activeSidePanel === "extensions" ? "420px" : "320px"}
                   maxSize="70%"
                   className="min-h-0 overflow-hidden pl-2 lg:flex lg:flex-col"
                 >
@@ -2455,6 +2516,35 @@ export function SessionPage(props: SessionPageProps) {
             <DialogTitle>Consolidar memoria</DialogTitle>
           </DialogHeader>
           {props.openworkServerClient ? <ScopedMemoryPanel client={props.openworkServerClient} workspaceId={props.selectedWorkspaceId} sessionId={props.selectedSessionId ?? ""} /> : <p className="text-sm text-muted-foreground">No hay servidor OpenWork disponible.</p>}
+          {props.selectedSessionId ? <div className="mt-3 flex justify-end gap-3">
+            <button type="button" className="text-sm text-primary hover:underline" onClick={() => void saveLastAssistantSummary()}>Guardar último resumen del asistente</button>
+            <button type="button" className="text-sm text-primary hover:underline" onClick={() => {
+              const prompt = "Consolidá la memoria de esta sesión: resumí lo importante, preguntame qué quiero recordar y actualizá las notas existentes si algo cambió.";
+              useComposerStateStore.getState().setDraft(props.selectedSessionId ?? "", prompt);
+              markComposerAutoSend(props.selectedSessionId ?? "");
+              setMemoryOpen(false);
+            }}>Generar resumen con IA</button>
+          </div> : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(memoryDiff?.open)} onOpenChange={(value) => { if (!value) setMemoryDiff(null); }}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
+          <DialogHeader><DialogTitle>Aplicar resumen a la memoria</DialogTitle></DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Actual</p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{memoryDiff?.current || "Sin notas previas."}</pre>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Propuesto</p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{memoryDiff?.proposed}</pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMemoryDiff(null)}>Descartar</Button>
+            <Button onClick={() => void applyMemoryDiff()}>Aplicar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

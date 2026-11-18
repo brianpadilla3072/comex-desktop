@@ -4,7 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
@@ -22,8 +22,9 @@ import { applySpecialistLibraryChange } from "./sync.js";
 import { createTask, deleteTask, estimateTaskBudget, listRuns, listTasks, taskInputSchema, updateTask } from "./tasks.js";
 import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, registerDatasetQuery } from "./datasets.js";
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
-import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
+import { deletePanel, listPanels, panelBodySchema, readPanelSpec, resolvePanel, resolvePanelSpec, writePanel } from "./panels.js";
 import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, readOutput, writeOutput } from "./outputs.js";
+import { artifactMetaSchema, artifactTypeSchema, createArtifactFromOutput, listArtifacts, readArtifact, revertArtifact, writeArtifact } from "./artifacts.js";
 import { ensureChunks, listSources, readCitation, registerLocalSource } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
@@ -551,5 +552,104 @@ export function registerSpecialistRoutes(options: {
       return jsonResponse({ deleted: meta.id });
     }
     throw new ApiError(404, "output_not_found", "Esa salida no existe.");
+  });
+
+  /** Artifacts: the same output content, now addressable, versioned and openable in the panel.
+   *  Double gate: the feature flag hides the UI and these routes answer 404 when it is off. */
+  function requireArtifacts(write = false) {
+    requireFeature(write);
+    if (!comexArtifactsEnabled()) throw new ApiError(404, "artifacts_disabled", "Los artefactos están desactivados.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/artifacts", "client", async ctx => {
+    requireArtifacts();
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const listings = await Promise.all(targets.map(async target => ({ target, entries: await listArtifacts(target.workspacePath) })));
+    const artifacts = listings
+      .flatMap(({ target, entries }) => entries.map(meta => ({ ...meta, metadata: { ...meta.metadata, workspaceId: target.workspaceId, workspaceName: workspaceName(target) } })))
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    return jsonResponse({ artifacts });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/artifacts/from-output/:outputId", "host", async ctx => {
+    requireArtifacts(true);
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar el artefacto.");
+    const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
+    if (!meta) throw new ApiError(404, "output_not_found", "Esa salida no existe.");
+    const { content } = await readOutput(target.workspacePath, meta.id);
+    const audit = await auditOutputCitations(target.workspacePath, meta.id);
+    const result = await createArtifactFromOutput(target.workspacePath, ctx.params.id, target.workspaceId, meta, content, audit);
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, 201);
+  });
+  const artifactInputSchema = z.object({
+    type: artifactTypeSchema,
+    title: z.string().trim().min(1).max(200),
+    content: z.string().min(1),
+    status: z.enum(["streaming", "draft", "saved", "archived"]).optional(),
+    sources: artifactMetaSchema.shape.sources.optional(),
+    label: z.string().max(200).optional(),
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/artifacts", "host", async ctx => {
+    requireArtifacts(true);
+    const parsed = artifactInputSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisá el tipo, el título y el contenido del artefacto.");
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar el artefacto.");
+    const result = await writeArtifact(target.workspacePath, { ...parsed.data, metadata: { workspaceId: target.workspaceId, schemaVersion: 1, workspaceName: workspaceName(target) } });
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, 201);
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/artifacts/:artifactId", "client", async ctx => {
+    requireArtifacts();
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      const result = await readArtifact(target.workspacePath, found.id);
+      return jsonResponse({ ...result, meta: { ...result.meta, metadata: { ...result.meta.metadata, workspaceId: target.workspaceId, workspaceName: workspaceName(target) } }, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/artifacts/:artifactId/resolve", "client", async ctx => {
+    requireArtifacts();
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found || found.type !== "data") continue;
+      const { content } = await readArtifact(target.workspacePath, found.id);
+      let parsed: unknown;
+      try { parsed = JSON.parse(content); } catch { throw new ApiError(409, "artifact_content_missing", "El artefacto data no tiene JSON válido."); }
+      const wrapped = typeof parsed === "object" && parsed !== null && "spec" in parsed
+        ? Reflect.get(parsed, "spec") as unknown : parsed;
+      const body = panelBodySchema.safeParse(wrapped);
+      if (!body.success) throw new ApiError(422, "invalid_artifact", "El artefacto data no trae un spec de panel válido.");
+      const spec = { ...body.data, panel: found.id };
+      const resolution = await resolvePanelSpec(target.workspacePath, spec);
+      return jsonResponse({ spec, resolution, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto data no existe.");
+  });
+  addRoute(routes, "PUT", "/specialist-applications/:id/artifacts/:artifactId", "host", async ctx => {
+    requireArtifacts(true);
+    const parsed = artifactInputSchema.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisá el tipo, el título y el contenido del artefacto.");
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      const result = await writeArtifact(target.workspacePath, { ...parsed.data, id: found.id, metadata: found.metadata });
+      return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/artifacts/:artifactId/revert", "host", async ctx => {
+    requireArtifacts(true);
+    const body = await readJsonBody(ctx.request);
+    const versionId = typeof body.versionId === "string" ? body.versionId : "";
+    if (!versionId) throw new ApiError(422, "invalid_artifact", "Falta la versión a la que volver.");
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      const meta = await revertArtifact(target.workspacePath, found.id, versionId);
+      return jsonResponse({ meta, workspaceId: target.workspaceId });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
   });
 }

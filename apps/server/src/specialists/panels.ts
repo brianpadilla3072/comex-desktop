@@ -165,6 +165,12 @@ export async function resolvePanel(config: Pick<ServerConfig, "configPath">, id:
   let spec: SpecialistPanelSpec;
   try { spec = await readPanelSpec(config, id, name); }
   catch (error) { return { ok: false, error: error instanceof ApiError ? error.message : "El panel no se pudo leer." }; }
+  return resolvePanelSpec(directory, spec);
+}
+
+/** Same resolution against an inline spec (an artifact's data blocks). No AI-authored code,
+ *  no duplicated aggregation: artifacts and panels read the same latest snapshot and diff. */
+export async function resolvePanelSpec(directory: string, spec: SpecialistPanelSpec): Promise<PanelResolution> {
   if ("dataset" in spec.source) {
     const wanted = spec.source.dataset;
     const datasets = await listDatasets(directory).catch(() => []);

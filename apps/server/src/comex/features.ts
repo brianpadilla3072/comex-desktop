@@ -122,3 +122,16 @@ export function studioOutputsEnabled(env: NodeJS.ProcessEnv = process.env): bool
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("studioOutputs", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Operator-controlled artifact shell in the session panel, off by default. */
+export function comexArtifactsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("comexArtifacts", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function agentEcosystemEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("agentEcosystem", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

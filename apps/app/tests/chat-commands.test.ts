@@ -22,7 +22,7 @@ test("capabilities stay visible with reasons for empty, busy, secondary and unsu
   const ready = chatCommandOptions(base); assert.ok(ready.every(c => !c.disabledReason));
   assert.equal(chatCommandOptions({ ...base, pinned: true }).find(c => c.appCommand === "pin")?.label, "Quitar de fijados");
   const empty = chatCommandOptions({ ...base, hasSession: false }); assert.equal(empty.length, 11); assert.ok(empty.find(c => c.appCommand === "archive")?.disabledReason); assert.ok(!empty.find(c => c.appCommand === "draw")?.disabledReason);
-  assert.ok(chatCommandOptions({ ...base, nativeV2: false }).find(c => c.appCommand === "compact")?.disabledReason);
+  assert.ok(!chatCommandOptions({ ...base, nativeV2: false }).find(c => c.appCommand === "compact")?.disabledReason);
   assert.ok(chatCommandOptions({ ...base, secondary: true }).find(c => c.appCommand === "side")?.disabledReason);
   assert.match(chatCommandOptions({ ...base, hasMessages: false }).find(c => c.appCommand === "fork")?.disabledReason ?? "", /mensajes/);
   const busy = chatCommandOptions({ ...base, busy: true }); assert.ok(!busy.find(c => c.appCommand === "compact")?.disabledReason); assert.ok(!busy.find(c => c.appCommand === "status")?.disabledReason);

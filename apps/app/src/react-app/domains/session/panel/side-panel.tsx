@@ -1,5 +1,5 @@
 import { ComexProjectPanel } from "../comex/project-panel";
-import { useComexFeature } from "../comex/use-comex-feature";
+import { useComexFeature, useComexArtifactsFeature } from "../comex/use-comex-feature";
 import { BuiltMcpAppPanel } from "../../apps/built-mcp-app-panel";
 /** @jsxImportSource react */
 import * as React from "react";
@@ -36,6 +36,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ArtifactIcon } from "../artifacts/artifact-icon";
 import { AppArtifact } from "../../apps/app-artifact";
 import { ArtifactPanel } from "../artifacts/artifact-panel";
+import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
+import { StudioArtifactShell } from "../../artifacts/shell/studio-artifact-shell";
 import { RemoteThreadPanel } from "../remote-threads/remote-thread-panel";
 import {
   type BrowserPanelTab,
@@ -209,7 +211,7 @@ function SidePanelTab({ tab, active, onSelect, onClose }: SidePanelTabProps) {
           title={tab.label}
           aria-label={`Select tab: ${tab.label}`}
         >
-          {tab.type === "browser" ? <BrowserTabIcon tab={tab} /> : (tab.type === "app" || tab.type === "mcp-app") ? <Blocks /> : tab.type === "remote-thread" ? <MessagesSquare /> : (
+          {tab.type === "browser" ? <BrowserTabIcon tab={tab} /> : (tab.type === "app" || tab.type === "mcp-app" || tab.type === "studio") ? <Blocks /> : tab.type === "remote-thread" ? <MessagesSquare /> : (
             <ArtifactIcon type={tab.preview} />
           )}
           <span className="min-w-0 flex-1 truncate text-left">{tab.label}</span>
@@ -620,6 +622,22 @@ export function SidePanel({
   browserShownElsewhere = false,
 }: SidePanelProps) {
   const comexEnabled = useComexFeature(client, true);
+  const artifactsEnabled = useComexArtifactsFeature(client);
+  const requestedArtifactTab = useArtifactUiStore(state => state.requestedTab);
+  const consumeRequestedTab = useArtifactUiStore(state => state.consumeRequestedTab);
+
+  React.useEffect(() => {
+    if (!requestedArtifactTab || !artifactsEnabled) return;
+    usePanelTabStore.getState().openTab(sessionId, {
+      id: `studio:${requestedArtifactTab.appId}:${requestedArtifactTab.artifactId}`,
+      type: "studio",
+      label: requestedArtifactTab.label,
+      artifactId: requestedArtifactTab.artifactId,
+      appId: requestedArtifactTab.appId,
+      ...(requestedArtifactTab.workspaceId ? { workspaceId: requestedArtifactTab.workspaceId } : {}),
+    });
+    consumeRequestedTab();
+  }, [requestedArtifactTab, artifactsEnabled, sessionId, consumeRequestedTab]);
   const { tabs } = useSessionPanelState(sessionId);
   const activeTab = useActivePanelTab(sessionId);
   const isBrowserAvailable = Boolean(getElectronBrowser());
@@ -899,6 +917,20 @@ export function SidePanel({
               onClose={onClose}
             />
           </div>
+        ) : activeTab?.type === "studio" ? (
+          artifactsEnabled ? (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <StudioArtifactShell
+                client={client}
+                appId={activeTab.appId}
+                artifactId={activeTab.artifactId}
+                workspaceId={activeTab.workspaceId ?? workspaceId ?? undefined}
+                onClose={() => { usePanelTabStore.getState().closeTab(sessionId, activeTab.id); onClose(); }}
+              />
+            </div>
+          ) : (
+            <div className="p-4 text-sm text-muted-foreground" role="status">Los artefactos están desactivados.</div>
+          )
         ) : null}
       </div>
     </TooltipProvider>

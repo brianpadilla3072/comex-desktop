@@ -6,6 +6,7 @@ import { CompactSidebarNav } from "./compact-sidebar-nav";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
+import { useConsolidateMemoryStore } from "../comex/consolidate-memory-store";
 import * as React from "react";
 import { useLocation, useNavigate } from "react-router";
 import { usePendingConversationStore, withPendingGroupAssignments, type PendingConversation } from "../chat/pending-conversation-store";
@@ -27,6 +28,7 @@ import {
   FolderPlus,
   LayoutGrid,
   ListFilter,
+  Brain,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -499,6 +501,14 @@ function useSessionMenuActions({
     label: isArchived ? t("session_management.unarchive_session") : t("session_management.archive_session"),
     icon: isArchived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />,
     onSelect: () => ctx.onArchiveSession?.(sessionId, !isArchived),
+  });
+  const openConsolidateMemory = useConsolidateMemoryStore((state) => state.openFor);
+  actions.push({
+    type: "item", id: "consolidate-memory", label: "Consolidar memoria", icon: <Brain className="size-4" />,
+    onSelect: () => {
+      ctx.onOpenSession?.(workspaceId, sessionId);
+      openConsolidateMemory(workspaceId, sessionId);
+    },
   });
   if (ctx.onOpenDeleteSession) actions.push({ type: "separator" }, {
     type: "item", id: "delete", label: t("workspace_list.delete_session"), icon: <Trash2 className="size-4" />, variant: "destructive",

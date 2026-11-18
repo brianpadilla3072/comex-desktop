@@ -2440,6 +2440,57 @@ const desktopCommandHandlers = {
       await cp(sourceDir, destination, { recursive: true });
       return execResult(true, `Imported skill to ${destination}`);
   },
+  "importSkillRepo": async (event, ...args) => {
+      const projectDir = String(args[0] ?? "").trim();
+      const url = String(args[1] ?? "").trim();
+      if (!projectDir || !url) throw new Error("projectDir and url are required");
+      const allowed = [
+        "https://github.com/pbakaus/impeccable",
+        "https://github.com/anthropics/skills",
+        "https://github.com/obra/superpowers",
+        "https://github.com/vercel-labs/agent-skills",
+        "https://github.com/alirezarezvani/claude-skills",
+        "https://github.com/microsoft/skills",
+        "https://github.com/microsoft/azure-skills",
+        "https://github.com/microsoft/power-platform-skills",
+      ];
+      if (!allowed.some((base) => url === base || url.startsWith(base + "/"))) {
+        throw new Error("URL no permitida");
+      }
+      const skillRoot = await ensureProjectSkillRoot(projectDir);
+      const tmp = path.join(os.tmpdir(), `openwork-skill-import-${Date.now()}`);
+      await mkdir(tmp, { recursive: true });
+      const imported = [];
+      const skipped = [];
+      try {
+        await new Promise((resolve, reject) => {
+          execFile("git", ["clone", "--depth", "1", url, tmp], { timeout: 180000 }, (err) => (err ? reject(err) : resolve()));
+        });
+        const skillDirs = [];
+        async function walk(dir, depth) {
+          if (depth > 8) return;
+          const entries = await readdir(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const full = path.join(dir, entry.name);
+            if (await pathExists(path.join(full, "SKILL.md"))) skillDirs.push(full);
+            else await walk(full, depth + 1);
+          }
+        }
+        await walk(tmp, 0);
+        for (const src of skillDirs) {
+          let name;
+          try { name = validateSkillName(path.basename(src)); } catch { continue; }
+          const dest = path.join(skillRoot, name);
+          if (await pathExists(dest)) { skipped.push(name); continue; }
+          await cp(src, dest, { recursive: true });
+          imported.push(name);
+        }
+      } finally {
+        await rm(tmp, { recursive: true, force: true }).catch(() => {});
+      }
+      return { ok: true, status: 0, stdout: `Imported ${imported.length} skills`, stderr: "", imported, skipped };
+  },
   "installSkillTemplate": async (event, ...args) => {
       const projectDir = String(args[0] ?? "").trim();
       const name = validateSkillName(args[1]);

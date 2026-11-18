@@ -27,6 +27,7 @@ import type { DenResourceSnapshot } from "./den-types";
 import type { CloudImportedMarketplace, CloudImportedPlugin, CloudImportedProvider } from "../cloud/import-state";
 import { desktopFreeAccessStatusSchema } from "./inference-access";
 import { claudeImportItemsSchema, claudeImportResultsSchema } from "./claude-import";
+import type { ArtifactBase, ArtifactRecord, ArtifactSourceRef, ArtifactStatus, ArtifactType } from "../../react-app/domains/artifacts/types";
 
 const desktopFreePreferencesSchema = z.object({ enabled: z.boolean(), available: z.boolean(), canEnable: z.boolean(), refresh: z.enum(["reloaded", "deferred"]).optional() });
 export type DesktopFreePreferences = z.infer<typeof desktopFreePreferencesSchema>;
@@ -86,6 +87,25 @@ export type OpenworkCloudProviderSyncStatus = {
 };
 
 /** Work an engine switch would interrupt, as counts only. */
+export interface EcosystemNeed {
+  id: string; from: string; projectId: string; sessionId: string; need: string;
+  contextShort: string; priority: "high" | "normal" | "low";
+  status: "open" | "claimed" | "resolved" | "failed" | "expired";
+  claimedBy: string | null; resultRef: string | null;
+}
+export interface EcosystemSummary {
+  projectId: string; sessionId: string; agentId: string; title: string;
+  status: "active" | "paused" | "done" | "halted"; oneLiner: string;
+}
+export interface EcosystemDeliverable {
+  id: string; projectId: string; ownerAgent: string; title: string;
+  status: "draft" | "review" | "done"; draftPath: string; comments: string[];
+}
+export interface EcosystemState {
+  needs: EcosystemNeed[]; index: EcosystemSummary[]; board: EcosystemDeliverable[];
+  halted: boolean; haltedAt: number | null; haltedBy: string | null;
+}
+
 export interface EngineActivityCount {
   verdict: "idle" | "busy" | "unknown";
   busySessions: number;
@@ -2600,6 +2620,13 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     getSpecialistOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ output: SpecialistOutput; content: string; truncated: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getSpecialistOutputAudit: (id: string, outputId: string, workspaceId?: string) => requestJson<{ audit: SpecialistOutputAudit }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}/audit${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     deleteSpecialistOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
+    getArtifacts: (id: string, workspaceId?: string) => requestJson<{ artifacts: ArtifactBase[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getArtifact: (id: string, artifactId: string, workspaceId?: string) => requestJson<ArtifactRecord>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    createArtifactFromOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/from-output/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    createArtifact: (id: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; sources?: ArtifactSourceRef[]; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body, timeoutMs: 60_000 }),
+    saveArtifactVersion: (id: string, artifactId: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "PUT", body, timeoutMs: 60_000 }),
+    revertArtifact: (id: string, artifactId: string, versionId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/revert${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: { versionId }, timeoutMs: 60_000 }),
+    resolveArtifact: (id: string, artifactId: string, workspaceId?: string) => requestJson<{ spec: SpecialistPanelSpec; resolution: SpecialistPanelResolution }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/resolve${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
     putComexCheckpoint: (workspaceId: string, sessionId: string, body: { expectedRevision: number; checkpoint: ComexCheckpointInput }) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body }),
     getComexGitReview: (workspaceId: string, sessionId?: string) => requestJson<ComexGitReview>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/review${sessionId ? `?codeOnly=true&session=${encodeURIComponent(sessionId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 }),
@@ -2618,7 +2645,11 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     saveScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, text: string, id?: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "POST", body: { expectedRevision, text, ...(id ? { id } : {}) } }),
     deleteScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, id: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "DELETE", body: { expectedRevision, id } }),
 
-    getComexFeatures: () => requestJson<{ enabled: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+
+    /** Agent ecosystem board: need bus, cross-project index and deliverables. */
+    getEcosystemState: (workspaceId: string) => requestJson<EcosystemState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem`, { token, hostToken }),
+    ecosystemHalt: (workspaceId: string, halted: boolean, by: string) => requestJson<{ state: EcosystemState }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem/halt`, { token, hostToken, method: "POST", body: { halted, by } }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */
     readWorkspaceFile: (workspaceId: string, path: string, options?: { sessionId?: string; fileScope?: "workspace" | "conversation" }) =>
