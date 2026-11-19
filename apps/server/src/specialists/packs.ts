@@ -92,8 +92,15 @@ export async function prepareSpecialistWorkspace(config: Pick<ServerConfig, "con
     if (!value || typeof value !== "object" || !("applicationId" in value) || value.applicationId !== app.id) throw new ApiError(409, "project_already_bound", "El proyecto pertenece a otra aplicación.");
     return;
   }
-  // Bind fresh projects only; adopting legacy Comex workspaces is handled by the registry without reseeding.
-  if (await statOrNull(join(root, ".opencode"))) throw new ApiError(409, "project_has_configuration", "La carpeta ya tiene una configuración de agentes. Elegí una carpeta nueva para esta aplicación.");
+  // Adopt an existing agent configuration instead of refusing it: a person can
+  // point a specialist workspace at a project that already has `.opencode`.
+  // Only the binding marker is written, so existing edits are never overwritten.
+  if (await statOrNull(join(root, ".opencode"))) {
+    const temporary = `${marker}.${randomUUID()}.tmp`;
+    await writeFile(temporary, JSON.stringify({ applicationId: app.id }), { flag: "wx", mode: 0o600 });
+    await rename(temporary, marker);
+    return;
+  }
   const stat = await lstat(root);
   if (stat.isSymbolicLink()) throw failure("El proyecto no puede ser un enlace simbólico.");
   await mkdir(join(root, ".opencode"));

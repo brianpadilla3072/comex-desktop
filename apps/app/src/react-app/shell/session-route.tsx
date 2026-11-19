@@ -3685,6 +3685,7 @@ export function SessionRoute() {
       const workspaceName = folderNameFromPath(folder);
       let list: WorkspaceList | null = null;
       let createdOnServer = false;
+      let createFailure: unknown = null;
       if (client) {
         list = await client
           .createLocalWorkspace({ folderPath: folder, name: workspaceName, preset, applicationId: specialistApplicationId })
@@ -3692,9 +3693,15 @@ export function SessionRoute() {
             createdOnServer = true;
             return serverList;
           })
-          .catch(() => null);
+          .catch((error: unknown) => {
+            createFailure = error;
+            return null;
+          });
       }
       if (!list) {
+        // A real server response (e.g. the folder already has agent config)
+        // must reach the person; only a missing client means the server is down.
+        if (createFailure instanceof Error && createFailure.message.trim()) throw createFailure;
         throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
       }
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";

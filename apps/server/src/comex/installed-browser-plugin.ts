@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { server as browserTools } from "../opencode-plugins/openwork-chrome-devtools.js";
 import { addProviderSafeTool } from "../opencode-plugins/provider-safe-tool-schema.js";
@@ -18,7 +20,13 @@ export function installedBrowserPlugin(descriptorFile: string) {
     const canonical = await realpath(directory);
     const descriptor = async () => {
       try {
-        const value = installedBrowserDescriptor.parse(JSON.parse(await readFile(descriptorFile, "utf8")));
+        // OpenCode also loads the `comex-browser` wrappers of ancestor
+        // workspaces, and tool registration keeps only the first one. The
+        // wrapper's fixed descriptor can therefore belong to another project.
+        // Resolve the descriptor for THIS session's directory so any loaded
+        // wrapper connects the browser to the workspace that asked.
+        const sessionDescriptor = join(dirname(descriptorFile), createHash("sha256").update(canonical).digest("hex") + ".json");
+        const value = installedBrowserDescriptor.parse(JSON.parse(await readFile(sessionDescriptor, "utf8")));
         const url = new URL(value.url);
         if (value.directory !== canonical || url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.pathname !== "/browser" || url.search || url.hash || url.username || url.password) throw new Error();
         return value;

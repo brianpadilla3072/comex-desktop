@@ -65,3 +65,56 @@ y relanzar.
 
 La página debe mostrar `<title>OpenWork</title>` (no "Clawmint") y la ventana
 de escritorio se titula "OpenWork - Dev".
+
+## Crear un workspace sobre una carpeta que ya tiene `.opencode`
+
+Antes, `POST /workspaces/local` devolvía `409 project_has_configuration`
+("La carpeta ya tiene una configuración de agentes…") y la UI lo disfrazaba
+como _"OpenWork server is unavailable"_. Ahora:
+
+- `apps/server/src/specialists/packs.ts`: `prepareSpecialistWorkspace`
+  **adopta** la carpeta escribiendo solo `.opencode/specialist-application.json`
+  con el `applicationId`; no sobreescribe nada del `.opencode` existente.
+  Sigue rechazando el caso `project_already_bound` (otra aplicación).
+- `apps/app/src/react-app/shell/session-route.tsx`: `handleCreateWorkspace`
+  propaga el mensaje real del servidor; el texto genérico de "servidor no
+  disponible" queda solo para cuando no hay `client` (servidor caído).
+
+Tras cambiar `packs.ts` hay que recompilar el servidor, porque el dev carga
+`apps/server/dist/embedded.js`:
+
+```bash
+cd apps/server && pnpm exec tsc -p tsconfig.json
+```
+
+y reiniciar la app. El workspace `comex-desktop`
+(`/home/brian/Proyectos/build agents and skils/comex-desktop`) ya quedó creado
+y vinculado a la aplicación especialista activa.
+
+## Puente del navegador integrado (`browser_*`)
+
+Si `browser_tabs()` decía _"El navegador de Comex no está conectado a este
+proyecto"_, la causa no era el bridge sino los wrappers `comex-browser`:
+OpenCode carga los `.opencode/plugins/comex-browser/` de **todos los workspaces
+ancestros**, queda registrado el primero y su `descriptorFile` fijo pertenecía
+a otro proyecto (`directory` distinto) → fallaba la validación.
+
+Fix en `apps/server/src/comex/installed-browser-plugin.ts`: el descriptor se
+resuelve por el directorio de la sesión,
+`sha256(realpath(context.location.directory)).json`, dentro de la carpeta del
+descriptor — no por el archivo fijo del wrapper. Así cualquier wrapper cargado
+conecta el navegador con el workspace que lo pidió.
+
+Tras cambiarlo hay que recompilar el bundle y reiniciar:
+
+```bash
+cd apps/server
+pnpm exec bun build src/comex/installed-browser-plugin.ts --external effect \
+  --outfile dist/opencode-plugins/comex-installed-browser-plugin.js \
+  --target node --format esm
+```
+
+La app copia ese bundle a
+`~/.config/com.differentai.openwork.dev/openwork-dev-data/xdg/config/openwork/installed-browser/plugin.mjs`
+al iniciar. Verificar con `browser_tabs()` → `{"ok":true,...,"tabs":[]}` (
+sin pestañas abiertas es un resultado válido).
