@@ -6,8 +6,8 @@ si fuera el agente; no se ejecutó con un modelo cargado). Se puntúa con la gri
 
 ## Caso 1 — caso real (el que motivó la skill)
 
-**Pedido:** "Tengo las transcripciones y los `.mdx` del curso 'Máquina de Ventas' de Mica &
-Pedro en `fabiana apolonio`. Hacé el análisis de limitaciones honestas."
+**Pedido:** "Tengo las transcripciones y los `.mdx` de un curso de ventas con promesas de
+automatización. Hacé el análisis de limitaciones honestas."
 
 - **Disparo:** ✅. El description menciona "auditar las promesas de un curso", "separar
   marketing de viabilidad" y "documento de limitaciones honestas": carga sin nombrar la skill.

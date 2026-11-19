@@ -10,8 +10,8 @@ en un análisis sobrio de qué se puede hacer hoy y qué no. El entregable es un
 una sección por promesa, una tabla resumen y una conclusión honesta.
 
 Esta skill es **global**: no está atada al curso con el que se estrenó. Sirve para cualquier
-material. El primer caso trabajado quedó en
-`/home/brian/Proyectos/fabiana apolonio/investigacion/limitaciones-honestas.md` como referencia.
+material. El primer caso trabajado (un curso de ventas con promesas de automatización) quedó
+como documento de referencia en el proyecto que motivó la skill, fuera de este repo.
 
 ## Principio rector
 
