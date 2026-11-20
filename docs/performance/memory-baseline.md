@@ -26,7 +26,7 @@ can safely run in parallel on this kind of machine.
 - **Fixed overhead worth removing (recommendation):** the OpenCode **v1 engine runs the
   whole time (438 MB)** even though every chat goes through v2. It serves no traffic
   and uses about 1% CPU. Now started on demand behind `lazyV1Engine` (see
-  recommendation 2; saving pending live verification).
+  recommendation 2; verified live on 2026-11-20: boot runs a single engine).
 - **Dev tooling costs about 1 GB per dev session.** Vite takes 340–840 MB, and the
   pnpm/node launcher chain about 430–610 MB. A packaged app does not have it.
 - **Bug seen once under load (defensive fix):** at 6 parallel chats the renderer crashed
@@ -182,8 +182,13 @@ about 300 bytes of props diff.
    some MCP reads. **Done behind `lazyV1Engine`** (on by default,
    `docs/features/lazy-v1-engine/README.md`): while v2 serves chats, v1 starts on the
    first request that needs it and stops after 10 idle minutes. **Expected saving about
-   440 MB of PSS and ~1% CPU for as long as nothing uses v1, pending live verification**
-   (re-measure the idle and 10-chat scenarios with `perf-sample.mjs`). Opening Settings,
+   440 MB of PSS and ~1% CPU for as long as nothing uses v1.** Verified live on 2026-11-20
+   (desktop dev, chats on v2, `OPENWORK_V1_ENGINE_IDLE_MS=60000`): boot ran one OpenCode
+   process (v2, ~360 MB) with `v1Engine.state: "stopped"`; opening Settings › AI providers
+   started v1 exactly once and the page loaded; v1 stopped by itself ~72 s after the last use,
+   leaving no orphan process. Switching chats to v1 was refused in that profile because v2
+   had adopted the shared history (unchanged behavior). A full re-measure of the 10-chat
+   scenario is still worth doing. Opening Settings,
    the Connections page or creating a workspace from the first chat still starts v1
    for 10 minutes.
 3. **Renderer CPU in dev is high**: 60–90% of a thread with 10 chats. React's
