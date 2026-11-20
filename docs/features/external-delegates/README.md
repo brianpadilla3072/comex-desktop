@@ -74,6 +74,13 @@ pueden cambiarlo.
 | `orchestrator` | Nada. El agente que delega decide todo, incluidos los permisos riesgosos: le llegan como `needs_input` con `reason` `risky_command` u `outside_folder` y puede usar `ask_person` si cree que debés saberlo. |
 
 Para cambiarlo:
+- En la app: **Ajustes › Permisos › Agentes externos › "Que el agente decida por los agentes
+  externos"**. Solo lo puede cambiar el dueño (token del host); en la web sin acceso de dueño, o
+  con el bloqueo del operador, se ve bloqueado con el motivo.
+
+  | Apagado (por defecto) | Encendido |
+  | --- | --- |
+  | ![Apagado](settings-off.png) | ![Encendido](settings-on.png) |
 - `PUT /delegates/settings` `{ "decider": "orchestrator" }`, con el token del host (dueño).
 - Como bloqueo del operador: `OPENWORK_DELEGATES_DECIDER=orchestrator|person`, que tiene prioridad
   sobre lo guardado.

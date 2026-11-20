@@ -1,5 +1,6 @@
 import type { SettingsTab } from "@/app/types";
 import { activityAnimationsToggleAvailable } from "@/app/lib/activity-motion";
+import { externalDelegatesFeatureEnabled } from "@/app/lib/external-delegates";
 import { t } from "@/i18n";
 
 export type SettingsSearchOs = "macos" | "windows" | "linux";
@@ -126,6 +127,15 @@ export function getSettingsSearchEntries(options: { webNotifications?: boolean }
       title: t("settings.language"),
       detail: t("settings.language.description"),
       keywords: ["locale", "translation", "english", "spanish", "idioma", "lenguaje", "traducción", "español", "inglés"],
+    },
+    {
+      tab: "permissions",
+      anchor: "external-delegates-decider",
+      title: t("external_delegates.decider_title"),
+      detail: t("external_delegates.decider_off"),
+      section: t("external_delegates.section_title"),
+      keywords: ["devin", "codex", "external agents", "delegate", "permissions", "orchestrator", "agentes externos", "delegar", "permisos", "orquestador", "preguntas"],
+      available: externalDelegatesFeatureEnabled,
     },
     {
       tab: "appearance",

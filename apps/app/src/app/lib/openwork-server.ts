@@ -490,6 +490,12 @@ const pendingApprovalSchema = z.object({
   actor: z.object({ type: z.string().optional(), clientId: z.string().optional(), scope: z.string().optional() }).optional(),
 });
 const pendingApprovalsSchema = z.object({ items: z.array(pendingApprovalSchema) });
+/** GET/PUT /delegates/settings (owner access). overriddenBy "environment": an operator locked it. */
+export const delegateSettingsSchema = z.object({
+  decider: z.enum(["person", "orchestrator"]),
+  overriddenBy: z.enum(["environment"]).nullable().catch(null),
+});
+export type DelegateSettings = z.infer<typeof delegateSettingsSchema>;
 const approvalReplySchema = z.object({ ok: z.boolean(), allowed: z.boolean() });
 export type OpenworkPendingApproval = z.infer<typeof pendingApprovalSchema>;
 
@@ -2829,7 +2835,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     // Gated server writes waiting for someone with owner access (host token or a paired device).
     listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean; designStudio?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean; designStudio?: boolean; externalDelegates?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    /** Owner access: who decides about external agent CLIs (docs/features/external-delegates). */
+    getDelegateSettings: async () => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, timeoutMs: timeouts.config })),
+    setDelegateSettings: async (decider: "person" | "orchestrator") => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, method: "PUT", body: { decider }, timeoutMs: timeouts.config })),
     /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
     getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center/snapshot", { token, hostToken, timeoutMs: 30_000 }),
     stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),

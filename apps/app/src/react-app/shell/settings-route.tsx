@@ -99,6 +99,7 @@ import { isOpenWorkExtensionEnabled, OPENWORK_EXTENSION_STATE_CHANGED } from "@/
 import { PreferencesView } from "@/react-app/domains/settings/pages/preferences-view";
 import { GeneralSettingsView } from "@/react-app/domains/settings/pages/general-view";
 import { AuthorizedFoldersPanel } from "@/react-app/domains/settings/panels/authorized-folders-panel";
+import { ExternalDelegatesSection } from "@/react-app/domains/settings/permissions/external-delegates-section";
 import { EffectivePermissionsPanel } from "@/react-app/domains/settings/panels/effective-permissions-panel";
 import { SettingsStack } from "@/react-app/domains/settings/settings-section";
 import { isSettingAnchor, useRevealSetting } from "@/react-app/domains/settings/settings-anchor";
@@ -2259,6 +2260,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 void connectionsStore.refreshMcpServers();
               }}
             />
+            <ExternalDelegatesSection />
           </SettingsStack>
         );
       case "ai":
