@@ -1,0 +1,54 @@
+{
+  "contract": "openwork.designs",
+  "version": 1,
+  "routes": "GET|POST /designs, GET|PATCH|DELETE /designs/:workspaceId/:designId, GET|PUT /designs/:workspaceId/:designId/files?path=, POST /designs/:workspaceId/:designId/pages, PUT /designs/:workspaceId/:designId/pages/order, DELETE /designs/:workspaceId/:designId/pages/:pageId, PUT /designs/:workspaceId/:designId/thumbnail, GET /designs/:workspaceId/:designId/export?format=html, GET|POST /designs/:workspaceId/:designId/chats",
+  "contentSecurityPolicy": "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:",
+  "ids": [
+    { "title": "Plan de lanzamiento", "taken": [], "id": "plan-de-lanzamiento" },
+    { "title": "Plan de lanzamiento", "taken": ["plan-de-lanzamiento"], "id": "plan-de-lanzamiento-2" },
+    { "title": "Plan de lanzamiento", "taken": ["plan-de-lanzamiento", "plan-de-lanzamiento-2"], "id": "plan-de-lanzamiento-3" },
+    { "title": "Diseño Ñandú: ¡Año 2027!", "taken": [], "id": "diseno-nandu-ano-2027" },
+    { "title": "../../etc", "taken": [], "id": "etc" },
+    { "title": "¿?¡!", "taken": [], "id": "diseno" },
+    { "title": "¿?¡!", "taken": ["diseno"], "id": "diseno-2" }
+  ],
+  "pageIds": [
+    { "pages": [], "id": "p-1" },
+    { "pages": ["p-1", "p-2"], "id": "p-3" },
+    { "pages": ["p-1", "portada", "p-9"], "id": "p-10" }
+  ],
+  "paths": [
+    { "input": "design.json", "result": { "ok": true, "path": "design.json", "role": "manifest" } },
+    { "input": "pages/p-1.html", "result": { "ok": true, "path": "pages/p-1.html", "role": "page" } },
+    { "input": "board.json", "result": { "ok": true, "path": "board.json", "role": "board" } },
+    { "input": "tokens.json", "result": { "ok": true, "path": "tokens.json", "role": "tokens" } },
+    { "input": "thumbnail.png", "result": { "ok": true, "path": "thumbnail.png", "role": "thumbnail" } },
+    { "input": "assets/logo.svg", "result": { "ok": true, "path": "assets/logo.svg", "role": "asset" } },
+    { "input": "styles.css", "result": { "ok": true, "path": "styles.css", "role": "asset" } },
+    { "input": "../x.html", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "/etc/passwd", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "assets/.hidden", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "pages\\p-1.html", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "a//b", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "c:/x", "result": { "ok": false, "code": "design_path_invalid" } },
+    { "input": "", "result": { "ok": false, "code": "design_path_invalid" } }
+  ],
+  "contentTypes": [
+    { "path": "pages/p-1.html", "type": "text/html; charset=utf-8" },
+    { "path": "assets/logo.SVG", "type": "image/svg+xml" },
+    { "path": "styles.css", "type": "text/css; charset=utf-8" },
+    { "path": "assets/foto.jpeg", "type": "image/jpeg" },
+    { "path": "assets/datos.bin", "type": "application/octet-stream" }
+  ],
+  "reorder": [
+    { "pages": ["p-1", "p-2", "p-3"], "order": ["p-3", "p-1", "p-2"], "result": ["p-3", "p-1", "p-2"] },
+    { "pages": ["p-1", "p-2"], "order": ["p-1"], "result": null },
+    { "pages": ["p-1", "p-2"], "order": ["p-1", "p-1"], "result": null },
+    { "pages": ["p-1", "p-2"], "order": ["p-1", "p-9"], "result": null }
+  ],
+  "insert": [
+    { "pages": ["p-1", "p-2"], "page": "p-3", "after": "p-1", "result": ["p-1", "p-3", "p-2"] },
+    { "pages": ["p-1", "p-2"], "page": "p-3", "after": null, "result": ["p-1", "p-2", "p-3"] },
+    { "pages": ["p-1", "p-2"], "page": "p-3", "after": "p-9", "result": ["p-1", "p-2", "p-3"] }
+  ]
+}

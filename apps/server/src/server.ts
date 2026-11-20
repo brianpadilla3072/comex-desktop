@@ -16,7 +16,7 @@ import { registerFolderBrowserRoutes } from "./folder-browser.js";
 import { registerContinuityRoutes } from "./comex/continuity-routes.js";
 import { registerAgentEcosystemRoutes } from "./comex/agent-ecosystem-routes.js";
 import { expireStaleClaims } from "./comex/agent-ecosystem.js";
-import { agentEcosystemEnabled, projectsExperienceEnabled } from "./comex/features.js";
+import { agentEcosystemEnabled, designStudioEnabled, projectsExperienceEnabled } from "./comex/features.js";
 import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
 import { createSpecialistScheduler } from "./specialists/scheduler.js";
@@ -24,6 +24,8 @@ import { projectAgentInstructions } from "./specialists/projects/instructions.js
 import { configureProjectSessions } from "./specialists/projects/sessions.js";
 import { registerCommandCenterRoutes } from "./command-center.js";
 import { registerResultsInboxRoutes } from "./results-inbox.js";
+import { registerDesignRoutes } from "./designs/routes.js";
+import { designAgentInstructions } from "./designs/guidance.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
 import { ensureComexSession, readComexMemory } from "./comex/seed.js";
 import { comexWorkspaceEnabled } from "./comex/features.js";
@@ -1291,6 +1293,8 @@ export async function startServer(
   // A project's "Recientes" (GET /projects/:workspaceId) read the same way.
   configureProjectSessions(inProcessEngineReads);
   registerResultsInboxRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
+  // Design studio (designStudio): /designs* (docs/features/design-studio).
+  registerDesignRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
 
   let server: ServeResult;
   try {
@@ -1645,6 +1649,11 @@ async function forwardOpencodeV2Request(input: {
       const name = input.workspace.displayName?.trim() || input.workspace.name?.trim() || input.workspace.path;
       const project = await projectAgentInstructions(input.workspace.path, name).catch(() => null);
       if (project) Object.assign(value, { project });
+    }
+    if (specialist && designStudioEnabled()) {
+      // Design studio: a chat bound to a design learns its folder, format and rules.
+      const design = await designAgentInstructions(input.workspace.path, sessionId).catch(() => null);
+      if (design) Object.assign(value, { design });
     }
     if (comexScopedMemoryEnabled()) {
       if (!sessionId.startsWith("ses_")) throw new ApiError(404, "session_not_found", "No se pudo verificar la conversación para leer memoria.");
