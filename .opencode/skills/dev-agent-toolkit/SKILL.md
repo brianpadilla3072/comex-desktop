@@ -77,6 +77,19 @@ The Electron session reads the server address and tokens from the desktop bridge
 the web session reads them from `tmp/dev-headless-web.json`. Tokens are never printed.
 Host routes work here, unlike the web UI, which only holds a collaborator token.
 
+## Measure memory and CPU
+
+```bash
+node scripts/dev-agent/perf-sample.mjs record --session perf --out tmp/dev-agent/perf.jsonl \
+  --interval 2 --stop-below-mb 3072 --phase-file tmp/dev-agent/perf.phase   # Linux only
+echo idle > tmp/dev-agent/perf.phase                                          # label what you do next
+node scripts/dev-agent/perf-sample.mjs summary tmp/dev-agent/perf.jsonl       # mean/peak PSS and CPU per phase and role
+```
+
+It samples only the processes this session started (Electron main, renderer, GPU, network,
+OpenCode engines, Vite, fake model) and stops the session when `MemAvailable` drops under
+`--stop-below-mb`. Method and the last numbers: `docs/performance/memory-baseline.md`.
+
 ## Rules
 
 - Never drive the person's own app window (`pnpm dev` on CDP 9823); start your own session.

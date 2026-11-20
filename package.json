@@ -40,7 +40,7 @@
     "dev:agent": "node scripts/dev-agent/devtool.mjs",
     "check:rust-readiness": "node scripts/check-rust-readiness.mjs",
     "test:rust-readiness": "node --test scripts/check-rust-readiness.test.mjs",
-    "test:dev-agent": "node --test scripts/dev-agent/devtool.test.mjs apps/desktop/test/electron-platform-args.test.mjs",
+    "test:dev-agent": "node --test scripts/dev-agent/devtool.test.mjs scripts/dev-agent/perf.test.mjs apps/desktop/test/electron-platform-args.test.mjs",
     "dev:headless-web": "OPENWORK_DEV_MODE=1 node scripts/dev-headless-web.ts",
     "build": "node scripts/build.mjs",
     "build:ui": "pnpm --filter @openwork/app build",
