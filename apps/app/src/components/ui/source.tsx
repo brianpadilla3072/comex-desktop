@@ -5,6 +5,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
+import { t } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { createContext, useContext } from "react"
 
@@ -111,7 +112,7 @@ export function SourceContent({
         </div>
         <div className="line-clamp-2 text-sm font-medium">{title}</div>
         <div className="text-muted-foreground line-clamp-2 text-sm">
-          {description ? description : <span className="text-muted-foreground">No description available</span>}
+          {description ? description : <span className="text-muted-foreground">{t("ui_kit.no_description")}</span>}
         </div>
       </a>
     </HoverCardContent>

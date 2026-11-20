@@ -1,4 +1,5 @@
 import * as React from "react"
+import { t } from "@/i18n"
 import { Check, Copy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -144,7 +145,7 @@ export function PastedTextChip(props: { text: string }) {
         type="button"
         className="inline rounded-lg align-middle focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         aria-expanded={open}
-        aria-label={open ? "Hide pasted text" : "Show pasted text"}
+        aria-label={open ? t("chat_ui.hide_pasted_text") : t("chat_ui.show_pasted_text")}
         onClick={() => setOpen((current) => !current)}
       >
         <ComposerBadgeChip badge={pastedTextBadge(total)} open={open} className="mx-0" />
@@ -153,7 +154,7 @@ export function PastedTextChip(props: { text: string }) {
         <span className="my-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2 text-left" data-pasted-text-preview>
           <span className="flex items-center justify-between gap-3">
             <span className="text-[11px] text-muted-foreground">
-              {total} line{total === 1 ? "" : "s"} · {props.text.length.toLocaleString()} characters
+              {t(total === 1 ? "chat_ui.pasted_summary_one" : "chat_ui.pasted_summary_other", { lines: total, characters: props.text.length.toLocaleString() })}
             </span>
             <Button
               type="button"
@@ -164,7 +165,7 @@ export function PastedTextChip(props: { text: string }) {
               }}
             >
               {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : "Copy"}
+              {copied ? t("chat_ui.copied") : t("chat_ui.copy")}
             </Button>
           </span>
           <span className="mt-1 block overflow-hidden whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground">

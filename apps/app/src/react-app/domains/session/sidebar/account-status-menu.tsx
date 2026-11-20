@@ -471,7 +471,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             onClick={() => navigate(props.developerMode ? "/settings/debug" : "/settings/advanced/agent-access")}
           >
             <Stethoscope className="size-3.5" />
-            Run diagnostics
+            {t("session_ui.run_diagnostics")}
           </DropdownMenuItem>
         ) : null}
         {promoVisible ? (
@@ -531,7 +531,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
             >
               <span className="inline-flex min-w-0 items-center gap-2">
                 <UserRound className="size-3.5" />
-                <span className="truncate">Sign in to OpenWork Cloud</span>
+                <span className="truncate">{t("session_ui.sign_in_openwork_cloud")}</span>
               </span>
               <ArrowUpRight className="size-3.5" />
             </Button>

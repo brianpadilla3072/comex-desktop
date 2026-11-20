@@ -41,14 +41,14 @@ export function SidebarTitlebar({ history }: { history?: ConversationHistoryCont
     <div data-sidebar-titlebar className="window-titlebar mac-window-controls-inset flex shrink-0 items-center gap-1 px-2 titlebar-drag">
       <SidebarToggle surface="sidebar" />
       {history ? (
-        <div className="ml-auto flex gap-0.5 titlebar-no-drag" role="group" aria-label="Conversation history controls">
+        <div className="ml-auto flex gap-0.5 titlebar-no-drag" role="group" aria-label={t("session_ui.conversation_history_controls")}>
           <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground transition-colors hover:bg-muted"
-            aria-label="Back in conversation history" title="Back in conversation history"
+            aria-label={t("session_ui.history_back")} title={t("session_ui.history_back")}
             data-conversation-history-control="back" disabled={!history.canGoBack} onClick={() => history.onNavigate("back")}>
             <ArrowLeft strokeWidth={1.5} />
           </Button>
           <Button variant="ghost" size="icon-sm" className="rounded-lg text-muted-foreground transition-colors hover:bg-muted"
-            aria-label="Forward in conversation history" title="Forward in conversation history"
+            aria-label={t("session_ui.history_forward")} title={t("session_ui.history_forward")}
             data-conversation-history-control="forward" disabled={!history.canGoForward} onClick={() => history.onNavigate("forward")}>
             <ArrowRight strokeWidth={1.5} />
           </Button>

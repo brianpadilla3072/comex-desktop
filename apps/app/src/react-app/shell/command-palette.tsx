@@ -670,22 +670,22 @@ export function CommandPalette(props: CommandPaletteProps) {
                 className="w-full"
                 placeholder={
                   mode === "root"
-                    ? "Search actions and settings…"
+                    ? t("shell_ui.palette_search_root")
                     : mode === "split-sessions"
-                      ? "Search sessions and workspaces..."
+                      ? t("shell_ui.palette_search_sessions")
                     : mode === "accessible-items"
-                      ? "Search servers and artifacts..."
+                      ? t("shell_ui.palette_search_accessible")
                       : mode === "agents"
                         ? t("session.palette_placeholder_agents")
                         : mode === "groups"
-                          ? "Search groups..."
+                          ? t("shell_ui.palette_search_groups")
                           : t("session.palette_placeholder_actions")
                 }
                 onKeyDown={handleBackspace}
               />
             </CommandHeader>
             <CommandPanel>
-              <CommandEmpty>{mode === "root" ? "No matches. Try a different word, or type > for actions only." : mode === "accessible-items" ? "No accessible items found for this session." : mode === "groups" ? "No groups found for this workspace." : t("session.palette_no_matches")}</CommandEmpty>
+              <CommandEmpty>{mode === "root" ? t("shell_ui.palette_no_matches_root") : mode === "accessible-items" ? t("shell_ui.palette_no_accessible_items") : mode === "groups" ? t("shell_ui.palette_no_groups") : t("session.palette_no_matches")}</CommandEmpty>
               <CommandList>
                 {mode === "root"
                   ? (group: PaletteResultGroup) => (

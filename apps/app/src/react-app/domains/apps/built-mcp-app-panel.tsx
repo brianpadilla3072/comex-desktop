@@ -1,4 +1,5 @@
 import { McpAppFrame } from "@/components/chat/mcp-app-frame";
+import { t } from "@/i18n";
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ export function BuiltMcpAppPanel({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Close panel"
+            aria-label={t("apps_ui.close_panel")}
             onClick={onClose}
           >
             <X className="size-4" />

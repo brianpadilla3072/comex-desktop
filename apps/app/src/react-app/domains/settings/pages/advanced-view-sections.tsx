@@ -707,19 +707,19 @@ export function AdvancedWorkspaceRunModeSection() {
   return (
     <LayoutSection id="advanced-workspace-run-mode">
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Workspace run mode</LayoutSectionTitle>
-        <LayoutSectionDescription>Experimental approval controls in the composer.</LayoutSectionDescription>
+        <LayoutSectionTitle>{t("settings_ui.run_mode_title")}</LayoutSectionTitle>
+        <LayoutSectionDescription>{t("settings_ui.run_mode_desc")}</LayoutSectionDescription>
       </LayoutSectionHeader>
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Show workspace run mode</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("settings_ui.run_mode_show")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Choose when OpenWork asks before acting, using the icon beside attachments. Off by default. Available with the standard desktop engine.
+            {t("settings_ui.run_mode_show_desc")}
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
               data-testid="workspace-run-mode-flag"
-              aria-label="Show workspace run mode"
+              aria-label={t("settings_ui.run_mode_show")}
               checked={workspaceRunModeEnabled}
               disabled={restricted || !isDesktopRuntime()}
               onCheckedChange={toggleWorkspaceRunMode}
@@ -727,7 +727,7 @@ export function AdvancedWorkspaceRunModeSection() {
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
         <LayoutSectionItemFootnote>
-          This switch only shows or hides the control. Hiding it does not reset workspace permissions; choose Workspace defaults in the menu first if you want to remove the override.
+          {t("settings_ui.run_mode_footnote")}
         </LayoutSectionItemFootnote>
       </LayoutSectionItem>
     </LayoutSection>

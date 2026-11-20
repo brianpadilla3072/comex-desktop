@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { t } from "@/i18n";
 import { useEffect } from "react";
 import { createDenClient, readDenSettings } from "@/app/lib/den";
 import type { ModelRef } from "@/app/types";
@@ -45,13 +46,13 @@ export function ModelRecoveryNote(props: {
     || recovery.replacement.modelID !== props.selectedModel.modelID) return null;
   return (
     <div data-testid="model-recovery-note" role="status" className="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-      <span>{modelTitle(recovery.previous)} {recovery.returned ? "is available again" : "was removed by your organization"} · Using {modelTitle(recovery.replacement)} ·</span>
-      <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={props.onChange}>Change</Button>
+      <span>{t(recovery.returned ? "session_ui.model_available_again" : "session_ui.model_removed_by_org", { previous: modelTitle(recovery.previous), replacement: modelTitle(recovery.replacement) })}</span>
+      <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={props.onChange}>{t("session_ui.change")}</Button>
       {recovery.returned ? <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => {
         props.onSwitchBack(recovery.previous);
         useModelRecoveryStore.getState().clear(chatKey);
-      }}>Switch back</Button> : null}
-      <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Dismiss model change" onClick={() => useModelRecoveryStore.getState().dismiss(chatKey)}>
+      }}>{t("session_ui.switch_back")}</Button> : null}
+      <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label={t("session_ui.dismiss_model_change")} onClick={() => useModelRecoveryStore.getState().dismiss(chatKey)}>
         <X className="size-3.5" aria-hidden="true" />
       </Button>
     </div>

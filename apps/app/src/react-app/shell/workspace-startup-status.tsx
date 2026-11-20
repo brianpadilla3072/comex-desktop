@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useState, type ReactNode } from "react";
+import { t } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { OwDotTicker } from "./dot-ticker";
 import { formatCloudWorkspaceElapsed } from "./cloud-workspace-status";
@@ -38,8 +39,8 @@ export function WebStartupScreen({ message }: { message: string }) {
   }, []);
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-6 py-16 text-foreground" data-testid="web-startup-screen">
-      <WorkspaceStartupStatus message={slow ? "OpenWork is taking longer than usual to start" : message}>
-        {slow ? <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Reload</Button> : null}
+      <WorkspaceStartupStatus message={slow ? t("shell_ui.startup_slow") : message}>
+        {slow ? <Button variant="outline" size="sm" onClick={() => window.location.reload()}>{t("shell_ui.reload")}</Button> : null}
       </WorkspaceStartupStatus>
     </main>
   );

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react";
+import { t } from "@/i18n";
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -193,8 +194,8 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+            <SheetTitle>{t("ui_kit.sidebar")}</SheetTitle>
+            <SheetDescription>{t("ui_kit.sidebar_mobile_description")}</SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
+import { t } from "@/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, X, Zap } from "lucide-react";
 
@@ -255,7 +256,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
           className="flex items-center justify-center gap-2 text-[12px] text-muted-foreground"
           data-testid="openwork-models-hint"
         >
-          <span>Using the free starter model.</span>
+          <span>{t("session_ui.using_free_starter_model")}</span>
           <button
             type="button"
             className="flex items-center gap-1 font-medium text-blue-10 transition-colors hover:text-blue-11"
@@ -265,14 +266,14 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
               else signIn({ url, workspaceId: props.composer?.workspaceId, fallback: () => platform.openLink(url) });
             }}
           >
-            Get frontier models with no API keys
+            {t("session_ui.get_frontier_models")}
             <ArrowRight className="size-3" />
           </button>
           <button
             type="button"
             className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:text-foreground"
             onClick={hideOpenWorkModelsPromo}
-            aria-label="Hide OpenWork Models hint"
+            aria-label={t("session_ui.hide_models_hint")}
           >
             <X className="size-3" />
           </button>
@@ -287,9 +288,9 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
         >
           <Zap className="mt-0.5 size-4 shrink-0 text-blue-10" />
           <div>
-            <div className="text-[13px] font-medium text-foreground">Connect a model provider</div>
+            <div className="text-[13px] font-medium text-foreground">{t("session_ui.connect_model_provider")}</div>
             <div className="mt-0.5 text-[12px] text-muted-foreground">
-              Add an API key for Anthropic, OpenAI, Google, or other providers so tasks can run.
+              {t("session_ui.connect_model_provider_body")}
             </div>
           </div>
         </button>

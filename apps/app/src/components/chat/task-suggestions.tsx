@@ -7,6 +7,7 @@ import {
   DescriptiveButtonIcon,
   DescriptiveButtonTitle,
 } from "@/components/descriptive-button"
+import { t } from "@/i18n"
 import { useMessageList } from "@/components/chat/message-list-provider"
 import { cn } from "@/lib/utils"
 import { useOrgRestrictions } from "@/react-app/domains/cloud/desktop-config-provider"
@@ -54,10 +55,10 @@ export function TaskSuggestions({ className }: TaskSuggestionsProps) {
     <div className={cn("@container flex flex-col gap-4 pt-1", className)}>
       <p className="text-muted-foreground font-medium select-none">
         {noProviders
-          ? "Connect a model provider to get started:"
+          ? t("chat_ui.suggestions_connect_provider_lead")
           : hasOrganizationPrompts
-            ? "Try one of your organization's prompts:"
-            : "Try one of these:"}
+            ? t("chat_ui.suggestions_org_prompts_lead")
+            : t("chat_ui.suggestions_lead")}
       </p>
       <div className="grid min-w-0 gap-2 @lg:grid-cols-2 @2xl:grid-cols-3">
         {noProviders ? (
@@ -76,9 +77,9 @@ export function TaskSuggestions({ className }: TaskSuggestionsProps) {
               <BoltIcon className="size-6 text-blue-10" aria-hidden />
             </DescriptiveButtonIcon>
             <DescriptiveButtonContent>
-              <DescriptiveButtonTitle>Connect a model provider</DescriptiveButtonTitle>
+              <DescriptiveButtonTitle>{t("chat_ui.suggestion_connect_provider_title")}</DescriptiveButtonTitle>
               <DescriptiveButtonDescription>
-                Add an API key for Anthropic, OpenAI, Google, or others
+                {t("chat_ui.suggestion_connect_provider_body")}
               </DescriptiveButtonDescription>
             </DescriptiveButtonContent>
           </DescriptiveButton>
@@ -110,8 +111,8 @@ export function TaskSuggestions({ className }: TaskSuggestionsProps) {
                 <DocumentChartBarIcon className="size-6 text-green-10" aria-hidden />
               </DescriptiveButtonIcon>
               <DescriptiveButtonContent>
-                <DescriptiveButtonTitle>Edit a CSV</DescriptiveButtonTitle>
-                <DescriptiveButtonDescription>Create a sample spreadsheet</DescriptiveButtonDescription>
+                <DescriptiveButtonTitle>{t("chat_ui.suggestion_csv_title")}</DescriptiveButtonTitle>
+                <DescriptiveButtonDescription>{t("chat_ui.suggestion_csv_body")}</DescriptiveButtonDescription>
               </DescriptiveButtonContent>
             </DescriptiveButton>
 
@@ -120,8 +121,8 @@ export function TaskSuggestions({ className }: TaskSuggestionsProps) {
                 <GlobeAltIcon className="size-6 text-blue-10" aria-hidden />
               </DescriptiveButtonIcon>
               <DescriptiveButtonContent>
-                <DescriptiveButtonTitle>Browse the web</DescriptiveButtonTitle>
-                <DescriptiveButtonDescription>Search Craigslist for couches</DescriptiveButtonDescription>
+                <DescriptiveButtonTitle>{t("chat_ui.suggestion_browser_title")}</DescriptiveButtonTitle>
+                <DescriptiveButtonDescription>{t("chat_ui.suggestion_browser_body")}</DescriptiveButtonDescription>
               </DescriptiveButtonContent>
             </DescriptiveButton>
 
@@ -139,8 +140,8 @@ export function TaskSuggestions({ className }: TaskSuggestionsProps) {
                 <CubeIcon className="size-6 text-amber-10" aria-hidden />
               </DescriptiveButtonIcon>
               <DescriptiveButtonContent>
-                <DescriptiveButtonTitle>Connect an extension</DescriptiveButtonTitle>
-                <DescriptiveButtonDescription>Add MCPs and integrations</DescriptiveButtonDescription>
+                <DescriptiveButtonTitle>{t("chat_ui.suggestion_extension_title")}</DescriptiveButtonTitle>
+                <DescriptiveButtonDescription>{t("chat_ui.suggestion_extension_body")}</DescriptiveButtonDescription>
               </DescriptiveButtonContent>
             </DescriptiveButton>
           </>

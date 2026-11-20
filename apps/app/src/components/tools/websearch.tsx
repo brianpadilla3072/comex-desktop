@@ -1,6 +1,7 @@
 "use client"
 
 import { Search } from "lucide-react"
+import { t } from "@/i18n"
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -35,7 +36,7 @@ export function WebsearchTool({ part }: WebsearchToolProps) {
     <ChainOfThought>
       <ChainOfThoughtStep>
         <ChainOfThoughtTrigger leftIcon={<Search className="size-4" />}>
-          {results.length > 0 ? `Searching for "${part.input.query}"` : "Web search (No results)"}
+          {results.length > 0 ? t("tools_ui.searching_for", { query: part.input.query }) : t("tools_ui.web_search_no_results")}
         </ChainOfThoughtTrigger>
         <ChainOfThoughtContent>
           <div className="flex flex-wrap items-center gap-2">

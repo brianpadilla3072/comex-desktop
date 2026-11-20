@@ -676,11 +676,11 @@ export function SessionHistoryLoading({ saved, failed = false }: { saved: Sessio
   const height = Math.max(200, (saved.geometry?.scrollHeight ?? 232) - 32);
   const top = saved.mode === "manual" ? Math.min(saved.scrollTop + 64, height - 120) : Math.max(64, height - 200);
   if (failed) return <div data-thread-placeholder style={{ minHeight: height }} />;
-  return <div data-thread-loading role="status" aria-live="polite" aria-label="Loading conversation" style={{ minHeight: height }}>
-    <span className="sr-only">Loading conversation</span>
+  return <div data-thread-loading role="status" aria-live="polite" aria-label={t("session_ui.loading_conversation")} style={{ minHeight: height }}>
+    <span className="sr-only">{t("session_ui.loading_conversation")}</span>
     {visible ? <div aria-hidden="true" data-thread-loading-visual className="flex items-center justify-center gap-2 text-sm text-dls-secondary" style={{ paddingTop: Math.max(32, top) }}>
       <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />
-      <span>{saved.mode === "manual" ? "Returning to your reading position…" : "Loading latest messages…"}</span>
+      <span>{saved.mode === "manual" ? t("session_ui.returning_to_position") : t("session_ui.loading_latest_messages")}</span>
     </div> : null}
   </div>;
 }

@@ -1,4 +1,5 @@
 import { ComexProjectPanel } from "../comex/project-panel";
+import { t } from "@/i18n";
 import { useComexFeature, useComexArtifactsFeature } from "../comex/use-comex-feature";
 import { BuiltMcpAppPanel } from "../../apps/built-mcp-app-panel";
 /** @jsxImportSource react */
@@ -57,7 +58,7 @@ import {
   hasNativeBrowserOccluder,
 } from "./utils";
 import { computeBrowserBounds, createBrowserBoundsSync } from "./browser-bounds-sync";
-import { browserOperationLabels } from "./browser-status";
+import { browserOperationLabel } from "./browser-status";
 import type { BrowserPresentationMode } from "./browser-presentation-store";
 import { chooseAgentViewport, storedAgentViewport } from "./agent-viewport";
 
@@ -98,14 +99,14 @@ function AgentViewportMenu({ viewport }: { viewport: { key: AgentViewportKey; sc
       <PopoverTrigger
         render={(
           <Button variant="ghost" size="sm" className="h-6 shrink-0 px-2 text-xs text-muted-foreground"
-            aria-label={`Agent page size: ${AGENT_VIEWPORTS[active].label}. Change it`} data-testid="browser-agent-page-size">
+            aria-label={t("session_ui.agent_page_size_label", { size: AGENT_VIEWPORTS[active].label })} data-testid="browser-agent-page-size">
             {AGENT_VIEWPORTS[active].label}{viewport && viewport.scale < 1 ? ` · ${Math.round(viewport.scale * 100)}%` : ""}
           </Button>
         )}
       />
       <PopoverContent align="end" side="bottom" sideOffset={8} className="w-64 gap-0 p-1">
         <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">
-          While the agent works, pages keep this size. A fixed size scales to fit the panel.
+          {t("session_ui.agent_page_size_body")}
         </p>
         {(Object.keys(AGENT_VIEWPORTS) as AgentViewportKey[]).map((key) => (
           <button key={key} type="button" aria-pressed={key === active} data-testid={`browser-agent-page-size-${key}`}
@@ -113,7 +114,7 @@ function AgentViewportMenu({ viewport }: { viewport: { key: AgentViewportKey; sc
             onClick={() => { setChosen(key); chooseAgentViewport(key); }}>
             <span className="font-medium">{AGENT_VIEWPORTS[key].label}</span>
             <span className="text-muted-foreground">
-              {AGENT_VIEWPORTS[key].fitsPanel ? "Fits the panel" : `${AGENT_VIEWPORTS[key].width} × ${AGENT_VIEWPORTS[key].height}`}
+              {AGENT_VIEWPORTS[key].fitsPanel ? t("session_ui.fits_panel") : `${AGENT_VIEWPORTS[key].width} × ${AGENT_VIEWPORTS[key].height}`}
             </span>
           </button>
         ))}
@@ -378,17 +379,17 @@ export function BrowserPanelContent({
   return (
     <>
       {failure?.owner === failureOwner ? <div className="shrink-0 px-3 py-2"><TaskRecovery compact title={failure.title} technicalDetails={failure.details}
-        actions={<Button variant="ghost" size="xs" onClick={() => setFailure(null)}>Dismiss</Button>} /></div> : null}
+        actions={<Button variant="ghost" size="xs" onClick={() => setFailure(null)}>{t("session_ui.dismiss")}</Button>} /></div> : null}
       {isAvailable && tab.browserTask ? (
         <div data-browser-shortcut-tab={tab.id} className="flex min-h-9 shrink-0 items-center gap-2 border-b border-border px-3 text-xs">
-          <span className="shrink-0 font-medium">Built-in browser</span>
+          <span className="shrink-0 font-medium">{t("session_ui.built_in_browser")}</span>
           <span role="status" className="min-w-0 flex-1 truncate text-muted-foreground">
-            {tab.browserTask?.status === "paused" ? "You have control · your next message hands it back" : tab.browserTask?.status === "running" ? browserOperationLabels[tab.browserTask.operation ?? ""] ?? "Working on this page" : tab.browserTask?.status === "needs_attention" ? browserOperationLabels[tab.browserTask.operation ?? ""] ?? "Review this page" : "This conversation's tab"}
+            {tab.browserTask?.status === "paused" ? t("session_ui.browser_you_have_control") : tab.browserTask?.status === "running" ? browserOperationLabel(tab.browserTask.operation) ?? t("session_ui.browser_working_on_page") : tab.browserTask?.status === "needs_attention" ? browserOperationLabel(tab.browserTask.operation) ?? t("session_ui.browser_review_page") : t("session_ui.browser_conversation_tab")}
           </span>
           <AgentViewportMenu viewport={tab.agentViewport ?? null} />
           <Button variant="outline" size="sm" className="h-6 px-2 text-xs"
             onClick={() => { void window.__OPENWORK_ELECTRON__?.browser?.taskControl?.(tab.id, tab.browserTask?.status === "paused" ? "resume" : "pause"); }}>
-            {tab.browserTask?.status === "paused" ? "Resume browser" : "Take over"}
+            {tab.browserTask?.status === "paused" ? t("session_ui.browser_resume") : t("session_ui.browser_take_over")}
           </Button>
         </div>
       ) : null}
@@ -403,13 +404,13 @@ export function BrowserPanelContent({
                     size="icon-sm"
                     onClick={back}
                     disabled={suspended || busy || !tab.canGoBack}
-                    aria-label="Go back"
+                    aria-label={t("session_ui.go_back")}
                   >
                     <ArrowLeft />
                   </Button>
                 )}
               />
-              <TooltipContent>Back</TooltipContent>
+              <TooltipContent>{t("common.back")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -419,13 +420,13 @@ export function BrowserPanelContent({
                     size="icon-sm"
                     onClick={forward}
                     disabled={suspended || busy || !tab.canGoForward}
-                    aria-label="Go forward"
+                    aria-label={t("session_ui.go_forward")}
                   >
                     <ArrowRight />
                   </Button>
                 )}
               />
-              <TooltipContent>Forward</TooltipContent>
+              <TooltipContent>{t("session_ui.forward")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -435,13 +436,13 @@ export function BrowserPanelContent({
                     size="icon-sm"
                     onClick={reload}
                     disabled={busy}
-                    aria-label="Reload page"
+                    aria-label={t("session_ui.reload_page")}
                   >
                     {tab.status === "loading" || busy ? <Loader2 className="animate-spin" /> : <RotateCw />}
                   </Button>
                 )}
               />
-              <TooltipContent>Reload</TooltipContent>
+              <TooltipContent>{t("session_ui.reload")}</TooltipContent>
             </Tooltip>
             <InputGroup className="mx-1 h-7 flex-1 rounded-md">
               <InputGroupInput
@@ -459,7 +460,7 @@ export function BrowserPanelContent({
                 onBlur={() => {
                   urlFocusedRef.current = false;
                 }}
-                placeholder="Enter URL..."
+                placeholder={t("session_ui.enter_url")}
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -476,17 +477,17 @@ export function BrowserPanelContent({
                       variant="outline"
                       size="sm"
                       className="h-6 shrink-0 rounded-md bg-muted/60 px-2 text-[11px] font-medium"
-                      aria-label={`${tab.siteToolCount} site ${tab.siteToolCount === 1 ? "tool" : "tools"} available; inspect site tools and activity`}
+                      aria-label={tab.siteToolCount === 1 ? t("session_ui.site_tools_available_one") : t("session_ui.site_tools_available_other", { count: tab.siteToolCount })}
                     >
-                      {tab.siteToolCount} {tab.siteToolCount === 1 ? "tool" : "tools"}
+                      {tab.siteToolCount === 1 ? t("session_ui.site_tools_count_one") : t("session_ui.site_tools_count_other", { count: tab.siteToolCount })}
                     </Button>
                   )}
                 />
                 <PopoverContent align="end" side="bottom" sideOffset={8} className="w-80 max-w-[calc(100vw-2rem)] gap-0 p-0">
                   <div className="border-b border-border px-4 py-3">
-                    <p className="text-sm font-semibold">Site tools</p>
+                    <p className="text-sm font-semibold">{t("session_ui.site_tools")}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Actions offered by this page. Review the website and the requested action before allowing it.
+                      {t("session_ui.site_tools_body")}
                     </p>
                   </div>
                   <div className="max-h-64 overflow-y-auto px-4 py-2">
@@ -495,7 +496,7 @@ export function BrowserPanelContent({
                         <div className="flex items-center justify-between gap-3">
                           <p className="min-w-0 truncate text-xs font-medium">{tool.title || tool.name}</p>
                           <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {tool.readOnly ? "Site says read-only" : "May change data"}
+                            {tool.readOnly ? t("session_ui.site_tool_read_only") : t("session_ui.site_tool_may_change")}
                           </span>
                         </div>
                         <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{tool.name}</p>
@@ -505,16 +506,16 @@ export function BrowserPanelContent({
                   </div>
                   {(tab.siteToolActivity ?? []).length > 0 ? (
                     <div className="border-t border-border px-4 py-3">
-                      <p className="mb-1.5 text-xs font-semibold">Recent activity</p>
+                      <p className="mb-1.5 text-xs font-semibold">{t("session_ui.recent_activity")}</p>
                       {(tab.siteToolActivity ?? []).slice(0, 5).map((activity, index) => (
                         <div key={`${activity.at}:${activity.name}:${index}`} className="flex items-center justify-between gap-3 py-1 text-[10px]">
                           <span className="min-w-0 truncate font-mono">{activity.name}</span>
                           <span className={activity.status === "completed" ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}>
-                            {activity.status === "completed" ? "Returned" : activity.code || "Failed"}
+                            {activity.status === "completed" ? t("session_ui.site_tool_returned") : activity.code || t("session_ui.site_tool_failed")}
                           </span>
                         </div>
                       ))}
-                      <p className="mt-1 text-[10px] text-muted-foreground">Arguments and results are not retained in this activity view.</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{t("session_ui.site_tool_activity_note")}</p>
                     </div>
                   ) : null}
                 </PopoverContent>
@@ -523,7 +524,7 @@ export function BrowserPanelContent({
           </div>
         ) : (
           <p className="px-2 text-sm text-muted-foreground">
-            Browser panel is only available in the desktop app.
+            {t("session_ui.browser_desktop_only")}
           </p>
         )}
         {isAvailable && presentation?.mode === "side" ? (
@@ -531,22 +532,22 @@ export function BrowserPanelContent({
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" aria-label="Pop out browser" data-testid="browser-mode-float" onClick={() => presentation.onPresent("floating")}>
+                  <Button variant="ghost" size="icon-sm" aria-label={t("session_ui.pop_out_browser")} data-testid="browser-mode-float" onClick={() => presentation.onPresent("floating")}>
                     <PictureInPicture2 />
                   </Button>
                 )}
               />
-              <TooltipContent>Pop out into its own window</TooltipContent>
+              <TooltipContent>{t("session_ui.pop_out_window")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
                 render={(
-                  <Button variant="ghost" size="icon-sm" aria-label="Full screen" data-testid="browser-mode-fullscreen" onClick={() => presentation.onPresent("fullscreen")}>
+                  <Button variant="ghost" size="icon-sm" aria-label={t("session_ui.full_screen")} data-testid="browser-mode-fullscreen" onClick={() => presentation.onPresent("fullscreen")}>
                     <Maximize2 />
                   </Button>
                 )}
               />
-              <TooltipContent>Full screen</TooltipContent>
+              <TooltipContent>{t("session_ui.full_screen")}</TooltipContent>
             </Tooltip>
           </>
         ) : null}
@@ -554,12 +555,12 @@ export function BrowserPanelContent({
           <Tooltip>
             <TooltipTrigger
               render={(
-                <Button variant="ghost" size="icon-sm" aria-label="Open beside chat" data-testid="browser-mode-side" onClick={() => presentation.onPresent("side")}>
+                <Button variant="ghost" size="icon-sm" aria-label={t("session_ui.open_beside_chat")} data-testid="browser-mode-side" onClick={() => presentation.onPresent("side")}>
                   <PanelRight />
                 </Button>
               )}
             />
-            <TooltipContent>Open beside chat</TooltipContent>
+            <TooltipContent>{t("session_ui.open_beside_chat")}</TooltipContent>
           </Tooltip>
         ) : null}
         {presentation?.mode === "fullscreen" || presentation?.mode === "window" ? null : (
@@ -567,8 +568,8 @@ export function BrowserPanelContent({
             variant="ghost"
             size="icon-sm"
             onClick={onClose}
-            title="Close panel"
-            aria-label="Close panel"
+            title={t("session_ui.close_panel")}
+            aria-label={t("session_ui.close_panel")}
           >
             <X />
           </Button>
@@ -591,14 +592,14 @@ export function BrowserPanelContent({
                   compact
                   title={pageFailure.message}
                   technicalDetails={`${pageFailure.errorDescription} (${pageFailure.errorCode})\n${pageFailure.url}`}
-                  actions={<Button variant="outline" size="sm" disabled={tab.status === "loading" || busy} onClick={reload}>Reload</Button>}
+                  actions={<Button variant="outline" size="sm" disabled={tab.status === "loading" || busy} onClick={reload}>{t("session_ui.reload")}</Button>}
                 />
               </div>
             ) : suspended ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-                <p className="text-sm font-medium">Tab suspended</p>
-                <p className="text-sm text-muted-foreground">Reload opens the saved URL, not the previous page state.</p>
-                <Button variant="outline" size="sm" onClick={reload}>Reload</Button>
+                <p className="text-sm font-medium">{t("session_ui.tab_suspended")}</p>
+                <p className="text-sm text-muted-foreground">{t("session_ui.tab_suspended_body")}</p>
+                <Button variant="outline" size="sm" onClick={reload}>{t("session_ui.reload")}</Button>
               </div>
             ) : null}
           </div>
@@ -859,20 +860,20 @@ export function SidePanel({
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => createTab()}
-                      aria-label="New tab"
+                      aria-label={t("session_ui.new_tab")}
                     >
                       <Plus />
                     </Button>
                   )}
                 />
-                <TooltipContent>New tab</TooltipContent>
+                <TooltipContent>{t("session_ui.new_tab")}</TooltipContent>
               </Tooltip>
             ) : !activeTab ? (
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={onClose}
-                aria-label="Close panel"
+                aria-label={t("session_ui.close_panel")}
               >
                 <X />
               </Button>

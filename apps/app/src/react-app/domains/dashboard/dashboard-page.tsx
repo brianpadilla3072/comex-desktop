@@ -57,7 +57,7 @@ export function DashboardPage({ fallbackEndpoints, onCreateApp, headerActionsTar
     || (Boolean(personal.client && personal.orgId) && personal.query.isPending && !personal.query.isFetched)) {
     return (
       <div className="mx-auto w-full max-w-5xl px-6 py-8 sm:px-8" data-dashboard-page>
-        <div className="space-y-2 pt-3" role="status" aria-label="Loading artifacts">
+        <div className="space-y-2 pt-3" role="status" aria-label={t("dashboard_ui.loading_artifacts")}>
           <Skeleton className="h-8 w-1/3" />
           <Skeleton className="h-40 w-full" />
         </div>
@@ -90,7 +90,7 @@ function DashboardSignedOut({ onSignIn }: { onSignIn?: () => void }) {
           <div className="h-2.5 w-3/5 rounded-full bg-muted" />
           <div className="mt-3 h-6 w-10 rounded-md bg-muted" />
         </div>)}</div>
-        <h2 className="text-xl font-semibold">Pin the artifacts you check every day</h2>
+        <h2 className="text-xl font-semibold">{t("dashboard_ui.pin_title")}</h2>
       </section>
     </div>
   );

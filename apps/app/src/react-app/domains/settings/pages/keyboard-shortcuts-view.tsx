@@ -3,6 +3,7 @@
 // shortcuts": each saved model gets one key. Rows are compact (DESIGN.md S2),
 // unavailable models keep their key and say why (P4, C5), and removing a key
 // is undoable instead of confirmed (P8).
+import { t } from "@/i18n";
 import { useMemo, useState } from "react";
 import type * as React from "react";
 import { ChevronDown, Lock, Pencil, Plus, Trash2, Zap } from "lucide-react";
@@ -91,14 +92,14 @@ function FastTag({ offered }: { offered: boolean }) {
     <span
       data-testid="fast-tag"
       data-offered={offered ? "true" : "false"}
-      title={offered ? "Fast when switching" : "Fast isn't offered for this model right now"}
+      title={offered ? t("settings_ui.shortcut_fast_when_switching") : t("settings_ui.shortcut_fast_not_offered_now")}
       className={cn(
         "inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full border px-1.5 text-[11px] font-medium",
         offered ? "border-dls-border text-dls-text" : "border-dls-border text-dls-secondary line-through",
       )}
     >
       <Zap className="size-3" fill="currentColor" aria-hidden />
-      Fast
+      {t("model_behavior.label_fast")}
     </span>
   );
 }
@@ -109,16 +110,16 @@ function RowState({ state, onOpenProviders }: { state: ShortcutRowState; onOpenP
       return (
         <span className="flex items-center gap-1.5 text-xs text-dls-secondary">
           <Lock className="size-3" aria-hidden />
-          Blocked by your organization
+          {t("settings_ui.shortcut_blocked_by_org")}
         </span>
       );
     case "provider_disconnected":
       return (
         <span className="flex items-center gap-1.5 text-xs text-dls-secondary">
           <span aria-hidden className="size-1.5 rounded-full bg-amber-9" />
-          {state.providerName ?? "Provider"} disconnected
+          {t("settings_ui.shortcut_provider_disconnected", { provider: state.providerName ?? t("settings_ui.shortcut_provider_fallback") })}
           <button type="button" className="font-medium text-dls-text underline underline-offset-2" onClick={onOpenProviders}>
-            Reconnect
+            {t("mcp.action_reconnect")}
           </button>
         </span>
       );
@@ -126,7 +127,7 @@ function RowState({ state, onOpenProviders }: { state: ShortcutRowState; onOpenP
       return (
         <span className="flex items-center gap-1.5 text-xs text-dls-secondary">
           <span aria-hidden className="size-1.5 rounded-full bg-red-9" />
-          No longer offered
+          {t("settings_ui.shortcut_no_longer_offered")}
         </span>
       );
     default:
@@ -197,11 +198,11 @@ function ShortcutEditor(props: {
     if (!chord) return;
     const problem = chordProblem(chord, os);
     if (problem?.kind === "needs_modifier") {
-      setRecordError(os === "macos" ? "Use ⌘ or ⌃ with ⌥ or ⇧, like ⌥⌘1." : "Use Ctrl with Alt or Shift, like Ctrl+Alt+1.");
+      setRecordError(os === "macos" ? t("settings_ui.shortcut_needs_modifier_mac") : t("settings_ui.shortcut_needs_modifier"));
       return;
     }
     if (problem?.kind === "built_in") {
-      setRecordError(`${formatChord(chord, os)} is used for ${problem.label.toLowerCase()}.`);
+      setRecordError(t("settings_ui.shortcut_built_in", { chord: formatChord(chord, os), action: problem.label.toLowerCase() }));
       return;
     }
     setKeys(chord);
@@ -238,12 +239,12 @@ function ShortcutEditor(props: {
       }}
     >
       <div className="flex min-h-10 items-center gap-3">
-        <span className="w-24 shrink-0 text-sm text-dls-secondary">Model</span>
+        <span className="w-24 shrink-0 text-sm text-dls-secondary">{t("settings_ui.shortcut_model")}</span>
         <Popover open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) setPickerQuery(""); }}>
-          <PopoverTrigger render={<Button variant="outline" className="min-w-0 flex-1 justify-between font-normal" aria-label="Model" />}>
+          <PopoverTrigger render={<Button variant="outline" className="min-w-0 flex-1 justify-between font-normal" aria-label={t("settings_ui.shortcut_model")} />}>
             <span className="flex min-w-0 items-center gap-2">
               {modelRef ? <ProviderIcon providerId={modelRef.providerID} providerName={model?.providerName} size={16} /> : null}
-              <span className={cn("truncate", !modelLabel && "text-dls-secondary")}>{modelLabel ?? "Choose a model"}</span>
+              <span className={cn("truncate", !modelLabel && "text-dls-secondary")}>{modelLabel ?? t("settings_ui.shortcut_choose_model")}</span>
             </span>
             <ChevronDown className="size-4 shrink-0 text-dls-secondary" />
           </PopoverTrigger>
@@ -257,9 +258,9 @@ function ShortcutEditor(props: {
       </div>
 
       <div className="flex min-h-10 items-center gap-3">
-        <span className="w-24 shrink-0 text-sm text-dls-secondary">Reasoning</span>
+        <span className="w-24 shrink-0 text-sm text-dls-secondary">{t("settings_ui.shortcut_reasoning")}</span>
         {efforts.length > 1 ? (
-          <div role="group" aria-label="Reasoning" className="flex flex-wrap gap-0.5 rounded-lg bg-dls-hover p-0.5">
+          <div role="group" aria-label={t("settings_ui.shortcut_reasoning")} className="flex flex-wrap gap-0.5 rounded-lg bg-dls-hover p-0.5">
             {efforts.map((option) => (
               <button
                 key={option.value ?? "default"}
@@ -276,18 +277,18 @@ function ShortcutEditor(props: {
             ))}
           </div>
         ) : (
-          <span className="text-xs text-dls-secondary">Default</span>
+          <span className="text-xs text-dls-secondary">{t("settings_ui.shortcut_default")}</span>
         )}
       </div>
 
       <div className="flex min-h-10 items-center gap-3">
-        <label htmlFor="model-shortcut-fast" className="w-24 shrink-0 text-sm text-dls-secondary">Fast</label>
+        <label htmlFor="model-shortcut-fast" className="w-24 shrink-0 text-sm text-dls-secondary">{t("model_behavior.label_fast")}</label>
         <span className="flex-1 text-xs text-dls-secondary">
-          {fastOffered ? "Higher pricing" : "Not offered for this model"}
+          {fastOffered ? t("settings_ui.shortcut_higher_pricing") : t("settings_ui.shortcut_not_offered")}
         </span>
         <Switch
           id="model-shortcut-fast"
-          aria-label="Fast"
+          aria-label={t("model_behavior.label_fast")}
           size="sm"
           checked={fastOffered && fast}
           disabled={!fastOffered}
@@ -296,11 +297,11 @@ function ShortcutEditor(props: {
       </div>
 
       <div className="flex min-h-10 items-center gap-3">
-        <span className="w-24 shrink-0 text-sm text-dls-secondary">Key</span>
+        <span className="w-24 shrink-0 text-sm text-dls-secondary">{t("settings_ui.shortcut_key")}</span>
         <button
           type="button"
           {...{ [SHORTCUT_RECORDER_ATTRIBUTE]: recording ? "recording" : "idle" }}
-          aria-label={recording ? "Press the new key" : keys ? `Key ${formatChord(keys, os)}. Change key` : "Record a key"}
+          aria-label={recording ? t("settings_ui.shortcut_press_new_key") : keys ? t("settings_ui.shortcut_key_change", { chord: formatChord(keys, os) }) : t("settings_ui.shortcut_record_a_key")}
           className={cn(
             "inline-flex h-8 min-w-24 items-center justify-center gap-1 rounded-lg border px-2 font-mono text-xs transition-colors",
             recording ? "border-dls-accent ring-2 ring-dls-accent/15 text-dls-secondary" : "border-dls-border text-dls-text hover:bg-dls-hover",
@@ -309,17 +310,17 @@ function ShortcutEditor(props: {
           onKeyDown={handleRecordKey}
           onBlur={() => setRecording(false)}
         >
-          {recording ? "Press keys…" : keys ? formatChord(keys, os) : "Record key"}
+          {recording ? t("settings_ui.shortcut_press_keys") : keys ? formatChord(keys, os) : t("settings_ui.shortcut_record_key")}
         </button>
         <span role="status" className="min-w-0 flex-1 truncate text-xs text-dls-secondary">
-          {recordError ?? (conflictTitle && keys ? `${formatChord(keys, os)} opens ${conflictTitle}` : "")}
+          {recordError ?? (conflictTitle && keys ? t("settings_ui.shortcut_opens", { chord: formatChord(keys, os), model: conflictTitle }) : "")}
         </span>
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-1">
-        <Button variant="ghost" size="sm" onClick={props.onCancel}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={props.onCancel}>{t("common.cancel")}</Button>
         <Button size="sm" disabled={!canSave} onClick={save}>
-          {conflict ? "Reassign" : "Save shortcut"}
+          {conflict ? t("settings_ui.shortcut_reassign") : t("settings_ui.shortcut_save")}
         </Button>
       </div>
     </div>
@@ -365,18 +366,18 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
   };
   const handleRemove = (shortcut: Shortcut) => {
     removeShortcut(shortcut.id);
-    toast(`Removed ${formatChord(shortcut.keys, os)}`, {
-      action: { label: "Undo", onClick: () => saveShortcut(shortcut) },
+    toast(t("settings_ui.shortcut_removed", { chord: formatChord(shortcut.keys, os) }), {
+      action: { label: t("common.undo"), onClick: () => saveShortcut(shortcut) },
     });
   };
 
   const chatShortcuts = [
-    { label: "New session", keys: formatChord("Mod+N", os) },
-    { label: "Command palette", keys: formatChord("Mod+K", os) },
-    { label: "Settle session", keys: formatChord(SETTLE_SESSION_CHORD, os) },
-    { label: "Next saved model", keys: os === "macos" ? "⌃⇧M" : favoriteModelShortcutLabel },
-    { label: "Cycle reasoning", keys: thinkingModeShortcutLabel(thinkingOs) },
-    { label: "Toggle Fast", keys: fastModeShortcutLabel(thinkingOs) },
+    { label: t("settings_ui.shortcut_new_session"), keys: formatChord("Mod+N", os) },
+    { label: t("settings_ui.shortcut_command_palette"), keys: formatChord("Mod+K", os) },
+    { label: t("settings_ui.shortcut_settle_session"), keys: formatChord(SETTLE_SESSION_CHORD, os) },
+    { label: t("settings_ui.shortcut_next_saved_model"), keys: os === "macos" ? "⌃⇧M" : favoriteModelShortcutLabel },
+    { label: t("settings_ui.shortcut_cycle_reasoning"), keys: thinkingModeShortcutLabel(thinkingOs) },
+    { label: t("settings_ui.shortcut_toggle_fast"), keys: fastModeShortcutLabel(thinkingOs) },
   ];
 
   return (
@@ -385,12 +386,12 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
         <div className="flex flex-col">
           <div className="flex min-h-9 items-center justify-between gap-3 pb-1.5">
             <div className="flex items-baseline gap-2">
-              <h2 className="text-sm font-semibold text-dls-text">Model shortcuts</h2>
-              <span className="text-xs text-dls-secondary">{shortcuts.length} of 9 keys set</span>
+              <h2 className="text-sm font-semibold text-dls-text">{t("settings_ui.shortcut_model_shortcuts")}</h2>
+              <span className="text-xs text-dls-secondary">{t("settings_ui.shortcut_keys_set", { count: shortcuts.length })}</span>
             </div>
             <Button size="sm" onClick={() => setEditor({ shortcut: null, model: null })} disabled={editor !== null && editor.shortcut === null && editor.model === null}>
               <Plus data-icon="inline-start" />
-              Add model shortcut
+              {t("settings_ui.shortcut_add_model")}
             </Button>
           </div>
 
@@ -400,10 +401,10 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
             </div>
           ) : null}
 
-          <ul aria-label="Model shortcuts" className="flex flex-col border-t border-dls-border">
+          <ul aria-label={t("settings_ui.shortcut_model_shortcuts")} className="flex flex-col border-t border-dls-border">
             {shortcuts.length === 0 && unassigned.length === 0 ? (
               <li className="py-4 text-sm text-dls-secondary">
-                No model shortcuts yet. Add one to switch models with a key.
+                {t("settings_ui.shortcut_empty")}
               </li>
             ) : null}
             {shortcuts.map((shortcut) => {
@@ -437,7 +438,7 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
                   </span>
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span className={cn("truncate text-sm font-medium", available ? "text-dls-text" : "text-dls-secondary")}>{title}</span>
-                    <span className="shrink-0 text-xs text-dls-secondary">{effort ? `${effort} reasoning` : "Default"}</span>
+                    <span className="shrink-0 text-xs text-dls-secondary">{effort ? t("settings_ui.shortcut_effort_reasoning", { effort }) : t("settings_ui.shortcut_default")}</span>
                     {shortcut.action.fast ? <FastTag offered={!model || offersFast(model)} /> : null}
                   </span>
                   <RowState state={state} onOpenProviders={props.onOpenProviders} />
@@ -445,10 +446,10 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
                     <Kbd muted={!available}>{formatChord(shortcut.keys, os)}</Kbd>
                   </span>
                   <span className="flex w-16 shrink-0 justify-end gap-1">
-                    <Button variant="ghost" size="icon-xs" aria-label={`Edit shortcut for ${title}`} onClick={() => setEditor({ shortcut, model: ref })}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings_ui.shortcut_edit_for", { model: title })} onClick={() => setEditor({ shortcut, model: ref })}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-xs" aria-label={`Remove shortcut for ${title}`} onClick={() => handleRemove(shortcut)}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings_ui.shortcut_remove_for", { model: title })} onClick={() => handleRemove(shortcut)}>
                       <Trash2 />
                     </Button>
                   </span>
@@ -471,9 +472,9 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
                     <ProviderIcon providerId={favorite.providerID} providerName={model?.providerName} size={16} />
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-dls-text">{title}</span>
-                  <span className="flex w-24 shrink-0 text-xs text-dls-secondary">Unassigned</span>
+                  <span className="flex w-24 shrink-0 text-xs text-dls-secondary">{t("settings_ui.shortcut_unassigned")}</span>
                   <span className="flex w-16 shrink-0 justify-end">
-                    <Button variant="ghost" size="icon-xs" aria-label={`Set a key for ${title}`} onClick={() => setEditor({ shortcut: null, model: favorite })}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings_ui.shortcut_set_key_for", { model: title })} onClick={() => setEditor({ shortcut: null, model: favorite })}>
                       <Pencil />
                     </Button>
                   </span>
@@ -486,8 +487,8 @@ export function KeyboardShortcutsView(props: KeyboardShortcutsViewProps) {
 
       <LayoutSection>
         <div className="flex flex-col">
-          <h2 className="pb-1.5 text-sm font-semibold text-dls-text">Chat</h2>
-          <ul aria-label="Chat shortcuts" className="flex flex-col border-t border-dls-border">
+          <h2 className="pb-1.5 text-sm font-semibold text-dls-text">{t("settings_ui.shortcut_chat")}</h2>
+          <ul aria-label={t("settings_ui.shortcut_chat_shortcuts")} className="flex flex-col border-t border-dls-border">
             {chatShortcuts.map((entry) => (
               <li key={entry.label} className="flex min-h-11 items-center gap-3 border-b border-dls-border px-1">
                 <span className="flex-1 text-sm text-dls-text">{entry.label}</span>

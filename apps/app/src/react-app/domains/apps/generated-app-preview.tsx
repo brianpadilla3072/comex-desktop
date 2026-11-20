@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from "react";
+import { t } from "@/i18n";
 import type { GeneratedArtifactViewRevision, WorkflowArtifactPayload } from "@openwork/types/workflows";
 import { McpAppSandboxView, type McpAppSandboxViewProps } from "@/components/chat/mcp-app-frame";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,7 +34,7 @@ export function GeneratedAppPreview({ html, payload, title, revision, presentati
     : null, [openworkServerClient, workspaceId]);
   if (!origin || !workspaceId) {
     return <>
-      <p role="status" className="text-sm text-muted-foreground">Connect a workspace to open the preview.</p>
+      <p role="status" className="text-sm text-muted-foreground">{t("apps_ui.connect_workspace_preview")}</p>
       {presentation === "dashboard" && geometry ? <p className="mt-3 text-xs text-muted-foreground">Updated {new Date(payload.artifact.generatedAt).toLocaleString()}</p> : null}
     </>;
   }

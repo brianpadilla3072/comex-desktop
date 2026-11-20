@@ -475,7 +475,7 @@ export function NewTaskComposer(props: NewTaskComposerProps) {
     if (source.workspaceId === destination.workspaceId && newSessionDraftSlot(source) === newSessionDraftSlot(destination)) return;
     const holder = continuationHolderRef.current;
     if (draftWorkspaceChangeBlocked(source.workspaceId, destination.workspaceId, holder.state)) {
-      setDestinationError("Remove workspace files before changing workspace.");
+      setDestinationError(t("session_ui.remove_files_before_changing_workspace"));
       return;
     }
     try {
@@ -483,7 +483,7 @@ export function NewTaskComposer(props: NewTaskComposerProps) {
       holder.state = emptyNewTaskComposerState();
       props.onDraftChange("");
     } catch (error) {
-      setDestinationError(error instanceof Error ? error.message : "Could not change destination.");
+      setDestinationError(error instanceof Error ? error.message : t("session_ui.change_destination_failed"));
     }
   };
 
@@ -511,13 +511,13 @@ export function NewTaskComposer(props: NewTaskComposerProps) {
   return (
     <div>
     {destinationError ? <div role="alert" className="mb-2 text-sm text-red-11">{destinationError}</div> : null}
-    {displayedSubmissionError ? <TaskRecovery title={isGatewayProviderAuthFailure ? displayedSubmissionError.title : displayedSubmissionError.kind === "generic" ? "Couldn’t send your message" : displayedSubmissionError.title}
-      description={isGatewayProviderAuthFailure ? displayedSubmissionError.description : failedSubmission ? "Your unsent message is saved below." : "Your draft is still here. Try sending it again."}
+    {displayedSubmissionError ? <TaskRecovery title={isGatewayProviderAuthFailure ? displayedSubmissionError.title : displayedSubmissionError.kind === "generic" ? t("session_ui.send_failed_title") : displayedSubmissionError.title}
+      description={isGatewayProviderAuthFailure ? displayedSubmissionError.description : failedSubmission ? t("session_ui.unsent_message_saved_below") : t("session_ui.draft_still_here")}
       technicalDetails={displayedSubmissionError.technicalDetails} /> : null}
     {failedSubmission ? <button type="button" disabled={Boolean(props.draft || attachments.length)} className="mb-2 text-sm disabled:opacity-50" onClick={() => {
       restoreComposer(failedSubmission);
       setFailedSubmission(null);
-    }}>Clear the current draft to restore the unsent message</button> : null}
+    }}>{t("session_ui.clear_draft_to_restore")}</button> : null}
     <ReactSessionComposer
       contextControl={context?.destination?.workspaceId && context.workspaceOptions ? <NewTaskDestinationMenu
         destination={context.destination}
@@ -545,7 +545,7 @@ export function NewTaskComposer(props: NewTaskComposerProps) {
       busy={false}
       steering={false}
       submissionPreparing={props.busy || pendingSubmission !== null || failedSubmission !== null}
-      submissionPreparingLabel={failedSubmission ? "Restore the unsent message before sending" : "Send"}
+      submissionPreparingLabel={failedSubmission ? t("session_ui.restore_before_sending") : t("session_ui.send")}
       queuedCount={0}
       disabled={Boolean(context?.modelUnavailable)}
       disabledReasons={["send_model_unavailable"]}

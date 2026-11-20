@@ -5,6 +5,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { t } from "@/i18n"
 import { Button } from "@/components/ui/button"
 import { TaskRecovery } from "@/components/chat/task-recovery"
 import {
@@ -186,9 +187,9 @@ const Tool = ({
   }, [resultText])
 
   if (isError) return <div className={className}>
-    <TaskRecovery compact title={title ? `${title} failed` : "This action couldn’t finish"}
+    <TaskRecovery compact title={title ? t("tools_ui.named_failed", { title }) : t("tools_ui.action_failed")}
       description={reconnectError ? describeChatToolFailure(reconnectError)
-        : reconnectAction ? reconnectState === "connected" ? `${reconnectAction.connectionName} is connected again. Check whether the action finished before retrying.` : `${reconnectAction.connectionName} needs attention. Check its sign-in.`
+        : reconnectAction ? reconnectState === "connected" ? t("tools_ui.reconnected", { name: reconnectAction.connectionName }) : t("tools_ui.needs_attention", { name: reconnectAction.connectionName })
         : describeChatToolFailure(toolPart.errorText ?? "")}
       technicalDetails={[toolPart.type === "dynamic-tool" ? toolPart.toolName : toolPart.type, hasInput ? formatValue(input) : null, toolPart.errorText].filter(Boolean).join("\n")}
       actions={reconnectAction && onReconnect ? <Button variant="ghost" size="xs"
@@ -253,8 +254,8 @@ const Tool = ({
               size="icon-xs"
               className="absolute right-2 top-2"
               data-testid="tool-result-copy-action"
-              title={copied ? "Copied" : "Copy tool result"}
-              aria-label={copied ? "Tool result copied" : "Copy tool result"}
+              title={copied ? t("chat_ui.copied") : t("tools_ui.copy_result")}
+              aria-label={copied ? t("tools_ui.result_copied") : t("tools_ui.copy_result")}
               onClick={() => void handleCopyResult()}
             >
               {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
@@ -279,7 +280,7 @@ const Tool = ({
             )
           ) : null}
           {inFlight && !hasInput ? (
-            <span className="text-muted-foreground">Waiting for input…</span>
+            <span className="text-muted-foreground">{t("tools_ui.waiting_for_input")}</span>
           ) : null}
         </div>
       </CollapsibleContent>

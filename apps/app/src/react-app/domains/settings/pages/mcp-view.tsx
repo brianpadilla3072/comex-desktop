@@ -1353,7 +1353,7 @@ export function McpView(props: McpViewProps) {
             breadcrumbs={detailBreadcrumbs}
             backLabel={t("extensions.title")}
             name={detailSkill.name}
-            description={detailSkill.description ?? "Installed skill"}
+            description={detailSkill.description ?? t("extensions.row_skill_fallback")}
             taxonomy="skill"
             connected={true}
             connectedLabel={detailSkill.origin === "openwork-connect" ? "Available through OpenWork Connect" : undefined}

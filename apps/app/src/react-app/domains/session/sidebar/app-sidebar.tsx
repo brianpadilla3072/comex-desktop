@@ -951,7 +951,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                       <AlertTriangle
                         data-automations-attention-indicator
                         className="ml-auto size-3.5 shrink-0 text-warning"
-                        aria-label="An Automation needs attention"
+                        aria-label={t("session_ui.automation_needs_attention")}
                       />
                     ) : null}
                   </span>

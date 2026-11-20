@@ -557,7 +557,7 @@ function FileMessage({ part, tone }: FileMessageProps) {
         {canReveal ? (
           <DropdownMenuItem onClick={handleReveal}>
             <FolderOpen />
-            Reveal in Finder
+            {t("workspace_list.reveal_finder")}
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -648,11 +648,11 @@ function CopyMessageButton({ messages }: CopyMessageButtonProps) {
   }
 
   return (
-    <MessageAction tooltip={copied ? "Copied!" : "Copy"}>
+    <MessageAction tooltip={copied ? t("chat_ui.copied_exclaim") : t("chat_ui.copy")}>
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Copy message"
+        aria-label={t("chat_ui.copy_message")}
         onClick={() => void onCopy()}
       >
         {copied ? <Check /> : <Copy />}
@@ -1078,7 +1078,7 @@ const UserMessage = React.memo(
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="Edit message"
+                          aria-label={t("chat_ui.edit_message")}
                           disabled={readOnly}
                           onClick={editMessage}
                         >
@@ -1609,7 +1609,7 @@ function MessageGroup({
       { type: "item", id: "copy", label: "Copy", icon: <Copy className="size-4" />, onSelect: () => navigator.clipboard.writeText(replyText) },
     )
     if (lastRealItem && onForkAtMessage) replyMenuActions.push(
-      { type: "item", id: "branch", label: forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat", icon: <Split className="size-4 rotate-90" />, disabled: Boolean(forkingMessageId), onSelect: () => onForkAtMessage(lastRealItem.message.id) },
+      { type: "item", id: "branch", label: forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat"), icon: <Split className="size-4 rotate-90" />, disabled: Boolean(forkingMessageId), onSelect: () => onForkAtMessage(lastRealItem.message.id) },
     )
   }
   // Native turns can end with a metadata-free completion marker. Keep the
@@ -1649,7 +1649,7 @@ function MessageGroup({
       className="mx-auto flex w-full max-w-3xl flex-col px-2 empty:hidden md:px-10"
     >
       {builtMcpAppId(part) && !newestAppCalls.has(part.toolCallId)
-        ? <p className="mt-2 text-xs text-muted-foreground">This App has a newer version below.</p>
+        ? <p className="mt-2 text-xs text-muted-foreground">{t("chat_ui.app_newer_version_below")}</p>
         : builtAppSummary(part) ? null : <McpAppFrame part={part} />}
     </Message>
   )
@@ -1848,11 +1848,11 @@ function MessageGroup({
             <CopyMessageButton messages={renderableItems.map((item) => item.message)} />
             {lastRealItem && onForkAtMessage ? (
               <>
-                <MessageAction tooltip={forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat"}>
+                <MessageAction tooltip={forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat")}>
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat"}
+                    aria-label={forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat")}
                     aria-busy={forkingMessageId === lastRealItem.message.id || undefined}
                     disabled={Boolean(forkingMessageId)}
                     onClick={() => onForkAtMessage(lastRealItem.message.id)}

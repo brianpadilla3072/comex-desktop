@@ -1053,10 +1053,10 @@ function SessionErrorCard({ error, developerMode, onDismiss, onChangeModel, onOp
       actions={<>
         {error.kind === "model-not-found" ? <>
           {error.suggestions?.map((suggestion) => <Button key={`${suggestion.providerID}/${suggestion.modelID}`} variant="ghost" size="xs"
-            onClick={() => { onChangeModel?.(suggestion); onDismiss(); }}>Use {suggestion.providerID}/{suggestion.modelID}</Button>)}
+            onClick={() => { onChangeModel?.(suggestion); onDismiss(); }}>{t("session_ui.use_model", { model: `${suggestion.providerID}/${suggestion.modelID}` })}</Button>)}
           <Button variant="ghost" size="xs" onClick={() => { onOpenModelPicker?.(); onDismiss(); }}>{t("session.change_model")}</Button>
         </> : null}
-        <Button variant="ghost" size="xs" aria-label="Dismiss error" onClick={onDismiss}>Dismiss</Button>
+        <Button variant="ghost" size="xs" aria-label={t("session_ui.dismiss_error")} onClick={onDismiss}>{t("session_ui.dismiss")}</Button>
       </>} />
   );
 }
@@ -3957,11 +3957,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
                  shift under the reader and the saved reading anchor go stale. */}
             {findOwned ? <div aria-hidden className="h-12" /> : null}
             {queuedDrainState.phase.kind === "admission_unknown" ? (
-              <TaskRecovery state="paused" title="Couldn’t confirm your message was received"
-                description="It may already be running. Check before sending again."
+              <TaskRecovery state="paused" title={t("session_ui.admission_unknown_title")}
+                description={t("session_ui.admission_unknown_body")}
                 actions={<>
-                  <Button variant="ghost" size="xs" onClick={() => void checkUnknownAdmission(true)}>Check status</Button>
-                  <Button variant="ghost" size="xs" onClick={() => void handleAbort()}>Stop</Button>
+                  <Button variant="ghost" size="xs" onClick={() => void checkUnknownAdmission(true)}>{t("session_ui.check_status")}</Button>
+                  <Button variant="ghost" size="xs" onClick={() => void handleAbort()}>{t("session_ui.stop")}</Button>
                 </>} />
             ) : null}
             {revertMessageId ? (
@@ -4106,16 +4106,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
             className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-dls-border bg-dls-hover px-3 py-2 text-left text-xs text-dls-text transition-colors hover:bg-dls-active"
             onClick={() => props.onOpenSettingsSection?.("providers")}
           >
-            <span className="font-medium">No AI model connected.</span>
-            <span className="text-dls-secondary">Add a provider to run tasks.</span>
+            <span className="font-medium">{t("session_ui.no_model_connected")}</span>
+            <span className="text-dls-secondary">{t("session_ui.add_provider_to_run")}</span>
           </button>
         ) : null}
         {props.cloudMcpSubmissionState.status === "failed" ? (
           <TaskRecovery testId="cloud-mcp-submission-failure"
-            title={props.cloudMcpSubmissionState.issue?.message ?? "Connected service tools could not be prepared."}
+            title={props.cloudMcpSubmissionState.issue?.message ?? t("session_ui.connected_tools_failed")}
             description={props.cloudMcpSubmissionState.issue?.recommendedAction}
             onRetry={props.cloudMcpSubmissionState.issue?.retryable !== false ? handleRetryCloudSubmission : undefined}
-            actions={<Button variant="ghost" size="xs" onClick={props.onOpenConnect}>Open Connect</Button>} />
+            actions={<Button variant="ghost" size="xs" onClick={props.onOpenConnect}>{t("session_ui.open_connect")}</Button>} />
         ) : null}
         {archived ? (
           <Alert data-testid="archived-session">
@@ -4133,7 +4133,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ) : <>
         {failedDraft ? (
           <div className="mx-3 mb-2 flex items-center gap-3 text-xs text-dls-secondary">
-            <span>Your unsent message is saved. Clear the current draft to restore it.</span>
+            <span>{t("session_ui.unsent_message_saved")}</span>
             <button type="button" disabled={Boolean(draft || attachments.length)} className="font-medium disabled:opacity-50" onClick={() => {
               const state = useComposerStateStore.getState();
               if (getComposerDraft(state, props.sessionId) || getComposerAttachments(state, props.sessionId).length) return;
@@ -4143,11 +4143,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 sessions: { ...state.sessions, [props.sessionId]: failedDraft },
                 failedDrafts,
               });
-            }}>Restore unsent message</button>
+            }}>{t("session_ui.restore_unsent_message")}</button>
           </div>
         ) : null}
         {attachmentsUploading ? <div role="status" className="mx-3 mb-2 text-xs text-muted-foreground" data-attachment-status="uploading">
-          Preparing attachments...
+          {t("session_ui.preparing_attachments")}
         </div> : null}
         <SignInHandoffNotice workspaceId={props.workspaceId} sessionId={props.sessionId} hasDraft={Boolean(persistableComposerDraftText(draft).trim())} />
         <ReactSessionComposer

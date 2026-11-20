@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
+import { t } from "@/i18n";
 import type { RecoveryActionResult, RecoveryRelease } from "@/app/lib/desktop";
 import type { DenAppVersionMetadata, DenDesktopConfig } from "@/app/lib/den";
 import { readFreshDesktopVersionMetadata } from "@/app/lib/version-gate";
@@ -96,14 +97,14 @@ export function LoadingOverlay() {
 
   const runRecovery = async (action: (() => Promise<RecoveryActionResult>) | undefined) => {
     if (!action) return;
-    setActionState("Preparing verified recovery…");
+    setActionState(t("shell_ui.preparing_recovery"));
     try {
       const result = await action();
       setActionState(result.ok
-        ? result.message ?? "Recovery is ready."
-        : result.reason ?? "Recovery could not be started. Please retry.");
+        ? result.message ?? t("shell_ui.recovery_ready")
+        : result.reason ?? t("shell_ui.recovery_failed"));
     } catch {
-      setActionState("Recovery could not be started. Please retry.");
+      setActionState(t("shell_ui.recovery_failed"));
     }
   };
 
@@ -137,11 +138,11 @@ export function LoadingOverlay() {
     setBootUpdate({ phase: "downloading", version, percent: 0 });
     const result = await updater.download().catch((downloadError: unknown) => ({
       ok: false,
-      reason: downloadError instanceof Error ? downloadError.message : "The update could not be downloaded.",
+      reason: downloadError instanceof Error ? downloadError.message : t("shell_ui.update_download_failed"),
     }));
     setBootUpdate(result.ok
       ? { phase: "ready", version }
-      : { phase: "failed", version, reason: result.reason ?? "The update could not be downloaded." });
+      : { phase: "failed", version, reason: result.reason ?? t("shell_ui.update_download_failed") });
   };
 
   const finishBootUpdate = () => {
@@ -164,23 +165,23 @@ export function LoadingOverlay() {
       <div className="flex w-full max-w-[320px] flex-col items-center gap-4 px-6 text-center">
         {error ? (
           <div className="flex w-full flex-col gap-3 text-[12px] leading-5">
-            <div className="text-base font-medium text-dls-primary">OpenWork couldn't start</div>
-            <div className="text-dls-secondary">Reload to try again, or return to a version that works on this computer.</div>
+            <div className="text-base font-medium text-dls-primary">{t("shell_ui.boot_failed_title")}</div>
+            <div className="text-dls-secondary">{t("shell_ui.boot_failed_body")}</div>
             {bootUpdate ? (
               <div className="flex w-full flex-col gap-2">
                 {bootUpdate.phase === "checking" ? (
-                  <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary" role="status">Checking for a newer version…</div>
+                  <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary" role="status">{t("shell_ui.checking_for_update")}</div>
                 ) : bootUpdate.phase === "available" ? (
                   <button
                     type="button"
                     className="rounded-md bg-dls-accent px-3 py-2 font-medium text-[var(--dls-accent-fg)]"
                     onClick={() => void startBootUpdate(bootUpdate.version)}
                   >
-                    Update to {bootUpdate.version} and restart
+                    {t("shell_ui.update_and_restart", { version: bootUpdate.version })}
                   </button>
                 ) : bootUpdate.phase === "downloading" ? (
                   <div className="flex w-full flex-col gap-1" role="status">
-                    <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary">Downloading {bootUpdate.version}… {bootUpdate.percent}%</div>
+                    <div className="rounded-md border border-dls-border px-3 py-2 text-dls-secondary">{t("shell_ui.downloading_update", { version: bootUpdate.version, percent: bootUpdate.percent })}</div>
                     <div className="h-1 w-full overflow-hidden rounded bg-dls-border"><div className="h-full bg-dls-accent transition-[width] duration-150" style={{ width: `${bootUpdate.percent}%` }} /></div>
                   </div>
                 ) : bootUpdate.phase === "ready" ? (
@@ -189,7 +190,7 @@ export function LoadingOverlay() {
                     className="rounded-md bg-dls-accent px-3 py-2 font-medium text-[var(--dls-accent-fg)]"
                     onClick={finishBootUpdate}
                   >
-                    Restart to finish updating to {bootUpdate.version}
+                    {t("shell_ui.restart_to_finish_update", { version: bootUpdate.version })}
                   </button>
                 ) : (
                   <div className="flex w-full flex-col gap-2">
@@ -199,7 +200,7 @@ export function LoadingOverlay() {
                       className="rounded-md border border-dls-border px-3 py-2 font-medium text-dls-primary"
                       onClick={() => void startBootUpdate(bootUpdate.version)}
                     >
-                      Retry update
+                      {t("shell_ui.retry_update")}
                     </button>
                   </div>
                 )}
@@ -210,7 +211,7 @@ export function LoadingOverlay() {
               className="rounded-md border border-dls-border px-3 py-2 font-medium text-dls-primary"
               onClick={() => window.location.reload()}
             >
-              Reload
+              {t("shell_ui.reload")}
             </button>
             <button
               type="button"
@@ -218,14 +219,14 @@ export function LoadingOverlay() {
               className="rounded-md bg-dls-accent px-3 py-2 font-medium text-[var(--dls-accent-fg)] disabled:opacity-50"
               onClick={() => void runRecovery(window.__OPENWORK_ELECTRON__?.recovery?.restorePrevious)}
             >
-              Restore previous version
+              {t("shell_ui.restore_previous_version")}
             </button>
             <button
               type="button"
               className="rounded-md border border-dls-border px-3 py-2 font-medium text-dls-primary"
               onClick={() => setShowPicker((value) => !value)}
             >
-              Pick another version
+              {t("shell_ui.pick_another_version")}
             </button>
             {showPicker ? (
               <div className="flex flex-col gap-2">
@@ -245,7 +246,7 @@ export function LoadingOverlay() {
                             : undefined,
                         )}
                       >
-                        Use {release.version}
+                        {t("shell_ui.use_version", { version: release.version })}
                       </button>
                     )}
                     {release.marking ? <span className="text-dls-secondary">{release.marking}</span> : null}
@@ -255,7 +256,7 @@ export function LoadingOverlay() {
             ) : null}
             {actionState ? <div className="text-dls-secondary">{actionState}</div> : null}
             <details className="text-left text-dls-secondary">
-              <summary className="cursor-pointer">Technical details</summary>
+              <summary className="cursor-pointer">{t("shell_ui.technical_details")}</summary>
               <div className="mt-2 break-words" data-testid="boot-error-detail">{error}</div>
             </details>
           </div>
@@ -263,14 +264,14 @@ export function LoadingOverlay() {
           <>
             <OwDotTicker size="md" />
             <div className="text-[12px] leading-5 text-dls-secondary">
-              {message || "Preparing workspace"}
+              {message || t("shell_ui.preparing_workspace")}
             </div>
             <button
               type="button"
               className="rounded-md border border-dls-border px-3 py-2 text-sm font-medium text-dls-primary"
               onClick={() => window.location.reload()}
             >
-              Reload
+              {t("shell_ui.reload")}
             </button>
           </>
         )}

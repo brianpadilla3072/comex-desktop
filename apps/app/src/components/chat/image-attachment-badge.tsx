@@ -1,4 +1,5 @@
 import * as React from "react"
+import { t } from "@/i18n"
 import { X } from "lucide-react"
 
 import { ImageLightbox } from "@/components/chat/image-lightbox"
@@ -44,8 +45,8 @@ export function ImageAttachmentBadge({
             event.stopPropagation()
             onRemove()
           }}
-          aria-label={`Remove ${alt}`}
-          title="Remove"
+          aria-label={t("chat_ui.remove_named", { name: alt })}
+          title={t("chat_ui.remove")}
         >
           <X className="size-3" />
         </button>

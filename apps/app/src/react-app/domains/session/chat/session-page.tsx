@@ -436,12 +436,12 @@ function UnavailableWorkbenchPane(props: {
     >
       <div className="flex max-w-sm flex-col gap-3 text-center">
         <div>
-          <h2 className="text-sm font-medium text-foreground">{props.workspaceTitle} is unavailable</h2>
+          <h2 className="text-sm font-medium text-foreground">{t("session_ui.workspace_unavailable", { name: props.workspaceTitle })}</h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{props.message}</p>
         </div>
         <div className="flex justify-center gap-2">
-          <Button variant="outline" size="sm" onClick={props.onRetry}>Retry connection</Button>
-          <Button variant="ghost" size="sm" onClick={props.onClose}>Close pane</Button>
+          <Button variant="outline" size="sm" onClick={props.onRetry}>{t("session_ui.retry_connection")}</Button>
+          <Button variant="ghost" size="sm" onClick={props.onClose}>{t("session_ui.close_pane")}</Button>
         </div>
       </div>
     </div>
@@ -1895,7 +1895,7 @@ export function SessionPage(props: SessionPageProps) {
                       </Button>
                     }
                   />
-                  <TooltipContent>Back to parent chat</TooltipContent>
+                  <TooltipContent>{t("session_ui.back_to_parent_chat")}</TooltipContent>
                 </Tooltip>
               ) : null}
               {(props.primaryHeader && !hasMainContentTakeover) || (referenceLayout && !props.primarySlot && !hasMainContentTakeover) ? null : <>
@@ -1944,14 +1944,14 @@ export function SessionPage(props: SessionPageProps) {
                         variant="ghost"
                         size="icon-sm"
                         className="hidden rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
-                        aria-label="Find in conversation"
+                        aria-label={t("session_ui.find_in_conversation")}
                         onClick={() => useSessionFindStore.getState().openFind({ sessionId: findButtonSessionId })}
                       >
                         <TextSearch size={16} />
                       </Button>
                     }
                   />
-                  <TooltipContent>Find in conversation ({isMacPlatform() ? "⌘F" : "Ctrl+F"})</TooltipContent>
+                  <TooltipContent>{t("session_ui.find_in_conversation")} ({isMacPlatform() ? "⌘F" : "Ctrl+F"})</TooltipContent>
                 </Tooltip>
               ) : null}
               {showSettleButton && currentSessionSettle ? (
@@ -1994,7 +1994,7 @@ export function SessionPage(props: SessionPageProps) {
                       variant="ghost"
                       size="icon-sm"
                       className="rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-                      aria-label="More actions"
+                      aria-label={t("session_ui.more_actions")}
                     >
                       <MoreHorizontal size={18} />
                     </Button>
@@ -2006,7 +2006,7 @@ export function SessionPage(props: SessionPageProps) {
                       onClick={() => useSessionFindStore.getState().openFind({ sessionId: findButtonSessionId })}
                     >
                       <TextSearch className="size-4" />
-                      Find in conversation
+                      {t("session_ui.find_in_conversation")}
                     </DropdownMenuItem>
                   ) : null}
                   {showSettleButton && currentSessionSettle ? (
@@ -2017,7 +2017,7 @@ export function SessionPage(props: SessionPageProps) {
                   ) : null}
                   <DropdownMenuItem onClick={openArtifactRailPane}>
                     <FileText className="size-4" />
-                    Files{artifactTargetCount > 0 ? ` (${artifactTargetCount})` : ""}
+                    {t("session_ui.files")}{artifactTargetCount > 0 ? ` (${artifactTargetCount})` : ""}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setMemoryOpen(true)}>
                     <Brain className="size-4" />
@@ -2315,7 +2315,7 @@ export function SessionPage(props: SessionPageProps) {
                   {props.notFoundMessage ? (
                     <div className="px-6 py-16 text-center">
                       <div className="mx-auto max-w-md rounded-2xl border border-dls-border bg-dls-card px-5 py-6 shadow-[var(--dls-card-shadow)]">
-                        <h3 className="text-base font-medium text-dls-text">Workspace or session not found</h3>
+                        <h3 className="text-base font-medium text-dls-text">{t("session_ui.workspace_or_session_not_found")}</h3>
                         <p className="mt-2 text-sm leading-6 text-dls-secondary">{props.notFoundMessage}</p>
                       </div>
                     </div>
