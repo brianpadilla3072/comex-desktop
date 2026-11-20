@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
+import { useQueryClient as useProjectsQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, LayoutGrid, List, MonitorSmartphone, Palette, PenTool, Presentation, type LucideIcon } from "lucide-react";
 
 import { DESIGN_KINDS, designKindLabel, designPageRoute, formatDesignTime, type DesignKind, type DesignManifest, type DesignSummary } from "@/app/lib/designs";
@@ -16,8 +17,9 @@ import { SettingsListSearchInput } from "@/react-app/domains/settings/settings-l
 import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 
 import { DesignClientContext, designErrorText, designQueryKeys, type DesignClient } from "./design-client";
-import { DesignCreateDialog, type DesignProjectOption } from "./design-create-dialog";
-import { designProjectOptions, isDesignScope, isDesignView, visibleDesigns, type DesignScope, type DesignView } from "./design-gallery-model";
+import { DesignCreateDialog, type DesignNewProject, type DesignProjectOption } from "./design-create-dialog";
+import { designProjectOptions, isDesignKind, isDesignScope, isDesignView, visibleDesigns, type DesignScope, type DesignView } from "./design-gallery-model";
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { useDesignConnection, useDesignList } from "./use-designs";
 
 export const KIND_ICON: Record<DesignKind, LucideIcon> = { slides: Presentation, mockup: MonitorSmartphone, system: Palette, board: PenTool };
@@ -25,6 +27,24 @@ export const KIND_ICON: Record<DesignKind, LucideIcon> = { slides: Presentation,
 /** Route entry (`/design`): resolves the owner connection, then shows the gallery. */
 export function DesignGalleryPage({ currentWorkspaceId }: { currentWorkspaceId: string | null }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useProjectsQueryClient();
+  const specialists = useSpecialistApplications();
+  // `?new=<kind>`: back from the application form a new design asked for; reopen that dialog once.
+  const requestedKind = new URLSearchParams(location.search).get("new");
+  const initialKind = isDesignKind(requestedKind) ? requestedKind : null;
+  const catalog = specialists?.catalog ?? null;
+  const specialistClient = specialists?.client ?? null;
+  const newProject: DesignNewProject | null = specialists && specialistClient && catalog?.enabled && catalog.writable !== false ? {
+    applications: (catalog?.applications ?? []).map(application => ({ id: application.id, name: application.name })),
+    createProject: async (applicationId, name) => {
+      const result = await specialistClient.createSpecialistProject(applicationId, name);
+      void specialists.refresh();
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      return result.workspaceId;
+    },
+    createApplication: kind => specialists.create({ returnTo: `${location.pathname}?new=${kind}` }),
+  } : null;
   const connection = useDesignConnection();
   const client = connection.data ?? null;
   // Every project a design can go in (the Projects registry); designs add theirs when it is off.
@@ -37,14 +57,21 @@ export function DesignGalleryPage({ currentWorkspaceId }: { currentWorkspaceId: 
   }
   return <DesignGalleryPanel client={client} currentWorkspaceId={currentWorkspaceId}
     projects={(projects.data?.projects ?? []).map(project => ({ workspaceId: project.workspaceId, name: project.name }))}
+    newProject={newProject} initialKind={initialKind}
+    onInitialKindUsed={() => navigate(location.pathname, { replace: true })}
     onOpenDesign={(workspaceId, designId) => navigate(designPageRoute(workspaceId, designId))} />;
 }
 
-export function DesignGalleryPanel({ client, currentWorkspaceId, projects, onOpenDesign, now = Date.now() }: {
+export function DesignGalleryPanel({ client, currentWorkspaceId, projects, newProject = null, initialKind = null, onInitialKindUsed, onOpenDesign, now = Date.now() }: {
   client: DesignClient;
   /** The project the window is working in, for "Este proyecto"; null hides that filter. */
   currentWorkspaceId: string | null;
   projects: DesignProjectOption[];
+  /** Creating a project from the dialog when there is none; null keeps the dialog to existing projects. */
+  newProject?: DesignNewProject | null;
+  /** Opens the create dialog for this kind once (after returning from the application form). */
+  initialKind?: DesignKind | null;
+  onInitialKindUsed?: () => void;
   onOpenDesign: (workspaceId: string, designId: string) => void;
   now?: number;
 }) {
@@ -53,7 +80,12 @@ export function DesignGalleryPanel({ client, currentWorkspaceId, projects, onOpe
   const [scope, setScope] = useState<DesignScope>("all");
   const [view, setView] = useState<DesignView>("grid");
   const [search, setSearch] = useState("");
-  const [creating, setCreating] = useState<DesignKind | null>(null);
+  const [creating, setCreating] = useState<DesignKind | null>(initialKind);
+  useEffect(() => {
+    if (!initialKind) return;
+    setCreating(initialKind);
+    onInitialKindUsed?.();
+  }, [initialKind]);
   const list = query.data ?? null;
   const writable = list?.writable === true;
   const options = designProjectOptions(projects, list?.designs ?? []);
@@ -105,7 +137,7 @@ export function DesignGalleryPanel({ client, currentWorkspaceId, projects, onOpe
         designs={list ? visibleDesigns(list.designs, { scope: currentWorkspaceId ? scope : "all", workspaceId: currentWorkspaceId, query: search, kindLabel: designKindLabel }) : []}
         search={search} view={view} now={now} client={client}
         onRetry={() => void query.refetch()} onOpenDesign={onOpenDesign} onClearSearch={() => { setSearch(""); setScope("all"); }} />
-      <DesignCreateDialog client={client} kind={creating} projects={options} defaultWorkspaceId={currentWorkspaceId}
+      <DesignCreateDialog client={client} kind={creating} projects={options} defaultWorkspaceId={currentWorkspaceId} newProject={newProject}
         onOpenChange={open => { if (!open) setCreating(null); }} onCreated={created} />
     </GalleryFrame>
   </DesignClientContext>;

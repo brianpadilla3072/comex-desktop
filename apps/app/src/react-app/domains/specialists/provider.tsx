@@ -28,7 +28,8 @@ type State = {
   active: SpecialistApplication | null;
   busy: boolean;
   error: string | null;
-  create: () => void;
+  /** Opens the application form. returnTo: where to go after saving instead of the new workspace's chat. */
+  create: (options?: { returnTo?: string }) => void;
   edit: () => void;
   open: (application: SpecialistApplication) => Promise<void>;
   /** Opens the "new project" dialog for this application (the active one when omitted). */
@@ -53,6 +54,8 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const [libraryApplication, setLibraryApplication] = useState<SpecialistApplication | null>(null);
   const [deletingApplication, setDeletingApplication] = useState<SpecialistApplication | null>(null);
   const newProject = projectApplication !== null;
+  // Where the application form returns after saving, when a flow (e.g. a new design) opened it.
+  const returnTo = useRef<string | null>(null);
   const [projectName, setProjectName] = useState("");
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("specialists.onboarding-dismissed") === "1"; } catch { return false; } });
   const [busy, setBusy] = useState(false);
@@ -94,7 +97,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     return () => { document.title = previous; };
   }, [active?.name]);
   function closeForm() {
-    setForm(null); setDismissed(true);
+    setForm(null); setDismissed(true); returnTo.current = null;
     try { localStorage.setItem("specialists.onboarding-dismissed", "1"); } catch {}
   }
   async function openWorkspace(id: string) {
@@ -165,7 +168,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     toast.success(`Eliminaste ${deleted?.name ?? "la aplicación"}.`);
     if (next) await open(next); else navigate("/");
   }
-  const value: State = { client: query.data?.client ?? null, catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
+  const value: State = { client: query.data?.client ?? null, catalog, active, busy, error, create: options => { setError(null); returnTo.current = options?.returnTo ?? null; setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
     createProject: application => { setError(null); setProjectApplication(application ?? active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active),
     exportApplication: () => void exportApplication(), importApplication: () => void importFromMenu(), deleteApplication: () => setDeletingApplication(active), refresh: query.refetch };
   return <Context.Provider value={value}>
@@ -174,7 +177,14 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled || catalog?.datasetsEnabled || catalog?.sourcesEnabled || catalog?.panelsEnabled || catalog?.outputsEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} library={catalog?.libraryEnabled === true} scheduled={catalog?.scheduledTasksEnabled === true} dryRun={catalog?.taskDryRunEnabled === true} datasets={catalog?.datasetsEnabled === true} sources={catalog?.sourcesEnabled === true} localFiles={catalog?.sourcesLocalFilesEnabled === true} panels={catalog?.panelsEnabled === true} panelApps={catalog?.panelAppsEnabled === true} outputs={catalog?.outputsEnabled === true} readOnly={catalog?.writable === false} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
     {deletingApplication && query.data && catalog?.portabilityEnabled ? <DeleteApplicationDialog app={deletingApplication} client={query.data.client} zip={catalog?.zipBundleEnabled === true} onClose={() => setDeletingApplication(null)} onDeleted={afterDelete} /> : null}
     {catalog?.enabled && query.data && form ? <ApplicationForm key={typeof form === "string" ? "create" : form.id} client={query.data.client} catalog={catalog} existing={form === "create" ? null : form} preferredWorkspaceId={workspaceId}
-      onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }}
+      onClose={closeForm} onSaved={async id => {
+        await query.refetch();
+        const back = returnTo.current;
+        closeForm();
+        // A flow that needed an application goes back to where it started, with the new project ready.
+        if (back) { void queryClient.invalidateQueries({ queryKey: ["projects"] }); navigate(back); }
+        else if (id) await openWorkspace(id);
+      }}
       onImport={catalog.portabilityEnabled ? async userName => { const imported = await importApplication(userName); if (imported) { setForm(null); setDismissed(true); } } : undefined} /> : null}
     <Dialog open={newProject} onOpenChange={open => { if (!open) setProjectApplication(null); }}>
       <DialogContent><DialogHeader><DialogTitle>Nuevo proyecto en {projectApplication?.name}</DialogTitle></DialogHeader>
@@ -279,7 +289,7 @@ export function SpecialistApplicationSwitcher({ fallbackName }: { fallbackName: 
     <DropdownMenuContent align="start" className="w-72">
       {state.catalog.applications.map(app => <DropdownMenuItem key={app.id} onClick={() => void state.open(app)}><span className="min-w-0"><span className="block truncate">{app.name}{app.id === state.active?.id ? " ✓" : ""}</span><span className="block truncate text-xs text-muted-foreground">{app.specialty}</span></span></DropdownMenuItem>)}
       {state.catalog.applications.length ? <DropdownMenuSeparator /> : null}
-      {writable ? <DropdownMenuItem onClick={state.create}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem> : null}
+      {writable ? <DropdownMenuItem onClick={() => state.create()}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem> : null}
       {writable && state.catalog.portabilityEnabled ? <DropdownMenuItem onClick={state.importApplication}><Upload className="size-4" />Importar aplicación</DropdownMenuItem> : null}
       {!writable ? <p className="px-2 py-1 text-xs text-muted-foreground">Crear y modificar aplicaciones está disponible en la app de escritorio o en un dispositivo vinculado. <PairDeviceHint /></p> : null}
       {state.active ? <>{writable ? <DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem> : null}{state.catalog.libraryEnabled || state.catalog.scheduledTasksEnabled || state.catalog.datasetsEnabled || state.catalog.sourcesEnabled || state.catalog.panelsEnabled || state.catalog.outputsEnabled ? <DropdownMenuItem onClick={state.library}><BookText className="size-4" />{state.catalog.libraryEnabled ? "Contexto, agentes y skills" : [state.catalog.scheduledTasksEnabled && "Tareas", state.catalog.datasetsEnabled && "Datos", state.catalog.sourcesEnabled && "Fuentes", state.catalog.panelsEnabled && "Paneles", state.catalog.outputsEnabled && "Salidas"].filter(Boolean).join(" · ")}</DropdownMenuItem> : null}{writable ? <DropdownMenuItem onClick={() => state.createProject()}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem> : null}</> : null}

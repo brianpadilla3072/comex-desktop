@@ -105,6 +105,22 @@ a stub with the same signature that returns null.
 - Thumbnails: `setDesignThumbnailCapturer` (desktop renderer) captures the first page after the
   design settled (2.5 s after a `revision` change) and stores it with `putDesignThumbnail`. On the
   web nothing is registered and the gallery shows the kind's mark.
+### A new design when there is no project yet
+
+A design lives in a project, and a project in a specialist application. The "Nuevo diseño" dialog
+never sends the person away to find one:
+
+- **An application exists, no project:** the dialog shows "Proyecto nuevo" (default "Diseños") and
+  creates the project and the design in one step. If the design then fails, a retry reuses that
+  project instead of making another.
+- **No application yet:** the dialog says what is missing and offers "Crear aplicación". The
+  application form opens with `returnTo` (`SpecialistApplicationsProvider.create({ returnTo })`).
+  After saving, it comes back to `/design?new=<kind>` instead of the new workspace's chat. The new
+  application brings its "Principal" project, and the dialog reopens for the chosen kind.
+  "Configurar después" just closes the form.
+
+![No application yet](new-design-needs-application.png)
+
 ## Design system viewer and brand context (part 4)
 
 ### Editor (`apps/app/src/react-app/domains/design/editors/system-*`)

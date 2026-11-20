@@ -240,6 +240,52 @@ test("gallery: creating asks for project and title, then opens the new design", 
   expect(calls.open).toEqual([["ws_1", "nuevo"]]);
 });
 
+test("gallery: with no project, the dialog creates the project and the design in one step (no detour to an application)", async () => {
+  state.list = { designs: [], writable: true };
+  let failOnce = true;
+  const client = { ...fakeClient(), createDesign: async (input: Parameters<DesignClient["createDesign"]>[0]) => {
+    record("createDesign", input);
+    if (failOnce) { failOnce = false; throw new OpenworkServerError(500, "boom", "no"); }
+    return manifest({ id: "nuevo", kind: input.kind, title: input.title });
+  } };
+  const newProject = {
+    applications: [{ id: "app_1", name: "Comex" }],
+    createProject: async (applicationId: string, name: string) => { record("createProject", applicationId, name); return "ws_new"; },
+    createApplication: (kind: string) => record("createApplication", kind),
+  };
+  await render(<DesignGalleryPanel client={client} currentWorkspaceId={null} projects={[]} newProject={newProject} onOpenDesign={(ws, id) => record("open", ws, id)} now={NOW} />);
+  await click("[data-design-create='slides']");
+  const projectName = await waitFor("[data-design-create-new-project]");
+  expect(projectName instanceof HTMLInputElement ? projectName.value : "").toBe(t("design_ui.studio.new_project_default"));
+  expect(document.body.querySelector("[data-design-create-application]")).toBe(null);
+  await click("[data-design-create-submit]");
+  expect(calls.createProject).toEqual([["app_1", t("design_ui.studio.new_project_default")]]);
+  expect(calls.open).toBeUndefined();
+  // The design failed after the project was made: a retry reuses that project.
+  await click("[data-design-create-submit]");
+  expect(calls.createProject?.length).toBe(1);
+  expect(calls.createDesign?.map(([input]) => (input as { workspaceId: string }).workspaceId)).toEqual(["ws_new", "ws_new"]);
+  expect(calls.open).toEqual([["ws_new", "nuevo"]]);
+});
+
+test("gallery: with no application yet, the dialog offers to create one and comes back to the chosen kind", async () => {
+  state.list = { designs: [], writable: true };
+  const newProject = { applications: [], createProject: async () => "never", createApplication: (kind: string) => record("createApplication", kind) };
+  await render(<DesignGalleryPanel client={fakeClient()} currentWorkspaceId={null} projects={[]} newProject={newProject} onOpenDesign={() => undefined} now={NOW} />);
+  await click("[data-design-create='mockup']");
+  expect(document.body.textContent).toContain(t("design_ui.studio.create_needs_application"));
+  await click("[data-design-create-application]");
+  expect(calls.createApplication).toEqual([["mockup"]]);
+  expect(document.body.querySelector("[data-design-create-dialog]")).toBe(null);
+  await act(async () => root?.unmount());
+  root = createRoot(host);
+  // Back from the application form (`?new=mockup`): the dialog reopens once for that kind.
+  await render(<DesignGalleryPanel client={fakeClient()} currentWorkspaceId={null} projects={[{ workspaceId: "ws_1", name: "Principal" }]} initialKind="mockup" onInitialKindUsed={() => record("initialUsed")} onOpenDesign={() => undefined} now={NOW} />);
+  await waitFor("[data-design-create-dialog]");
+  expect(calls.initialUsed).toEqual([[]]);
+  expect(find("[data-design-create-project]").textContent).toContain("Principal");
+});
+
 test("gallery: honest empty, read-only and error states", async () => {
   state.list = { designs: [], writable: false };
   await render(<DesignGalleryPanel client={fakeClient()} currentWorkspaceId={null} projects={[]} onOpenDesign={() => undefined} now={NOW} />);
