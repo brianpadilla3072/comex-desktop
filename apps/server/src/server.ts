@@ -157,6 +157,7 @@ import { createNativeClaudeImportEngine, registerClaudeImportRoutes } from "./ro
 import { registerUiControlRoutes } from "./routes/ui-control.js";
 import { registerWorkspaceRoutes } from "./routes/workspaces.js";
 import { registerCloudMcpRoutes } from "./routes/cloud-mcp.js";
+import { closeDelegationService, reconcileDelegatesRuntimeEntries, registerDelegatesRoutes } from "./delegation/runtime.js";
 import { UiControlMailbox } from "./ui-control.js";
 import { captureServerException, isExpectedRequestCancellation } from "./telemetry.js";
 import {
@@ -857,6 +858,13 @@ export async function startServer(
       error: error instanceof Error ? error.message : "unknown",
     });
   }
+  try {
+    await reconcileDelegatesRuntimeEntries(config);
+  } catch (error) {
+    logger.log("warn", "Failed to reconcile the external delegates MCP entry during startup.", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+  }
   let watcherHandle = startReloadWatchers({ config, reloadEvents, logger });
   const refreshWorkspaceReloadBaseline = (workspaceId: string, reasons?: ReloadReason[]) =>
     watcherHandle.refreshWorkspace(workspaceId, reasons);
@@ -942,7 +950,11 @@ export async function startServer(
     approvals,
     tokens,
     env,
-    restartReloadWatchers,
+    () => {
+      restartReloadWatchers();
+      // A new workspace gets the external delegates MCP entry too (flag-gated inside).
+      void reconcileDelegatesRuntimeEntries(config).catch(() => undefined);
+    },
     engineMcpServerState,
     logger,
     cloudProviderSync,
@@ -1350,6 +1362,7 @@ export async function startServer(
         error: error instanceof Error ? error.message : "unknown",
       });
     }
+    await reconcileDelegatesRuntimeEntries(config).catch(() => undefined);
   }
   try {
     if (await anonymousInference.initialize(server.port)) await writeOpenworkRuntimeConfigFile(config);
@@ -1462,6 +1475,7 @@ export async function startServer(
       invalidateEngineMcpServerState(config, engineMcpServerState);
       watcherHandle.close();
       reloadBaselineRefreshers.delete(config);
+      closeDelegationService(config);
       await stopCloudComputer();
       await server.stop();
       if (recoveryError) throw recoveryError;
@@ -4612,6 +4626,7 @@ function createRoutes(
   addRoute(routes, "POST", "/mcp/managed/:workspaceId/:name", "none", managedGatewayHandler);
   addRoute(routes, "GET", "/mcp/managed/:workspaceId/:name", "none", managedGatewayHandler);
   addRoute(routes, "DELETE", "/mcp/managed/:workspaceId/:name", "none", managedGatewayHandler);
+  registerDelegatesRoutes(routes, config, approvals);
 
   addRoute(routes, "POST", "/workspace/:id/mcp", "client", async (ctx) => {
     ensureWritable(config);

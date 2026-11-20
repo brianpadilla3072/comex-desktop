@@ -203,6 +203,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  externalDelegates: {
+    label: "Delegate tasks to external agent CLIs",
+    description: "The agent can learn how to use another agent's command-line tool (or any CLI), test it, save a recipe after you approve it, and hand tasks to it in an isolated copy of the project. It answers that agent's questions and routine permission requests itself, sends risky ones to you, and can drive interactive terminal programs. Everything runs on this computer.",
+    category: "workbot",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/external-delegates/README.md",
+    deployments: ["self_hosted"],
+    default: false,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",

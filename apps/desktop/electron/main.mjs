@@ -1571,6 +1571,21 @@ const runtimeManager = createRuntimeManager({
     });
     return response === 1;
   },
+  // External delegates (docs/features/external-delegates): the person confirms
+  // here, in the main process, so engine tools cannot approve themselves.
+  delegationApproval: async ({ action, title, detail }) => {
+    const win = await createMainWindow();
+    const { response } = await dialog.showMessageBox(win, {
+      type: "question",
+      message: String(title).slice(0, 300),
+      detail: String(detail).slice(0, 2000),
+      buttons: ["Cancel", action === "register" ? "Allow tasks" : "Allow"], defaultId: 0, cancelId: 0, noLink: true,
+    });
+    return response === 1;
+  },
+  // node-pty gives external delegates a real terminal on macOS, Linux and
+  // Windows (ConPTY). A string argument is a verbatim Windows command line.
+  delegationPty: ({ file, args, cwd, env, cols, rows }) => pty.spawn(file, args, { name: "xterm-256color", cols, rows, cwd, env }),
   anonymousInference: {
     // Signed-out Auto has no device identity: like OpenCode Zen, the gateway limits it by IP.
     desktop: {

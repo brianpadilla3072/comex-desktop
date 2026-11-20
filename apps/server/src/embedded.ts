@@ -65,6 +65,8 @@ export type EmbeddedServerOptions = CliArgs & {
   /** Secure key custody for the local managed MCP credential vault. */
   localManagedMcpVaultKey?: LocalManagedMcpVaultKeyProvider;
   driveFileApproval?: ServerConfig["driveFileApproval"];
+  delegationPty?: ServerConfig["delegationPty"];
+  delegationApproval?: ServerConfig["delegationApproval"];
   resumeInterruptedTasks?: boolean;
   anonymousInference?: ServerConfig["anonymousInference"];
   /** Desktop marks a brand-new install so it starts on OpenCode v2. */
@@ -94,6 +96,8 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
   const config = await resolveServerConfig(options);
   config.localManagedMcpVaultKey = options.localManagedMcpVaultKey;
   config.driveFileApproval = options.driveFileApproval;
+  config.delegationPty = options.delegationPty;
+  config.delegationApproval = options.delegationApproval;
   config.anonymousInference = options.anonymousInference;
   config.freshInstallEngine = options.freshInstallEngine;
   if (options.engineAutoUpgrade !== undefined) {

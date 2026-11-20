@@ -13,3 +13,4 @@ unchanged. Add a vector before changing behavior; a new major version gets a new
 | `results-inbox/v1` | `apps/server/test/results-inbox.test.ts` |
 | `projects/v1` | `apps/server/test/projects-experience.test.ts` |
 | `designs/v1` | `apps/server/test/design-studio.test.ts` |
+| `delegation/v1` | `apps/server/test/external-delegates.test.ts` |

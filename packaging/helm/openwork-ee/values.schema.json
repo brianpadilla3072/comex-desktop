@@ -151,6 +151,16 @@
               ],
               "description": "Design studio: Create slides, screen mockups, design systems and whiteboards with the agent, as local files in the project: gallery, editors, comment-and-edit on the design, and export to PDF, PowerPoint, PNG and HTML. Nothing leaves the computer. Renders DEN_FEATURE_DESIGN_STUDIO."
             },
+            "externalDelegates": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Delegate tasks to external agent CLIs: The agent can learn how to use another agent's command-line tool (or any CLI), test it, save a recipe after you approve it, and hand tasks to it in an isolated copy of the project, including driving interactive terminal programs. Everything runs on this computer. Renders DEN_FEATURE_EXTERNAL_DELEGATES."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",

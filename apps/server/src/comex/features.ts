@@ -243,3 +243,10 @@ export function designStudioEnabled(env: NodeJS.ProcessEnv = process.env): boole
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("designStudio", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Delegate tasks to external agent CLIs through the local `openwork-delegates` MCP (docs/features/external-delegates). */
+export function externalDelegatesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("externalDelegates", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
