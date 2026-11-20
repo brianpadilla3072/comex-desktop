@@ -21,6 +21,7 @@ import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
 import { createSpecialistScheduler } from "./specialists/scheduler.js";
 import { registerCommandCenterRoutes } from "./command-center.js";
+import { registerResultsInboxRoutes } from "./results-inbox.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
 import { ensureComexSession, readComexMemory } from "./comex/seed.js";
 import { comexWorkspaceEnabled } from "./comex/features.js";
@@ -1279,6 +1280,7 @@ export async function startServer(
       },
     },
   });
+  registerResultsInboxRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
 
   let server: ServeResult;
   try {

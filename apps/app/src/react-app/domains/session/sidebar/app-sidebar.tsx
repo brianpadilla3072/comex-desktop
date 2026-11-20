@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Activity,
   Archive,
+  Inbox,
   ArchiveRestore,
   Blocks,
   CheckCheck,
@@ -176,6 +177,7 @@ import { WorkspaceAvatarPicker } from "./workspace-avatar-picker";
 import { isSameWorkbenchSession, useWorkbenchStore } from "../chat/workbench-store";
 import { shouldHideAttachedSideChat } from "./side-chat-status";
 import { SidebarDestination } from "./sidebar-destination";
+import { ResultsInboxBadge, resultsInboxNavLabel } from "../../results-inbox/results-inbox-badge";
 import { SessionTitle } from "./session-title";
 import { isKeyboardFocus } from "./session-title-marquee";
 import { getSessionOrder } from "./session-order";
@@ -718,6 +720,11 @@ export type AppSidebarProps = {
   commandCenterActive?: boolean;
   /** Opens the command center; absent while the `commandCenter` flag is off. */
   onOpenCommandCenter?: () => void;
+  resultsInboxActive?: boolean;
+  /** Unread results for the badge; null while unknown. */
+  resultsInboxUnread?: number | null;
+  /** Opens the results inbox; absent while the `resultsInbox` flag is off. */
+  onOpenResultsInbox?: () => void;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -872,9 +879,10 @@ export function AppSidebar(inputProps: AppSidebarProps) {
           onSearch={props.onOpenSessionSearch} onDashboard={props.onOpenDashboard} dashboardLabel={props.dashboardLabel} dashboardActive={props.dashboardActive}
           onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
           onCommandCenter={props.onOpenCommandCenter} commandCenterActive={props.commandCenterActive}
+          onResultsInbox={props.onOpenResultsInbox} resultsInboxActive={props.resultsInboxActive} resultsInboxUnread={props.resultsInboxUnread}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
           onInstallSkillsTools={props.onOpenExtensions}
-          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}
       {!contextualDestination ? <Sidebar
@@ -957,6 +965,20 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 icon={Activity}
                 label={t("command_center.nav")}
                 onSelect={props.onOpenCommandCenter}
+              />
+            ) : null}
+            {!referenceLayout && props.onOpenResultsInbox ? (
+              <SidebarDestination
+                active={props.resultsInboxActive === true}
+                icon={Inbox}
+                label={resultsInboxNavLabel(props.resultsInboxUnread)}
+                labelContent={(
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate">{t("results_inbox.nav")}</span>
+                    <ResultsInboxBadge count={props.resultsInboxUnread} className="ml-auto" />
+                  </span>
+                )}
+                onSelect={props.onOpenResultsInbox}
               />
             ) : null}
             {!referenceLayout ? <SidebarDestination

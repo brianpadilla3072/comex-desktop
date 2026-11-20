@@ -194,3 +194,10 @@ export function commandCenterEnabled(env: NodeJS.ProcessEnv = process.env): bool
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("commandCenter", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Results inbox of finished scheduled runs (docs/features/results-inbox). */
+export function resultsInboxEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("resultsInbox", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

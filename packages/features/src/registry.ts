@@ -940,6 +940,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  resultsInbox: {
+    label: "Results inbox for scheduled runs",
+    description: "One inbox, on desktop, web and phone, with every finished scheduled task run across all specialist applications: its outcome, the conversation, the outputs it produced and whether its isolated changes still wait for review. Each result can be marked seen or unseen, the state is kept on the server so every device agrees, and the sidebar shows how many results are unread.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/results-inbox/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
 })
 
 export type FeatureKey = keyof typeof FEATURES

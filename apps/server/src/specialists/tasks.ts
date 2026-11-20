@@ -75,6 +75,9 @@ export const runSchema = z.object({
   detail: z.string().max(2000).nullable(),
   /** Isolated copy whose changes wait for review (taskIsolationReview). */
   isolationId: z.string().nullable().default(null),
+  /** When the run was observed to finish (epoch ms). Null for entries written before this field
+   *  and for outcomes logged without a run (blocked, skipped), which end when they are logged. */
+  finishedAt: z.number().int().nullable().default(null),
 });
 /** Input shape: `isolationId` may be omitted by writers (it defaults to null). */
 export type SpecialistTaskRun = z.input<typeof runSchema>;
@@ -320,7 +323,7 @@ export function finishRun(config: Pick<ServerConfig, "configPath">, id: string, 
     const runs = await listRuns(config, id, taskId);
     const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
     if (index >= 0) {
-      runs[index] = { ...runs[index]!, status: patch.status, detail: (patch.detail ?? "").slice(0, 2000) || null };
+      runs[index] = { ...runs[index]!, status: patch.status, detail: (patch.detail ?? "").slice(0, 2000) || null, finishedAt: Date.now() };
       await writeJson(runLogFile(config, id, taskId), runs);
     }
     return runs;

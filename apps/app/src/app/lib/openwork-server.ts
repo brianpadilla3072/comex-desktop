@@ -2729,10 +2729,15 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     // Gated server writes waiting for someone with owner access (host token or a paired device).
     listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
     /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
     getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center", { token, hostToken, timeoutMs: 30_000 }),
     stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),
+    /** Owner access: finished scheduled runs (results inbox). Validate with `resultsInboxSnapshotSchema`. */
+    getResultsInbox: () => requestJson<unknown>(baseUrl, "/results-inbox", { token, hostToken, timeoutMs: 30_000 }),
+    getResultsInboxSummary: () => requestJson<unknown>(baseUrl, "/results-inbox/summary", { token, hostToken, timeoutMs: 30_000 }),
+    markResultsInboxSeen: (ids: string[], seen: boolean) => requestJson<unknown>(baseUrl, "/results-inbox/seen", { token, hostToken, method: "POST", body: { ids, seen }, timeoutMs: 30_000 }),
+    markAllResultsInboxSeen: (upTo?: number) => requestJson<unknown>(baseUrl, "/results-inbox/seen-all", { token, hostToken, method: "POST", body: upTo === undefined ? {} : { upTo }, timeoutMs: 30_000 }),
 
     /** Agent ecosystem board: need bus, cross-project index and deliverables. */
     getEcosystemState: (workspaceId: string) => requestJson<EcosystemState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem`, { token, hostToken }),

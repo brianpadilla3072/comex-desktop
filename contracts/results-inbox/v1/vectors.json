@@ -1,0 +1,90 @@
+{
+ "contract": "openwork.results-inbox",
+ "version": 1,
+ "routes": "GET /results-inbox, GET /results-inbox/summary, POST /results-inbox/seen, POST /results-inbox/seen-all",
+ "constants": { "retentionMs": 2592000000, "seenLimit": 2000, "itemLimit": 200, "runWindowMs": 900000, "outputLimit": 10 },
+ "ids": [
+  { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1763500000000", "parsed": { "applicationId": "app_00000000-0000-4000-8000-000000000001", "taskId": "task_00000000-0000-4000-8000-000000000002", "at": 1763500000000 } },
+  { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:-1", "parsed": null },
+  { "id": "run:app_x:task_00000000-0000-4000-8000-000000000002:1", "parsed": null },
+  { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1/../x", "parsed": null },
+  { "id": "", "parsed": null }
+ ],
+ "status": [
+  { "run": "ok", "inbox": "ok" },
+  { "run": "failed", "inbox": "failed" },
+  { "run": "blocked", "inbox": "blocked" },
+  { "run": "skipped_overlap", "inbox": "skipped" },
+  { "run": "skipped_missed", "inbox": "skipped" },
+  { "run": "dispatched", "inbox": null }
+ ],
+ "prune": [
+  {
+   "name": "drops marks past retention, unreadable marks and duplicates; keeps the newest mark",
+   "now": 1766000000000,
+   "entries": [
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "seenAt": 1765900100000 },
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "seenAt": 1765950000000 },
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1763000000000", "seenAt": 1763000100000 },
+    { "id": "../../etc/passwd", "seenAt": 1765900000000 },
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765800000000" }
+   ],
+   "expected": [
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "seenAt": 1765950000000 }
+   ]
+  }
+ ],
+ "apply": [
+  {
+   "name": "marking seen adds a mark at now; invalid ids are ignored",
+   "now": 1766000000000,
+   "entries": [],
+   "ids": ["run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "nope"],
+   "seen": true,
+   "expected": [
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "seenAt": 1766000000000 }
+   ]
+  },
+  {
+   "name": "marking unseen removes the mark",
+   "now": 1766000000000,
+   "entries": [
+    { "id": "run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000", "seenAt": 1765950000000 }
+   ],
+   "ids": ["run:app_00000000-0000-4000-8000-000000000001:task_00000000-0000-4000-8000-000000000002:1765900000000"],
+   "seen": false,
+   "expected": []
+  }
+ ],
+ "link": [
+  {
+   "name": "outputs written in the same project while the run was in flight, newest first",
+   "run": { "status": "ok", "at": 1000000, "finishedAt": 1300000, "workspaceId": "ws_a" },
+   "candidates": [
+    { "kind": "output", "id": "out-report-1", "title": "Report", "type": "report", "workspaceId": "ws_a", "createdAt": 1100000, "updatedAt": 1100000 },
+    { "kind": "artifact", "id": "doc-1", "title": "Doc", "type": "doc", "workspaceId": "ws_a", "createdAt": 500000, "updatedAt": 1200000 },
+    { "kind": "output", "id": "out-early", "title": "Before", "type": "table", "workspaceId": "ws_a", "createdAt": 900000, "updatedAt": 999999 },
+    { "kind": "output", "id": "out-late", "title": "After", "type": "table", "workspaceId": "ws_a", "createdAt": 1300001, "updatedAt": 1300001 },
+    { "kind": "output", "id": "out-other", "title": "Elsewhere", "type": "table", "workspaceId": "ws_b", "createdAt": 1100000, "updatedAt": 1100000 }
+   ],
+   "expected": ["doc-1", "out-report-1"]
+  },
+  {
+   "name": "without a recorded finish the window is fifteen minutes",
+   "run": { "status": "failed", "at": 1000000, "finishedAt": null, "workspaceId": "ws_a" },
+   "candidates": [
+    { "kind": "output", "id": "out-in", "title": "In", "type": "report", "workspaceId": "ws_a", "createdAt": 1900000, "updatedAt": 1900000 },
+    { "kind": "output", "id": "out-out", "title": "Out", "type": "report", "workspaceId": "ws_a", "createdAt": 1900001, "updatedAt": 1900001 }
+   ],
+   "expected": ["out-in"]
+  },
+  {
+   "name": "a run that never ran produced nothing",
+   "run": { "status": "blocked", "at": 1000000, "finishedAt": null, "workspaceId": "ws_a" },
+   "candidates": [
+    { "kind": "output", "id": "out-in", "title": "In", "type": "report", "workspaceId": "ws_a", "createdAt": 1000001, "updatedAt": 1000001 }
+   ],
+   "expected": []
+  }
+ ]
+}

@@ -1,12 +1,14 @@
 /** @jsxImportSource react */
-import { Activity, Blocks, Clock3, Download, Folder, Home, LayoutGrid, Search, type LucideIcon } from "lucide-react";
+import { Activity, Blocks, Clock3, Download, Folder, Home, Inbox, LayoutGrid, Search, type LucideIcon } from "lucide-react";
 import { t } from "@/i18n";
+import { ResultsInboxBadge, resultsInboxNavLabel } from "../../results-inbox/results-inbox-badge";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDashboard, dashboardLabel = "Resultados", dashboardActive,
-  onAutomations, automationsActive, automationsNeedAttention, onCommandCenter, commandCenterActive, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
+  onAutomations, automationsActive, automationsNeedAttention, onCommandCenter, commandCenterActive, onResultsInbox, resultsInboxActive, resultsInboxUnread, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
   onCommandCenter?: () => void; commandCenterActive?: boolean;
+  onResultsInbox?: () => void; resultsInboxActive?: boolean; resultsInboxUnread?: number | null;
   referenceLabels?: boolean; onProjects?: () => void;
   onNewTask: () => void; newTaskDisabled?: boolean; onSearch?: () => void; onDashboard?: () => void;
   dashboardLabel?: string; dashboardActive?: boolean; onAutomations?: () => void; automationsActive?: boolean;
@@ -14,12 +16,13 @@ export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDash
   onInstallSkillsTools?: () => void;
 }) {
   const { setOpen } = useSidebar();
-  const entries: { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean }[] = [
-    { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive && !commandCenterActive, disabled: newTaskDisabled },
+  const entries: { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean; badge?: number | null }[] = [
+    { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive && !commandCenterActive && !resultsInboxActive, disabled: newTaskDisabled },
     ...(onSearch ? [{ label: "Buscar conversaciones", icon: Search, action: onSearch }] : []),
     ...(onDashboard ? [{ label: dashboardLabel, icon: Blocks, action: onDashboard, active: dashboardActive }] : []),
     ...(onAutomations ? [{ label: referenceLabels ? "Tareas programadas" : "Automatizaciones", icon: Clock3, action: onAutomations, active: automationsActive, attention: automationsNeedAttention }] : []),
     ...(onCommandCenter ? [{ label: t("command_center.nav"), icon: Activity, action: onCommandCenter, active: commandCenterActive }] : []),
+    ...(onResultsInbox ? [{ label: resultsInboxNavLabel(resultsInboxUnread), icon: Inbox, action: onResultsInbox, active: resultsInboxActive, badge: resultsInboxUnread }] : []),
     ...(onInstallSkillsTools ? [{ label: "Instalar skills y herramientas", icon: Download, action: onInstallSkillsTools }] : []),
     { label: "Proyectos y conversaciones", icon: Folder, action: onProjects ?? (() => setOpen(true)) },
     { label: referenceLabels ? "Complementos" : "Biblioteca", icon: LayoutGrid, action: onExtensions, active: extensionsActive },
@@ -31,6 +34,7 @@ export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDash
           onClick={entry.action} className="relative mx-auto size-9! justify-center rounded-lg p-2! text-muted-foreground data-active:text-foreground">
           <entry.icon className="size-4" strokeWidth={1.5} />
           {entry.attention ? <span aria-label="Necesita atención" className="absolute top-1 right-1 size-1.5 rounded-full bg-amber-9" /> : null}
+          {entry.badge ? <ResultsInboxBadge count={entry.badge} compact /> : null}
         </SidebarMenuButton>
       </SidebarMenuItem>)}
     </SidebarMenu>

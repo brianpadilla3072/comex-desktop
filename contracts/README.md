@@ -10,3 +10,4 @@ unchanged. Add a vector before changing behavior; a new major version gets a new
 | `specialist-app-bundle/v1` | `apps/server/test/specialist-bundle-contract.test.ts` |
 | `folder-browser/v1` | `apps/server/test/folder-browser.test.ts` |
 | `task-isolation/v1` | `apps/server/test/task-isolation-core.test.ts` |
+| `results-inbox/v1` | `apps/server/test/results-inbox.test.ts` |

@@ -117,6 +117,8 @@ import {
 import { ActivityPage } from "@/react-app/domains/activity/activity-page";
 import { CommandCenterPage } from "@/react-app/domains/command-center/command-center-page";
 import { useCommandCenterAvailability } from "@/react-app/domains/command-center/use-command-center";
+import { ResultsInboxPage } from "@/react-app/domains/results-inbox/results-inbox-page";
+import { useResultsInboxAvailability, useResultsInboxUnread } from "@/react-app/domains/results-inbox/use-results-inbox";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
@@ -440,6 +442,10 @@ export function SessionRoute() {
   const commandCenterRouteRequested = location.pathname === "/command-center";
   const commandCenter = useCommandCenterAvailability();
   const commandCenterRouteActive = commandCenter.enabled && commandCenterRouteRequested;
+  const resultsInboxRouteRequested = location.pathname === "/inbox";
+  const resultsInbox = useResultsInboxAvailability();
+  const resultsInboxRouteActive = resultsInbox.enabled && resultsInboxRouteRequested;
+  const resultsInboxUnread = useResultsInboxUnread(resultsInbox.enabled);
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -485,6 +491,10 @@ export function SessionRoute() {
     // Leave only once the server said the flag is off; a slow read never redirects.
     if (commandCenterRouteRequested && commandCenter.known && !commandCenter.enabled) navigate("/", { replace: true });
   }, [commandCenter.enabled, commandCenter.known, commandCenterRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (resultsInboxRouteRequested && resultsInbox.known && !resultsInbox.enabled) navigate("/", { replace: true });
+  }, [resultsInbox.enabled, resultsInbox.known, resultsInboxRouteRequested, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -596,7 +606,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: commandCenterRouteRequested && (!commandCenter.known || commandCenter.enabled) ? "command-center" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: commandCenterRouteRequested && (!commandCenter.known || commandCenter.enabled) ? "command-center" : resultsInboxRouteRequested && (!resultsInbox.known || resultsInbox.enabled) ? "results-inbox" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -4064,7 +4074,7 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
+      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
         <RemoteSessionSurface key={remoteThreadKey} threadKey={remoteThreadKey} navigation={remoteHelperNavigation} />
       ) : pendingConversation ? <PendingConversationView conversation={pendingConversation} composer={newTaskComposerContext} /> : appsRouteActive ? (
         <WorkspaceProvider
@@ -4123,6 +4133,9 @@ export function SessionRoute() {
         automationsActive: automationsRouteActive,
         commandCenterActive: commandCenterRouteActive,
         onOpenCommandCenter: commandCenter.enabled ? () => navigate("/command-center") : undefined,
+        resultsInboxActive: resultsInboxRouteActive,
+        resultsInboxUnread,
+        onOpenResultsInbox: resultsInbox.enabled ? () => navigate("/inbox") : undefined,
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
           ? () => {
