@@ -121,6 +121,7 @@ import { useComputerEndTurn } from "../computer/computer-store";
 import { TerminalDock } from "../terminal/terminal-dock";
 import { useActivePanelTab, usePanelTabStore, useSessionPanelState } from "../panel/panel-tab-store";
 import { useComexArtifactsFeature } from "../comex/use-comex-feature";
+import type { SidebarProjects } from "../../projects/projects-sidebar";
 import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
@@ -224,6 +225,8 @@ export type SessionPageSidebarProps = {
   /** Unread results for the badge; null while unknown. */
   resultsInboxUnread?: number | null;
   onOpenResultsInbox?: () => void;
+  /** Projects experience (`projectsExperience`): Proyectos entry and "Fijados". */
+  projects?: SidebarProjects;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -506,7 +509,7 @@ export function SessionPage(props: SessionPageProps) {
   const referenceLayout = workspaceTabsEnabled && !isMobile;
   const workspaceResourceScope = resourceScope(props.openworkServerClient?.baseUrl, props.selectedWorkspaceId, props.newTaskComposer?.draftScope);
   const resourceWorkspace = useResourceWorkspace(workspaceResourceScope);
-  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.sidebar.resultsInboxActive && !props.extensionsActive;
+  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.sidebar.resultsInboxActive && !props.sidebar.projects?.active && !props.extensionsActive;
   const [resourceAssistantOpen, setResourceAssistantOpen] = useState(false);
   // Split keeps the conversation visible on one side while a tab occupies the
   // other side; the shared tab bar picks which page goes on that side.
@@ -1816,6 +1819,7 @@ export function SessionPage(props: SessionPageProps) {
           resultsInboxActive={props.sidebar.resultsInboxActive}
           resultsInboxUnread={props.sidebar.resultsInboxUnread}
           onOpenResultsInbox={props.sidebar.onOpenResultsInbox}
+          projects={props.sidebar.projects}
           dashboardActive={props.sidebar.dashboardActive}
           dashboardLabel={props.sidebar.dashboardLabel}
           onOpenDashboard={props.sidebar.onOpenDashboard}

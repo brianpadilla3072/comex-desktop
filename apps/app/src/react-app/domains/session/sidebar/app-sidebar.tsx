@@ -3,6 +3,7 @@ import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/reac
 import { CompanionRecentsBridge } from "../../desktop-companion/companion-recents-bridge";
 import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
 import { CompactSidebarNav } from "./compact-sidebar-nav";
+import { PinnedProjectsGroup, sidebarDestinationOrder, type SidebarDestinationId, type SidebarProjects } from "../../projects/projects-sidebar";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
@@ -24,6 +25,7 @@ import {
   Blocks,
   CheckCheck,
   Folder,
+  FolderClosed,
   Clock3,
   ChevronRight,
   Columns2,
@@ -39,6 +41,7 @@ import {
   Trash2,
   RotateCcw,
   FolderOpen,
+  Search,
   SquarePen,
   Tag,
   Undo2,
@@ -728,6 +731,8 @@ export type AppSidebarProps = {
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
+  /** Projects experience: the Proyectos entry and the "Fijados" group; absent while `projectsExperience` is off. */
+  projects?: SidebarProjects;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   /** Back/forward across recently viewed conversations, rendered at the top of the sidebar. */
@@ -871,6 +876,81 @@ export function AppSidebar(inputProps: AppSidebarProps) {
   });
   const feedView = feed !== null;
 
+  const projectsOn = Boolean(props.projects);
+  const availableDestinations = new Set<SidebarDestinationId>(["extensions"]);
+  if (props.projects) availableDestinations.add("projects");
+  if (props.projects && props.onOpenSessionSearch) availableDestinations.add("search");
+  if (props.onOpenDashboard) availableDestinations.add("artifacts");
+  if (props.onOpenAutomations) availableDestinations.add("scheduled");
+  if (props.onOpenCommandCenter) availableDestinations.add("command-center");
+  if (props.onOpenResultsInbox) availableDestinations.add("inbox");
+  const destinations: Record<SidebarDestinationId, React.ReactNode> = {
+    search: props.onOpenSessionSearch ? (
+      <SidebarDestination active={false} icon={Search} label={t("projects_ui.nav_search")} onSelect={props.onOpenSessionSearch} />
+    ) : null,
+    projects: props.projects ? (
+      <SidebarDestination active={props.projects.active} icon={FolderClosed} label={t("projects_ui.nav_projects")} onSelect={props.projects.onOpen} />
+    ) : null,
+    artifacts: props.onOpenDashboard ? (
+      <SidebarDestination
+        active={props.dashboardActive === true}
+        icon={Blocks}
+        label={projectsOn ? t("projects_ui.nav_artifacts") : props.dashboardLabel ?? "Dashboard"}
+        onSelect={props.onOpenDashboard}
+      />
+    ) : null,
+    scheduled: props.onOpenAutomations ? (
+      <SidebarDestination
+        active={props.automationsActive === true}
+        icon={Clock3}
+        label={projectsOn ? t("projects_ui.nav_scheduled") : "Automations"}
+        labelContent={(
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate">{projectsOn ? t("projects_ui.nav_scheduled") : "Automations"}</span>
+            {props.automationsNeedAttention ? (
+              <AlertTriangle
+                data-automations-attention-indicator
+                className="ml-auto size-3.5 shrink-0 text-warning"
+                aria-label={t("session_ui.automation_needs_attention")}
+              />
+            ) : null}
+          </span>
+        )}
+        onSelect={props.onOpenAutomations}
+      />
+    ) : null,
+    "command-center": props.onOpenCommandCenter ? (
+      <SidebarDestination
+        active={props.commandCenterActive === true}
+        icon={Activity}
+        label={t("command_center.nav")}
+        onSelect={props.onOpenCommandCenter}
+      />
+    ) : null,
+    inbox: props.onOpenResultsInbox ? (
+      <SidebarDestination
+        active={props.resultsInboxActive === true}
+        icon={Inbox}
+        label={resultsInboxNavLabel(props.resultsInboxUnread)}
+        labelContent={(
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate">{t("results_inbox.nav")}</span>
+            <ResultsInboxBadge count={props.resultsInboxUnread} className="ml-auto" />
+          </span>
+        )}
+        onSelect={props.onOpenResultsInbox}
+      />
+    ) : null,
+    extensions: (
+      <SidebarDestination
+        active={props.extensionsActive === true}
+        icon={LayoutGrid}
+        label={projectsOn ? t("projects_ui.nav_extensions") : t("settings.tab_extensions")}
+        onSelect={props.onOpenExtensions}
+      />
+    ),
+  };
+
   return (
     <SidebarContext.Provider value={contextValue}>
       <CompanionRecentsBridge source={props} />
@@ -882,7 +962,8 @@ export function AppSidebar(inputProps: AppSidebarProps) {
           onResultsInbox={props.onOpenResultsInbox} resultsInboxActive={props.resultsInboxActive} resultsInboxUnread={props.resultsInboxUnread}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
           onInstallSkillsTools={props.onOpenExtensions}
-          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+          onProjectsPage={props.projects?.onOpen} projectsPageActive={props.projects?.active}
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive || props.projects?.active) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}
       {!contextualDestination ? <Sidebar
@@ -931,62 +1012,8 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 </kbd>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {!referenceLayout && props.onOpenDashboard ? (
-              <SidebarDestination
-                active={props.dashboardActive === true}
-                icon={Blocks}
-                label={props.dashboardLabel ?? "Dashboard"}
-                onSelect={props.onOpenDashboard}
-              />
-            ) : null}
-            {!referenceLayout && props.onOpenAutomations ? (
-              <SidebarDestination
-                active={props.automationsActive === true}
-                icon={Clock3}
-                label="Automations"
-                labelContent={(
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate">Automations</span>
-                    {props.automationsNeedAttention ? (
-                      <AlertTriangle
-                        data-automations-attention-indicator
-                        className="ml-auto size-3.5 shrink-0 text-warning"
-                        aria-label={t("session_ui.automation_needs_attention")}
-                      />
-                    ) : null}
-                  </span>
-                )}
-                onSelect={props.onOpenAutomations}
-              />
-            ) : null}
-            {!referenceLayout && props.onOpenCommandCenter ? (
-              <SidebarDestination
-                active={props.commandCenterActive === true}
-                icon={Activity}
-                label={t("command_center.nav")}
-                onSelect={props.onOpenCommandCenter}
-              />
-            ) : null}
-            {!referenceLayout && props.onOpenResultsInbox ? (
-              <SidebarDestination
-                active={props.resultsInboxActive === true}
-                icon={Inbox}
-                label={resultsInboxNavLabel(props.resultsInboxUnread)}
-                labelContent={(
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate">{t("results_inbox.nav")}</span>
-                    <ResultsInboxBadge count={props.resultsInboxUnread} className="ml-auto" />
-                  </span>
-                )}
-                onSelect={props.onOpenResultsInbox}
-              />
-            ) : null}
-            {!referenceLayout ? <SidebarDestination
-              active={props.extensionsActive === true}
-              icon={LayoutGrid}
-              label={t("settings.tab_extensions")}
-              onSelect={props.onOpenExtensions}
-            /> : null}
+            {!referenceLayout ? sidebarDestinationOrder(projectsOn, availableDestinations)
+              .map(id => <React.Fragment key={id}>{destinations[id]}</React.Fragment>) : null}
             {props.mobileChatActions}
           </SidebarMenu>
         </SidebarHeader>
@@ -999,6 +1026,9 @@ export function AppSidebar(inputProps: AppSidebarProps) {
             className="no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-x-hidden overflow-y-auto [overflow-anchor:none] [--radius:var(--radius-md)] group-data-[collapsible=icon]:overflow-hidden"
           >
             <SidebarLayoutAnimationGate />
+            {props.projects ? (
+              <PinnedProjectsGroup projects={props.projects.pinned} activeProjectId={props.projects.activeProjectId} onOpenProject={props.projects.onOpenProject} />
+            ) : null}
             {pinnedSessions.length > 0 ? (
               <GlobalPinnedSessions entries={pinnedSessions} />
             ) : null}

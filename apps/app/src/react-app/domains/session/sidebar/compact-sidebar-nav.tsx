@@ -1,12 +1,14 @@
 /** @jsxImportSource react */
-import { Activity, Blocks, Clock3, Download, Folder, Home, Inbox, LayoutGrid, Search, type LucideIcon } from "lucide-react";
+import { Activity, Blocks, Clock3, Download, Folder, FolderClosed, Home, Inbox, LayoutGrid, MessagesSquare, Search, type LucideIcon } from "lucide-react";
 import { t } from "@/i18n";
 import { ResultsInboxBadge, resultsInboxNavLabel } from "../../results-inbox/results-inbox-badge";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDashboard, dashboardLabel = "Resultados", dashboardActive,
-  onAutomations, automationsActive, automationsNeedAttention, onCommandCenter, commandCenterActive, onResultsInbox, resultsInboxActive, resultsInboxUnread, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
+  onAutomations, automationsActive, automationsNeedAttention, onCommandCenter, commandCenterActive, onResultsInbox, resultsInboxActive, resultsInboxUnread, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects, onProjectsPage, projectsPageActive }: {
+  /** Projects experience: opens `/projects`; absent while `projectsExperience` is off (today's rail). */
+  onProjectsPage?: () => void; projectsPageActive?: boolean;
   onCommandCenter?: () => void; commandCenterActive?: boolean;
   onResultsInbox?: () => void; resultsInboxActive?: boolean; resultsInboxUnread?: number | null;
   referenceLabels?: boolean; onProjects?: () => void;
@@ -16,15 +18,29 @@ export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDash
   onInstallSkillsTools?: () => void;
 }) {
   const { setOpen } = useSidebar();
-  const entries: { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean; badge?: number | null }[] = [
-    { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive && !commandCenterActive && !resultsInboxActive, disabled: newTaskDisabled },
+  type Entry = { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean; badge?: number | null };
+  const home: Entry = { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive && !commandCenterActive && !resultsInboxActive && !projectsPageActive, disabled: newTaskDisabled };
+  const commandCenter: Entry[] = onCommandCenter ? [{ label: t("command_center.nav"), icon: Activity, action: onCommandCenter, active: commandCenterActive }] : [];
+  const inbox: Entry[] = onResultsInbox ? [{ label: resultsInboxNavLabel(resultsInboxUnread), icon: Inbox, action: onResultsInbox, active: resultsInboxActive, badge: resultsInboxUnread }] : [];
+  const install: Entry[] = onInstallSkillsTools ? [{ label: "Instalar skills y herramientas", icon: Download, action: onInstallSkillsTools }] : [];
+  const openPanel = onProjects ?? (() => setOpen(true));
+  // Crear, Buscar, Proyectos, Artefactos, Programadas, Complementos, then the rest.
+  const entries: Entry[] = onProjectsPage ? [
+    home,
+    ...(onSearch ? [{ label: t("projects_ui.nav_search"), icon: Search, action: onSearch }] : []),
+    { label: t("projects_ui.nav_projects"), icon: FolderClosed, action: onProjectsPage, active: projectsPageActive },
+    ...(onDashboard ? [{ label: t("projects_ui.nav_artifacts"), icon: Blocks, action: onDashboard, active: dashboardActive }] : []),
+    ...(onAutomations ? [{ label: t("projects_ui.nav_scheduled"), icon: Clock3, action: onAutomations, active: automationsActive, attention: automationsNeedAttention }] : []),
+    { label: t("projects_ui.nav_extensions"), icon: LayoutGrid, action: onExtensions, active: extensionsActive },
+    ...commandCenter, ...inbox, ...install,
+    { label: t("projects_ui.nav_conversations"), icon: MessagesSquare, action: openPanel },
+  ] : [
+    home,
     ...(onSearch ? [{ label: "Buscar conversaciones", icon: Search, action: onSearch }] : []),
     ...(onDashboard ? [{ label: dashboardLabel, icon: Blocks, action: onDashboard, active: dashboardActive }] : []),
     ...(onAutomations ? [{ label: referenceLabels ? "Tareas programadas" : "Automatizaciones", icon: Clock3, action: onAutomations, active: automationsActive, attention: automationsNeedAttention }] : []),
-    ...(onCommandCenter ? [{ label: t("command_center.nav"), icon: Activity, action: onCommandCenter, active: commandCenterActive }] : []),
-    ...(onResultsInbox ? [{ label: resultsInboxNavLabel(resultsInboxUnread), icon: Inbox, action: onResultsInbox, active: resultsInboxActive, badge: resultsInboxUnread }] : []),
-    ...(onInstallSkillsTools ? [{ label: "Instalar skills y herramientas", icon: Download, action: onInstallSkillsTools }] : []),
-    { label: "Proyectos y conversaciones", icon: Folder, action: onProjects ?? (() => setOpen(true)) },
+    ...commandCenter, ...inbox, ...install,
+    { label: "Proyectos y conversaciones", icon: Folder, action: openPanel },
     { label: referenceLabels ? "Complementos" : "Biblioteca", icon: LayoutGrid, action: onExtensions, active: extensionsActive },
   ];
   return <nav aria-label="Navegación compacta" data-compact-sidebar className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto py-3 [scrollbar-width:none]">

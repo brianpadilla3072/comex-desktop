@@ -95,7 +95,7 @@ export type UseWorkspaceRouteStateInput = {
   /** A local first-send owner must survive workspace preparation until it has a real session. */
   preservePendingConversationRoute?: boolean;
   developerMode: boolean;
-  workspaceRoute?: "session" | "automations" | "dashboard" | "apps" | "activity" | "command-center" | "results-inbox";
+  workspaceRoute?: "session" | "automations" | "dashboard" | "apps" | "activity" | "command-center" | "results-inbox" | "projects";
   /** Invoked when the openwork-server settings-changed event fires (the route bumps its settings version). */
   onServerSettingsChanged: () => void;
   /** Receives the local openwork-server host info discovered during refresh. */
@@ -200,6 +200,11 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
     if (workspaceRoute === "results-inbox") {
       if (location.pathname === "/inbox") return;
       navigate("/inbox", options);
+      return;
+    }
+    if (workspaceRoute === "projects") {
+      if (location.pathname === "/projects") return;
+      navigate("/projects", options);
       return;
     }
     if (workspaceRoute === "activity") {

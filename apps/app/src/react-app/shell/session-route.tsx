@@ -120,6 +120,9 @@ import { useCommandCenterAvailability } from "@/react-app/domains/command-center
 import { ResultsInboxPage } from "@/react-app/domains/results-inbox/results-inbox-page";
 import { flaggedDestinationHandler, flaggedDestinationReachable } from "@/react-app/shell/flagged-destination";
 import { useResultsInboxAvailability, useResultsInboxUnread } from "@/react-app/domains/results-inbox/use-results-inbox";
+import { ProjectsPage } from "@/react-app/domains/projects/projects-list-page";
+import { PROJECTS_ROUTE, isProjectsPath, pinnedProjects, projectIdFromPath, projectPageRoute } from "@/react-app/domains/projects/projects-list-model";
+import { useProjectsAvailability, useSidebarProjects } from "@/react-app/domains/projects/use-projects-list";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
@@ -447,6 +450,10 @@ export function SessionRoute() {
   const resultsInbox = useResultsInboxAvailability();
   const resultsInboxRouteActive = flaggedDestinationReachable(resultsInbox) && resultsInboxRouteRequested;
   const resultsInboxUnread = useResultsInboxUnread(resultsInbox.enabled);
+  const projectsRouteRequested = location.pathname === PROJECTS_ROUTE;
+  const projects = useProjectsAvailability();
+  const projectsRouteActive = flaggedDestinationReachable(projects) && projectsRouteRequested;
+  const sidebarProjectList = useSidebarProjects(projects.enabled);
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -496,6 +503,10 @@ export function SessionRoute() {
     // Leave only once the server said the flag is off; a slow read never redirects.
     if (resultsInboxRouteRequested && resultsInbox.known && !resultsInbox.enabled) navigate("/", { replace: true });
   }, [resultsInbox.enabled, resultsInbox.known, resultsInboxRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (projectsRouteRequested && projects.known && !projects.enabled) navigate("/", { replace: true });
+  }, [projects.enabled, projects.known, projectsRouteRequested, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -607,7 +618,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -4075,7 +4086,7 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
+      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : projectsRouteActive ? <ProjectsPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
         <RemoteSessionSurface key={remoteThreadKey} threadKey={remoteThreadKey} navigation={remoteHelperNavigation} />
       ) : pendingConversation ? <PendingConversationView conversation={pendingConversation} composer={newTaskComposerContext} /> : appsRouteActive ? (
         <WorkspaceProvider
@@ -4137,6 +4148,13 @@ export function SessionRoute() {
         resultsInboxActive: resultsInboxRouteActive,
         resultsInboxUnread,
         onOpenResultsInbox: flaggedDestinationHandler(resultsInbox, () => navigate("/inbox")),
+        projects: flaggedDestinationReachable(projects) ? {
+          active: isProjectsPath(location.pathname),
+          activeProjectId: projectIdFromPath(location.pathname),
+          pinned: sidebarProjectList ? pinnedProjects(sidebarProjectList.projects) : [],
+          onOpen: () => navigate(PROJECTS_ROUTE),
+          onOpenProject: (workspaceId) => navigate(projectPageRoute(workspaceId)),
+        } : undefined,
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
           ? () => {

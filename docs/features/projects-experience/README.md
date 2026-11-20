@@ -174,6 +174,27 @@ capacidad del proyecto utilizada" bar).
 - Programado: create with `createProjectTask(applicationId, workspaceId, { name, prompt, schedule,
   model?, permissionMode, advanced })`; `applicationId` comes from the detail or the task list.
 
+## Proyectos page and sidebar
+
+- Page `/projects` (`apps/app/src/react-app/domains/projects/projects-list-page.tsx`), registered
+  like `/command-center`: the route opens at once and goes home only once the server answered
+  that the flag is off (`flagged-destination.ts`). Cards: name, last activity ("hace 18 horas",
+  then "17 sept"), application name, pin toggle. Pinned cards always come first; search (name,
+  description, application; accents ignored) and sort (last activity, name, created) are client
+  side (`projects-list-model.ts`). A card opens `/projects/<workspaceId>`.
+- Pin: optimistic, rolled back with an inline error when `PATCH` fails. The list query
+  (`["projects", baseUrl]`) is shared with the sidebar, so "Fijados" follows at once.
+- "Nuevo proyecto" reuses the specialist applications' new-project dialog
+  (`createProject(application)`); with several applications a menu asks which one, with none it
+  opens the new-application form.
+- States: skeleton while loading; a failed read is an error with retry (never the empty state);
+  an empty registry invites to create the first project; `writable: false` hides the pin,
+  disables "Nuevo proyecto" and shows the pairing hint.
+- Sidebar with the flag on: New chat, Buscar, Proyectos, Artefactos (dashboard), Programadas
+  (automations), Complementos, then command center and inbox; a "Fijados" group of pinned
+  projects above the conversations. The compact rail follows the same order. With the flag off
+  both keep today's layout (`sidebarDestinationOrder` in `projects-sidebar.tsx`).
+
 ## Tests
 
 - `apps/server/test/projects-experience.test.ts`: contract vectors, auth modes, registry, pin and
@@ -183,3 +204,6 @@ capacidad del proyecto utilizada" bar).
   (and its delegated sessions') once, in the task's project; `manual` answers nothing and is not
   retired at 15 minutes; a task whose project is gone is blocked.
 - `apps/app/tests/projects-client.test.ts`: client methods and schemas.
+- `apps/app/tests/projects-list-page.test.tsx`: search, sort and pins, Spanish relative dates, pin
+  rollback, error vs empty vs read-only, card navigation, sidebar order with the flag on and off,
+  "Fijados", compact rail.

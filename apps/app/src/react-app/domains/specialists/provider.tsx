@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
 import { BookText, ChevronDown, Download, FolderPlus, Plus, Settings2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -31,7 +31,8 @@ type State = {
   create: () => void;
   edit: () => void;
   open: (application: SpecialistApplication) => Promise<void>;
-  createProject: () => void;
+  /** Opens the "new project" dialog for this application (the active one when omitted). */
+  createProject: (application?: SpecialistApplication) => void;
   integrations: () => void;
   library: () => void;
   exportApplication: () => void;
@@ -45,6 +46,7 @@ export const useSpecialistApplications = () => use(Context);
 export function SpecialistApplicationsProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<"create" | SpecialistApplication | null>(null);
   const [projectApplication, setProjectApplication] = useState<SpecialistApplication | null>(null);
   const [integrationApplication, setIntegrationApplication] = useState<SpecialistApplication | null>(null);
@@ -119,7 +121,10 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     setBusy(true); setError(null);
     try {
       const result = await query.data.client.createSpecialistProject(projectApplication.id, projectName.trim());
-      await query.refetch(); setProjectApplication(null); setProjectName(""); await openWorkspace(result.workspaceId);
+      await query.refetch(); setProjectApplication(null); setProjectName("");
+      // The Proyectos page and the sidebar "Fijados" list read the project registry.
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await openWorkspace(result.workspaceId);
     } catch (cause) { setError(specialistErrorMessage(cause, "No se pudo crear el proyecto.")); }
     finally { setBusy(false); }
   }
@@ -161,7 +166,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     if (next) await open(next); else navigate("/");
   }
   const value: State = { client: query.data?.client ?? null, catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
-    createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active),
+    createProject: application => { setError(null); setProjectApplication(application ?? active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active),
     exportApplication: () => void exportApplication(), importApplication: () => void importFromMenu(), deleteApplication: () => setDeletingApplication(active), refresh: query.refetch };
   return <Context.Provider value={value}>
     {children}
@@ -277,7 +282,7 @@ export function SpecialistApplicationSwitcher({ fallbackName }: { fallbackName: 
       {writable ? <DropdownMenuItem onClick={state.create}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem> : null}
       {writable && state.catalog.portabilityEnabled ? <DropdownMenuItem onClick={state.importApplication}><Upload className="size-4" />Importar aplicación</DropdownMenuItem> : null}
       {!writable ? <p className="px-2 py-1 text-xs text-muted-foreground">Crear y modificar aplicaciones está disponible en la app de escritorio o en un dispositivo vinculado. <PairDeviceHint /></p> : null}
-      {state.active ? <>{writable ? <DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem> : null}{state.catalog.libraryEnabled || state.catalog.scheduledTasksEnabled || state.catalog.datasetsEnabled || state.catalog.sourcesEnabled || state.catalog.panelsEnabled || state.catalog.outputsEnabled ? <DropdownMenuItem onClick={state.library}><BookText className="size-4" />{state.catalog.libraryEnabled ? "Contexto, agentes y skills" : [state.catalog.scheduledTasksEnabled && "Tareas", state.catalog.datasetsEnabled && "Datos", state.catalog.sourcesEnabled && "Fuentes", state.catalog.panelsEnabled && "Paneles", state.catalog.outputsEnabled && "Salidas"].filter(Boolean).join(" · ")}</DropdownMenuItem> : null}{writable ? <DropdownMenuItem onClick={state.createProject}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem> : null}</> : null}
+      {state.active ? <>{writable ? <DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem> : null}{state.catalog.libraryEnabled || state.catalog.scheduledTasksEnabled || state.catalog.datasetsEnabled || state.catalog.sourcesEnabled || state.catalog.panelsEnabled || state.catalog.outputsEnabled ? <DropdownMenuItem onClick={state.library}><BookText className="size-4" />{state.catalog.libraryEnabled ? "Contexto, agentes y skills" : [state.catalog.scheduledTasksEnabled && "Tareas", state.catalog.datasetsEnabled && "Datos", state.catalog.sourcesEnabled && "Fuentes", state.catalog.panelsEnabled && "Paneles", state.catalog.outputsEnabled && "Salidas"].filter(Boolean).join(" · ")}</DropdownMenuItem> : null}{writable ? <DropdownMenuItem onClick={() => state.createProject()}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem> : null}</> : null}
       {state.active && state.catalog.integrationsEnabled ? <DropdownMenuItem onClick={state.integrations}><Settings2 className="size-4" />Herramientas y fuentes</DropdownMenuItem> : null}
       {state.active && writable && state.catalog.portabilityEnabled ? <>
         <DropdownMenuItem onClick={state.exportApplication}><Download className="size-4" />Exportar aplicación</DropdownMenuItem>
