@@ -1,4 +1,5 @@
 import { prepareOpencodeV2 } from "./prepare-opencode-v2.mjs";
+import { windowsZipExtractScript } from "./windows-zip-extract.mjs";
 import { spawnSync } from "child_process";
 import { createHash } from "crypto";
 import {
@@ -281,7 +282,7 @@ if (shouldDownloadOpencode) {
       }
     }
 
-    const expandResult = spawnSync("powershell", ["-NoProfile", "-Command", `$ErrorActionPreference = 'Stop'; Expand-Archive -Path ${psQuote(archivePath)} -DestinationPath ${psQuote(extractDir)} -Force`], {
+    const expandResult = spawnSync("powershell", ["-NoProfile", "-Command", windowsZipExtractScript(archivePath, extractDir)], {
       stdio: "inherit",
     });
     if (expandResult.status !== 0) {
