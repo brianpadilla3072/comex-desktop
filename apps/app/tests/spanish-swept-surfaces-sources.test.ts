@@ -69,6 +69,10 @@ const SWEPT = [
   "react-app/domains/design/design-page.tsx", "react-app/domains/design/design-frame.tsx",
   "react-app/domains/design/design-chat-panel.tsx", "react-app/domains/design/design-chat-starter.tsx",
   "react-app/domains/design/editors/placeholder-editor.tsx",
+  // Design studio: design system editor (designStudio).
+  "react-app/domains/design/editors/system-editor.tsx", "react-app/domains/design/editors/system-sections.tsx",
+  "react-app/domains/design/editors/system-overview.tsx", "react-app/domains/design/editors/system-files.tsx",
+  "react-app/domains/design/editors/system-token-dialog.tsx",
 ];
 const ATTRIBUTES = new Set(["aria-label", "placeholder", "title", "alt"]);
 const ENGLISH_WORD = /\b(the|a|an|to|of|and|or|your|this|no|not|add|select|open|save|create|delete|remove|close|new|edit|loading|failed|error|connect|choose|search|copy|show|hide|back|next|cancel|retry|yes|is|are|in|for|with|more|name|folder|file|workspace|session|settings|model|run|stop|send|view|sign|enable|disable|set|use)\b/i;

@@ -105,3 +105,47 @@ a stub with the same signature that returns null.
 - Thumbnails: `setDesignThumbnailCapturer` (desktop renderer) captures the first page after the
   design settled (2.5 s after a `revision` change) and stores it with `putDesignThumbnail`. On the
   web nothing is registered and the gallery shows the kind's mark.
+## Design system viewer and brand context (part 4)
+
+### Editor (`apps/app/src/react-app/domains/design/editors/system-*`)
+
+`SystemEditor` (`system-editor.tsx`) is the editor of kind `system`. It takes the registry props
+(`workspaceId`, `design`, `writable`, `client`, `onChanged`, `chatOpen`, `onAskAgent`) plus an optional
+`frame`, the sandboxed page viewer (`DesignFrame`) used for component previews; without it a preview
+shows the component's file. The client only needs `readDesignFile` and `writeDesignFile`.
+
+- Left navigation with search: Overview, Colores, Tipografía, Espaciado, Radios, Sombras, Degradados,
+  Layout, Componentes, Recursos, Archivos, each with its item count (a search counts only matches).
+- Colors are swatches (name, value, role, group) with copy to clipboard; type styles are specimens set
+  in the token's family, size, weight and line height with a system-font fallback. Brand fonts shipped
+  as assets (`woff`, `woff2`, `ttf`, `otf`) are registered under the asset's name, so a family that
+  matches an asset name renders with it. Spacing, radii, shadows and gradients are drawn samples.
+- Samples are React style values, never markup. Values with `url()`, `image()`, escapes or
+  declarations get no sample, so nothing in `tokens.json` can make the app load a file or a URL.
+- Assets are read through the server as blobs (images only; other files show their name). Archivos
+  lists the files the manifest and `tokens.json` name, each downloadable.
+- With `writable`, tokens are added, edited and deleted (delete asks first) with per-field validation
+  (`system-model.ts` `buildToken`: required fields, unique names per section, CSS colors and lengths,
+  font weights, relative paths, schema limits). Overview ("Marca") and Contenido are edited as text.
+  Every save re-reads `tokens.json` first and refuses to overwrite it if it changed since it was
+  shown (the agent may be editing it), then writes it with `writeDesignFile("tokens.json")` and calls
+  `onChanged`.
+- An empty system shows "Pedir al agente que arme el sistema a partir de…" with a source field and
+  suggestions; empty sections offer "Pedir al agente". Both call `onAskAgent(text, "tokens.json[#section]")`.
+  A missing `tokens.json` is an empty system; an unreadable one offers to ask the agent to fix it.
+
+### Brand context for the agent (`apps/server/src/designs/system-context.ts`)
+
+`readDesignSystemContext({ projectDir, systemId, designId, maxChars? })` returns
+`{ systemId, title, text } | null`. `text` is a compact block (default cap
+`DESIGN_SYSTEM_CONTEXT_MAX_CHARS` = 4,000 characters) in this order: header with the tokens path and a
+note that its text is project content, not instructions; brand overview; content and voice rules;
+colors with roles and groups; type scale; spacing; radii; shadows; gradients; layout; components;
+assets. Prose is capped at 30% of the budget each and flattened to one line; lists keep the items
+that fit and end with "y N más"; when anything was cut it ends with "Más detalle en <path>".
+
+Which system a design follows (`pickDesignSystemId`): its `systemId` when that system exists in the
+project; when `systemId` is null, the project's only design system if there is exactly one; otherwise
+none. A design of kind `system` never follows another one. Symlinked design folders or token files
+and files over 2 MB are ignored. The app mirrors the rule in `system-model.ts`
+(`designSystemChoices`, `followedSystem`, `systemIdPatch`) for the design page's system selector.
