@@ -68,3 +68,15 @@ export async function stopGroup(pid, { graceMs = 8_000 } = {}) {
   try { process.kill(-pid, "SIGKILL"); } catch { try { process.kill(pid, "SIGKILL"); } catch {} }
   return "killed";
 }
+
+/** Environment for an isolated Electron dev session. Shells inside VS Code (and other Electron
+ *  hosts) export ELECTRON_RUN_AS_NODE=1, which makes the electron binary run as plain Node
+ *  ("bad option: --no-sandbox") so the session never starts: it is always removed. */
+export function electronSessionEnv(baseEnv, offlineEnv, profile) {
+  const env = {
+    ...baseEnv, ...offlineEnv, OPENWORK_DEV_MODE: "1", OPENWORK_DEV_PROFILE: profile, OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN: "1",
+    OPENWORK_ELECTRON_REMOTE_DEBUG_PORT: "0", PORT: "0",
+  };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}

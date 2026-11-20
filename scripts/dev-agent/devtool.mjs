@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, 
 import { join, resolve } from "node:path";
 import { connect, evaluate, matchElement, mouseClick, pressKey, screenshot, snapshot, ERROR_HOOK_SCRIPT } from "./lib/cdp.mjs";
 import { isV2OnlyDatabase, pickOpencodeV1Bin } from "./lib/engine.mjs";
-import { REPO_ROOT, electronProfileDir, listSessions, parseCdpUrl, parseWebUrl, processAlive, readSession, removeSessionDir, sessionDir, sessionName, stopGroup, writeSession } from "./lib/session.mjs";
+import { REPO_ROOT, electronProfileDir, electronSessionEnv, listSessions, parseCdpUrl, parseWebUrl, processAlive, readSession, removeSessionDir, sessionDir, sessionName, stopGroup, writeSession } from "./lib/session.mjs";
 
 const HELP = `pnpm dev:agent <command> [options]          (--session <name> picks a session; default "default")
 
@@ -116,10 +116,7 @@ async function upElectron(name, options) {
   const dir = sessionDir(name);
   mkdirSync(dir, { recursive: true });
   const profile = `agent-${name}`;
-  const env = {
-    ...process.env, ...OFFLINE_ENV, OPENWORK_DEV_MODE: "1", OPENWORK_DEV_PROFILE: profile, OPENWORK_ELECTRON_USE_MOCK_KEYCHAIN: "1",
-    OPENWORK_ELECTRON_REMOTE_DEBUG_PORT: "0", PORT: "0",
-  };
+  const env = electronSessionEnv(process.env, OFFLINE_ENV, profile);
   // A Wayland session hides the dev window unless Electron runs under XWayland.
   if (process.platform === "linux" && process.env.WAYLAND_DISPLAY && process.env.DISPLAY && !options.wayland && !env.OPENWORK_ELECTRON_OZONE_PLATFORM) env.OPENWORK_ELECTRON_OZONE_PLATFORM = "x11";
   const logPath = join(dir, "electron.log");

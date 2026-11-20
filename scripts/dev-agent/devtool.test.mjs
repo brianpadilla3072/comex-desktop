@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { keyEvent, matchElement, pickTarget } from "./lib/cdp.mjs";
 import { isV2OnlyDatabase, pickOpencodeV1Bin } from "./lib/engine.mjs";
-import { parseCdpUrl, parseWebUrl, sessionName } from "./lib/session.mjs";
+import { electronSessionEnv, parseCdpUrl, parseWebUrl, sessionName } from "./lib/session.mjs";
 
 test("the main window is chosen, never the hidden desktop companion", () => {
   const targets = [
@@ -76,4 +76,12 @@ test("a database created by OpenCode v2 is told apart from a v1 or migrated one"
     assert.equal(isV2OnlyDatabase(make("migrated.db", ["session", "session_v2"])), false);
     assert.equal(isV2OnlyDatabase(join(root, "missing.db")), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("an Electron session never inherits ELECTRON_RUN_AS_NODE from a VS Code shell", () => {
+  const env = electronSessionEnv({ ELECTRON_RUN_AS_NODE: "1", PATH: "/bin" }, { OPENWORK_COMEX_OPENCODE_MODE: "managed" }, "agent-x");
+  assert.equal("ELECTRON_RUN_AS_NODE" in env, false);
+  assert.equal(env.PATH, "/bin");
+  assert.equal(env.OPENWORK_DEV_PROFILE, "agent-x");
+  assert.equal(env.OPENWORK_COMEX_OPENCODE_MODE, "managed");
 });
