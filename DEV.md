@@ -12,15 +12,15 @@ equivocado.
 ```bash
 cd "/home/brian/Proyectos/build agents and skils/comex-desktop"
 
-DEN_FEATURE_DESKTOP_COMPANION=true \
+OPENWORK_ELECTRON_OZONE_PLATFORM=x11 \
 OPENWORK_DEV_MODE=1 \
 PORT=0 \
 OPENWORK_ELECTRON_REMOTE_DEBUG_PORT=9823 \
 pnpm dev
 ```
 
-- `DEN_FEATURE_DESKTOP_COMPANION=true` fuerza `--ozone-platform=x11`, así la
-  ventana aparece en XWayland y es visible en GNOME.
+- `OPENWORK_ELECTRON_OZONE_PLATFORM=x11` pasa `--ozone-platform=x11` a Electron, así la
+  ventana aparece en XWayland y es visible en GNOME, sin activar el asistente de escritorio.
 - `PORT=0` hace que Vite use un puerto libre (evita cargar Clawmint del
   `5173`) y arranca el vite propio de este proyecto.
 - Sin `OPENWORK_DEV_PROFILE=auto`: usa el perfil por defecto

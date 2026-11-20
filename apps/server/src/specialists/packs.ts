@@ -84,25 +84,33 @@ export async function saveSpecialistPack(config: Pick<ServerConfig, "configPath"
 /** Only fresh profiles/projects are seeded. Existing user edits are never overwritten. */
 export async function prepareSpecialistWorkspace(config: Pick<ServerConfig, "configPath">, app: SpecialistApplication, root: string) {
   await mkdir(root, { recursive: true });
+  // A symlinked or non-directory `.opencode` would put the marker (and later
+  // synced files) outside the project, or fail with a raw filesystem error.
+  const existingConfig = await statOrNull(join(root, ".opencode"));
+  if (existingConfig && !existingConfig.isDirectory()) throw failure("La carpeta .opencode del proyecto no es válida.");
   const marker = join(root, markerPath);
   const existingMarker = await statOrNull(marker);
   if (existingMarker) {
     if (!existingMarker.isFile() || existingMarker.isSymbolicLink()) throw failure("El registro del proyecto no es válido.");
-    const value: unknown = JSON.parse(await readFile(marker, "utf8"));
+    let value: unknown;
+    try { value = JSON.parse(await readFile(marker, "utf8")) as unknown; }
+    catch { throw failure("El registro del proyecto está dañado. Borrá .opencode/specialist-application.json para volver a vincular la carpeta."); }
     if (!value || typeof value !== "object" || !("applicationId" in value) || value.applicationId !== app.id) throw new ApiError(409, "project_already_bound", "El proyecto pertenece a otra aplicación.");
     return;
   }
+  const stat = await lstat(root);
+  if (stat.isSymbolicLink()) throw failure("El proyecto no puede ser un enlace simbólico.");
   // Adopt an existing agent configuration instead of refusing it: a person can
   // point a specialist workspace at a project that already has `.opencode`.
-  // Only the binding marker is written, so existing edits are never overwritten.
-  if (await statOrNull(join(root, ".opencode"))) {
+  // Only the binding marker is written here, so existing files are never
+  // overwritten; later syncs add missing library files and leave `.nuevo`
+  // copies for any that differ.
+  if (existingConfig) {
     const temporary = `${marker}.${randomUUID()}.tmp`;
     await writeFile(temporary, JSON.stringify({ applicationId: app.id }), { flag: "wx", mode: 0o600 });
     await rename(temporary, marker);
     return;
   }
-  const stat = await lstat(root);
-  if (stat.isSymbolicLink()) throw failure("El proyecto no puede ser un enlace simbólico.");
   await mkdir(join(root, ".opencode"));
   const packRoot = join(specialistDirectory(config), app.id, "pack");
   const source = await statOrNull(packRoot);

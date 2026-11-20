@@ -81,6 +81,36 @@
               ],
               "description": "Persistent goals and automatic continuity: Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review. Renders DEN_FEATURE_TASK_CONTINUITY."
             },
+            "remoteDevicePairing": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Pair other devices with a one-time code: Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does. Renders DEN_FEATURE_REMOTE_DEVICE_PAIRING."
+            },
+            "specialistAppPortability": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Export, import and delete specialist applications: Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected. Renders DEN_FEATURE_SPECIALIST_APP_PORTABILITY."
+            },
+            "comexSpanishLocale": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Spanish by default in Comex: Show the interface in Spanish when the person has not chosen a language, so it matches the Spanish Comex screens. Renders DEN_FEATURE_COMEX_SPANISH_LOCALE."
+            },
             "comexModelGuide": {
               "enum": [
                 "",

@@ -658,7 +658,7 @@ function WorkspaceActionsMenu({ workspace, className }: WorkspaceActionsMenuProp
         {workspace.workspaceType === "local" && platform.capabilities.revealInFileManager ? (
           <DropdownMenuItem onClick={() => ctx.onRevealWorkspace(workspace.id)}>
             <FolderOpen className="size-4" />
-            {isWindowsPlatform() ? t("workspace_list.reveal_explorer") : t("workspace_list.reveal_finder")}
+            {isWindowsPlatform() ? t("workspace_list.reveal_explorer") : isMacPlatform() ? t("workspace_list.reveal_finder") : t("workspace_list.reveal_file_manager")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />
@@ -1029,7 +1029,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 <SidebarMenu>{props.workspaceSessionGroups.flatMap(group => getRootSessions(group.sessions).filter(session => !session.time?.archived).map(session => ({ session, group })))
                   .sort((a, b) => (b.session.time?.updated ?? 0) - (a.session.time?.updated ?? 0)).slice(0, 12).map(({ session, group }) => <SidebarMenuItem key={`${group.workspace.id}:${session.id}`}>
                     <SidebarMenuButton isActive={props.selectedWorkspaceId === group.workspace.id && props.selectedSessionId === session.id} onClick={() => props.onOpenSession(group.workspace.id, session.id)} title={session.title}>
-                      <span className="truncate">{session.title || "Nuevo chat"}</span>
+                      <span className="truncate">{getDisplaySessionTitle(session.title)}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
                 </SidebarMenu>
@@ -1336,7 +1336,7 @@ function FeedShelfDock({ feed, archived, groups }: {
             action={(
               <button
                 type="button"
-                className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground group-hover/separator:flex"
+                className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:flex group-hover/separator:flex"
                 aria-label={t("session_management.unpin_from_feed")}
                 title={t("session_management.unpin_from_feed")}
                 onClick={(event) => {
@@ -1945,16 +1945,33 @@ function SessionGroupActions({ group, groups, workspaceId, count }: {
         {!expanded ? (
           <button
             type="button"
-            className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground group-hover/separator:flex"
-            onMouseEnter={() => setExpanded(true)}
-            onFocus={() => setExpanded(true)}
-            onClick={(event) => event.stopPropagation()}
+            className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:flex group-hover/separator:flex"
+            // Expand on click only: on hover the action row slid under the pointer and the same
+            // click landed on "delete group".
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpanded(true);
+            }}
             aria-label={t("session_management.group_actions")}
+            aria-expanded={false}
           >
             <MoreHorizontal className="size-3.5" />
           </button>
         ) : (
           <span className="flex items-center">
+            {/* Destructive action first, away from where the pointer opened the row. */}
+            <button
+              type="button"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDeleteDestination(UNGROUPED_GROUP_ID);
+                setDeleteOpen(true);
+              }}
+              aria-label={t("session_management.delete_group")}
+            >
+              <Trash2 className="size-3" />
+            </button>
             {ctx.feedEnabled ? (
               <button
                 type="button"
@@ -1993,18 +2010,6 @@ function SessionGroupActions({ group, groups, workspaceId, count }: {
               aria-label={t("session_management.rename_group")}
             >
               <Pencil className="size-3" />
-            </button>
-            <button
-              type="button"
-              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDeleteDestination(UNGROUPED_GROUP_ID);
-                setDeleteOpen(true);
-              }}
-              aria-label={t("session_management.delete_group")}
-            >
-              <Trash2 className="size-3" />
             </button>
           </span>
         )}

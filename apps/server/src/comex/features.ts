@@ -51,6 +51,18 @@ export function comexGitWorkspaceEnabled(env: NodeJS.ProcessEnv = process.env): 
   return resolveFeature("comexGitWorkspace", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+export function specialistAppPortabilityEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistAppPortability", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function comexSpanishLocaleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("comexSpanishLocale", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 export function comexModelGuideEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;
@@ -134,4 +146,10 @@ export function agentEcosystemEnabled(env: NodeJS.ProcessEnv = process.env): boo
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("agentEcosystem", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function remoteDevicePairingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("remoteDevicePairing", { ...context, rollouts: {}, overrides: {} }).enabled;
 }

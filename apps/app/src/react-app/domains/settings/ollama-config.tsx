@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { t } from "@/i18n";
 import { Bot, CheckCircle2, Download, Loader2, RefreshCw, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -312,7 +313,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
           <CardTitle>Configuration</CardTitle>
           <CardDescription>Connect to a local Ollama instance and choose a model.</CardDescription>
           <CardAction>
-            <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching}>
+            <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching} aria-label={t("common.refresh")} title={t("common.refresh")}>
               <RefreshCw className={isFetching ? "animate-spin" : ""} />
             </Button>
           </CardAction>
@@ -337,6 +338,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
             </EmptyHeader>
             <EmptyContent>
               <Button
+                nativeButton={false}
                 render={
                   <a href="https://ollama.com/download" target="_blank" rel="noopener noreferrer" />
                 }
@@ -356,7 +358,7 @@ export function OllamaConfig(props: OllamaConfigProps) {
         <CardTitle>Configuration</CardTitle>
         <CardDescription>Connect to a local Ollama instance and choose a model.</CardDescription>
         <CardAction>
-          <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching}>
+          <Button variant="ghost" size="icon-sm" onClick={() => void refetch()} disabled={isFetching} aria-label={t("common.refresh")} title={t("common.refresh")}>
             <RefreshCw className={isFetching ? "animate-spin" : ""} />
           </Button>
         </CardAction>

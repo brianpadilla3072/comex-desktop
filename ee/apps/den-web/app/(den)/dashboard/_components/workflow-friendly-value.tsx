@@ -286,7 +286,7 @@ function ArrayValue({ value }: { value: unknown[] }) {
 }
 
 function EmptyValue() {
-  return <p className="text-[13px] text-gray-400">This run didn&apos;t return anything to show.</p>;
+  return <p className="text-[13px] text-gray-500">This run didn&apos;t return anything to show.</p>;
 }
 
 function FriendlyValueContent({ value }: { value: unknown }) {

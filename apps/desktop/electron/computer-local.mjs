@@ -121,7 +121,10 @@ export function createLocalComputerAdapter({
 
   async function probe() {
     // Darwin 23 is macOS 14. Never start a newer native binary on an older OS.
-    if (platform !== "darwin" || Number.parseInt(osRelease, 10) < 23 || !/^\d+\./.test(osRelease)) {
+    if (platform !== "darwin") {
+      return { readiness: "unsupported", detail: "Computer Use is only available on macOS." };
+    }
+    if (Number.parseInt(osRelease, 10) < 23 || !/^\d+\./.test(osRelease)) {
       return { readiness: "unsupported", detail: "This Mac requires macOS 14 or later for Computer Use." };
     }
     const found = helperCandidates().find((candidate) => candidate && fileExists(candidate));

@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { CompanionAction, CompanionFile, CompanionPreferences, CompanionSnapshot, CompanionState } from "@/app/lib/desktop-companion";
 import { Mascot } from "./mascot";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+
+const MASCOT_OPTIONS = [{ value: "sprout", label: "Brote" }, { value: "ember", label: "Brasa" }, { value: "image", label: "Mi imagen" }];
+const AUTO_CLOSE_OPTIONS = [{ value: "5", label: "5 segundos" }, { value: "15", label: "15 segundos" }, { value: "30", label: "30 segundos" }];
+
 
 const DEFAULTS: CompanionPreferences = { mascot: "sprout", image: "", motion: true, openOnHover: false, autoClose: 15, alerts: true };
 const EMPTY: CompanionState = { enabled: false, connected: false, expanded: false, snapshot: null, preferences: DEFAULTS, updatedAt: 0, recentSessions: [], recentsUpdatedAt: 0 };
@@ -173,12 +179,18 @@ export function Companion() {
       </header>
       <div className="companion-row"><div className="companion-pet"><Mascot state={status} preferences={state.preferences} /></div><div className="companion-chat">
         {settings ? <div className="companion-settings">
-          <label>Mascota<select value={state.preferences.mascot} onChange={event => { const mascot = event.target.value; if (mascot === "sprout" || mascot === "ember" || mascot === "image") void savePreferences({ ...state.preferences, mascot }); }}><option value="sprout">Brote</option><option value="ember">Brasa</option><option value="image" disabled={!state.preferences.image}>Mi imagen</option></select></label>
+          <label>Mascota<Select value={state.preferences.mascot} items={MASCOT_OPTIONS} onValueChange={value => { if (value === "sprout" || value === "ember" || value === "image") void savePreferences({ ...state.preferences, mascot: value }); }}>
+            <SelectTrigger aria-label="Mascota"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup>{MASCOT_OPTIONS.map(option => <SelectItem key={option.value} value={option.value} disabled={option.value === "image" && !state.preferences.image}>{option.label}</SelectItem>)}</SelectGroup></SelectContent>
+          </Select></label>
           <label>Agregar mascota<input type="file" accept="image/png,image/webp,image/jpeg" onChange={event => { const file = event.target.files?.[0]; if (file) void importMascot(file); }} /></label>
-          <label><input type="checkbox" checked={state.preferences.motion} onChange={event => void savePreferences({ ...state.preferences, motion: event.target.checked })} />Animación suave</label>
-          <label><input type="checkbox" checked={state.preferences.openOnHover} onChange={event => void savePreferences({ ...state.preferences, openOnHover: event.target.checked })} />Abrir al pasar el cursor</label>
-          <label><input type="checkbox" checked={state.preferences.alerts} onChange={event => void savePreferences({ ...state.preferences, alerts: event.target.checked })} />Mostrar preguntas y permisos</label>
-          <label>Plegar después de<select value={state.preferences.autoClose} onChange={event => void savePreferences({ ...state.preferences, autoClose: Number(event.target.value) })}><option value={5}>5 segundos</option><option value={15}>15 segundos</option><option value={30}>30 segundos</option></select></label>
+          <label><Switch size="sm" checked={state.preferences.motion} onCheckedChange={checked => void savePreferences({ ...state.preferences, motion: checked })} />Animación suave</label>
+          <label><Switch size="sm" checked={state.preferences.openOnHover} onCheckedChange={checked => void savePreferences({ ...state.preferences, openOnHover: checked })} />Abrir al pasar el cursor</label>
+          <label><Switch size="sm" checked={state.preferences.alerts} onCheckedChange={checked => void savePreferences({ ...state.preferences, alerts: checked })} />Mostrar preguntas y permisos</label>
+          <label>Plegar después de<Select value={String(state.preferences.autoClose)} items={AUTO_CLOSE_OPTIONS} onValueChange={value => { if (value) void savePreferences({ ...state.preferences, autoClose: Number(value) }); }}>
+            <SelectTrigger aria-label="Plegar después de"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup>{AUTO_CLOSE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent>
+          </Select></label>
         </div> : <>
           {!snapshot ? <div className="companion-empty">Abrí una conversación en la app para usarla desde acá.<Button size="sm" onClick={() => void api?.openMain()}>Abrir app</Button></div> : <>
             <div className="companion-navigation"><Button size="xs" variant="ghost" aria-pressed={!activity} onClick={() => setActivity(false)}>Chat</Button><Button size="xs" variant="ghost" aria-pressed={activity} onClick={() => setActivity(true)}>Actividad</Button></div>

@@ -1,3 +1,4 @@
+import { familyLock, withFileLock } from "./file-lock.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -125,7 +126,7 @@ export async function listOutputs(directory: string) {
   return (await readIndex(directory)).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
-export async function writeOutput(directory: string, input: { kind: SpecialistOutputKind; title: string; content: string; fromDatasets?: string[]; fromSources?: string[]; focus?: string; id?: string }) {
+async function writeOutputUnlocked(directory: string, input: { kind: SpecialistOutputKind; title: string; content: string; fromDatasets?: string[]; fromSources?: string[]; focus?: string; id?: string }) {
   const content = normalizeJsonContent(input.kind, input.content);
   const problem = validateOutputContent(input.kind, content);
   if (problem) throw failure(problem);
@@ -164,7 +165,7 @@ export async function readOutput(directory: string, id: string) {
   return { meta, content };
 }
 
-export async function deleteOutput(directory: string, id: string) {
+async function deleteOutputUnlocked(directory: string, id: string) {
   const outputs = await readIndex(directory);
   if (!outputs.some(entry => entry.id === id)) throw new ApiError(404, "output_not_found", "Esa salida no existe.");
   await rm(outputDir(directory, id), { recursive: true, force: true });
@@ -192,3 +193,9 @@ export async function auditOutputCitations(directory: string, id: string): Promi
     ...(meta.fromSources.length && found.length === 0 ? { note: "declaró fuentes pero no cita ninguna — el lector no puede verificar" } : {}),
   };
 }
+
+/** Serialized with every other write to this project's salidas index (see file-lock.ts). */
+export const writeOutput = (...args: Parameters<typeof writeOutputUnlocked>) => withFileLock(familyLock(args[0], "salidas"), () => writeOutputUnlocked(...args));
+
+/** Serialized with every other write to this project's salidas index (see file-lock.ts). */
+export const deleteOutput = (...args: Parameters<typeof deleteOutputUnlocked>) => withFileLock(familyLock(args[0], "salidas"), () => deleteOutputUnlocked(...args));

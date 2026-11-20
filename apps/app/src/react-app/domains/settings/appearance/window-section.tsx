@@ -35,6 +35,7 @@ export function WindowSection(props: WindowSectionProps) {
           <LayoutSectionItemDescription>{t("settings.hide_titlebar_desc")}</LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
+              aria-label={t("settings.hide_titlebar")}
               checked={props.hideTitlebar}
               disabled={props.busy}
               onCheckedChange={props.toggleHideTitlebar}

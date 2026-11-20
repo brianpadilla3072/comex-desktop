@@ -99,7 +99,7 @@ export function WorkflowArtifactResult(props: {
               <div><dt className="text-gray-400">Output schema digest</dt><dd className="break-all font-mono">{snapshot.outputSchemaDigest ?? "—"}</dd></div>
               <div><dt className="text-gray-400">Result digest</dt><dd className="break-all font-mono">{snapshot.resultDigest ?? "—"}</dd></div>
               <div><dt className="text-gray-400">Renderer</dt><dd>{snapshot.rendererVersion ?? "—"}</dd></div>
-              <div><dt className="text-gray-400">Automation run</dt><dd className="break-all font-mono">{snapshot.automationRunId ?? "Manual"}</dd></div>
+              <div><dt className="text-gray-500">Automation run</dt><dd className="break-all font-mono">{snapshot.automationRunId ?? "Manual"}</dd></div>
             </dl>
           </div>
         </details>

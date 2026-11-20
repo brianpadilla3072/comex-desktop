@@ -742,6 +742,8 @@ const {
   readOpencodeConfig,
   writeOpencodeConfig,
   resetOpenworkState,
+  resetOpencodeCache,
+  sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
 } = desktopBridge;
 
@@ -785,5 +787,7 @@ export {
   readOpencodeConfig,
   writeOpencodeConfig,
   resetOpenworkState,
+  resetOpencodeCache,
+  sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
 };

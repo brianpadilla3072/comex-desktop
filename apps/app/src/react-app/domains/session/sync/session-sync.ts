@@ -84,6 +84,7 @@ import {
   settleBackgroundShell,
   useBackgroundShellStore,
 } from "../status/background-shell-store";
+import { abortedMarker } from "../surface/session-admission-outcome";
 
 export { type SyncStreamPhase } from "./sync-stream-lifecycle";
 export {
@@ -1548,6 +1549,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
         ...(typeof info.finish === "string" ? { finish: info.finish } : {}),
         ...(typeof info.parentID === "string" ? { parentID: info.parentID } : {}),
         ...(replyModelFromInfo(info) ? { replyModel: replyModelFromInfo(info) } : {}),
+        ...abortedMarker(info),
       } },
       parts: [],
     } satisfies UIMessage;

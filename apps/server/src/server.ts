@@ -1,7 +1,8 @@
 import { generalProjectInstructions } from "./comex/general-instructions.js";
+import { DEVICE_LABEL_PREFIX } from "./device-pairing.js";
 import { registerScopedMemoryRoutes } from "./comex/scoped-memory-routes.js";
 import { prepareScopedMemory } from "./comex/scoped-memory.js";
-import { comexScopedMemoryEnabled } from "./comex/features.js";
+import { comexScopedMemoryEnabled, remoteDevicePairingEnabled } from "./comex/features.js";
 import { specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, studioOutputsEnabled } from "./comex/features.js";
 import { readSpecialistContext } from "./specialists/library.js";
 import { createTaskContinuity, taskController, taskContinuityEnabled } from "./task-continuity.js";
@@ -95,6 +96,7 @@ import {
 import { deleteSkill, listSkills, renderSkillContentForResponse, upsertSkill } from "./skills.js";
 import { deleteCommand, listCommands, repairCommands, upsertCommand } from "./commands.js";
 import { ApiError, formatError } from "./errors.js";
+import { canSeeSecrets, redactSecrets } from "./secret-redaction.js";
 import { opencodeConfigApiError } from "./opencode-config-error.js";
 import { readJsoncFile, updateJsoncTopLevel, writeJsoncFile } from "./jsonc.js";
 import { recordAudit, readAuditEntries, readLastAudit } from "./audit.js";
@@ -586,7 +588,10 @@ function logRequest(input: {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const proxyLabel = proxyBaseUrl ? ` (${proxyService ?? "proxy"})` : "";
-  const message = `${method} ${url.pathname} ${status} ${durationMs}ms${proxyLabel}`;
+  // Failed requests carry their code and cause on the readable line too, so a dev log answers
+  // "why 500?" without opening the structured log file.
+  const failure = status >= 400 ? `${errorCode ? ` [${errorCode}]` : ""}${errorCause ? ` ${errorCause.slice(0, 300)}` : ""}` : "";
+  const message = `${method} ${url.pathname} ${status} ${durationMs}ms${proxyLabel}${failure}`;
   const attributes: LogAttributes = {
     method,
     path: url.pathname,
@@ -1209,7 +1214,7 @@ export async function startServer(
       try {
         const actor =
           route.auth === "host-token"
-            ? requireHostToken(request, config)
+            ? await requireHostTokenOrPairedDevice(request, config, tokens, url.pathname)
             : route.auth === "host"
               ? await requireHost(request, config, tokens)
               : route.auth === "client" || (route.auth === "policy" && !managedDesktopPolicy(config).authenticatesEvaluation(request))
@@ -2582,6 +2587,25 @@ function requireHostToken(request: Request, config: ServerConfig): Actor {
   throw new ApiError(401, "unauthorized", "Invalid host token");
 }
 
+/** Desktop-account routes stay with the desktop's own host token even for paired devices. */
+const DESKTOP_ONLY_HOST_TOKEN_PATHS = ["/den-session", "/cloud-provider-sync"];
+
+/** "host-token" routes: the host token, or a device paired with a one-time code
+ *  (docs/features/remote-device-pairing) so the web app manages what the desktop manages. */
+async function requireHostTokenOrPairedDevice(request: Request, config: ServerConfig, tokens: TokenService, pathname: string): Promise<Actor> {
+  const hostToken = request.headers.get("x-openwork-host-token");
+  if (hostToken && hostToken === config.hostToken) return requireHostToken(request, config);
+  const bearer = (request.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1];
+  const desktopOnly = DESKTOP_ONLY_HOST_TOKEN_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (bearer && !desktopOnly && remoteDevicePairingEnabled()) {
+    const record = await tokens.recordForToken(bearer);
+    if (record?.scope === "owner" && record.label?.startsWith(DEVICE_LABEL_PREFIX)) {
+      return { type: "remote", clientId: request.headers.get("x-openwork-client-id") ?? undefined, tokenHash: hashToken(bearer), scope: "owner" };
+    }
+  }
+  return requireHostToken(request, config);
+}
+
 async function requireHost(request: Request, config: ServerConfig, tokens: TokenService): Promise<Actor> {
   const hostToken = request.headers.get("x-openwork-host-token");
   if (hostToken && hostToken === config.hostToken) {
@@ -2840,8 +2864,18 @@ function buildAuthorizedFoldersResponse(workspace: WorkspaceInfo, config: Author
   };
 }
 
-function serializeWorkspace(workspace: ServerConfig["workspaces"][number]) {
-  const { opencodeUsername, opencodePassword, ...rest } = workspace;
+/**
+ * The engine's Basic-auth credentials give unrestricted OpenCode access (sessions, shell, files)
+ * and bypass viewer read-only checks, approvals and managed policy. They are included only when
+ * the caller is the desktop host or an owner (`withEngineCredentials`), never for viewer or
+ * collaborator tokens. `unknown` + `=== true` on purpose: callers use `.map(serializeWorkspace)`,
+ * which passes the array index as the second argument, and an index must never grant credentials.
+ */
+export function serializeWorkspace(workspace: ServerConfig["workspaces"][number], withEngineCredentials: unknown = false) {
+  const { opencodeUsername: storedUsername, opencodePassword: storedPassword, ...rest } = workspace;
+  const credentials = withEngineCredentials === true;
+  const opencodeUsername = credentials ? storedUsername : undefined;
+  const opencodePassword = credentials ? storedPassword : undefined;
   const opencodeDirectory = resolveOpencodeDirectory(workspace);
   const opencode =
     workspace.baseUrl || opencodeDirectory || opencodeUsername || opencodePassword
@@ -3107,7 +3141,8 @@ function createRoutes(
       await readEffectiveRuntimeOpencodeConfig(config, workspace.id),
     );
     const lastAudit = await readLastAudit(workspace.path, workspace.id);
-    return jsonResponse({ opencode, openwork, updatedAt: lastAudit?.timestamp ?? null });
+    const body = { opencode, openwork, updatedAt: lastAudit?.timestamp ?? null };
+    return jsonResponse(canSeeSecrets(ctx.actor) ? body : redactSecrets(body));
   });
 
   addRoute(routes, "GET", "/workspace/:id/desktop-cloud-sync", "client", async (ctx) => {
@@ -3736,7 +3771,7 @@ function createRoutes(
     const effectiveRuntime = await buildOpenworkRuntimeConfigObject(config);
     const managedFile = await readManagedRuntimeConfigDebug(config);
 
-    return jsonResponse({
+    const body = {
       runtime,
       runtimeKeys: runtimeConfigKeys(runtime),
       effectiveRuntime,
@@ -3768,7 +3803,8 @@ function createRoutes(
         exists: rawOpencode.exists,
         keys: userOpencodeConfigKeys(persistedOpencode),
       },
-    });
+    };
+    return jsonResponse(canSeeSecrets(ctx.actor) ? body : redactSecrets(body));
   });
 
   addRoute(routes, "GET", "/workspace/:id/opencode-config", "client", async (ctx) => {
@@ -3872,8 +3908,19 @@ function createRoutes(
     if (opencode) {
       const configPath = openworkConfigPath(workspace.path);
       const nextOpencode = ensurePlainObject(opencode);
-      const { permission, provider, ...topLevelUpdates } = nextOpencode;
+      const { permission, provider, compaction, ...topLevelUpdates } = nextOpencode;
       const logicalUpdates: Record<string, unknown> = { ...topLevelUpdates };
+
+      // Compaction is a per-project OpenCode setting the runtime store does not keep (it used
+      // to answer 200 and drop it). The project's opencode.jsonc is what the engine reads for
+      // this folder and what GET /config returns; null removes the override.
+      if (compaction !== undefined) {
+        if (compaction !== null && !isRecord(compaction)) throw new ApiError(400, "invalid_payload", "compaction must be an object or null");
+        const projectPath = opencodeConfigPath(workspace.path);
+        const before = JSON.stringify((await readOpencodeConfig(workspace.path)).compaction ?? null);
+        await updateJsoncTopLevel(projectPath, { compaction: compaction ?? undefined });
+        runtimeChanged = before !== JSON.stringify(compaction ?? null) || runtimeChanged;
+      }
 
       // Per-provider merge: record values upsert, explicit `null` deletes
       // (mergeRuntimeProviderUpdate) — so clients can remove runtime-managed
@@ -4205,11 +4252,12 @@ function createRoutes(
     const items = await listMcp(config, workspace.id, workspace.path);
     const managedState = await listLocalManagedMcpConnectionsSafe(config, workspace.id);
     const managed = new Map(managedState.connections.map((connection) => [connection.name, connection]));
-    return jsonResponse({
+    const body = {
       items: items.map((item) => ({ ...item, managedOAuth: managed.get(item.name) ?? null })),
       engineSync: engineMcpSyncStateInState(config, engineMcpServerState, workspace),
       managedOAuthState: { available: managedState.available, recovery: managedState.recovery },
-    });
+    };
+    return jsonResponse(canSeeSecrets(ctx.actor) ? body : redactSecrets(body));
   });
 
   addRoute(routes, "GET", "/mcp-apps/sandbox.html", "none", async (ctx) => new Response(MCP_APP_SANDBOX_PROXY_HTML, {
@@ -4888,12 +4936,19 @@ function requireClientScope(ctx: RequestContext, required: TokenScope): void {
 }
 
 async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+  let json: unknown;
   try {
-    const json = await request.json();
-    return json as Record<string, unknown>;
+    json = await request.json();
   } catch {
     throw new ApiError(400, "invalid_json", "Invalid JSON body");
   }
+  // `null`, arrays and primitives used to reach handlers that read properties and answer 500.
+  if (!isJsonObject(json)) throw new ApiError(400, "invalid_json", "JSON body must be an object");
+  return json;
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function readAgentDiagnosticsJsonBody(request: Request): Promise<unknown> {
@@ -5004,7 +5059,8 @@ async function readOptionalJsonBody(request: Request): Promise<Record<string, un
   const text = await request.text();
   if (!text.trim()) return {};
   try {
-    return ensurePlainObject(JSON.parse(text));
+    const parsed: unknown = JSON.parse(text);
+    return ensurePlainObject(parsed);
   } catch {
     throw new ApiError(400, "invalid_json", "Invalid JSON body");
   }
@@ -5071,7 +5127,7 @@ async function fetchRuntimeControl(path: string, init?: { method?: string; body?
     body: init?.body === undefined ? undefined : JSON.stringify(init.body),
   });
   const text = await response.text();
-  const json = text ? JSON.parse(text) : null;
+  const json = text ? JSON.parse(text) as unknown : null;
   if (!response.ok) {
     throw new ApiError(response.status, "runtime_upgrade_failed", "Worker runtime control request failed", json);
   }
@@ -5093,7 +5149,10 @@ async function readOpenworkConfig(workspaceRoot: string): Promise<Record<string,
   }
   try {
     const raw = await readFile(path, "utf8");
-    return JSON.parse(raw) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(raw);
+    // A config that is valid JSON but not an object is as unusable as broken JSON.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("openwork.json is not an object");
+    return ensurePlainObject(parsed);
   } catch {
     throw new ApiError(422, "invalid_json", "Failed to parse openwork.json");
   }

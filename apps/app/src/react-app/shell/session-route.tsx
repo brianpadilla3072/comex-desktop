@@ -1,5 +1,6 @@
 import { ChatCommandHost } from "@/react-app/domains/session/commands/host";
 /** @jsxImportSource react */
+import { workspaceRenameFailure } from "@/react-app/shell/workspace-rename-error";
 import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { freeAutoSwitchedOff, modelForNewTask, openComposerModelPickerEvent } from "@/app/lib/inference-access";
 import { useAutoAccess, useObservedAutoAccessSnapshot } from "@/react-app/domains/cloud/auto-access-ui";
@@ -38,6 +39,7 @@ import { settleWorkspaceIds, useSessionSettleState } from "@/react-app/domains/s
 import { getDisplaySessionTitle } from "@/app/lib/session-title";
 import { getSessionDescendantIds } from "@/react-app/domains/session/sidebar/utils";
 import { buildOpenworkWorkspaceBaseUrl } from "@/app/lib/openwork-server";
+import { workspaceCreateError } from "./workspace-create-error";
 import {
   resolveEngineRootEndpoint,
   resolveWorkspaceEndpoint,
@@ -117,6 +119,8 @@ import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
 import { automationProviderCatalog } from "@/react-app/domains/automations/automation-model-options";
+import { confirmDialog } from "@/components/ui/confirm-dialog";
+import { specialistErrorMessage } from "@/react-app/domains/specialists/error-message";
 import { useDesktopFeature } from "@/react-app/domains/session/status/use-desktop-feature";
 import { remoteThreadAttentionBySession, useRemoteThreadAttentionKey } from "@/react-app/domains/session/remote-threads/remote-thread-store";
 import { RemoteSessionHeader, RemoteSessionSurface } from "@/react-app/domains/session/remote-threads/remote-session-surface";
@@ -191,7 +195,7 @@ import {
 import { assignedModelOptions, mergeModelOptions } from "@/react-app/domains/connections/provider-auth/assigned-model-options";
 import { runtimeModelOptions } from "@/react-app/domains/models/catalog";
 import { pickerFallbackModels } from "@/react-app/domains/connections/provider-auth/live-provider-sync";
-import { withImportedModelMetadata, isAutoModel, shouldSelectInitialAuto, starterModel, openWorkModelsLunaReplacement, EXPLICIT_MODEL_CHOICE_KEY } from "@/react-app/domains/models/model-catalog";
+import { withImportedModelMetadata, isAutoModel, shouldSelectInitialAuto, starterModel, openWorkModelsLunaReplacement, retiredZenDefaultReplacement, EXPLICIT_MODEL_CHOICE_KEY } from "@/react-app/domains/models/model-catalog";
 import {
   filterEntitledModelOptions,
   keylessProviderIds,
@@ -1259,12 +1263,7 @@ export function SessionRoute() {
     });
   }, [opencodeZenBlocked, providerAuthClient, selectedWorkspaceId, selectedWorkspaceRoot, sessionProviderAuthStore]);
   useEffect(() => {
-    if (!opencodeZenBlocked) return;
-    const current = local.prefs.defaultModel;
-    if (current && current.providerID !== "opencode") return;
-    // Already filtered by policy, so Zen is gone from it while blocked.
-    const usable = entitledModelOptions.filter((option) => option.providerID !== "opencode");
-    const replacement = starterModel(usable) ?? usable[0];
+    const replacement = retiredZenDefaultReplacement({ current: local.prefs.defaultModel, available: entitledModelOptions, zenBlocked: opencodeZenBlocked });
     if (replacement) local.setPrefs((previous) => ({ ...previous, defaultModel: { providerID: replacement.providerID, modelID: replacement.modelID }, modelVariant: null }));
   }, [opencodeZenBlocked, entitledModelOptions, local]);
   const openWorkModelsAvailable = hasOpenWorkModelsAvailable({
@@ -2622,9 +2621,8 @@ export function SessionRoute() {
       setRenameWorkspaceTitle("");
       await refreshRouteState();
     } catch (error) {
-      toast.error("Workspace rename failed", {
-        description: describeRouteError(error),
-      });
+      const failure = workspaceRenameFailure(error, describeRouteError);
+      toast.error(failure.title, { description: failure.description });
     } finally {
       setRenameWorkspaceBusy(false);
     }
@@ -2643,16 +2641,13 @@ export function SessionRoute() {
 
   const handleForgetWorkspace = useCallback(
     async (workspaceId: string) => {
-      if (typeof window !== "undefined") {
-        const message =
-          t("workspace_list.remove_confirm") ||
-          "Remove this workspace from the sidebar?";
-        if (!window.confirm(message)) return;
-      }
+      if (!(await confirmDialog({ title: t("workspace_list.remove_confirm"), destructive: true }))) return;
       // Remove from both stores so the next refresh can't resurrect the row
-      // from whichever list wins the merge.
+      // from whichever list wins the merge. A failed server delete (the web
+      // connection cannot remove workspaces) must not look like a removal.
       if (client) {
-        await client.deleteWorkspace(workspaceId).catch(() => undefined);
+        const failure = await client.deleteWorkspace(workspaceId).then(() => null, (error: unknown) => error);
+        if (failure && !isDesktopRuntime()) { toast.error(specialistErrorMessage(failure, t("workspace_list.remove_failed"))); return; }
       }
       if (isDesktopRuntime()) {
         await workspaceForget(workspaceId).catch(() => undefined);
@@ -3698,12 +3693,7 @@ export function SessionRoute() {
             return null;
           });
       }
-      if (!list) {
-        // A real server response (e.g. the folder already has agent config)
-        // must reach the person; only a missing client means the server is down.
-        if (createFailure instanceof Error && createFailure.message.trim()) throw createFailure;
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
-      }
+      if (!list) throw workspaceCreateError(createFailure);
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       let targetWorkspaceId = createdId;
       let targetWorkspace = list.workspaces.find((workspace: WorkspaceInfo) => workspace.id === createdId) ?? null;

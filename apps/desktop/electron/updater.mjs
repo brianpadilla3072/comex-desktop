@@ -11,6 +11,7 @@ import {
   readCachedRecoveryArtifact,
   readRecoveryState,
   recordHealthyVersion,
+  shouldRecordHealthyVersion,
   recoveryManifestName,
   recoveryVersionMarkers,
   selectRecoveryArtifact,
@@ -573,6 +574,7 @@ export function registerUpdaterIpc({
   }
 
   ipcMain.handle("openwork:recovery:recordHealthy", async () => {
+    if (!shouldRecordHealthyVersion(app)) return null;
     return recordHealthyVersion(app, distribution, resolveAppVersion(app));
   });
 

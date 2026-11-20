@@ -88,7 +88,14 @@ const RUN_LOG_LIMIT = 20;
 
 const failure = (message: string) => new ApiError(422, "invalid_task", message);
 const tasksFile = (config: Pick<ServerConfig, "configPath">, id: string) => join(specialistDirectory(config), id, "tasks.json");
-const runLogFile = (config: Pick<ServerConfig, "configPath">, id: string, taskId: string) => join(specialistDirectory(config), id, "tasks", `${taskId}.json`);
+const TASK_ID = /^task_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** Task ids come from URLs too; only a generated id may name a run log, so a
+ * decoded `../` can never point outside the application's tasks folder. */
+export const isTaskId = (taskId: string) => TASK_ID.test(taskId);
+const runLogFile = (config: Pick<ServerConfig, "configPath">, id: string, taskId: string) => {
+  if (!isTaskId(taskId)) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
+  return join(specialistDirectory(config), id, "tasks", `${taskId}.json`);
+};
 
 const chains = new Map<string, Promise<unknown>>();
 function serialize<T>(id: string, work: () => Promise<T>): Promise<T> {
@@ -141,7 +148,12 @@ export function missedOccurrences(schedule: SpecialistSchedule, due: number, now
 }
 
 async function loadTasks(config: Pick<ServerConfig, "configPath">, id: string): Promise<SpecialistTask[]> {
-  const value = await readJson<unknown>(tasksFile(config, id), []);
+  let value: unknown;
+  try { value = await readJson<unknown>(tasksFile(config, id), []); }
+  catch (error) {
+    if (error instanceof SyntaxError) throw new ApiError(409, "tasks_unreadable", "El archivo de tareas de esta aplicación está dañado. Renombrá tasks.json en la carpeta de la aplicación para empezar de nuevo.");
+    throw error;
+  }
   if (!Array.isArray(value)) return [];
   return value.flatMap(entry => { try { return [taskSchema.parse(entry)]; } catch { return []; } });
 }
@@ -255,7 +267,10 @@ export function patchTask(config: Pick<ServerConfig, "configPath">, id: string, 
 }
 
 export async function listRuns(config: Pick<ServerConfig, "configPath">, id: string, taskId: string): Promise<SpecialistTaskRun[]> {
-  const value = await readJson<unknown>(runLogFile(config, id, taskId), []);
+  if (!isTaskId(taskId)) return [];
+  // The run log is history: an unreadable one counts as empty and is rewritten on the next run,
+  // so it can never keep a finished task marked as running.
+  const value = await readJson<unknown>(runLogFile(config, id, taskId), []).catch(() => []);
   if (!Array.isArray(value)) return [];
   return value.flatMap(entry => { try { return [runSchema.parse(entry)]; } catch { return []; } });
 }

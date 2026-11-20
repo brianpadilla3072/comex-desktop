@@ -30,6 +30,8 @@ export function readInstalledOpencodeConnection(file: string): OpencodeV2Connect
 
 /** Attach only: OpenCode continues owning accounts, configuration and history.
  * No migration, global provider mirror, config rewrite or child-process shutdown. */
+export const BROWSER_BRIDGE_PENDING = "El puente del navegador todavía no está disponible en OpenCode. Las herramientas del navegador se activan solas cuando cargue; el chat funciona igual.";
+
 export function createInstalledOpencodeEngine(file: string, deferStart = false, browser?: { install(directory: string): Promise<void>; close(): Promise<void> }): EngineV2Preview {
   let stopped = false;
   let pending: Promise<void> | undefined;
@@ -93,12 +95,14 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false, 
     }
     await probe(directory);
     if (browser) {
-      const result = await fetchOpencodeV2Json(readInstalledOpencodeConnection(file), "/api/plugin", { directory, timeoutMs: 8_000 });
-      const plugins = z.object({ data: z.array(z.object({ id: z.string().optional(), state: z.object({ status: z.string() }) })) }).safeParse(result.json);
-      if (result.status !== 200 || !plugins.success || !plugins.data.data.some(plugin => plugin.id === "comex.browser" && plugin.state.status === "active")) {
-        throw new Error("El puente del navegador todavía no está disponible en OpenCode. Volvé a intentar en unos segundos.");
-      }
-      state.lastWarning = "Navegador de Comex conectado mediante un puente local por proyecto. Las cuentas y conexiones MCP siguen perteneciendo a tu OpenCode instalado.";
+      // The browser bridge is one tool among many. When it is not active yet, chats, models and
+      // providers must keep working: report it in the status instead of failing every request.
+      const result = await fetchOpencodeV2Json(readInstalledOpencodeConnection(file), "/api/plugin", { directory, timeoutMs: 8_000 }).catch(() => null);
+      const plugins = z.object({ data: z.array(z.object({ id: z.string().optional(), state: z.object({ status: z.string() }) })) }).safeParse(result?.json);
+      const active = result?.status === 200 && plugins.success && plugins.data.data.some(plugin => plugin.id === "comex.browser" && plugin.state.status === "active");
+      state.lastWarning = active
+        ? "Navegador de Comex conectado mediante un puente local por proyecto. Las cuentas y conexiones MCP siguen perteneciendo a tu OpenCode instalado."
+        : BROWSER_BRIDGE_PENDING;
     }
   }
   if (!deferStart) start();

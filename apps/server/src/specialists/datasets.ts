@@ -111,6 +111,9 @@ export function recordDatasetRun(directory: string, query: SpecialistDatasetQuer
   let meta = (await findByQuery(directory, query)) ?? undefined;
   const id = meta?.id ?? `ds-${slugify(`${query.operation}-${(query.input as { query?: string; url?: string }).query ?? (query.input as { query?: string; url?: string }).url ?? "consulta"}`) || "consulta"}-${randomUUID().slice(0, 8)}`;
   const created = meta === undefined;
+  // Check the limit before writing anything: a refused new query used to leave its folder and
+  // snapshot on disk, outside the index.
+  if (created && datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
   const dir = await ensureFolder(datasetDir(directory, id));
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const snapshotFile = join(dir, "snapshots");
@@ -123,7 +126,6 @@ export function recordDatasetRun(directory: string, query: SpecialistDatasetQuer
   await writeFile(join(dir, "LATEST"), `${stamp}.json\n`, { mode: 0o600 });
   const question = typeof (query.input as { query?: string }).query === "string" ? String((query.input as { query?: string }).query) : typeof (query.input as { url?: string }).url === "string" ? String((query.input as { url?: string }).url) : query.operation;
   if (!meta) {
-    if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
     meta = { id, name: id.replace(/^ds-/, "").replace(/-[a-z0-9]{8}$/, ""), question, provider: query.provider, operation: query.operation, queryHash: hash, createdAt: now, updatedAt: now, lastSnapshotAt: now, snapshots: 1, derivedFrom: null };
     await writeFile(join(dir, "dataset.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
     await writeFile(join(dir, "query.json"), JSON.stringify(query, null, 2), { mode: 0o600 });

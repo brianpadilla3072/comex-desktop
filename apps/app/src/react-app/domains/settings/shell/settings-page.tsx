@@ -168,7 +168,7 @@ export function getSettingsTabDescription(tab: SettingsTab) {
     case "ollama":
       return "Connect to Ollama and manage local models";
     case "preferences":
-      return "Default model, reasoning, and compaction";
+      return t("settings.card.preferences.desc");
     case "permissions":
       return "Authorized folders and file access";
     case "cloud-account":

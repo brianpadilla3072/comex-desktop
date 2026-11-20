@@ -41,6 +41,15 @@ export async function readRecoveryState(app, distribution) {
   }
 }
 
+/**
+ * Recovery rolls an installed app back to its last healthy release. A
+ * development build (version 0.0.0-dev) has no release to go back to, so it
+ * skips the record instead of failing on every launch.
+ */
+export function shouldRecordHealthyVersion(app) {
+  return app.isPackaged === true;
+}
+
 export async function recordHealthyVersion(app, distribution, rawVersion) {
   const version = stableVersion(rawVersion);
   if (!version) throw new Error("Healthy app version must use the stable x.y.z format.");

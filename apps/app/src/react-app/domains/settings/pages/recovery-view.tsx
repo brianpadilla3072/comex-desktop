@@ -70,9 +70,7 @@ export function RecoveryView(props: RecoveryViewProps) {
                   variant="destructive"
                   size="sm"
                   onClick={() => void props.onResetAppConfigDefaults()}
-                  // TODO: Restore the conditional disabled state once this action is wired into the React settings route.
-                  // disabled={props.resetConfigBusy || props.anyActiveRuns}
-                  disabled
+                  disabled={props.resetConfigBusy || props.anyActiveRuns}
                 >
                   {props.resetConfigBusy ? t("settings.resetting") : t("settings.reset_config_defaults")}
                 </Button>
@@ -88,10 +86,6 @@ export function RecoveryView(props: RecoveryViewProps) {
           {props.workspaceConfigPath || t("settings.no_active_workspace")}
         </SettingsInset>
 
-        <Alert>
-          <Info />
-          <AlertDescription>{t("settings.recovery_reset_config_unavailable")}</AlertDescription>
-        </Alert>
         {revealConfigMutation.isError || props.configActionStatus ? (
           <SettingsNotice tone={revealConfigMutation.isError ? "error" : "neutral"}>
             {revealConfigMutation.isError
@@ -112,19 +106,13 @@ export function RecoveryView(props: RecoveryViewProps) {
               variant="secondary"
               size="sm"
               onClick={() => void props.onRepairOpencodeCache()}
-              // TODO: Restore the conditional disabled state once this action is wired into the React settings route.
-              // disabled={props.cacheRepairBusy || !isDesktopRuntime()}
-              disabled
+              disabled={props.cacheRepairBusy || props.anyActiveRuns || !isDesktopRuntime()}
             >
               {props.cacheRepairBusy ? t("settings.repairing_cache") : t("settings.repair_cache")}
             </Button>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
 
-        <Alert>
-          <Info />
-          <AlertDescription>{t("settings.recovery_cache_repair_unavailable")}</AlertDescription>
-        </Alert>
         {props.cacheRepairResult ? <SettingsNotice>{props.cacheRepairResult}</SettingsNotice> : null}
       </LayoutSectionItem>
 
@@ -141,9 +129,7 @@ export function RecoveryView(props: RecoveryViewProps) {
                   variant="destructive"
                   size="sm"
                   onClick={() => void props.onCleanupOpenworkDockerContainers()}
-                  // TODO: Restore the conditional disabled state once this action is wired into the React settings route.
-                  // disabled={props.dockerCleanupBusy || props.anyActiveRuns || !isDesktopRuntime()}
-                  disabled
+                  disabled={props.dockerCleanupBusy || props.anyActiveRuns || !isDesktopRuntime()}
                 >
                   {props.dockerCleanupBusy
                     ? t("settings.removing_containers")
@@ -157,10 +143,6 @@ export function RecoveryView(props: RecoveryViewProps) {
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
 
-        <Alert>
-          <Info />
-          <AlertDescription>{t("settings.recovery_docker_cleanup_unavailable")}</AlertDescription>
-        </Alert>
         {props.dockerCleanupResult ? <SettingsNotice>{props.dockerCleanupResult}</SettingsNotice> : null}
       </LayoutSectionItem>
     </LayoutStack>

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { DevicesSection } from "./devices-section";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { useLocation } from "react-router";
@@ -212,6 +213,8 @@ export function AdvancedView(props: AdvancedViewProps) {
           configStatusError={configStatusError}
           onRefresh={refreshRuntimeConfigStatus}
         />
+
+        <DevicesSection client={props.engineClient} />
 
         <AdvancedEngineV2PreviewSection client={props.engineClient} />
 

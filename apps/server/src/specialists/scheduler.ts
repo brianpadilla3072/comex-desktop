@@ -183,7 +183,10 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       const store = await specialistStore(config);
       for (const application of store.list().applications) {
         if (stopped) break;
-        for (const task of await listTasks(config, application.id)) {
+        // One application's unreadable tasks must not stop the others' schedules.
+        const tasks = await listTasks(config, application.id).catch(() => null);
+        if (!tasks) continue;
+        for (const task of tasks) {
           const roots = store.projectsFor(application.id);
           const root = roots.find(entry => entry.workspaceId === task.running?.workspaceId)?.rootPath ?? roots[0]?.rootPath ?? null;
           if (task.running) {
@@ -200,7 +203,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
                 return { ...current, nextRunAt: nextRun(current.schedule, now), lastStatus: "skipped", ...(current.schedule.kind === "once" ? { enabled: false } : {}) };
               }).catch(() => null);
               if (!skipped) continue;
-              await appendRun(config, application.id, task.id, { at: now, mode: "scheduled", missed: missedOccurrences(task.schedule, task.nextRunAt, now), workspaceId: roots[0]?.workspaceId ?? "none", sessionId: null, status: "skipped_missed", detail: "El horario pasó con la aplicación cerrada o suspendida. No se ejecutó." });
+              await appendRun(config, application.id, task.id, { at: now, mode: "scheduled", missed: missedOccurrences(task.schedule, task.nextRunAt, now), workspaceId: roots[0]?.workspaceId ?? "none", sessionId: null, status: "skipped_missed", detail: "El horario pasó con la aplicación cerrada o suspendida. No se ejecutó." }).catch(() => undefined);
             } else await dispatch(application.id, task, "scheduled").catch(() => undefined);
           }
         }

@@ -1,16 +1,17 @@
 import { ensureComexWorkspace } from "../comex/seed.js";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, mkdir, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { comexArtifactsEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
-import { applicationInput, specialistDirectory, specialistStore } from "./store.js";
+import { applicationInput, displayText, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
 import { ensureProjectDataDir } from "./project-data.js";
 import { registerSpecialistToolRoutes, syncLibraryToolPlugin } from "./library-tool-api.js";
+import { deleteApplication, exportApplication, importApplication } from "./portability/index.js";
 import { registerSpecialistMcpRoutes, syncPanelAppMcpEntry } from "./panel-app.js";
 import { listProposals, parsePlanProposalContent, parseTaskProposalContent, rawProposal, removeProposal, restoreProposal, proposalSchema } from "./proposals.js";
 import {
@@ -30,14 +31,27 @@ import { currentSpecialistScheduler } from "./scheduler.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
 
+/** A workspace seeded by the Comex pack before specialist applications existed. */
+async function hasLegacyComexInstall(root: string): Promise<boolean> {
+  const hashes = await lstat(join(root, ".opencode", ".comex-pack-hashes.json")).catch(() => null);
+  if (!hashes?.isFile()) return false;
+  // A project already bound to a specialist application is not legacy.
+  return !(await lstat(join(root, ".opencode", "specialist-application.json")).catch(() => null));
+}
+
 export function registerSpecialistRoutes(options: {
   routes: Route[]; config: ServerConfig;
   readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
   jsonResponse: (body: unknown, status?: number) => Response;
   ensureWritable: (config: ServerConfig) => void;
   createWorkspace: (ctx: RequestContext, payload: Record<string, unknown>) => Promise<string>;
+  /** Remove a workspace from the host (as DELETE /workspaces/:id); never deletes its files. */
+  removeWorkspace?: (ctx: RequestContext, workspaceId: string) => Promise<void>;
+  /** Set a workspace's display name (as PATCH /workspaces/:id/display-name). */
+  renameWorkspace?: (ctx: RequestContext, workspaceId: string, name: string) => Promise<void>;
 }) {
   const { routes, config, readJsonBody, jsonResponse, ensureWritable, createWorkspace } = options;
+  const removeWorkspace = options.removeWorkspace ?? (async () => {});
   registerIntegrationRoutes(options);
   registerSpecialistToolRoutes(options);
   registerSpecialistMcpRoutes(options);
@@ -58,9 +72,11 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, portabilityEnabled: specialistAppPortabilityEnabled(), libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
-  addRoute(routes, "GET", "/specialist-applications", "client", async () => jsonResponse(await catalog()));
+  // `writable`: whether this caller may create or change applications (host routes). The web app
+  // only holds a collaborator token, so it must not offer creation it cannot complete.
+  addRoute(routes, "GET", "/specialist-applications", "client", async ctx => jsonResponse({ ...(await catalog()), writable: ctx.actor?.type === "host" || ctx.actor?.scope === "owner" }));
   addRoute(routes, "POST", "/specialist-applications/preview-pack", "host", async ctx => {
     requireFeature();
     const body = await readJsonBody(ctx.request);
@@ -87,18 +103,58 @@ export function registerSpecialistRoutes(options: {
     catch (error) { await rm(join(specialistDirectory(config), id), { recursive: true, force: true }); throw error; }
     let workspaceId: string;
     if (before.applications.length === 0 && parsed.data.template === "comex" && !parsed.data.packPath && config.workspaces.length) {
-      const local = config.workspaces.filter(workspace => workspace.workspaceType === "local");
-      for (const workspace of local) { await ensureComexWorkspace(workspace.path, undefined, { install: true }); store.bind(workspace.id, id, workspace.path); }
-      workspaceId = local.find(workspace => workspace.id === body.preferredWorkspaceId)?.id ?? local[0]?.id ?? "";
+      // Adopt only the workspaces that already ran the legacy Comex pack. Any
+      // other open project belongs to the person: installing the pack there
+      // would add agents, a `comex/` folder and AGENTS.md instructions to it.
+      const legacy = [];
+      for (const workspace of config.workspaces) {
+        if (workspace.workspaceType === "local" && await hasLegacyComexInstall(workspace.path)) legacy.push(workspace);
+      }
+      for (const workspace of legacy) { await ensureComexWorkspace(workspace.path); store.bind(workspace.id, id, workspace.path); }
+      workspaceId = legacy.find(workspace => workspace.id === body.preferredWorkspaceId)?.id ?? legacy[0]?.id ?? "";
     } else workspaceId = "";
     if (!workspaceId) {
       const folderPath = join(specialistDirectory(config), id, "projects", "Principal");
-      workspaceId = await createWorkspace(ctx, { folderPath, name: app.name, preset: "specialist", applicationId: id });
-      // A new app's data folder (`proyecto/`) exists from the start, so memory, datasets and
-      // outputs never land in a `comex/` folder for an app that is not about trade.
-      await ensureProjectDataDir(folderPath);
+      try {
+        workspaceId = await createWorkspace(ctx, { folderPath, name: app.name, preset: "specialist", applicationId: id });
+        // A new app's data folder (`proyecto/`) exists from the start, so memory, datasets and
+        // outputs never land in a `comex/` folder for an app that is not about trade.
+        await ensureProjectDataDir(folderPath);
+      } catch (error) {
+        // Without its first project the app is unusable and its name taken: undo it entirely.
+        await deleteApplication({ config, store, id, removeWorkspace: workspace => removeWorkspace(ctx, workspace) }).catch(() => undefined);
+        throw error;
+      }
     }
     return jsonResponse({ application: app, workspaceId, catalog: await catalog() }, 201);
+  });
+  /** Export, import and delete (feature: specialistAppPortability). */
+  function requirePortability(write = false) {
+    requireFeature(write);
+    if (!specialistAppPortabilityEnabled()) throw new ApiError(404, "specialist_portability_disabled", "Exportar e importar aplicaciones está desactivado.");
+  }
+  addRoute(routes, "GET", "/specialist-applications/:id/export", "host", async ctx => {
+    requirePortability();
+    return jsonResponse(await exportApplication(config, await specialistStore(config), ctx.params.id));
+  });
+  addRoute(routes, "POST", "/specialist-applications/import", "host", async ctx => {
+    requirePortability(true);
+    const body = await readJsonBody(ctx.request);
+    const userName = typeof body.userName === "string" ? body.userName : undefined;
+    const store = await specialistStore(config);
+    const result = await importApplication({
+      config, store, raw: body.bundle, userName,
+      createWorkspace: payload => createWorkspace(ctx, payload),
+      removeWorkspace: workspaceId => removeWorkspace(ctx, workspaceId),
+    });
+    store.activate(result.application.id);
+    return jsonResponse({ ...result, catalog: await catalog() }, 201);
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id", "host", async ctx => {
+    requirePortability(true);
+    const store = await specialistStore(config);
+    const result = await deleteApplication({ config, store, id: ctx.params.id, removeWorkspace: workspaceId => removeWorkspace(ctx, workspaceId) });
+    return jsonResponse({ ...result, catalog: await catalog() });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/activate", "host", async ctx => {
     requireFeature(true);
@@ -109,14 +165,29 @@ export function registerSpecialistRoutes(options: {
     requireFeature(true);
     const parsed = applicationInput.pick({ name: true, specialty: true, personality: true }).safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_application", "Revisá el nombre, la especialidad y la personalidad.");
-    const app = (await specialistStore(config)).update(ctx.params.id, parsed.data);
+    const store = await specialistStore(config);
+    const previous = store.application(ctx.params.id);
+    const app = store.update(ctx.params.id, parsed.data);
+    // Projects that still carry the application's old name (its first project is named after it)
+    // follow the rename; projects the person renamed keep their own name.
+    // Only the application's own first project ("projects/Principal", named after the app at
+    // creation) follows the rename, and only while it still carries the old name: matching any
+    // project by name also captured projects the person had renamed to that name.
+    if (options.renameWorkspace && previous.name !== app.name) {
+      const principal = join(specialistDirectory(config), app.id, "projects", "Principal");
+      for (const project of store.projectsFor(app.id)) {
+        if (resolve(project.rootPath) !== resolve(principal)) continue;
+        const workspace = config.workspaces.find(entry => entry.id === project.workspaceId);
+        if ((workspace?.displayName?.trim() || workspace?.name?.trim()) === previous.name) await options.renameWorkspace(ctx, project.workspaceId, app.name);
+      }
+    }
     return jsonResponse({ application: app, catalog: await catalog() });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/projects", "host", async ctx => {
     requireFeature(true);
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
-    const parsed = z.object({ name: z.string().trim().min(1).max(80) }).safeParse(await readJsonBody(ctx.request));
+    const parsed = z.object({ name: displayText(80) }).safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, "invalid_project", "Ingresá el nombre del proyecto.");
     const folderPath = join(specialistDirectory(config), app.id, "projects", randomUUID());
     await mkdir(folderPath, { recursive: true });
@@ -277,6 +348,7 @@ export function registerSpecialistRoutes(options: {
     requireTasks();
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
+    if (!(await listTasks(config, app.id)).some(task => task.id === ctx.params.taskId)) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
     return jsonResponse({ runs: await listRuns(config, app.id, ctx.params.taskId) });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/tasks", "host", async ctx => {

@@ -25,6 +25,7 @@ import { startDebugLogger, stopDebugLogger } from "./debug-logger";
 import { resolveOpenworkConnection } from "./openwork-connection";
 import { ReloadCoordinatorProvider } from "./reload-coordinator";
 import { LinkOpenDialog } from "./link-open-dialog";
+import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 
 export function resolveDefaultServerUrl(): string {
   if (isDesktopRuntime()) return "http://127.0.0.1:4096";
@@ -77,6 +78,7 @@ export function EnterpriseAwareAppProviders({ children }: AppProvidersProps) {
                 <ReloadCoordinatorProvider>{children}</ReloadCoordinatorProvider>
                 <LinkOpenDialog />
                 <Toaster />
+                <ConfirmDialogHost />
               </LocalProvider>
             </RestrictionNoticeProvider>
           </BrandThemeProvider>

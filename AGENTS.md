@@ -81,6 +81,16 @@ Hooks never commit, push, or change CI/Warden policy; CI remains authoritative.
   screenshots of new UI. The optional
   `.warden/skills/design-spec-review` skill can review these rules locally.
 
+## Rust readiness (strict)
+
+The server (`apps/server`) and desktop helpers (`apps/desktop/electron`) must stay
+portable to Rust. Follow `docs/rust-readiness.md` on every change: schemas and stable
+error codes for every payload and persisted format, validate everything that crosses a
+boundary, no `any` / double casts / `eval` / prototype mutation, pure core with I/O at
+the edges, JSON contract vectors under `contracts/` for behavior another implementation
+must match, and dependencies with a Rust equivalent. `pnpm check:rust-readiness` fails
+on any new violation; its baseline only shrinks.
+
 ## Verify changes headless
 
 Launching the desktop app on a developer's computer opens a window that takes

@@ -1,5 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
 /** @jsxImportSource react */
+import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { MarkdownPreview } from "@/react-app/domains/session/artifacts/preview";
 import { comexDefaultTheme } from "@/react-app/design-system/comex-theme";
 import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
 import { useArtifactUiStore } from "../artifacts/state/artifact-store";
+import { specialistErrorMessage } from "./error-message";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -55,14 +57,18 @@ function syncNotice(sync: SpecialistSyncResult[]) {
   return parts.join(" · ");
 }
 
-export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, localFiles, panels, panelApps, outputs, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; localFiles: boolean; panels: boolean; panelApps: boolean; outputs: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
+/** Bring an inline delete confirmation into view: in a scrolled dialog it used to appear above the
+ *  visible area, so deleting looked like it did nothing. Stable identity, so it runs on mount only. */
+const revealOnMount = (node: HTMLElement | null) => { node?.scrollIntoView({ block: "nearest" }); };
+
+export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRun, datasets, sources, localFiles, panels, panelApps, outputs, readOnly = false, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; library: boolean; scheduled: boolean; dryRun: boolean; datasets: boolean; sources: boolean; localFiles: boolean; panels: boolean; panelApps: boolean; outputs: boolean; readOnly?: boolean; onClose(): void; onChanged(): Promise<unknown> }) {
   const [view, setView] = useState<View>({ kind: "home" });
   const query = useQuery({ queryKey: ["specialist-library", client.baseUrl, app.id], queryFn: () => client.getSpecialistLibrary(app.id), retry: false, enabled: library });
   // El título nombra la aplicación; la línea de abajo dice qué hay adentro (el título anterior era
   // una enumeración de seis secciones que se partía en dos líneas y se pisaba con la X).
   const sections = [library ? "Contexto, agentes y skills" : null, scheduled ? "Tareas" : null, datasets ? "Datos" : null, sources ? "Fuentes" : null, panels ? "Paneles" : null, outputs ? "Salidas" : null].filter(Boolean).join(" · ");
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-    <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-2xl">
+    <DialogContent className="max-h-[90dvh] min-w-0 gap-4 overflow-y-auto lg:max-w-2xl [&>*]:min-w-0">
       <DialogHeader>
         <DialogTitle className="pr-8 leading-snug">{app.name}</DialogTitle>
         <p className="text-xs text-muted-foreground">{sections}</p>
@@ -71,7 +77,7 @@ export function SpecialistLibraryDialog({ app, client, library, scheduled, dryRu
       {view.kind === "context" ? <ContextEditor app={app} client={client} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "file" ? <FileEditor key={view.path} app={app} client={client} path={view.path} name={view.name} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
       {view.kind === "new" ? <NewItem app={app} client={client} type={view.type} onBack={() => setView({ kind: "home" })} onChanged={async () => { if (library) await query.refetch(); await onChanged(); }} /> : null}
-      {view.kind === "tasks" ? <SpecialistTasksView key="tasks" app={app} client={client} dryRun={dryRun} onBack={() => setView({ kind: "home" })} /> : null}
+      {view.kind === "tasks" ? <SpecialistTasksView key="tasks" app={app} client={client} dryRun={dryRun} readOnly={readOnly} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "datasets" ? <DatasetsView key="datasets" app={app} client={client} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "sources" ? <SourcesView key="sources" app={app} client={client} localFiles={localFiles} onBack={() => setView({ kind: "home" })} /> : null}
       {view.kind === "panels" ? <PanelsView key="panels" app={app} client={client} panelApps={panelApps} onBack={() => setView({ kind: "home" })} /> : null}
@@ -94,7 +100,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
     if (busy) return;
     setBusy(true); setError(null); setNotice(null); setPendingDelete(null);
     try { const result = await client.deleteSpecialistLibraryFile(app.id, entry.path); setNotice(syncNotice(result.sync) ?? `Se eliminó ${entry.name}.`); await onChanged(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo eliminar.")); }
     finally { setBusy(false); }
   }
   const library = libraryEnabled ? query.data : null;
@@ -111,8 +117,8 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
     </button>
     <Button type="button" variant="ghost" size="icon" aria-label={`Eliminar ${name}`} disabled={busy} onClick={() => setPendingDelete({ path: entry.path, name })}><Trash2 className="size-4" /></Button>
   </div>;
-  return <div className="grid gap-4">
-    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+  return <div className="grid min-w-0 gap-4 [&>*]:min-w-0">
+    {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación de ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar "{pendingDelete.name}"? Se quitará también de los proyectos de esta aplicación.</span>
       <Button size="sm" variant="destructive" disabled={busy} onClick={() => void remove(pendingDelete)}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
@@ -195,7 +201,7 @@ function ContextEditor({ app, client, onBack, onChanged }: { app: SpecialistAppl
   async function save() {
     setBusy(true); setError(null);
     try { await client.putSpecialistContext(app.id, value); await onChanged(); onBack(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar el contexto."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo guardar el contexto.")); }
     finally { setBusy(false); }
   }
   if (query.isPending) return <Skeleton className="h-40 w-full" />;
@@ -220,7 +226,7 @@ function FileEditor({ app, client, path, name, onBack, onChanged }: { app: Speci
   async function save() {
     setBusy(true); setError(null); setNotice(null);
     try { const result = await client.putSpecialistLibraryFile(app.id, path, content ?? ""); setNotice(syncNotice(result.sync)); await onChanged(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar el archivo."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo guardar el archivo.")); }
     finally { setBusy(false); }
   }
   if (query.isPending) return <Skeleton className="h-40 w-full" />;
@@ -253,7 +259,7 @@ function NewItem({ app, client, type, onBack, onChanged }: { app: SpecialistAppl
       const result = type === "agent" ? await client.createSpecialistAgent(app.id, payload) : await client.createSpecialistSkill(app.id, payload);
       toast.success(`Se creó ${payload.name}${syncNotice(result.sync) ? ` · ${syncNotice(result.sync)}` : ""}`);
       await onChanged(); onBack();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear."); }
+    } catch (cause) { setError(specialistErrorMessage(cause, "No se pudo crear.")); }
     finally { setBusy(false); }
   }
   return <form className="grid gap-3" onSubmit={event => { event.preventDefault(); void create(); }}>
@@ -326,7 +332,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
       queryClient.invalidateQueries({ queryKey: DATASETS_KEY(client, app) });
       if (message) setNotice(message);
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo completar la acción.")); }
     finally { setBusy(false); }
   }
   if (query.isPending) return <div className="grid gap-3"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
@@ -338,7 +344,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
     <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <h3 className="font-medium">Datasets de investigación de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Cada consulta de investigación queda guardada como dataset dentro de su proyecto, con sus snapshots. "Actualizar" vuelve a ejecutar la consulta guardada con Tavily; los derivados son vistas limpias que producen otras.</p>
-    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación de ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar "{pendingDelete.name}"? Se quitan también sus snapshots del proyecto.</span>
       <Button size="sm" variant="destructive" disabled={busy} onClick={() => { const target = pendingDelete; void run(async () => { await client.deleteSpecialistDataset(app.id, target.id, target.workspaceId); setPendingDelete(null); setOpen(current => current?.id === target.id && current.workspaceId === target.workspaceId ? null : current); }, `Se eliminó ${target.name}.`); }}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
@@ -354,7 +360,8 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
             <span className="block truncate text-xs text-muted-foreground">{dataset.question}</span>
           </span>
         </button>
-        {dataset.provider === "tavily" || dataset.provider === "openapi" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
+        {/* Only Tavily research queries can re-run (datasets-refresh.ts answers 409 for any other). */}
+        {dataset.provider === "tavily" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} aria-label={`Eliminar ${dataset.name}`} onClick={() => setPendingDelete({ id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })}><Trash2 className="size-4" /></Button>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -424,7 +431,7 @@ function SourcesView({ app, client, localFiles, onBack }: { app: SpecialistAppli
       setLocalNotice(`Fuente registrada: ${result.source.title}. Ya se puede citar como [fuente:${result.source.id}#n].`);
       setLocalPath(""); setAdding(false);
       await queryClient.invalidateQueries({ queryKey: SOURCES_KEY(client, app) });
-    } catch (cause) { setLocalError(cause instanceof Error ? cause.message : "No se pudo registrar la fuente local."); }
+    } catch (cause) { setLocalError(specialistErrorMessage(cause, "No se pudo registrar la fuente local.")); }
     finally { setLocalBusy(false); }
   }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
@@ -503,7 +510,7 @@ function PanelsView({ app, client, panelApps, onBack }: { app: SpecialistApplica
   async function remove(name: string) {
     setError(null);
     try { await client.deleteSpecialistPanel(app.id, name); await queryClient.invalidateQueries({ queryKey: PANELS_KEY(client, app) }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar el panel."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo eliminar el panel.")); }
   }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer los paneles. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
@@ -514,7 +521,7 @@ function PanelsView({ app, client, panelApps, onBack }: { app: SpecialistApplica
     <p className="text-xs text-muted-foreground">Vistas declarativas sobre los datasets: se redibujan solas cuando llega un snapshot nuevo. Si algo no se puede dibujar, el panel lo dice en vez de quedar en blanco.</p>
     {panelApps ? <p className="text-xs text-muted-foreground">Este panel también se abre como <span className="font-medium">App interactiva dentro del chat</span>: pedile al asistente que lo muestre y vas a poder refrescarlo desde la tarjeta.</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación del panel ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación del panel ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar el panel "{pendingDelete.title}"? Dejará de dibujarse en los proyectos.</span>
       <Button size="sm" variant="destructive" onClick={() => { const target = pendingDelete; setPendingDelete(null); void remove(target.name); }}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
@@ -726,7 +733,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
   async function remove(output: SpecialistOutput) {
     setError(null);
     try { await client.deleteSpecialistOutput(app.id, output.id, output.workspaceId); await queryClient.invalidateQueries({ queryKey: OUTPUTS_KEY(client, app) }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo eliminar la salida."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo eliminar la salida.")); }
   }
   async function openInPanel(output: SpecialistOutput) {
     setError(null);
@@ -735,7 +742,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
       const result = await client.createArtifactFromOutput(app.id, output.id, output.workspaceId);
       requestArtifactTab({ artifactId: result.meta.id, appId: app.id, label: output.title, ...(output.workspaceId ? { workspaceId: output.workspaceId } : {}) });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo abrir el artefacto en el panel.");
+      setError(specialistErrorMessage(cause, "No se pudo abrir el artefacto en el panel."));
     } finally { setOpeningId(null); }
   }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
@@ -747,7 +754,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
     <h3 className="text-sm font-medium">Salidas del mini-Studio de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Un dataset, muchas formas de digerirlo. Cada salida es un archivo del proyecto (versionable en git) y declara si está anclada a sus fuentes.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de la salida ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación de la salida ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar la salida "{pendingDelete.title}"? Se quitan sus archivos del proyecto.</span>
       <Button size="sm" variant="destructive" onClick={() => { const target = pendingDelete; setPendingDelete(null); void remove(target); }}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
@@ -869,7 +876,7 @@ function ProposalsSection({ app, client, enabled, onChanged }: { app: Specialist
       // saying "sin tareas" until their 30s poll.
       await Promise.all(["specialist-tasks", "specialist-panels", "specialist-datasets", "specialist-sources", "specialist-outputs"].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
       await query.refetch(); await onChanged();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo procesar la propuesta."); }
+    } catch (cause) { setError(specialistErrorMessage(cause, "No se pudo procesar la propuesta.")); }
     finally { setBusy(false); }
   }
   const proposals = query.data?.proposals ?? [];
@@ -924,7 +931,9 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
 
 const RUNS_KEY = (client: OpenworkServerClient, app: SpecialistApplication, taskId: string) => ["specialist-task-runs", client.baseUrl, app.id, taskId] as const;
 
-export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; dryRun: boolean; onBack(): void }) {
+/** `readOnly`: this connection cannot change tasks (web/collaborator token; every write route is
+ *  "host"), so only reading tasks and their runs is offered instead of forms that fail on submit. */
+export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = false }: { app: SpecialistApplication; client: OpenworkServerClient; dryRun: boolean; onBack(): void; readOnly?: boolean }) {
   const query = useQuery({ queryKey: TASKS_KEY(client, app), queryFn: () => client.getSpecialistTasks(app.id), retry: false, refetchInterval: q => (q.state.data?.tasks.some(task => task.running) ? 5_000 : 30_000) });
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -964,7 +973,7 @@ export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: Spec
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
     try { await action(); await query.refetch(); await queryClient.invalidateQueries({ queryKey: ["specialist-task-runs", client.baseUrl, app.id] }); if (message) setNotice(message); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo completar la acción.")); }
     finally { setBusy(false); }
   }
   async function create() {
@@ -1011,10 +1020,11 @@ export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: Spec
     <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <div className="flex items-center justify-between gap-2">
       <h3 className="font-medium">Tareas programadas de {app.name}</h3>
-      {!creating ? <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="size-4" />Nueva tarea</Button> : null}
+      {!creating && !readOnly ? <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="size-4" />Nueva tarea</Button> : null}
     </div>
+    {readOnly ? <p role="note" className="text-xs text-muted-foreground">Crear, correr y modificar tareas está disponible en la app de escritorio o en un dispositivo vinculado. <PairDeviceHint /></p> : null}
     <p className="text-xs text-muted-foreground">Cada corrida abre un chat propio en el proyecto de la aplicación con el prompt guardado. Requiere esta aplicación abierta. Las ejecuciones perdidas se omiten, salvo que autorices recuperar una al retomar.</p>
-    {creating ? <form className="grid gap-2 rounded-md border p-3" onSubmit={event => { event.preventDefault(); void create(); }}>
+    {creating && !readOnly ? <form className="grid gap-2 rounded-md border p-3" onSubmit={event => { event.preventDefault(); void create(); }}>
       <div className="grid gap-1.5"><Label htmlFor="task-name">Nombre</Label><Input id="task-name" autoFocus value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder="por ejemplo: actualizar precios" required /></div>
       <div className="grid gap-1.5"><Label htmlFor="task-prompt">Qué debe hacer el agente en cada corrida</Label><Textarea id="task-prompt" rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} required placeholder="Consultá las fuentes de costo de flete y actualizá la planilla del proyecto." /></div>
       <div className="flex flex-wrap gap-1">{(["interval", "daily", "weekly", "monthly", "once"] as const).map(option => <Button key={option} type="button" size="sm" variant={kind === option ? "default" : "outline"} onClick={() => setKind(option)}>{option === "interval" ? "Cada X tiempo" : option === "daily" ? "Diaria" : option === "weekly" ? "Semanal" : option === "monthly" ? "Mensual" : "Una vez"}</Button>)}</div>
@@ -1046,7 +1056,7 @@ export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: Spec
     </form> : null}
     {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-    {pendingDelete ? <div role="alertdialog" aria-label={`Confirmar eliminación de la tarea ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación de la tarea ${pendingDelete.name}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar la tarea "{pendingDelete.name}"? Se quita también su historial de corridas.</span>
       <Button size="sm" variant="destructive" disabled={busy} onClick={() => { const target = pendingDelete; setPendingDelete(null); setRunsFor(current => current?.id === target.id ? null : current); void run(() => client.deleteSpecialistTask(app.id, target.id)); }}>Eliminar</Button>
       <Button size="sm" variant="ghost" onClick={() => setPendingDelete(null)}>Cancelar</Button>
@@ -1059,13 +1069,15 @@ export function SpecialistTasksView({ app, client, dryRun, onBack }: { app: Spec
       </div>
       <p className="text-xs text-muted-foreground">{describeSchedule(task.schedule)} · próxima {task.enabled ? formatWhen(task.nextRunAt) : "—"} · {task.runs} corrida{task.runs === 1 ? "" : "s"}{task.running?.missed ? ` · ${task.running.missed} perdidas consolidadas` : ""} · {task.model ? `${task.model.providerID}/${task.model.modelID}` : "modelo predeterminado"}</p>
       <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {!readOnly ? <>
         <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
         {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mirá el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
         <Button size="sm" variant="ghost" disabled={busy} aria-pressed={task.catchUp !== false} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { catchUp: task.catchUp === false }))}>{task.catchUp === false ? "Horarios perdidos: omitir" : "Horarios perdidos: recuperar una vez"}</Button>
+        </> : null}
         <Button size="sm" variant="ghost" aria-expanded={runsFor?.id === task.id} onClick={() => setRunsFor(runsFor?.id === task.id ? null : { id: task.id, name: task.name })}><History className="size-4" />Corridas</Button>
-        <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => setPendingDelete({ id: task.id, name: task.name })}><Trash2 className="size-4" /></Button>
+        {!readOnly ? <Button size="sm" variant="ghost" disabled={busy || !!task.running} aria-label={`Eliminar ${task.name}`} onClick={() => setPendingDelete({ id: task.id, name: task.name })}><Trash2 className="size-4" /></Button> : null}
       </div>
       {runsFor?.id === task.id ? <div className="grid gap-1 border-t pt-2 text-xs text-muted-foreground">
         {runs.isError ? <span role="alert" className="text-destructive">No se pudo leer el historial. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void runs.refetch()}>Volver a intentar</Button></span>

@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { t } from "@/i18n";
 import { CancelledError, hashKey, QueryObserver, queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { TaskRecovery } from "@/components/chat/task-recovery";
@@ -704,10 +705,10 @@ export function SessionHistoryStatus({ complete, pending, loading, failed, faile
   if (!loading && !failed && !retrying) return null;
   return <div data-thread-history-status className="flex shrink-0 justify-center px-3 pt-2 sm:px-5">
     <TaskRecovery compact state={failed && !retrying ? "failed" : "retrying"}
-      title={retrying ? pending ? "Loading conversation…" : "Loading earlier messages…" : failed
-        ? failedReason ?? (pending ? "This conversation could not be loaded." : "The rest of this conversation could not be loaded.")
-        : "Loading earlier messages…"}
-      retryLabel="Reload conversation" retryDisabled={retrying} onRetry={failed || retrying ? () => {
+      title={retrying ? pending ? t("session_history.loading") : t("session_history.loading_earlier") : failed
+        ? failedReason ?? (pending ? t("session_history.load_failed") : t("session_history.load_rest_failed"))
+        : t("session_history.loading_earlier")}
+      retryLabel={t("session_history.reload")} retryDisabled={retrying} onRetry={failed || retrying ? () => {
         if (retryPending.current) return;
         retryPending.current = true;
         setRetrying(true);

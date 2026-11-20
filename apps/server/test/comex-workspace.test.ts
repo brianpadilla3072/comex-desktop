@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, symlink, access } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedComexPack, ensureComexWorkspace, ensureComexSession, readComexMemory, sessionMemoryPath } from "../src/comex/seed.js";
-import { comexWorkspaceEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../src/comex/features.js";
+import { comexWorkspaceEnabled, comexSpanishLocaleEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../src/comex/features.js";
 
 test("conversation navigation and agent map honor independent operator switches", () => {
   assert.equal(conversationNavigatorEnabled({ DEN_FEATURE_CONVERSATION_NAVIGATOR: "true" }), true);
@@ -73,6 +73,12 @@ test("operator kill switch wins and cloud is unavailable", () => {
   assert.equal(comexWorkspaceEnabled({ DEN_FEATURE_COMEX_WORKSPACE: "false" }), false);
   assert.equal(comexWorkspaceEnabled({ DEN_FEATURE_COMEX_WORKSPACE: "true" }), true);
   assert.equal(comexWorkspaceEnabled({ DEN_DEPLOYMENT: "cloud", DEN_FEATURE_COMEX_WORKSPACE: "true" }), false);
+});
+
+test("Spanish by default is on for Comex, can be switched off and is unavailable in cloud", () => {
+  assert.equal(comexSpanishLocaleEnabled({}), true);
+  assert.equal(comexSpanishLocaleEnabled({ DEN_FEATURE_COMEX_SPANISH_LOCALE: "false" }), false);
+  assert.equal(comexSpanishLocaleEnabled({ DEN_DEPLOYMENT: "cloud", DEN_FEATURE_COMEX_SPANISH_LOCALE: "true" }), false);
 });
 
 test("concurrent initialization is idempotent and preserves existing project instructions", async () => {

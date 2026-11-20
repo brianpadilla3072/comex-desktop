@@ -1054,7 +1054,7 @@ function SessionErrorCard({ error, developerMode, onDismiss, onChangeModel, onOp
         {error.kind === "model-not-found" ? <>
           {error.suggestions?.map((suggestion) => <Button key={`${suggestion.providerID}/${suggestion.modelID}`} variant="ghost" size="xs"
             onClick={() => { onChangeModel?.(suggestion); onDismiss(); }}>Use {suggestion.providerID}/{suggestion.modelID}</Button>)}
-          <Button variant="ghost" size="xs" onClick={() => { onOpenModelPicker?.(); onDismiss(); }}>Change model</Button>
+          <Button variant="ghost" size="xs" onClick={() => { onOpenModelPicker?.(); onDismiss(); }}>{t("session.change_model")}</Button>
         </> : null}
         <Button variant="ghost" size="xs" aria-label="Dismiss error" onClick={onDismiss}>Dismiss</Button>
       </>} />
@@ -1161,7 +1161,11 @@ function hiddenMessageCount(snapshot: OpenworkSessionHistory, revertMessageId: s
 
 /** The server's reason when v2 cannot open a v1 chat that has not been copied yet. */
 function uncopiedChatReason(error: unknown): string | undefined {
-  return error instanceof Error && "code" in error && error.code === "engine_chat_not_copied" ? error.message : undefined;
+  if (!(error instanceof Error)) return undefined;
+  if ("code" in error && error.code === "engine_chat_not_copied") return error.message;
+  // A deleted or mistyped conversation: say so instead of a generic "could not be loaded".
+  if ("status" in error && error.status === 404) return t("session_history.not_found");
+  return undefined;
 }
 
 export function SessionSurface(props: SessionSurfaceProps) {
@@ -3915,7 +3919,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         </div>
       ) : null}
       <div className={cn("flex h-full min-h-0 flex-col", props.resourceCardEnabled && "@min-[1100px]:pr-[316px]")}>
-      <SessionHistoryStatus key={sessionOwner} complete={hasFullHistory && !openingHistory.openingError} pending={pendingSessionLoad}
+      <SessionHistoryStatus key={`${sessionOwner}:history`} complete={hasFullHistory && !openingHistory.openingError} pending={pendingSessionLoad}
          failedReason={uncopiedChatReason(openingHistory.openingError) ?? uncopiedChatReason(snapshotQuery.error)}
          loading={openingHistory.openingLoading || snapshotQuery.isFetching && openingHistory.partial || openingHistory.pages.loading}
          failed={Boolean(openingHistory.openingError) || snapshotQuery.isError && !snapshotQuery.isFetching || openingHistory.pages.failed}
@@ -4072,7 +4076,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             ) : null}
           </div>
         </div>
-        {conversationNavigatorEnabled ? <ConversationNavigator key={sessionOwner} messages={visibleMessages} scrollRef={scrollRef}
+        {conversationNavigatorEnabled ? <ConversationNavigator key={`${sessionOwner}:navigator`} messages={visibleMessages} scrollRef={scrollRef}
           historyComplete={hasFullHistory} onLoadHistory={openingHistory.ensureFullSnapshot}
           onNavigate={messageId => { sessionScroll.markScrollGesture(scrollRef.current); setConversationNavigation(current => ({ owner: sessionOwner, messageId, request: (current?.request ?? 0) + 1 })); }} /> : null}
         <SessionScrollOverlay
@@ -4084,7 +4088,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           onJumpToStartOfMessage={sessionScroll.jumpToStartOfMessage}
         />
         <SessionFindBar
-          key={sessionOwner}
+          key={`${sessionOwner}:find`}
           sessionId={props.sessionId}
           scrollRef={scrollRef}
           historyComplete={hasFullHistory}
@@ -4160,7 +4164,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             fork: props.onForkAtMessage ? async () => { await props.onForkAtMessage?.(null, props.sessionId, () => branchOwnerRef.current?.owner === sessionOwner); } : undefined,
           }}
           runModeControl={<WorkspaceRunModeMenu client={props.client} workspaceId={props.workspaceId} busy={composerBusy || preparingCloudTools || Boolean(props.activePermission || props.activeQuestion)} />}
-          agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={sessionOwner} messages={visibleMessages} workspaceId={props.workspaceId}
+          agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={`${sessionOwner}:activity`} messages={visibleMessages} workspaceId={props.workspaceId}
             owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive}
             syncDegraded={runSyncHealth.degraded} readChild={readAgentMessages} onOpenChild={openChild} /> : null}
           draft={autoSendPayload ? draft : autoSending ? "" : draft}

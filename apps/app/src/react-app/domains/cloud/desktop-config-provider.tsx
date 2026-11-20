@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { setOpenworkPromotionsEnabled } from "./openwork-promotions-flag";
+import { applyDefaultLanguageHint } from "@/i18n";
 import {
   createContext,
   useCallback,
@@ -294,6 +295,9 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           setConversationNavigator(feature.conversationNavigator === true);
           setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
+          // Comex screens are in Spanish: suggest Spanish unless the person
+          // chose a language. Reload once so every screen switches together.
+          if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();
         }
       } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); } }
     };

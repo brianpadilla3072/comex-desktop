@@ -138,6 +138,17 @@ export class TokenService {
     return true;
   }
 
+  /** The stored record (never the config's own client token), for checks that need the label. */
+  async recordForToken(token: string): Promise<Omit<TokenRecord, "hash"> | null> {
+    const trimmed = token.trim();
+    if (!trimmed || trimmed === this.config.token) return null;
+    await this.ensureLoaded();
+    const found = this.byHash.get(hashToken(trimmed));
+    if (!found) return null;
+    const { hash: _hash, ...rest } = found;
+    return rest;
+  }
+
   async scopeForToken(token: string): Promise<TokenScope | null> {
     const trimmed = token.trim();
     if (!trimmed) return null;

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOCUMENTO — reemplazar por el título</title>
+<style>
+/* ====== CABEZA CONGELADA — no editar este bloque ni el <head>.
+   Los componentes disponibles y cuándo usarlos están en references/componentes.md.
+   Validar con: python3 scripts/validar_html.py borrador.html ====== */
+:root{
+  --texto:#1c1e21; --fondo:#ffffff; --suave:#5b6470;
+  --acento:#0b5c6b; --borde:#d9e2e3; --fondo-info:#eef6f8;
+  --alerta:#b4232a; --fondo-alerta:#fdf0ef;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  --ancho:840px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.6 var(--serif)}
+main,header,footer{max-width:var(--ancho);margin:0 auto;padding:0 24px}
+h1,h2,h3,h4,button,.kpi--etiqueta,.badge,nav{font-family:var(--sans)}
+a{color:var(--acento)}
+
+/* portada */
+.doc-header{padding:64px 24px 48px;text-align:center;max-width:var(--ancho)}
+.doc-header h1{font-size:2em;margin:0 0 8px;color:var(--acento)}
+.doc-header .portada-meta{color:var(--suave);font-family:var(--sans);font-size:.95em;margin-top:4px}
+
+/* jerarquía */
+main h2{font-size:1.45em;border-bottom:2px solid var(--borde);padding-bottom:6px;margin-top:2em}
+main h3{font-size:1.15em;margin-top:1.5em}
+
+/* tablas */
+.tabla-datos{border-collapse:collapse;width:100%;font-size:.95em;margin:1em 0}
+.tabla-datos th{background:var(--fondo-info);font-family:var(--sans);font-size:.9em;text-align:left}
+.tabla-datos th,.tabla-datos td{border:1px solid var(--borde);padding:8px 12px}
+.tabla-datos td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* callouts */
+.callout{border-left:4px solid var(--acento);background:var(--fondo-info);padding:12px 16px;margin:1em 0;border-radius:0 8px 8px 0;font-size:.97em}
+.callout--alerta{border-left-color:var(--alerta);background:var(--fondo-alerta)}
+.callout--fuente{border-left-color:var(--borde);background:none;color:var(--suave);font-size:.88em;font-style:italic;padding:4px 16px}
+.callout p{margin:0}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:1em 0}
+.kpi{border:1px solid var(--borde);border-radius:10px;padding:14px;text-align:center;background:#fbfdfd}
+.kpi--valor{font-size:1.5em;font-weight:700;color:var(--acento);font-family:var(--sans)}
+.kpi--etiqueta{font-size:.82em;color:var(--suave)}
+
+/* pestañas (comparar opciones/escenarios) */
+.tabs{margin:1em 0;border:1px solid var(--borde);border-radius:10px;overflow:hidden}
+.tabs-nav{display:flex;gap:0;background:#f2f6f7;font-family:var(--sans)}
+.tabs-nav .tab{flex:0 0 auto;border:0;border-bottom:2px solid transparent;background:none;padding:10px 18px;cursor:pointer;font-size:.92em;color:var(--suave)}
+.tabs-nav .tab.activo{border-bottom-color:var(--acento);color:var(--texto);font-weight:600}
+.tab-panel{display:none;padding:16px 20px}
+.tab-panel.activo{display:block}
+
+/* colapsables */
+details{border:1px solid var(--borde);border-radius:10px;padding:0 16px;margin:0.8em 0}
+summary{cursor:pointer;font-family:var(--sans);font-weight:600;padding:10px 0;font-size:.95em}
+details[open]{padding-bottom:8px}
+
+/* código, figuras, badges */
+.codigo{background:#f5f7f8;border:1px solid var(--borde);border-radius:8px;padding:12px 16px;overflow-x:auto;font:13px/1.5 var(--mono);white-space:pre}
+.figura{margin:1.2em 0;text-align:center}
+.figura img{max-width:100%}
+.figura figcaption{font-size:.85em;color:var(--suave);font-style:italic;margin-top:6px}
+.badge{display:inline-block;background:var(--fondo-info);color:var(--acento);border:1px solid var(--borde);border-radius:99px;padding:1px 10px;font-size:.78em;font-weight:600}
+hr{border:0;border-top:1px solid var(--borde);margin:2em 0}
+
+/* acción copiar-como-prompt */
+.acciones{font-family:var(--sans);margin:1em 0}
+.copiar{background:var(--acento);color:#fff;border:0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.9em}
+.copiar:hover{filter:brightness(1.15)}
+.doc-footer{color:var(--suave);font-family:var(--sans);font-size:.85em;text-align:center;padding:32px 24px;border-top:1px solid var(--borde);margin-top:48px}
+
+/* imprimir/exportar: todo desplegado, como quedará en Word */
+@media print{
+  .tab-panel{display:block!important}
+  details{border:0}
+  .acciones,.copiar{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- PORTADA: completar los data-* (sirven de front matter al exportar a Word) -->
+<header class="doc-header"
+  data-titulo="Título del documento"
+  data-subtitulo="" data-autor="" data-materia="" data-institucion="" data-tutor="" data-fecha="">
+  <h1>Título del documento</h1>
+  <p class="portada-meta">Subtítulo · Autor · Institución · Fecha</p>
+</header>
+
+<main>
+<!-- ==== REDACTAR SOLO DENTRO DE <main>. Usar únicamente los componentes de
+     references/componentes.md. Prohibido: style="", <link>, <script src>, CDN ==== -->
+</main>
+
+<footer class="doc-footer">Generado como borrador HTML — exportable a Word cuando esté conforme.</footer>
+
+<script>
+/* JS mínimo del template (no tocar). Tabs + botón copiar-como-prompt. */
+document.querySelectorAll('.tabs').forEach(function (grupo) {
+  var botones = grupo.querySelectorAll('.tabs-nav .tab');
+  var paneles = grupo.querySelectorAll('.tab-panel');
+  botones.forEach(function (b, i) {
+    b.addEventListener('click', function () {
+      botones.forEach(function (x) { x.classList.remove('activo'); });
+      paneles.forEach(function (x) { x.classList.remove('activo'); });
+      b.classList.add('activo');
+      if (paneles[i]) paneles[i].classList.add('activo');
+    });
+  });
+});
+document.querySelectorAll('.copiar').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var destino = document.querySelector(btn.getAttribute('data-destino'));
+    if (!destino) return;
+    navigator.clipboard.writeText(destino.innerText).then(function () {
+      var t = btn.textContent; btn.textContent = '¡Copiado!';
+      setTimeout(function () { btn.textContent = t; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>

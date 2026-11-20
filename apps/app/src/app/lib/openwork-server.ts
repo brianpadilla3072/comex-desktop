@@ -144,6 +144,10 @@ export interface SpecialistApplication {
 export interface SpecialistCatalog {
   enabled: boolean;
   integrationsEnabled?: boolean;
+  /** False when this connection cannot create or change applications (the web app's collaborator token). */
+  writable?: boolean;
+  /** Export, import and delete applications (feature: specialistAppPortability). */
+  portabilityEnabled?: boolean;
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
   taskDryRunEnabled?: boolean;
@@ -1266,6 +1270,11 @@ const STORAGE_URL_OVERRIDE = "openwork.server.urlOverride";
 const STORAGE_PORT_OVERRIDE = "openwork.server.port";
 const STORAGE_TOKEN = "openwork.server.token";
 const STORAGE_HOST_AUTH_KEY = "openwork.server.hostToken";
+/** "paired" when this browser redeemed a pairing code. The device's owner token lives under its
+ *  own key: other code that rewrites the connection settings (with the page's token) can never
+ *  replace it, and every read prefers it. */
+const STORAGE_TOKEN_SOURCE = "openwork.server.tokenSource";
+const STORAGE_PAIRED_TOKEN = "openwork.server.pairedToken";
 // Remote access was removed; writes clear the key older builds persisted.
 const LEGACY_STORAGE_REMOTE_ACCESS = "openwork.server.remoteAccessEnabled";
 
@@ -1370,7 +1379,7 @@ export function readOpenworkServerSettings(): OpenworkServerSettings {
     );
     const portRaw = window.localStorage.getItem(STORAGE_PORT_OVERRIDE) ?? "";
     const portOverride = portRaw ? Number(portRaw) : undefined;
-    const token = window.localStorage.getItem(STORAGE_TOKEN) ?? undefined;
+    const token = window.localStorage.getItem(STORAGE_PAIRED_TOKEN) ?? window.localStorage.getItem(STORAGE_TOKEN) ?? undefined;
     const hostToken = window.localStorage.getItem(STORAGE_HOST_AUTH_KEY) ?? undefined;
     return {
       urlOverride: urlOverride ?? undefined,
@@ -1477,7 +1486,11 @@ export function hydrateOpenworkServerSettingsFromEnv() {
       }
     }
 
-    if (bootstrapToken && current.token !== bootstrapToken) {
+    // A paired device keeps its own owner token: the page's injected collaborator token must not
+    // replace it on every load (docs/features/remote-device-pairing).
+    if (isPairedDevice() && current.token) {
+      // keep current.token
+    } else if (bootstrapToken && current.token !== bootstrapToken) {
       next.token = bootstrapToken;
       changed = true;
     } else if (envToken && (forceEnvSettings || !current.token) && current.token !== envToken) {
@@ -1504,6 +1517,26 @@ export function hydrateOpenworkServerSettingsFromEnv() {
   }
 }
 
+export function isPairedDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return Boolean(window.localStorage.getItem(STORAGE_PAIRED_TOKEN)?.trim()); } catch { return false; }
+}
+
+/** Store the owner token a pairing code was redeemed for; it then wins over the page's token. */
+export function savePairedDeviceToken(token: string) {
+  window.localStorage.setItem(STORAGE_PAIRED_TOKEN, token);
+  window.localStorage.setItem(STORAGE_TOKEN_SOURCE, "paired");
+  writeOpenworkServerSettings({ ...readOpenworkServerSettings(), token });
+}
+
+/** Back to the page's own (collaborator) access, for example after the device was revoked. */
+export function forgetPairedDevice() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_PAIRED_TOKEN);
+  window.localStorage.removeItem(STORAGE_TOKEN_SOURCE);
+  window.localStorage.removeItem(STORAGE_TOKEN);
+}
+
 export function clearOpenworkServerSettings() {
   if (typeof window === "undefined") return;
   try {
@@ -1511,6 +1544,8 @@ export function clearOpenworkServerSettings() {
     window.localStorage.removeItem(STORAGE_PORT_OVERRIDE);
     window.localStorage.removeItem(STORAGE_TOKEN);
     window.localStorage.removeItem(STORAGE_HOST_AUTH_KEY);
+    window.localStorage.removeItem(STORAGE_TOKEN_SOURCE);
+    window.localStorage.removeItem(STORAGE_PAIRED_TOKEN);
     window.localStorage.removeItem(LEGACY_STORAGE_REMOTE_ACCESS);
   } catch {
     // ignore
@@ -2585,6 +2620,10 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     previewSpecialistPack: (payload: { template?: "comex"; packPath?: string }) => requestJson<SpecialistPackSummary>(baseUrl, "/specialist-applications/preview-pack", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     createSpecialistApplication: (payload: SpecialistApplicationInput) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     updateSpecialistApplication: (id: string, payload: Pick<SpecialistApplicationInput, "name" | "specialty" | "personality">) => requestJson<{ catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "PATCH", body: payload }),
+    /** The application as a portable JSON bundle (see docs/features/specialist-app-portability). */
+    exportSpecialistApplication: (id: string) => requestJson<Record<string, unknown>>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/export`, { token, hostToken, timeoutMs: 120_000 }),
+    importSpecialistApplication: (bundle: unknown, userName?: string) => requestJson<{ workspaceId: string; skippedSections: string[]; warnings: string[]; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications/import", { token, hostToken, method: "POST", body: { bundle, userName }, timeoutMs: 180_000 }),
+    deleteSpecialistApplication: (id: string) => requestJson<{ removedWorkspaceIds: string[]; keptWorkspaceIds: string[]; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
     createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
     getSpecialistLibrary: (id: string) => requestJson<SpecialistLibrary>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library`, { token, hostToken }),
@@ -2645,7 +2684,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     saveScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, text: string, id?: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "POST", body: { expectedRevision, text, ...(id ? { id } : {}) } }),
     deleteScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, id: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "DELETE", body: { expectedRevision, id } }),
 
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** Agent ecosystem board: need bus, cross-project index and deliverables. */
     getEcosystemState: (workspaceId: string) => requestJson<EcosystemState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem`, { token, hostToken }),
@@ -2808,6 +2847,15 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         "/env/keys",
         { token, hostToken, timeoutMs: timeouts.config, desktopTransport: options?.desktopTransport },
       ),
+
+    // Pairing other devices (docs/features/remote-device-pairing). Redeeming needs no token: the
+    // one-time code is the credential.
+    getPairingStatus: () => requestJson<{ enabled: boolean }>(baseUrl, "/pairing/status", { timeoutMs: timeouts.config }),
+    createPairingCode: () => requestJson<{ code: string; expiresAt: number }>(baseUrl, "/pairing/codes", { method: "POST", token, hostToken, timeoutMs: timeouts.config }),
+    cancelPairingCode: () => requestJson<{ ok: true }>(baseUrl, "/pairing/codes", { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
+    redeemPairingCode: (code: string, deviceName: string) => requestJson<{ id: string; token: string; scope: "owner"; deviceName: string }>(baseUrl, "/pairing/redeem", { method: "POST", body: { code, deviceName }, timeoutMs: timeouts.config }),
+    listPairedDevices: () => requestJson<{ items: Array<{ id: string; name: string; createdAt: number }> }>(baseUrl, "/pairing/devices", { token, hostToken, timeoutMs: timeouts.config }),
+    revokePairedDevice: (id: string) => requestJson<{ ok: true }>(baseUrl, `/pairing/devices/${encodeURIComponent(id)}`, { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
 
     getUserEnvStatus: (runtimeKey?: string | null) => {
       const params = new URLSearchParams();

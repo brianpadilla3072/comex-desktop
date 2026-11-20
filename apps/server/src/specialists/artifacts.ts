@@ -1,3 +1,4 @@
+import { familyLock, withFileLock } from "./file-lock.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -116,7 +117,7 @@ export async function listArtifacts(directory: string): Promise<ArtifactMeta[]> 
   return (await readIndex(directory)).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
-export async function writeArtifact(directory: string, input: ArtifactInput): Promise<{ meta: ArtifactMeta; created: boolean }> {
+async function writeArtifactUnlocked(directory: string, input: ArtifactInput): Promise<{ meta: ArtifactMeta; created: boolean }> {
   if (input.id && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(input.id)) throw failure("El id del artefacto no es válido.");
   const problem = validateContent(input.type, input.content);
   if (problem) throw failure(problem);
@@ -174,7 +175,7 @@ export async function readArtifact(directory: string, id: string): Promise<{ met
 }
 
 /** Revert the working content to a saved version, without losing later versions. */
-export async function revertArtifact(directory: string, id: string, versionId: string): Promise<ArtifactMeta> {
+async function revertArtifactUnlocked(directory: string, id: string, versionId: string): Promise<ArtifactMeta> {
   const artifacts = await readIndex(directory);
   const meta = artifacts.find(entry => entry.id === id);
   if (!meta) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
@@ -199,7 +200,15 @@ export async function createArtifactFromOutput(
   audit: { total: number; valid: number; invalid: Array<{ sourceId: string; chunk: number; reason: string }>; note?: string },
 ): Promise<{ meta: ArtifactMeta; created: boolean }> {
   const type: ArtifactType = output.kind === "report" || output.kind === "mindmap" ? "doc" : "data";
+  // Opening the same output again reuses its artifact (a new version only when the content
+  // changed). Creating one per click filled the project's 40-artifact limit for good.
+  const existing = (await listArtifacts(directory)).find(entry => entry.metadata.outputRef?.appId === appId && entry.metadata.outputRef?.outputId === output.id && entry.type === type);
+  if (existing) {
+    const current = await readArtifact(directory, existing.id).catch(() => null);
+    if (current && current.content === content) return { meta: existing, created: false };
+  }
   return writeArtifact(directory, {
+    ...(existing ? { id: existing.id } : {}),
     type,
     title: output.title,
     content,
@@ -217,3 +226,9 @@ export async function createArtifactFromOutput(
     label: "Desde salida del mini-Studio",
   });
 }
+
+/** Serialized with every other write to this project's artefactos index (see file-lock.ts). */
+export const writeArtifact = (...args: Parameters<typeof writeArtifactUnlocked>) => withFileLock(familyLock(args[0], "artefactos"), () => writeArtifactUnlocked(...args));
+
+/** Serialized with every other write to this project's artefactos index (see file-lock.ts). */
+export const revertArtifact = (...args: Parameters<typeof revertArtifactUnlocked>) => withFileLock(familyLock(args[0], "artefactos"), () => revertArtifactUnlocked(...args));

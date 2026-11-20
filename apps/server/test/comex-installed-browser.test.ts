@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, realpath, writeFile, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { createInstalledBrowserIntegration } from "../src/comex/installed-browser.js";
@@ -85,8 +86,13 @@ test("a generated bridge migrates between profiles while its previous plugin sti
 });
 
 test("browser tools use the engine's session, forward attachments and reject foreign endpoints or projects", async () => {
-  const root = await mkdtemp(join(tmpdir(), "comex-browser-plugin-"));
-  const descriptor = join(root, "descriptor.json");
+  const root = await realpath(await mkdtemp(join(tmpdir(), "comex-browser-plugin-")));
+  // The plugin resolves the descriptor of the session's own directory
+  // (sha256 of its canonical path) next to the wrapper's descriptor, so an
+  // ancestor workspace's wrapper cannot hand out a foreign project's endpoint.
+  const state = join(root, "state"); await mkdir(state);
+  const descriptor = join(state, createHash("sha256").update(root).digest("hex") + ".json");
+  const foreignWrapperDescriptor = join(state, "foreign-project.json");
   const calls: { sessionId?: string }[] = [];
   const server = createServer(async (request, response) => {
     assert.equal(request.headers.authorization, "Bearer transport-fixture");
@@ -98,9 +104,10 @@ test("browser tools use the engine's session, forward attachments and reject for
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const value = { directory: root, url: `http://127.0.0.1:${address.port}/browser`, token: "transport-fixture" };
   await writeFile(descriptor, JSON.stringify(value), { mode: 0o600 });
+  await writeFile(foreignWrapperDescriptor, JSON.stringify({ ...value, directory: "/another/project", token: "foreign" }), { mode: 0o600 });
   const tools: { name: string; execute(input: unknown, call: { sessionID: string; signal: AbortSignal }): Promise<unknown> }[] = [];
   try {
-    const dispose = await installedBrowserPlugin(descriptor).setup({ location: { directory: root }, tool: { transform: async callback => { callback({ add: tool => tools.push(tool) }); return { dispose: async () => {} }; } } });
+    const dispose = await installedBrowserPlugin(foreignWrapperDescriptor).setup({ location: { directory: root }, tool: { transform: async callback => { callback({ add: tool => tools.push(tool) }); return { dispose: async () => {} }; } } });
     const tabs = tools.find(tool => tool.name === "browser_tabs"); assert.ok(tabs);
     assert.ok(tools.some(tool => tool.name === "browser_act"));
     assert.ok(!tools.some(tool => tool.name.startsWith("computer_") || tool.name.startsWith("openwork_")));

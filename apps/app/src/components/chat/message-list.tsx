@@ -1324,7 +1324,7 @@ function ErrorMessage({ error, description, showDescriptionOnResume, resumePromp
           Choose group and credential set
         </Button> : null}
         {changeModel && !gatewaySelectionRequired && !selection ? <Button variant="ghost" size="xs"
-          onClick={() => openAlternativeModelPicker(sessionId)}>Change model</Button> : null}
+          onClick={() => openAlternativeModelPicker(sessionId)}>{t("session.change_model")}</Button> : null}
         {gatewayConnectUrl !== undefined ? <Button variant="ghost" size="xs" data-testid="session-error-gateway-connect"
           onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>Connect</Button> : null}
       </> : null} />
@@ -1353,8 +1353,8 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
   }, [status])
 
   const info = seconds > 0
-    ? `Retrying in ${seconds}s · attempt ${status.attempt}`
-    : `Retrying · attempt ${status.attempt}`
+    ? t("session_retry.info_countdown", { seconds, attempt: status.attempt })
+    : t("session_retry.info", { attempt: status.attempt })
   const action = status.action
   const freeModelLimit = action?.reason === "free_tier_limit"
   const presentation = presentOpencodeSessionError({ name: "APIError", data: { message: status.message } })
@@ -1362,16 +1362,16 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
   // and show progress instead of echoing the raw fetch error.
   const reconnecting = !freeModelLimit && !action
     && ["network-unavailable", "provider-unreachable", "provider-connection-dropped"].includes(presentation.kind)
-  const progress = seconds > 0 ? `Attempt ${status.attempt}, next try in ${seconds}s` : `Attempt ${status.attempt}`
+  const progress = seconds > 0 ? t("session_retry.progress_countdown", { seconds, attempt: status.attempt }) : t("session_retry.progress", { attempt: status.attempt })
 
   return (
     <TaskRecovery state="retrying" testId="session-retrying"
-      title={reconnecting ? "Reconnecting to the model"
-        : `${(freeModelLimit ? "The free starter model is busy right now" : action?.title ?? presentation.title).replace(/[.!?…]+$/, "")}. Retrying…`}
-      description={freeModelLimit ? "To keep working now, connect your own model provider." : reconnecting ? progress : action?.message}
+      title={reconnecting ? t("session_retry.reconnecting")
+        : t("session_retry.title", { reason: (freeModelLimit ? t("session_error.title.free-model-limit") : action?.title ?? presentation.title).replace(/[.!?…]+$/, "") })}
+      description={freeModelLimit ? t("session_retry.free_limit_body") : reconnecting ? progress : action?.message}
       technicalDetails={[info, presentation.technicalDetails].join("\n")}
       actions={freeModelLimit ? <Button variant="ghost" size="xs"
-        onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>Connect a model provider</Button>
+        onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>{t("session_retry.connect_provider")}</Button>
         : action?.link ? <Button variant="ghost" size="xs" onClick={openDesktopUrl.bind(null, action.link)}>{action.label}</Button> : null} />
   )
 })
@@ -1872,7 +1872,7 @@ function MessageGroup({
             data-testid="reply-model"
             className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground dark:text-foreground/70 opacity-0 transition-opacity duration-150 ease-out motion-reduce:transition-none group-hover/message-group:opacity-100 group-focus-within/message-group:opacity-100 pointer-coarse:opacity-100"
           >
-            <span className="sr-only">Replied with </span>
+            <span className="sr-only">{t("session.replied_with")} </span>
             <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
               {replyModelProviderId ? <ProviderIcon providerId={replyModelProviderId} size={12} /> : null}
             </span>

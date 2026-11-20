@@ -297,6 +297,11 @@ async function startManagedOpencodeServer(
         reject(error);
       };
       const lines = createEngineStartupLineReader((line) => {
+        // OpenCode v2 announces "server listening on <url>" without the
+        // "opencode" prefix. Say so now instead of waiting for the timeout.
+        if (line.startsWith("server listening on ")) {
+          return fail(new Error(`${options.bin?.trim() || "opencode"} is OpenCode v2, but engine v1 needs OpenCode v1. Set OPENWORK_OPENCODE_BIN to an OpenCode v1 binary (the desktop sidecar at apps/desktop/resources/sidecars/opencode in a checkout).\n${output()}`));
+        }
         if (!line.startsWith("opencode server listening")) return;
         const match = line.match(/on\s+(https?:\/\/[^\s]+)/);
         if (!match?.[1]) return fail(new Error(`Failed to parse OpenCode server URL from: ${line}\n${output()}`));

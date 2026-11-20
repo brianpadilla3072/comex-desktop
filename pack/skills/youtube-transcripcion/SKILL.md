@@ -22,10 +22,10 @@ Aceptar cualquier formato de URL:
 
 ### 2. Intentar subtítulos (gratis, rápido)
 
-Usar el script del pack:
+Usar el script de esta skill (`scripts/yt_transcript.py`, relativo a la carpeta de la skill):
 
 ```bash
-python3 /home/brian/.config/opencode/skills/youtube-resumen/scripts/yt_transcript.py "URL" --langs es,en --timestamps
+python3 scripts/yt_transcript.py "URL" --langs es,en --timestamps
 ```
 
 - `--langs` pone primero el idioma del usuario (español → `es,en`; inglés → `en,es`).
@@ -48,7 +48,7 @@ Si el script falla con `ERROR transcript` o `Sin transcript para idiomas...`:
    (cuidado: el endpoint de traducción es el primero que YouTube limita).
 2. Si nada funciona, bajar el audio:
    ```bash
-   yt-dlp -x --audio-format m4a -o "/home/brian/Descargas/%(id)s.%(ext)s" "URL"
+   yt-dlp -x --audio-format m4a -o "transcripciones/audio/%(id)s.%(ext)s" "URL"
    ```
 3. Transcribir con **faster-whisper** (instalado, con timestamps por segmento):
    ```python

@@ -34,18 +34,18 @@ type SettingsCardDefinition = { tab: SettingsTab; icon: typeof Sparkles } & (
 );
 
 const workspaceCards: SettingsCardDefinition[] = [
-  { tab: "preferences", icon: Cog, title: "Preferences", desc: "Default model, reasoning, and compaction." },
-  { tab: "permissions", icon: FolderLock, title: "Permissions", desc: "Authorized folders and file access." },
-  { tab: "advanced", icon: Wrench, title: "Advanced", desc: "Runtime, engine, recovery, and developer options." },
+  { tab: "preferences", icon: Cog, titleKey: "settings.card.preferences.title", descKey: "settings.card.preferences.desc" },
+  { tab: "permissions", icon: FolderLock, titleKey: "settings.card.permissions.title", descKey: "settings.card.permissions.desc" },
+  { tab: "advanced", icon: Wrench, titleKey: "settings.card.advanced.title", descKey: "settings.card.advanced.desc" },
 ];
 
 const globalCards: SettingsCardDefinition[] = [
-  { tab: "ai", icon: Sparkles, title: "AI Providers", desc: "Connect services that provide AI models." },
-  { tab: "cloud-account", icon: Cloud, title: "Cloud", desc: "OpenWork Cloud account and organization." },
-  { tab: "appearance", icon: Paintbrush, title: "Appearance", desc: "Theme, font size, and display." },
-  { tab: "shortcuts", icon: Keyboard, title: "Keyboard shortcuts", desc: "Keys that switch to your saved models." },
-  { tab: "environment", icon: Terminal, title: "Environment", desc: "Environment variables and paths." },
-  { tab: "updates", icon: RefreshCcw, title: "Updates", desc: "App version and update channel." },
+  { tab: "ai", icon: Sparkles, titleKey: "settings.card.ai.title", descKey: "settings.card.ai.desc" },
+  { tab: "cloud-account", icon: Cloud, titleKey: "settings.card.cloud-account.title", descKey: "settings.card.cloud-account.desc" },
+  { tab: "appearance", icon: Paintbrush, titleKey: "settings.card.appearance.title", descKey: "settings.card.appearance.desc" },
+  { tab: "shortcuts", icon: Keyboard, titleKey: "settings.card.shortcuts.title", descKey: "settings.card.shortcuts.desc" },
+  { tab: "environment", icon: Terminal, titleKey: "settings.card.environment.title", descKey: "settings.card.environment.desc" },
+  { tab: "updates", icon: RefreshCcw, titleKey: "settings.card.updates.title", descKey: "settings.card.updates.desc" },
 ];
 
 function cardTitle(card: SettingsCardDefinition) {

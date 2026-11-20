@@ -5,6 +5,8 @@ description: Drive the running OpenWork app over CDP from the shell, headless by
 
 # Drive the app over CDP
 
+> Prefer `pnpm dev:agent` (skill `dev-agent-toolkit`): isolated sessions, real clicks, typing, file upload/download, page errors and host API calls. This script stays for the commands below.
+
 For verdicts, write or run an `evals/core` journey or `evals/proofs` proof (`write-a-spec`, `run-tests`). This skill is for checking changes by hand and reproducing states quickly.
 
 ## Find the app

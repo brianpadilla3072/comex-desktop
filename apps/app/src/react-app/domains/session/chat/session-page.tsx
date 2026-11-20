@@ -2054,7 +2054,7 @@ export function SessionPage(props: SessionPageProps) {
                         "hidden rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
                         sidePanelOpen && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                       )}
-                      aria-label={sidePanelOpen ? "Close side panel" : "Open side panel"}
+                      aria-label={sidePanelOpen ? t("session.close_side_panel") : t("session.open_side_panel")}
                       aria-pressed={sidePanelOpen}
                       onClick={() => {
                         if (sidePanelOpen) {
@@ -2068,7 +2068,7 @@ export function SessionPage(props: SessionPageProps) {
                     </Button>
                   }
                 />
-                <TooltipContent>{sidePanelOpen ? "Close side panel" : "Open side panel"}</TooltipContent>
+                <TooltipContent>{sidePanelOpen ? t("session.close_side_panel") : t("session.open_side_panel")}</TooltipContent>
               </Tooltip>
               )}
             </div>}

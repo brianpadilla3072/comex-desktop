@@ -616,6 +616,8 @@ export type DesktopCommandMap = {
    * whether "onboarding" should preserve desktop workspace state.
    */
   resetOpenworkState: { args: [mode?: "onboarding" | "all"]; result: unknown };
+  resetOpencodeCache: { args: []; result: CacheResetResult };
+  sandboxCleanupOpenworkContainers: { args: []; result: OpenworkDockerCleanupResult };
   opencodeMcpAuth: { args: [action: string, name: string]; result: ExecResult };
 
   // Window / OS utilities (dunder commands)

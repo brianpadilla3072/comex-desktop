@@ -19,12 +19,31 @@ async function readJson(path: string): Promise<Record<string, unknown> | null> {
   catch { return null; }
 }
 
+/** The sync record lives inside the project, so anyone who can edit the folder can edit it: only
+ *  plain relative paths may name a file, or a crafted `../..` key would delete outside `.opencode`. */
+export function isSafeRecordPath(path: string): boolean {
+  if (!path || path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:/.test(path)) return false;
+  return path.split("/").every(part => part !== "" && part !== "." && part !== ".." && !part.startsWith("."));
+}
+
 async function readRecord(root: string): Promise<SyncRecord> {
   const value = await readJson(join(root, SYNC_RECORD));
   const files = value && typeof value.files === "object" && value.files !== null && !Array.isArray(value.files)
-    ? Object.fromEntries(Object.entries(value.files as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
+    ? Object.fromEntries(Object.entries(value.files as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === "string" && isSafeRecordPath(entry[0])))
     : {};
   return { version: 1, files };
+}
+
+/** Record files another flow wrote into a project's .opencode (hash) or removed from it (null), so
+ *  the next sync treats them as library files instead of the person's edits. */
+export async function recordSyncedFiles(root: string, changes: Record<string, string | null>) {
+  const record = await readRecord(root);
+  const files = { ...record.files };
+  for (const [path, hash] of Object.entries(changes)) {
+    if (!isSafeRecordPath(path)) continue;
+    if (hash === null) delete files[path]; else files[path] = hash;
+  }
+  await writeSyncRecord(root, { version: 1, files });
 }
 
 export async function writeSyncRecord(root: string, record: SyncRecord) {

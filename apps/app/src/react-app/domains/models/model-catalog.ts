@@ -296,3 +296,24 @@ export function isPinModelShortcut(event: { key: string; shiftKey: boolean; ctrl
 export function isCycleModelSourceShortcut(event: { key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }) {
   return event.key.toLowerCase() === "m" && event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey;
 }
+
+/**
+ * Where a retired OpenCode Zen default (provider `opencode`) moves to. While
+ * policy blocks Zen, any Zen default moves. Comex keeps the provider allowed
+ * for Console accounts, so there a Zen default moves only once the connected
+ * catalog no longer has it; an empty catalog (still loading) moves nothing.
+ */
+export function retiredZenDefaultReplacement<T extends ModelRef & { disabled?: boolean }>(input: {
+  current: ModelRef | null | undefined;
+  available: readonly T[];
+  zenBlocked: boolean;
+}): T | undefined {
+  const { current, available, zenBlocked } = input;
+  if (current && current.providerID !== "opencode") return undefined;
+  if (!zenBlocked) {
+    if (!current || available.length === 0) return undefined;
+    if (available.some((option) => option.providerID === current.providerID && option.modelID === current.modelID && !option.disabled)) return undefined;
+  }
+  const usable = available.filter((option) => option.providerID !== "opencode");
+  return starterModel(usable) ?? usable[0];
+}

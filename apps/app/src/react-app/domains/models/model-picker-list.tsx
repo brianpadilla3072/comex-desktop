@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import { prioritizeAssessedModels } from "./model-guide-order";
 import { useModelGuide } from "./use-model-guide";
 import { guideOffering, guideBillingLabel, ModelGuideDetails } from "./model-guide-details";
@@ -200,7 +201,7 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
     event.preventDefault(); event.stopPropagation(); toggle(option);
   }}>
     <Command items={groups} filter={null} value={query} onValueChange={onQueryChange}>
-      <CommandHeader className={leading ? "flex items-center gap-0" : undefined}>{leading}<CommandInput ref={searchInputRef} autoFocus={autoFocusSearch} aria-label="Search all models" placeholder="Search models…" className="h-8 text-base sm:text-base md:text-base lg:text-sm" /></CommandHeader>
+      <CommandHeader className={leading ? "flex items-center gap-0" : undefined}>{leading}<CommandInput ref={searchInputRef} autoFocus={autoFocusSearch} aria-label={t("models.search_all_aria")} placeholder={t("models.search_short")} className="h-8 text-base sm:text-base md:text-base lg:text-sm" /></CommandHeader>
       {/* The list sizes to its rows so placeholders after it stay in view; this panel does the scrolling. */}
       <CommandPanel className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-width:thin] [&>[data-slot=scroll-area]]:h-auto">
         {retainedVisible ? <div data-testid="retained-selected-model" aria-disabled="true" aria-label={`${retainedName}, current model, ${retainedSubtitle}`} className="px-2 pt-2">
@@ -217,7 +218,7 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
             searchIntentSummary(search.intent)].filter(Boolean).join(" ")}
         </p> : null}
         {!loading && groups.length === 0 && query.trim() ? <div role="status" className="flex flex-col items-center gap-1 px-4 py-7 text-center text-sm">
-          <p>No models match “{query.trim()}”</p><p className="text-muted-foreground">{providerMiss ? `${providerMiss.label} isn't connected in this workspace.` : "Try a shorter name, or search by provider."}</p>
+          <p>{t("model_picker.no_match", { query: query.trim() })}</p><p className="text-muted-foreground">{providerMiss ? t("model_picker.provider_not_connected", { provider: providerMiss.label }) : t("model_picker.no_match_hint")}</p>
           <Button size="sm" variant="outline" className="mt-2" onClick={clearSearch}>Clear search</Button>
         </div> : null}
         {empty ? <div role="status" className="flex flex-col items-center gap-1 px-4 py-7 text-center text-sm" data-testid="model-catalog-empty">

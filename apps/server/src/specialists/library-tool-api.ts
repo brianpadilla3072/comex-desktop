@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
@@ -18,10 +18,14 @@ import { ensureChunks, readCitation, registerLocalSource } from "./sources.js";
 import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from "./panels.js";
 import { auditOutputCitations, listOutputs, readOutput, writeOutput } from "./outputs.js";
 import { applySpecialistLibraryChange } from "./sync.js";
+import { familyLock, withFileLock } from "./file-lock.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
 
 const MARKER = "// Managed by Comex: specialist-library-v1\n";
+/** Written over a descriptor's token when its tool is disabled: never a valid credential. */
+export const REVOKED_TOOL_TOKEN = "00000000000000000000000000000000";
+
 const descriptorSchema = z.object({ directory: z.string(), token: z.string().min(16), url: z.string().url() });
 const toolCallSchema = z.object({ name: z.enum([
   "specialist_library_list", "specialist_library_read", "specialist_library_write", "specialist_library_delete",
@@ -42,9 +46,14 @@ async function readDescriptor(config: Pick<ServerConfig, "configPath">, director
   catch (error) { if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null; throw error; }
 }
 
+/** Atomic: readers (other requests, the engine's plugin) never see a half-written descriptor.
+ *  An in-place rewrite let a concurrent read hit "Unexpected end of JSON input" (a 500 on
+ *  /opencode2/api/provider right after switching projects). */
 async function writeDescriptor(file: string, value: { directory: string; token: string; url: string }) {
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-  await writeFile(file, JSON.stringify(value), { mode: 0o600 });
+  const temporary = `${file}.${randomBytes(6).toString("hex")}.tmp`;
+  await writeFile(temporary, JSON.stringify(value), { mode: 0o600 });
+  await rename(temporary, file);
 }
 
 export type SpecialistToolDescriptor = { directory: string; token: string; url: string };
@@ -62,7 +71,12 @@ export function specialistTokenDirectory(config: Pick<ServerConfig, "configPath"
 }
 
 /** Idempotent project-only installation, mirroring the research plugin. Never touches non-specialist folders. */
-export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPath" | "port" | "workspaces">, workspaceId: string, directory: string) {
+/** One sync per folder at a time: two concurrent first syncs each minted a different token. */
+export function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPath" | "port" | "workspaces">, workspaceId: string, directory: string) {
+  return withFileLock(familyLock(directory, "library-tool-plugin"), () => syncLibraryToolPluginUnlocked(config, workspaceId, directory));
+}
+
+async function syncLibraryToolPluginUnlocked(config: Pick<ServerConfig, "configPath" | "port" | "workspaces">, workspaceId: string, directory: string) {
   if (!specialistApplicationsEnabled()) return;
   const store = await specialistStore(config);
   const app = store.forWorkspace(workspaceId);
@@ -70,10 +84,10 @@ export async function syncLibraryToolPlugin(config: Pick<ServerConfig, "configPa
   const existing = await readDescriptor(config, canonical);
   const target = existing?.file ?? join(toolDirectory(config), createHash("sha256").update(canonical).digest("hex") + ".json");
   if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled() && !specialistPanelsEnabled() && !studioOutputsEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
-    if (existing) await writeDescriptor(target, { directory: canonical, token: "00000000000000000000000000000000", url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
+    if (existing) await writeDescriptor(target, { directory: canonical, token: REVOKED_TOOL_TOKEN, url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
     return;
   }
-  const token = existing && existing.value.token !== "00000000000000000000000000000000" ? existing.value.token : randomBytes(24).toString("base64url");
+  const token = existing && existing.value.token !== REVOKED_TOOL_TOKEN ? existing.value.token : randomBytes(24).toString("base64url");
   await writeDescriptor(target, { directory: canonical, token, url: `http://127.0.0.1:${config.port}/specialist-tool` });
   let folder = canonical;
   for (const part of [".opencode", "plugins", "comex-library"]) {
@@ -360,7 +374,9 @@ export function registerSpecialistToolRoutes(options: {
   });
 }
 
-async function findDescriptorDirectory(config: Pick<ServerConfig, "configPath">, token: string): Promise<string | null> {
+export async function findDescriptorDirectory(config: Pick<ServerConfig, "configPath">, token: string): Promise<string | null> {
+  // Checked first: the cache lookup below used to accept the placeholder once it was cached.
+  if (token === REVOKED_TOOL_TOKEN) return null;
   const cache = descriptorCache(config);
   const known = [...cache.entries()].find(([, value]) => value === token);
   if (known) return known[0];
@@ -372,7 +388,7 @@ async function findDescriptorDirectory(config: Pick<ServerConfig, "configPath">,
       const value = descriptorSchema.parse(JSON.parse(await readFile(join(toolDirectory(config), file), "utf8")));
       if (value.directory && cache.get(value.directory) !== value.token) {
         cache.set(value.directory, value.token);
-        if (value.token === token && token !== "00000000000000000000000000000000") return value.directory;
+        if (value.token === token) return value.directory;
       }
     } catch { /* Descriptor for another project or disabled state. */ }
   }

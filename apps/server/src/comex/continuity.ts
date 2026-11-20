@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
+import { LEGACY_DATA_DIR, resolveDataDir } from "../specialists/project-data.js";
 
 const MAX_BYTES = 48 * 1024;
 const note = z.string().trim().min(1).max(800);
@@ -35,9 +36,10 @@ export function redactMemorySecrets(text: string): string {
     .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[credenciales omitidas]@");
 }
 
-export function checkpointPath(sessionId: string): string {
+/** Relative checkpoint path inside the project's data folder (`proyecto/` or the legacy `comex/`). */
+export function checkpointPath(sessionId: string, dataDir = LEGACY_DATA_DIR): string {
   if (!/^[A-Za-z0-9_-]{1,256}$/.test(sessionId)) throw new ContinuityError("invalid", "Identificador de sesión inválido.");
-  return `comex/sesiones/${sessionId}.checkpoint.json`;
+  return `${dataDir}/sesiones/${sessionId}.checkpoint.json`;
 }
 
 function cleanInput(input: CheckpointInput): CheckpointInput {
@@ -49,9 +51,10 @@ function cleanInput(input: CheckpointInput): CheckpointInput {
   };
 }
 
-async function safeTarget(root: string, sessionId: string): Promise<string> {
+async function safeTarget(root: string, sessionId: string, dataDir?: string): Promise<string> {
   const canonical = await realpath(root);
-  const parts = checkpointPath(sessionId).split("/");
+  // Same folder as the session notes: an app on `proyecto/` must never grow a `comex/` folder.
+  const parts = checkpointPath(sessionId, dataDir ?? resolveDataDir(canonical)).split("/");
   let target = canonical;
   for (const part of parts) {
     target = join(target, part);
@@ -65,7 +68,14 @@ async function safeTarget(root: string, sessionId: string): Promise<string> {
 }
 
 export async function readComexCheckpoint(root: string, sessionId: string): Promise<CheckpointRead> {
-  const path = await safeTarget(root, sessionId);
+  const current = await readCheckpointAt(root, sessionId);
+  // Checkpoints written before the data-folder fix live under `comex/` even in `proyecto/` apps.
+  if (current.status !== "missing" || resolveDataDir(await realpath(root)) === LEGACY_DATA_DIR) return current;
+  return readCheckpointAt(root, sessionId, LEGACY_DATA_DIR);
+}
+
+async function readCheckpointAt(root: string, sessionId: string, dataDir?: string): Promise<CheckpointRead> {
+  const path = await safeTarget(root, sessionId, dataDir);
   const entry = await lstat(path).catch(error => { if (error.code === "ENOENT") return null; throw error; });
   if (entry && !entry.isFile()) return { status: "invalid", revision: 0, checkpoint: null };
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(error => {

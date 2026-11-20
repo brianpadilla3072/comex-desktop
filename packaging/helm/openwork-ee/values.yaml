@@ -28,6 +28,9 @@ config:
   features:
     desktopCompanion: ""          # default off · Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.
     taskContinuity: ""            # default off · Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.
+    remoteDevicePairing: ""       # default on · Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does.
+    specialistAppPortability: ""  # default on · Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.
+    comexSpanishLocale: ""        # default on · Show the interface in Spanish when the person has not chosen a language, so it matches the Spanish Comex screens.
     comexModelGuide: ""           # default off · Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates.
     comexChatCommands: ""         # default off · Manage chats, inspect status, sketch and review local share copies from the composer command menu.
     comexScopedMemory: ""         # default off · Remember explicit notes at conversation, project or application scope and manage them locally.

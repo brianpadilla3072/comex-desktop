@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { openDesktopUrl, pickDirectory } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import type { OpenworkServerClient, SpecialistApplication, SpecialistPackReview } from "@/app/lib/openwork-server";
+import { specialistErrorMessage } from "./error-message";
 
 export function SpecialistIntegrationsDialog({ app, client, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; onClose(): void; onChanged(): Promise<unknown> }) {
   const [busy, setBusy] = useState(false);
@@ -24,7 +25,7 @@ export function SpecialistIntegrationsDialog({ app, client, onClose, onChanged }
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
     try { await action(); await query.refetch(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la operación. Volvé a intentar."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo completar la operación. Volvé a intentar.")); }
     finally { setBusy(false); }
   }
   async function providerAction(id: string, action: "install" | "login" | "disconnect" | "test" | "key" | "enable", enabled?: boolean) {

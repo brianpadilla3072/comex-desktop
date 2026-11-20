@@ -69,7 +69,7 @@ export function DenInlineEditableTitle({
             }}
             // A field box so it reads as an input; the vertical negative
             // margin keeps the heading's height from changing while editing.
-            className="-my-1 min-w-[4ch] max-w-full rounded-[8px] border-0 bg-white px-2 py-1 shadow-[inset_0_0_0_1px_var(--color-gray-300)] outline-none transition placeholder:text-gray-300 focus:shadow-[inset_0_0_0_1px_var(--color-gray-900),0_0_0_3px_var(--color-gray-200)] [field-sizing:content]"
+            className="-my-1 min-w-[4ch] max-w-full rounded-[8px] border-0 bg-white px-2 py-1 shadow-[inset_0_0_0_1px_var(--color-gray-300)] outline-none transition placeholder:text-gray-500 focus:shadow-[inset_0_0_0_1px_var(--color-gray-900),0_0_0_3px_var(--color-gray-200)] [field-sizing:content]"
           />
         ) : (
           <button
@@ -88,7 +88,7 @@ export function DenInlineEditableTitle({
         // Keep focus in the input so pressing the tick doesn't blur first.
         onMouseDown={(event) => event.preventDefault()}
         onClick={editing ? () => setEditing(false) : startEditing}
-        className="flex size-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900"
+        className="flex size-7 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
       >
         {editing ? <Check className="size-4" aria-hidden="true" /> : <Pencil className="size-3.5" aria-hidden="true" />}
       </button>

@@ -50,6 +50,7 @@ import {
   executeNukeFreshStart,
   runPendingNukeCleanup,
 } from "./nuke.mjs";
+import { opencodeCacheCandidates, resetOpencodeCache } from "./opencode-cache.mjs";
 import {
   createConnectLinkReplayGuard,
   extractConnectExchange,
@@ -2563,6 +2564,12 @@ const desktopCommandHandlers = {
   },
   "resetOpenworkState": async (event, ...args) => {
       return workspaceStore.resetOpenworkState();
+  },
+  "resetOpencodeCache": async (event) => {
+      return resetOpencodeCache(opencodeCacheCandidates({ env: process.env, homedir: os.homedir(), platform: process.platform, userDataPath: app.getPath("userData") }));
+  },
+  "sandboxCleanupOpenworkContainers": async (event) => {
+      return runtimeManager.sandboxCleanupOpenworkContainers();
   },
   "opencodeMcpAuth": async (event, ...args) => {
       return runtimeManager.opencodeMcpAuth(String(args[0] ?? "").trim(), String(args[1] ?? "").trim());

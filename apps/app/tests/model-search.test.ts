@@ -109,3 +109,15 @@ describe("model maker", () => {
     expect(modelMakerId({ providerID: "acme", modelID: "kimi-k2", title: "Kimi K2" })).toBeNull();
   });
 });
+
+// Hive QA (w2-5, w5-6, w3-6): typing a hyphenated name exactly as shown found nothing.
+test("hyphenated queries find the models they name", () => {
+  const options = [
+    { providerID: "fault-lab", modelID: "http-500", title: "http-500" },
+    { providerID: "fault-lab", modelID: "mid-stream-reset", title: "mid-stream-reset" },
+    { providerID: "openwork-free", modelID: "openai/gpt-6-luna", title: "GPT-6 Luna" },
+  ].map(option => ({ ...option, description: "", behaviorTitle: "", behaviorLabel: "", behaviorDescription: "", behaviorValue: null, isFree: false }));
+  for (const [query, expected] of [["http-500", "http-500"], ["mid-stream-reset", "mid-stream-reset"], ["gpt-6", "openai/gpt-6-luna"]] as const) {
+    expect(searchModels(options, query).matches.map(match => match.option.modelID)).toContain(expected);
+  }
+});

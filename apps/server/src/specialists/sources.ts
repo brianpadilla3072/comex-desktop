@@ -1,3 +1,4 @@
+import { familyLock, withFileLock } from "./file-lock.js";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -52,7 +53,7 @@ async function writeIndex(directory: string, sources: SpecialistSourceMeta[]) {
   await rename(temporary, file);
 }
 
-export async function listSources(directory: string) {
+async function listSourcesUnlocked(directory: string) {
   const sources = await readIndex(directory);
   // Self-healing counts: the library used to show "sin pasajes" for sources registered before
   // the indexer ran, and opening one revealed text. Index every uncounted source once, here.
@@ -71,7 +72,7 @@ export async function listSources(directory: string) {
 }
 
 /** Register evidence as a citable source; idempotent by evidencePath (re-register refreshes meta). */
-export async function registerSource(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {  if (!input.evidencePath.startsWith(`${dataRelative(directory, "fuentes")}/`) || input.evidencePath.includes("..")) throw failure(`La evidencia debe vivir bajo ${dataRelative(directory, "fuentes")}/.`);
+async function registerSourceUnlocked(directory: string, input: { provider: string; evidencePath: string; title?: string; url?: string | null; datasetId?: string | null }) {  if (!input.evidencePath.startsWith(`${dataRelative(directory, "fuentes")}/`) || input.evidencePath.includes("..")) throw failure(`La evidencia debe vivir bajo ${dataRelative(directory, "fuentes")}/.`);
   await ensureFolder(fuentesRoot(directory));
   const stat = await lstat(join(directory, input.evidencePath)).catch(() => null);
   if (!stat || !stat.isFile() || stat.isSymbolicLink()) throw failure("El archivo de evidencia no existe o es un enlace.");
@@ -91,7 +92,7 @@ export async function registerSource(directory: string, input: { provider: strin
   await writeIndex(directory, existing ? sources.map(source => source.id === meta.id ? meta : source) : [meta, ...sources]);
   // Index the passages now, not on first read: the library said "sin pasajes" for a source that
   // had plenty of text, and a person registering their own file needs to see what can be cited.
-  try { const { chunks } = await ensureChunks(directory, meta.id); return { ...meta, chunks: chunks.length }; }
+  try { const { chunks } = await ensureChunksUnlocked(directory, meta.id); return { ...meta, chunks: chunks.length }; }
   catch { return meta; }
 }
 
@@ -171,7 +172,7 @@ async function buildChunks(directory: string, source: SpecialistSourceMeta): Pro
   return chunks;
 }
 
-export async function ensureChunks(directory: string, id: string) {
+async function ensureChunksUnlocked(directory: string, id: string) {
   const sources = await readIndex(directory);
   const source = sources.find(entry => entry.id === id);
   if (!source) throw new ApiError(404, "source_not_found", "Esa fuente no está registrada en este proyecto.");
@@ -224,3 +225,12 @@ export async function readCitation(directory: string, id: string, chunk: number)
   }
   return { ok: true as const, source, chunk, text: chunks[chunk]! };
 }
+
+/** Serialized with every other write to this project's fuentes index (see file-lock.ts). */
+export const listSources = (...args: Parameters<typeof listSourcesUnlocked>) => withFileLock(familyLock(args[0], "fuentes"), () => listSourcesUnlocked(...args));
+
+/** Serialized with every other write to this project's fuentes index (see file-lock.ts). */
+export const registerSource = (...args: Parameters<typeof registerSourceUnlocked>) => withFileLock(familyLock(args[0], "fuentes"), () => registerSourceUnlocked(...args));
+
+/** Serialized with every other write to this project's fuentes index (see file-lock.ts). */
+export const ensureChunks = (...args: Parameters<typeof ensureChunksUnlocked>) => withFileLock(familyLock(args[0], "fuentes"), () => ensureChunksUnlocked(...args));

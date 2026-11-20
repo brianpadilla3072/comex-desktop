@@ -1,5 +1,5 @@
 import { taskContinuityEnabled } from "../task-continuity.js";
-import { agentEcosystemEnabled, comexArtifactsEnabled, comexChatCommandsEnabled, comexScopedMemoryEnabled, comexModelGuideEnabled, comexContinuityEnabled, comexGitWorkspaceEnabled, comexWorkspaceEnabled, openworkPromotionsEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../comex/features.js";
+import { agentEcosystemEnabled, comexArtifactsEnabled, comexChatCommandsEnabled, comexScopedMemoryEnabled, comexModelGuideEnabled, comexSpanishLocaleEnabled, comexContinuityEnabled, comexGitWorkspaceEnabled, comexWorkspaceEnabled, openworkPromotionsEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../comex/features.js";
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -18,6 +18,8 @@ import { callExperimentalExtensionAction, listExperimentalExtensionActions } fro
 import { takeApprovedDriveUpload } from "../extensions/approved-drive-upload.js";
 import { callDriveFileAction } from "../extensions/drive-files.js";
 import type { TokenService } from "../tokens.js";
+import { createPairingRegistry, DEVICE_LABEL_PREFIX, redeemInput } from "../device-pairing.js";
+import { remoteDevicePairingEnabled } from "../comex/features.js";
 import type { Capabilities, ServerConfig, WorkspaceInfo } from "../types.js";
 import { addRoute, type Route } from "./registry.js";
 
@@ -62,7 +64,7 @@ interface RegisterCoreRoutesOptions {
   resolveOpencodeDirectory: (workspace: WorkspaceInfo) => string | null;
   createWorkspaceOpencodeClient: (config: ServerConfig, workspace: WorkspaceInfo) => WorkspaceOpencodeClient;
   refreshRegistrationFromLiveStatus?: CloudMcpLiveStatusObserver;
-  serializeWorkspace: (workspace: ServerConfig["workspaces"][number]) => unknown;
+  serializeWorkspace: (workspace: ServerConfig["workspaces"][number], withEngineCredentials?: boolean) => unknown;
   resolveDevLogPath: () => string | null;
   onManagedProviderAuthChanged?: (result: ManagedProviderAuthResult) => Promise<void>;
   managedProviderAuthLogger?: {
@@ -149,7 +151,7 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
     }, ok ? 200 : 503);
   };
 
-  addRoute(routes, "GET", "/comex/features", "client", async () => jsonResponse({ enabled: comexWorkspaceEnabled(), comexArtifacts: comexArtifactsEnabled(), comexScopedMemory: comexScopedMemoryEnabled(), comexChatCommands: comexChatCommandsEnabled(), taskContinuity: taskContinuityEnabled(), comexModelGuide: comexModelGuideEnabled(), comexContinuity: comexContinuityEnabled(), comexGitWorkspace: comexGitWorkspaceEnabled(), openworkPromotions: openworkPromotionsEnabled(), conversationNavigator: conversationNavigatorEnabled(), agentActivityMap: agentActivityMapEnabled(), agentEcosystem: agentEcosystemEnabled() }));
+  addRoute(routes, "GET", "/comex/features", "client", async () => jsonResponse({ enabled: comexWorkspaceEnabled(), comexArtifacts: comexArtifactsEnabled(), comexScopedMemory: comexScopedMemoryEnabled(), comexChatCommands: comexChatCommandsEnabled(), taskContinuity: taskContinuityEnabled(), comexModelGuide: comexModelGuideEnabled(), comexSpanishLocale: comexWorkspaceEnabled() && comexSpanishLocaleEnabled(), comexContinuity: comexContinuityEnabled(), comexGitWorkspace: comexGitWorkspaceEnabled(), openworkPromotions: openworkPromotionsEnabled(), conversationNavigator: conversationNavigatorEnabled(), agentActivityMap: agentActivityMapEnabled(), agentEcosystem: agentEcosystemEnabled() }));
 
   addRoute(routes, "GET", "/health", "none", async () => healthResponse());
 
@@ -389,10 +391,61 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
     return jsonResponse(result);
   });
 
-  addRoute(routes, "GET", "/workspaces", "client", async () => {
+  addRoute(routes, "GET", "/workspaces", "client", async (ctx) => {
     const active = config.workspaces[0] ?? null;
-    const items = config.workspaces.map(serializeWorkspace);
+    // Only the desktop host and owners need the engine credentials (Electron reads them here).
+    const owner = ctx.actor?.type === "host" || ctx.actor?.scope === "owner";
+    const items = config.workspaces.map(workspace => serializeWorkspace(workspace, owner));
     return jsonResponse({ items, workspaces: items, activeId: active?.id ?? null });
+  });
+
+  // Pairing other devices (docs/features/remote-device-pairing): the desktop (or an already
+  // paired owner) shows a one-time code; the other browser redeems it for its own owner token.
+  const pairing = createPairingRegistry();
+  const requirePairing = () => {
+    if (!remoteDevicePairingEnabled()) throw new ApiError(404, "pairing_disabled", "Vincular dispositivos está desactivado en esta instalación.");
+  };
+  const deviceName = (label: string | undefined) => label?.startsWith(DEVICE_LABEL_PREFIX) ? label.slice(DEVICE_LABEL_PREFIX.length) : null;
+
+  addRoute(routes, "GET", "/pairing/status", "none", async () => jsonResponse({ enabled: remoteDevicePairingEnabled() }));
+
+  addRoute(routes, "POST", "/pairing/codes", "host", async () => {
+    requirePairing();
+    ensureWritable(config);
+    return jsonResponse(pairing.issue(), 201);
+  });
+
+  addRoute(routes, "DELETE", "/pairing/codes", "host", async () => {
+    requirePairing();
+    pairing.cancel();
+    return jsonResponse({ ok: true });
+  });
+
+  addRoute(routes, "POST", "/pairing/redeem", "none", async (ctx) => {
+    requirePairing();
+    ensureWritable(config);
+    const parsed = redeemInput.safeParse(await readJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(400, "invalid_pairing_request", "Ingresá el código y un nombre para este dispositivo.");
+    pairing.consume(parsed.data.code);
+    const issued = await tokens.create("owner", { label: `${DEVICE_LABEL_PREFIX}${parsed.data.deviceName}` });
+    return jsonResponse({ id: issued.id, token: issued.token, scope: issued.scope, deviceName: parsed.data.deviceName }, 201);
+  });
+
+  addRoute(routes, "GET", "/pairing/devices", "host", async () => {
+    requirePairing();
+    const items = (await tokens.list()).flatMap(token => {
+      const name = deviceName(token.label);
+      return name === null ? [] : [{ id: token.id, name, createdAt: token.createdAt }];
+    });
+    return jsonResponse({ items });
+  });
+
+  addRoute(routes, "DELETE", "/pairing/devices/:id", "host", async (ctx) => {
+    requirePairing();
+    ensureWritable(config);
+    const device = (await tokens.list()).find(token => token.id === ctx.params.id && deviceName(token.label) !== null);
+    if (!device || !(await tokens.revoke(device.id))) throw new ApiError(404, "device_not_found", "Ese dispositivo ya no está vinculado.");
+    return jsonResponse({ ok: true });
   });
 
   addRoute(routes, "GET", "/tokens", "host", async () => {

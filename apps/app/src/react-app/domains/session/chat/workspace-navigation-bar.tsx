@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import type { ReactNode } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 import { Bot, ArrowLeft, ArrowRight, FileText, FolderOpen, Globe, Link, PanelLeft, Plus, TerminalSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -45,9 +45,14 @@ export function ConversationTabs(props: {
   onSelectResource?: (id: string | null) => void; onCloseResource?: (tab: WorkspaceResourceTab) => void
   split?: boolean; extraAction?: ReactNode
 }) {
-  return <nav aria-label="Conversaciones abiertas" data-conversation-tabs className="titlebar-no-drag flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [scrollbar-width:thin]">
+  // With many tabs the active one could sit off-screen: keep it (and the "+" next to it) in view.
+  const navRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [props.sessionId, props.activeResourceId, props.tabs.length]);
+  return <nav ref={navRef} aria-label="Conversaciones abiertas" data-conversation-tabs className="titlebar-no-drag flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [scrollbar-width:thin]">
     {props.tabs.map(tab => <div key={`${tab.workspaceId}:${tab.sessionId}`} className={`group flex h-8 max-w-64 shrink-0 items-center gap-1 rounded-lg border px-1 ${(!props.activeResourceId || props.split) && tab.workspaceId === props.workspaceId && tab.sessionId === props.sessionId ? "border-border bg-muted" : "border-transparent text-muted-foreground"}`}>
-      <Button variant="ghost" size="sm" className="min-w-0 justify-start px-2 font-normal" aria-current={(!props.activeResourceId || props.split) && tab.workspaceId === props.workspaceId && tab.sessionId === props.sessionId ? "page" : undefined} onClick={() => { props.onSelectResource?.(null); props.onSelect(tab) }} title={tab.title || "Nuevo chat"}><span className="truncate">{tab.title || "Nuevo chat"}</span></Button>
+      <Button variant="ghost" size="sm" className="min-w-0 shrink justify-start overflow-hidden px-2 font-normal" aria-current={(!props.activeResourceId || props.split) && tab.workspaceId === props.workspaceId && tab.sessionId === props.sessionId ? "page" : undefined} onClick={() => { props.onSelectResource?.(null); props.onSelect(tab) }} title={tab.title || "Nuevo chat"}><span className="truncate">{tab.title || "Nuevo chat"}</span></Button>
       <Button variant="ghost" size="icon-xs" className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100" aria-label={`Cerrar pestaña ${tab.title || "Nuevo chat"}`} onClick={() => props.onClose(tab)}><X className="size-3" /></Button>
     </div>)}
     {!props.sessionId ? <Button variant="ghost" size="sm" className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm ${!props.activeResourceId ? "border-border bg-muted" : "border-transparent text-muted-foreground"}`} onClick={() => props.onSelectResource?.(null)}>Nuevo chat</Button> : null}

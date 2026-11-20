@@ -19,7 +19,10 @@ const CDP_URL = (process.env.CDP_URL ?? "http://127.0.0.1:9823").replace(/\/$/, 
 
 async function connect() {
   const targets = await (await fetch(`${CDP_URL}/json/list`)).json();
-  const target = targets.find((t) => t.type === "page" && t.title === "OpenWork") ?? targets.find((t) => t.type === "page");
+  // The main window, never the hidden desktop companion: a specialist
+  // application renames the window (e.g. "Comex"), so the title alone is not enough.
+  const pages = targets.filter((t) => t.type === "page" && !t.url.includes("companion.html"));
+  const target = pages.find((t) => t.title === "OpenWork") ?? pages[0];
   if (!target) throw new Error(`No OpenWork page at ${CDP_URL}`);
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   const pending = new Map();

@@ -191,15 +191,27 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
       const response = await createLocalWorkspace(ctx, payload);
       return z.object({ activeId: z.string() }).parse(await response.json()).activeId;
     },
+    removeWorkspace: async (ctx, workspaceId) => { await removeWorkspaceFromHost(ctx, workspaceId); },
+    renameWorkspace: async (ctx, workspaceId, name) => { await renameWorkspaceOnHost(ctx, workspaceId, name); },
   });
 
   addRoute(routes, "PATCH", "/workspaces/:id/display-name", "host", async (ctx) => {
     ensureWritable(config);
-    const workspace = await resolveWorkspaceForRegistry(ctx.params.id);
     const body = await readJsonBody(ctx.request);
     const nextDisplayName = typeof body.displayName === "string" && body.displayName.trim()
       ? body.displayName.trim()
       : undefined;
+    const { persisted } = await renameWorkspaceOnHost(ctx, ctx.params.id, nextDisplayName);
+    return jsonResponse({
+      activeId: config.workspaces[0]?.id ?? null,
+      workspaces: config.workspaces.map(serializeWorkspace),
+      persisted,
+    });
+  });
+
+  /** Set (or clear) a workspace's display name, persist it and record the audit entry. */
+  async function renameWorkspaceOnHost(ctx: RequestContext, workspaceId: string, nextDisplayName: string | undefined) {
+    const workspace = await resolveWorkspaceForRegistry(workspaceId);
 
     config.workspaces = config.workspaces.map((entry) =>
       entry.id === workspace.id
@@ -223,13 +235,8 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
       summary: `Updated workspace display name${nextDisplayName ? ` to ${nextDisplayName}` : ""}`,
       timestamp: Date.now(),
     });
-
-    return jsonResponse({
-      activeId: config.workspaces[0]?.id ?? null,
-      workspaces: config.workspaces.map(serializeWorkspace),
-      persisted,
-    });
-  });
+    return { workspace, persisted };
+  }
 
   addRoute(routes, "POST", "/workspaces/:id/activate", "host", async (ctx) => {
     const workspace = await resolveWorkspaceForRegistry(ctx.params.id);
@@ -264,8 +271,21 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
 
   addRoute(routes, "DELETE", "/workspaces/:id", "host", async (ctx) => {
     ensureWritable(config);
+    const { deleted, persisted } = await removeWorkspaceFromHost(ctx, ctx.params.id);
+    const active = config.workspaces[0] ?? null;
+    return jsonResponse({
+      ok: true,
+      deleted,
+      persisted,
+      activeId: active?.id ?? null,
+      items: config.workspaces.map(serializeWorkspace),
+      workspaces: config.workspaces.map(serializeWorkspace),
+    });
+  });
 
-    const workspace = await resolveWorkspaceForRegistry(ctx.params.id);
+  /** Remove a workspace from this host's sidebar and config. Files on disk are never touched. */
+  async function removeWorkspaceFromHost(ctx: RequestContext, workspaceId: string) {
+    const workspace = await resolveWorkspaceForRegistry(workspaceId);
 
     const before = config.workspaces.length;
     config.workspaces = config.workspaces.filter((entry) => entry.id !== workspace.id);
@@ -287,15 +307,6 @@ export function registerWorkspaceRoutes(options: RegisterWorkspaceRoutesOptions)
       summary: "Deleted workspace from OpenWork server",
       timestamp: Date.now(),
     });
-
-    const active = config.workspaces[0] ?? null;
-    return jsonResponse({
-      ok: true,
-      deleted,
-      persisted,
-      activeId: active?.id ?? null,
-      items: config.workspaces.map(serializeWorkspace),
-      workspaces: config.workspaces.map(serializeWorkspace),
-    });
-  });
+    return { deleted, persisted };
+  }
 }

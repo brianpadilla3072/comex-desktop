@@ -19,6 +19,7 @@ import {
   destinationWorkspaces,
   type DestinationOption,
 } from "./new-task-destination-options";
+import { t } from "@/i18n";
 
 type Named = { id: string; label: string };
 
@@ -73,7 +74,7 @@ export function NewTaskDestinationMenu(props: Props) {
         <PopoverTrigger
           render={<Button variant="ghost" size="xs" />}
           disabled={props.disabled}
-          aria-label={`Where this task goes: ${label}`}
+          aria-label={t("composer.task_destination_aria", { label })}
           title={label}
           data-new-task-destination=""
         >

@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { t } from "@/i18n";
 import { autoAccessWallFromError, autoAccessWallSchema, autoWallCopy, type AutoAccessWall } from "@/app/lib/inference-access";
 import { parseGatewayUsageError, gatewayUsageErrorEvidenceSchema, type GatewayUsageErrorEvidence } from "../../cloud/gateway-usage-state";
 import { openWorkModelsLimitSchema, parseOpenWorkModelsLimitError, type OpenWorkModelsLimit } from "../../cloud/usage-limit-state";
@@ -146,68 +147,68 @@ function sessionErrorKind(
 }
 
 function errorTitle(kind: OpencodeSessionErrorKind, fallback: string) {
-  if (kind === "session-group-assignment") return "Couldn’t assign this conversation to its group";
-  if (kind === "config-invalid") return "OpenCode can’t use a config file";
-  if (kind === "disk-full") return "Storage error reported";
-  if (kind === "database-error") return "OpenWork couldn’t access its saved data";
-  if (kind === "aborted") return "Task interrupted";
-  if (kind === "provider-timeout") return "Provider did not respond in time";
-  if (kind === "provider-incomplete") return "The model response was interrupted";
-  if (kind === "provider-unavailable") return "The model couldn’t respond";
-  if (kind === "provider-access-denied") return "You don’t have access to this model";
-  if (kind === "workspace-unavailable") return "Can’t reach this workspace";
-  if (kind === "provider-credentials") return "Check your model connection";
-  if (kind === "rate-limited") return "This model is receiving too many requests";
-  if (kind === "conversation-too-long") return "This conversation is too long for the model";
-  if (kind === "output-invalid") return "The model couldn’t finish a usable response";
-  if (kind === "output-limit") return "The response reached the model’s length limit";
-  if (kind === "attachment-unsupported") return "This model can’t read an attached file";
-  if (kind === "network-unavailable") return "Can’t reach the model service";
-  if (kind === "provider-unreachable") return "Couldn’t reach the model provider";
-  if (kind === "provider-connection-dropped") return "Connection to the model dropped";
-  if (kind === "model-unavailable") return "This model isn’t available";
-  if (kind === "free-model-limit") return "The free starter model is busy right now";
+  if (kind === "session-group-assignment") return t("session_error.title.session-group-assignment");
+  if (kind === "config-invalid") return t("session_error.title.config-invalid");
+  if (kind === "disk-full") return t("session_error.title.disk-full");
+  if (kind === "database-error") return t("session_error.title.database-error");
+  if (kind === "aborted") return t("session_error.title.aborted");
+  if (kind === "provider-timeout") return t("session_error.title.provider-timeout");
+  if (kind === "provider-incomplete") return t("session_error.title.provider-incomplete");
+  if (kind === "provider-unavailable") return t("session_error.title.provider-unavailable");
+  if (kind === "provider-access-denied") return t("session_error.title.provider-access-denied");
+  if (kind === "workspace-unavailable") return t("session_error.title.workspace-unavailable");
+  if (kind === "provider-credentials") return t("session_error.title.provider-credentials");
+  if (kind === "rate-limited") return t("session_error.title.rate-limited");
+  if (kind === "conversation-too-long") return t("session_error.title.conversation-too-long");
+  if (kind === "output-invalid") return t("session_error.title.output-invalid");
+  if (kind === "output-limit") return t("session_error.title.output-limit");
+  if (kind === "attachment-unsupported") return t("session_error.title.attachment-unsupported");
+  if (kind === "network-unavailable") return t("session_error.title.network-unavailable");
+  if (kind === "provider-unreachable") return t("session_error.title.provider-unreachable");
+  if (kind === "provider-connection-dropped") return t("session_error.title.provider-connection-dropped");
+  if (kind === "model-unavailable") return t("session_error.title.model-unavailable");
+  if (kind === "free-model-limit") return t("session_error.title.free-model-limit");
   if (kind === "gateway-auth-required") return GATEWAY_AUTH_REQUIRED_TITLE;
-  if (kind === "gateway-provider-authentication-failed") return "The provider rejected its credential";
-  if (kind === "gateway-provider-permission-denied") return "The provider denied access";
-  if (kind === "gateway-selection-required") return "Choose a Gateway model group and credential set";
+  if (kind === "gateway-provider-authentication-failed") return t("session_error.title.gateway-provider-authentication-failed");
+  if (kind === "gateway-provider-permission-denied") return t("session_error.title.gateway-provider-permission-denied");
+  if (kind === "gateway-selection-required") return t("session_error.title.gateway-selection-required");
   return fallback;
 }
 
 function errorDescription(kind: OpencodeSessionErrorKind, gatewayAuth: GatewayAuthRequired | null) {
-  if (kind === "session-group-assignment") return "Message not sent. Retry sending to finish assigning the group.";
-  if (kind === "gateway-selection-required") return "More than one access rule can apply. Open the model picker and select the model with the group and credential set you want, then retry. No credential is selected automatically.";
+  if (kind === "session-group-assignment") return t("session_error.body.session-group-assignment");
+  if (kind === "gateway-selection-required") return t("session_error.body.gateway-selection-required");
   if (kind === "disk-full") {
-    return "A storage limit was reported by the task runtime or a connected service. This does not necessarily mean your computer is full. Check the affected service or workspace before freeing local disk space.";
+    return t("session_error.body.disk-full");
   }
   if (kind === "database-error") {
-    return "Try again. If this keeps happening, check the available disk space on the device running this task and restart OpenWork. For a cloud workspace, contact its administrator.";
+    return t("session_error.body.database-error");
   }
   if (kind === "aborted") {
-    return "OpenCode stopped before the task finished. Output and files already produced are kept.";
+    return t("session_error.body.aborted");
   }
   if (kind === "provider-timeout") {
-    return "The provider connection timed out before a response began. Output and files already produced are kept.";
+    return t("session_error.body.provider-timeout");
   }
-  if (kind === "provider-incomplete") return "Some steps may have finished. Check before continuing.";
-  if (kind === "provider-unavailable") return "Try again, or choose another model.";
-  if (kind === "provider-access-denied") return "Choose another model or ask your admin for access.";
-  if (kind === "workspace-unavailable") return "Check the connection, then try again.";
-  if (kind === "provider-credentials") return "Update your connection in model settings.";
-  if (kind === "rate-limited") return "Wait a moment, then try again or choose another model.";
-  if (kind === "conversation-too-long") return "Start a new conversation with a shorter summary, or choose another model.";
-  if (kind === "output-invalid") return "Try again. Check any completed steps before continuing.";
-  if (kind === "output-limit") return "Ask for a shorter response or continue from the last completed section.";
-  if (kind === "attachment-unsupported") return "Remove the attachment or choose a model that supports this file.";
-  if (kind === "network-unavailable") return "Check your connection, then try again.";
-  if (kind === "provider-unreachable") return "Try again, or choose another model.";
-  if (kind === "provider-connection-dropped") return "Try again. Check any completed steps before continuing.";
-  if (kind === "model-unavailable") return "Choose another model to continue.";
+  if (kind === "provider-incomplete") return t("session_error.body.provider-incomplete");
+  if (kind === "provider-unavailable") return t("session_error.body.provider-unavailable");
+  if (kind === "provider-access-denied") return t("session_error.body.provider-access-denied");
+  if (kind === "workspace-unavailable") return t("session_error.body.workspace-unavailable");
+  if (kind === "provider-credentials") return t("session_error.body.provider-credentials");
+  if (kind === "rate-limited") return t("session_error.body.rate-limited");
+  if (kind === "conversation-too-long") return t("session_error.body.conversation-too-long");
+  if (kind === "output-invalid") return t("session_error.body.output-invalid");
+  if (kind === "output-limit") return t("session_error.body.output-limit");
+  if (kind === "attachment-unsupported") return t("session_error.body.attachment-unsupported");
+  if (kind === "network-unavailable") return t("session_error.body.network-unavailable");
+  if (kind === "provider-unreachable") return t("session_error.body.provider-unreachable");
+  if (kind === "provider-connection-dropped") return t("session_error.body.provider-connection-dropped");
+  if (kind === "model-unavailable") return t("session_error.body.model-unavailable");
   if (kind === "free-model-limit") {
-    return "Too many people are using the free model at once. Wait a few minutes and try again, or connect your own model provider in Settings → AI Providers to keep working.";
+    return t("session_error.body.free-model-limit");
   }
   if (kind === "gateway-auth-required") {
-    return gatewayAuth?.message ?? "Your sign-in for this provider is missing or was revoked. Connect it again, then retry.";
+    return gatewayAuth?.message ?? t("session_error.body.gateway-auth-required");
   }
   return null;
 }

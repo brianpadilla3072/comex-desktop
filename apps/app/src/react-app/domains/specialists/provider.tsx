@@ -1,8 +1,9 @@
 /** @jsxImportSource react */
+import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 import { createContext, use, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
-import { BookText, ChevronDown, FolderPlus, Plus, Settings2 } from "lucide-react";
+import { BookText, ChevronDown, Download, FolderPlus, Plus, Settings2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,6 +17,8 @@ import { isDesktopRuntime } from "@/app/utils";
 import { resolveOpenworkConnection } from "@/react-app/shell/openwork-connection";
 import { SpecialistIntegrationsDialog } from "./integrations-dialog";
 import { SpecialistLibraryDialog } from "./library-dialog";
+import { specialistErrorMessage } from "./error-message";
+import { DeleteApplicationDialog, downloadApplicationBundle, importNotice, pickBundleFile } from "./portability";
 
 const DEFAULT_PERSONALITY = "Sos una asistente metódica, clara y amable. Explicá en castellano simple, verificá las fuentes y señalá lo que falte. Priorizá que la persona entienda y pueda defender el resultado.";
 const COMEX_SPECIALTY = "Comercio Exterior: investigaciones, cotizaciones y trabajos académicos con fuentes verificables.";
@@ -31,6 +34,9 @@ type State = {
   createProject: () => void;
   integrations: () => void;
   library: () => void;
+  exportApplication: () => void;
+  importApplication: () => void;
+  deleteApplication: () => void;
   refresh: () => Promise<unknown>;
 };
 const Context = createContext<State | null>(null);
@@ -43,6 +49,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const [projectApplication, setProjectApplication] = useState<SpecialistApplication | null>(null);
   const [integrationApplication, setIntegrationApplication] = useState<SpecialistApplication | null>(null);
   const [libraryApplication, setLibraryApplication] = useState<SpecialistApplication | null>(null);
+  const [deletingApplication, setDeletingApplication] = useState<SpecialistApplication | null>(null);
   const newProject = projectApplication !== null;
   const [projectName, setProjectName] = useState("");
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("specialists.onboarding-dismissed") === "1"; } catch { return false; } });
@@ -64,7 +71,8 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     ? catalog.applications.find(app => app.workspaceIds.includes(workspaceId))
     : catalog.applications.find(app => app.id === catalog.activeApplicationId) ?? catalog.applications[0]) ?? null : null;
   useEffect(() => {
-    if (catalog?.enabled && !catalog.user && !catalog.applications.length && !dismissed) setForm(current => current ?? "create");
+    // Never open a form this connection cannot submit (a browser session only reads).
+    if (catalog?.enabled && catalog.writable !== false && !catalog.user && !catalog.applications.length && !dismissed) setForm(current => current ?? "create");
   }, [catalog, dismissed]);
   useEffect(() => {
     const refresh = () => { void query.refetch(); };
@@ -96,7 +104,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
       const id = app.workspaceIds[0] ?? (await query.data.client.createSpecialistProject(app.id, "Principal")).workspaceId;
       await query.refetch();
       await openWorkspace(id);
-    } catch (cause) { const message = cause instanceof Error ? cause.message : "No se pudo abrir la aplicación."; setError(message); toast.error(message); }
+    } catch (cause) { const message = specialistErrorMessage(cause, "No se pudo abrir la aplicación."); setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   async function saveProject() {
@@ -105,17 +113,55 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     try {
       const result = await query.data.client.createSpecialistProject(projectApplication.id, projectName.trim());
       await query.refetch(); setProjectApplication(null); setProjectName(""); await openWorkspace(result.workspaceId);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear el proyecto."); }
+    } catch (cause) { setError(specialistErrorMessage(cause, "No se pudo crear el proyecto.")); }
     finally { setBusy(false); }
   }
+  async function exportApplication() {
+    if (!active || !query.data || busy) return;
+    setBusy(true); setError(null);
+    try { await downloadApplicationBundle(query.data.client, active); toast.success(`Exportaste ${active.name}.`); }
+    catch (cause) { const message = specialistErrorMessage(cause, "No se pudo exportar la aplicación."); setError(message); toast.error(message); }
+    finally { setBusy(false); }
+  }
+  /** Import a bundle file. `userName` is only needed when this computer has no local profile yet.
+   *  Returns false when the person cancelled the file picker. */
+  async function importApplication(userName?: string): Promise<boolean> {
+    if (!query.data) return false;
+    const bundle = await pickBundleFile();
+    if (bundle === null) return false;
+    const result = await query.data.client.importSpecialistApplication(bundle, userName);
+    await query.refetch();
+    const notice = importNotice(result);
+    if (notice) toast.warning(notice); else toast.success("Aplicación importada.");
+    await openWorkspace(result.workspaceId);
+    return true;
+  }
+  async function importFromMenu() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try { await importApplication(); }
+    catch (cause) { const message = specialistErrorMessage(cause, "No se pudo importar la aplicación."); setError(message); toast.error(message); }
+    finally { setBusy(false); }
+  }
+  async function afterDelete() {
+    const deleted = deletingApplication;
+    setDeletingApplication(null);
+    const refreshed = await query.refetch();
+    const next = refreshed.data?.catalog.applications.find(app => app.id !== deleted?.id);
+    toast.success(`Eliminaste ${deleted?.name ?? "la aplicación"}.`);
+    if (next) await open(next); else navigate("/");
+  }
   const value: State = { client: query.data?.client ?? null, catalog, active, busy, error, create: () => { setError(null); setForm("create"); }, edit: () => { if (active) { setError(null); setForm(active); } }, open,
-    createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active), refresh: query.refetch };
+    createProject: () => { setError(null); setProjectApplication(active); }, integrations: () => setIntegrationApplication(active), library: () => setLibraryApplication(active),
+    exportApplication: () => void exportApplication(), importApplication: () => void importFromMenu(), deleteApplication: () => setDeletingApplication(active), refresh: query.refetch };
   return <Context.Provider value={value}>
     {children}
     {integrationApplication && query.data && catalog?.integrationsEnabled ? <SpecialistIntegrationsDialog app={integrationApplication} client={query.data.client} onClose={() => setIntegrationApplication(null)} onChanged={query.refetch} /> : null}
-    {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled || catalog?.datasetsEnabled || catalog?.sourcesEnabled || catalog?.panelsEnabled || catalog?.outputsEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} library={catalog?.libraryEnabled === true} scheduled={catalog?.scheduledTasksEnabled === true} dryRun={catalog?.taskDryRunEnabled === true} datasets={catalog?.datasetsEnabled === true} sources={catalog?.sourcesEnabled === true} localFiles={catalog?.sourcesLocalFilesEnabled === true} panels={catalog?.panelsEnabled === true} panelApps={catalog?.panelAppsEnabled === true} outputs={catalog?.outputsEnabled === true} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
+    {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled || catalog?.datasetsEnabled || catalog?.sourcesEnabled || catalog?.panelsEnabled || catalog?.outputsEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} library={catalog?.libraryEnabled === true} scheduled={catalog?.scheduledTasksEnabled === true} dryRun={catalog?.taskDryRunEnabled === true} datasets={catalog?.datasetsEnabled === true} sources={catalog?.sourcesEnabled === true} localFiles={catalog?.sourcesLocalFilesEnabled === true} panels={catalog?.panelsEnabled === true} panelApps={catalog?.panelAppsEnabled === true} outputs={catalog?.outputsEnabled === true} readOnly={catalog?.writable === false} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
+    {deletingApplication && query.data && catalog?.portabilityEnabled ? <DeleteApplicationDialog app={deletingApplication} client={query.data.client} onClose={() => setDeletingApplication(null)} onDeleted={afterDelete} /> : null}
     {catalog?.enabled && query.data && form ? <ApplicationForm key={typeof form === "string" ? "create" : form.id} client={query.data.client} catalog={catalog} existing={form === "create" ? null : form} preferredWorkspaceId={workspaceId}
-      onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }} /> : null}
+      onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }}
+      onImport={catalog.portabilityEnabled ? async userName => { const imported = await importApplication(userName); if (imported) { setForm(null); setDismissed(true); } } : undefined} /> : null}
     <Dialog open={newProject} onOpenChange={open => { if (!open) setProjectApplication(null); }}>
       <DialogContent><DialogHeader><DialogTitle>Nuevo proyecto en {projectApplication?.name}</DialogTitle></DialogHeader>
         <form onSubmit={event => { event.preventDefault(); void saveProject(); }} className="grid gap-4">
@@ -129,16 +175,20 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   </Context.Provider>;
 }
 
-function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onClose, onSaved }: {
+function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onClose, onSaved, onImport }: {
   client: OpenworkServerClient; catalog: SpecialistCatalog; existing: SpecialistApplication | null;
   preferredWorkspaceId?: string; onClose: () => void; onSaved: (workspaceId?: string) => Promise<void>;
+  /** Import a bundle instead of creating (feature: specialistAppPortability). */
+  onImport?: (userName?: string) => Promise<void>;
 }) {
   const first = !catalog.user;
+  // With portability on, nothing is preselected: Comercio Exterior is one click away, never a default.
+  const comexFirst = first && !catalog.portabilityEnabled;
   const [userName, setUserName] = useState("");
-  const [name, setName] = useState(existing?.name ?? (first ? "Comex" : ""));
-  const [specialty, setSpecialty] = useState(existing?.specialty ?? (first ? COMEX_SPECIALTY : ""));
+  const [name, setName] = useState(existing?.name ?? (comexFirst ? "Comex" : ""));
+  const [specialty, setSpecialty] = useState(existing?.specialty ?? (comexFirst ? COMEX_SPECIALTY : ""));
   const [personality, setPersonality] = useState(existing?.personality ?? DEFAULT_PERSONALITY);
-  const [template, setTemplate] = useState<"comex" | "custom">(existing?.template ?? (first ? "comex" : "custom"));
+  const [template, setTemplate] = useState<"comex" | "custom">(existing?.template ?? (comexFirst ? "comex" : "custom"));
   const [packPath, setPackPath] = useState("");
   const [summary, setSummary] = useState<SpecialistPackSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,12 +197,20 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
   async function inspect(path: string) {
     setBusy(true); setError(null); setSummary(null);
     try { setSummary(await client.previewSpecialistPack(path ? { packPath: path } : { template: "comex" })); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo revisar la carpeta."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo revisar la carpeta.")); }
     finally { setBusy(false); }
   }
   async function chooseFolder() {
     try { const path = await pickDirectory({ title: "Carpeta de agentes y skills" }); if (typeof path === "string" && path) { setPackPath(path); await inspect(path); } }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo abrir el selector de carpetas."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo abrir el selector de carpetas.")); }
+  }
+  async function importBundle() {
+    if (!onImport) return;
+    if (first && !userName.trim()) { setError("Ingresá tu nombre para importar la aplicación."); return; }
+    setBusy(true); setError(null);
+    try { await onImport(first ? userName.trim() : undefined); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo importar la aplicación.")); }
+    finally { setBusy(false); }
   }
   async function save() {
     setBusy(true); setError(null);
@@ -162,7 +220,7 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
         const result = await client.createSpecialistApplication({ userName: first ? userName : undefined, name, specialty, personality, template, packPath: packPath || undefined, preferredWorkspaceId });
         await onSaved(result.workspaceId);
       }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar la aplicación."); }
+    } catch (cause) { setError(specialistErrorMessage(cause, "No se pudo guardar la aplicación.")); }
     finally { setBusy(false); }
   }
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -187,7 +245,11 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
         </div> : <p className="text-xs text-muted-foreground">Pack importado: {existing.agentCount} {existing.agentCount === 1 ? "agente" : "agentes"} · {existing.skillCount} {existing.skillCount === 1 ? "skill" : "skills"}</p>}
         {!existing ? <p role="status" className="text-xs text-muted-foreground">{engine.data?.running ? engine.data.connectionSource === "installed" ? "OpenCode instalado conectado. Modelos gratuitos primero." : "Motor conectado. Modelos gratuitos primero." : "Conectá un modelo desde el chat después de crear la aplicación."}</p> : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <DialogFooter><Button type="button" variant="ghost" onClick={onClose}>{first ? "Configurar después" : "Cancelar"}</Button><Button type="submit" disabled={busy}>{existing ? "Guardar personalidad" : "Crear aplicación"}</Button></DialogFooter>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose}>{first ? "Configurar después" : "Cancelar"}</Button>
+          {!existing && onImport ? <Button type="button" variant="outline" disabled={busy} onClick={() => void importBundle()}><Upload className="size-4" />Importar aplicación</Button> : null}
+          <Button type="submit" disabled={busy}>{existing ? "Guardar personalidad" : "Crear aplicación"}</Button>
+        </DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;
@@ -197,14 +259,22 @@ export function SpecialistApplicationSwitcher({ fallbackName }: { fallbackName: 
   const state = useSpecialistApplications();
   if (!state?.catalog?.enabled) return <span className="truncate text-[15px] font-medium tracking-[-0.4px]" title={fallbackName}>{fallbackName}</span>;
   const name = state.active?.name ?? fallbackName;
+  const writable = state.catalog.writable !== false;
   return <DropdownMenu>
     <DropdownMenuTrigger render={<Button variant="ghost" className="titlebar-no-drag min-w-0 max-w-full gap-1 px-1 text-[15px]" aria-label="Cambiar aplicación especialista" title={name} disabled={state.busy} />}><span className="truncate">{name}</span><ChevronDown className="size-3 shrink-0" /></DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="w-72">
       {state.catalog.applications.map(app => <DropdownMenuItem key={app.id} onClick={() => void state.open(app)}><span className="min-w-0"><span className="block truncate">{app.name}{app.id === state.active?.id ? " ✓" : ""}</span><span className="block truncate text-xs text-muted-foreground">{app.specialty}</span></span></DropdownMenuItem>)}
       {state.catalog.applications.length ? <DropdownMenuSeparator /> : null}
-      <DropdownMenuItem onClick={state.create}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem>
-      {state.active ? <><DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem>{state.catalog.libraryEnabled || state.catalog.scheduledTasksEnabled || state.catalog.datasetsEnabled || state.catalog.sourcesEnabled || state.catalog.panelsEnabled || state.catalog.outputsEnabled ? <DropdownMenuItem onClick={state.library}><BookText className="size-4" />{state.catalog.libraryEnabled ? "Contexto, agentes y skills" : [state.catalog.scheduledTasksEnabled && "Tareas", state.catalog.datasetsEnabled && "Datos", state.catalog.sourcesEnabled && "Fuentes", state.catalog.panelsEnabled && "Paneles", state.catalog.outputsEnabled && "Salidas"].filter(Boolean).join(" · ")}</DropdownMenuItem> : null}<DropdownMenuItem onClick={state.createProject}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem></> : null}
+      {writable ? <DropdownMenuItem onClick={state.create}><Plus className="size-4" />Nueva aplicación</DropdownMenuItem> : null}
+      {writable && state.catalog.portabilityEnabled ? <DropdownMenuItem onClick={state.importApplication}><Upload className="size-4" />Importar aplicación</DropdownMenuItem> : null}
+      {!writable ? <p className="px-2 py-1 text-xs text-muted-foreground">Crear y modificar aplicaciones está disponible en la app de escritorio o en un dispositivo vinculado. <PairDeviceHint /></p> : null}
+      {state.active ? <>{writable ? <DropdownMenuItem onClick={state.edit}><Settings2 className="size-4" />Personalidad y nombre</DropdownMenuItem> : null}{state.catalog.libraryEnabled || state.catalog.scheduledTasksEnabled || state.catalog.datasetsEnabled || state.catalog.sourcesEnabled || state.catalog.panelsEnabled || state.catalog.outputsEnabled ? <DropdownMenuItem onClick={state.library}><BookText className="size-4" />{state.catalog.libraryEnabled ? "Contexto, agentes y skills" : [state.catalog.scheduledTasksEnabled && "Tareas", state.catalog.datasetsEnabled && "Datos", state.catalog.sourcesEnabled && "Fuentes", state.catalog.panelsEnabled && "Paneles", state.catalog.outputsEnabled && "Salidas"].filter(Boolean).join(" · ")}</DropdownMenuItem> : null}{writable ? <DropdownMenuItem onClick={state.createProject}><FolderPlus className="size-4" />Nuevo proyecto</DropdownMenuItem> : null}</> : null}
       {state.active && state.catalog.integrationsEnabled ? <DropdownMenuItem onClick={state.integrations}><Settings2 className="size-4" />Herramientas y fuentes</DropdownMenuItem> : null}
+      {state.active && writable && state.catalog.portabilityEnabled ? <>
+        <DropdownMenuItem onClick={state.exportApplication}><Download className="size-4" />Exportar aplicación</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={state.deleteApplication}><Trash2 className="size-4" />Eliminar aplicación</DropdownMenuItem>
+      </> : null}
       {state.error ? <p role="alert" className="px-2 py-1 text-xs text-destructive">{state.error}</p> : null}
     </DropdownMenuContent>
   </DropdownMenu>;

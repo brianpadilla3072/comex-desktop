@@ -128,3 +128,26 @@ test("CLI runner passes shell-looking queries literally and honors cancellation"
   const running = runTavilyCommand(process.execPath, ["-e", "setTimeout(()=>{},10000)"], { signal: controller.signal });
   controller.abort(); await assert.rejects(() => running, /canceló/);
 });
+
+// w6-6 (local hive QA): a pack update wrote project files without updating specialist-sync.json or
+// the library manifest, so the next library sync wrote a false .nuevo for every updated file and
+// every pack file showed as the person's own.
+test("after a pack update the next sync reports no conflicts and pack files stay official", async () => {
+  const f = await setup();
+  try {
+    const factory = createPackFactory(f.config);
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias.");
+    const review = await factory.preview(f.app.id, f.source);
+    const result = await factory.update(f.app.id, f.source, review.fingerprint);
+    assert.ok(result.applied > 0);
+    const { syncSpecialistWorkspace } = await import("../src/specialists/sync.js");
+    const { listSpecialistLibrary } = await import("../src/specialists/library.js");
+    const sync = await syncSpecialistWorkspace(f.config, f.store.application(f.app.id), f.project);
+    assert.deepEqual(sync.conflicts, []);
+    await assert.rejects(readFile(join(f.project, ".opencode/commands/revisar.md.nuevo"), "utf8"));
+    const library = await listSpecialistLibrary(f.config, f.app.id);
+    const entries = [...library.agents, ...library.skills, ...(library.files ?? [])];
+    assert.ok(entries.length > 0);
+    assert.equal(entries.some(entry => entry.origin === "custom"), false);
+  } finally { await f.close(); }
+});

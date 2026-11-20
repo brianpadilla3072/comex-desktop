@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { subscribeToQueryCacheChanges } from "@/react-app/infra/query-cache-state";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TaskRecovery } from "@/components/chat/task-recovery";
@@ -72,7 +73,7 @@ export function useObservedAutoAccessSnapshot(override?: AutoAccessWorkspace) {
   const auth = useDenAuth();
   const client = useQueryClient();
   const queryKey = autoAccessStatusQueryKey(auth, workspace?.openworkServerClient?.baseUrl, workspace?.workspaceId);
-  const subscribe = useCallback((onChange: () => void) => client.getQueryCache().subscribe(onChange), [client]);
+  const subscribe = useCallback((onChange: () => void) => subscribeToQueryCacheChanges(client, onChange), [client]);
   return useSyncExternalStore(subscribe, () => client.getQueryState<DesktopFreeAccessStatus>(queryKey), () => undefined);
 }
 

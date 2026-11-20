@@ -27,9 +27,9 @@ está preservado, que el mensaje original se perdió) quedan fuera o se etiqueta
    con su minuto.
 4. **Verificar cada afirmación** contra fuentes académicas mainstream (críticas Y
    conservadoras), con links verificables.
-5. **Armar el HTML** copiando `comex-pack/skills/borrador-html/templates/base-informe.html`,
+5. **Armar el HTML** copiando `../borrador-html/templates/base-informe.html`,
    escribiendo SOLO dentro de `<main>`, completando los `data-*` del `<header>`.
-6. **Validar**: `python3 comex-pack/skills/borrador-html/scripts/validar_html.py <archivo>`.
+6. **Validar**: `python3 ../borrador-html/scripts/validar_html.py <archivo>`.
 7. **Auditoría final obligatoria**: re-leer el informe entero buscando errores
    propios (datos inventados, citas mal atribuidas, números sin fuente, anacronismos).
    Corregir todo lo que no se sostenga con la fuente citada. Ver sección "Auditoría".
@@ -126,7 +126,7 @@ informe depende de que el autor no cometa los mismos errores que el video.
 
 ## Componentes disponibles
 
-Ver `comex-pack/skills/borrador-html/references/componentes.md` para la lista
+Ver `../borrador-html/references/componentes.md` para la lista
 cerrada de clases (`.badge`, `.kpi-grid`, `.tabla-datos`, `.callout`, `.callout--alerta`,
 `<details>`, `.tabs`, etc.). Prohibido inventar clases o usar `style=""`.
 Validar siempre con `validar_html.py` antes de mostrar.

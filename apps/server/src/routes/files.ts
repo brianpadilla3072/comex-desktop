@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
 import { link, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -225,7 +225,21 @@ function resolveSafeChildPath(root: string, child: string): string {
   if (!candidate.startsWith(rootResolved + sep)) {
     throw new ApiError(400, "invalid_path", "Path traversal is not allowed");
   }
+  // The text check alone lets a symlink inside the workspace read or write outside it. Resolve the
+  // deepest part of the path that exists (the file, or its folder for a new file) and require the
+  // real location to stay inside the real root.
+  const realRoot = realpathOrNull(rootResolved) ?? rootResolved;
+  let existing = candidate;
+  while (existing !== rootResolved && !existsSync(existing)) existing = dirname(existing);
+  const realExisting = realpathOrNull(existing);
+  if (realExisting && realExisting !== realRoot && !realExisting.startsWith(realRoot + sep)) {
+    throw new ApiError(400, "invalid_path", "Path leaves the workspace through a symbolic link");
+  }
   return candidate;
+}
+
+function realpathOrNull(path: string): string | null {
+  try { return realpathSync(path); } catch { return null; }
 }
 
 function encodeArtifactId(path: string): string {

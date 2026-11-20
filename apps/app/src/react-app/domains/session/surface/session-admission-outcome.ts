@@ -43,6 +43,20 @@ export function findLastUserMessageIndex(messages: readonly UIMessage[]): number
   return latest;
 }
 
+/** The engine reports a run the person stopped as MessageAbortedError. */
+export function abortedMarker(info: unknown): { aborted?: true } {
+  if (!info || typeof info !== "object" || !("error" in info)) return {};
+  const error = info.error;
+  return error && typeof error === "object" && "name" in error && error.name === "MessageAbortedError" ? { aborted: true } : {};
+}
+
+function messageAborted(message: UIMessage): boolean {
+  const metadata = message.metadata;
+  if (!metadata || typeof metadata !== "object" || !("opencode" in metadata)) return false;
+  const info = metadata.opencode;
+  return Boolean(info && typeof info === "object" && "aborted" in info && info.aborted === true);
+}
+
 function messageIdentity(message: UIMessage): { parentID?: string; created?: number } {
   const metadata = message.metadata;
   if (!metadata || typeof metadata !== "object" || !("opencode" in metadata)) return {};
@@ -91,6 +105,10 @@ export function resolveAdmissionOutcome(input: AdmissionOutcomeInput): Admission
     return parentID === undefined ? index > lastUserIndex : parentID === user.id;
   });
   if (answered) return "settled";
+  // Stopped on purpose (Detener / Escape): nothing to recover, so no "couldn't confirm" card.
+  const stopped = input.messages.some((message, index) => message.role === "assistant" && messageAborted(message)
+    && (messageIdentity(message).parentID ?? (index > lastUserIndex ? user.id : undefined)) === user.id);
+  if (stopped) return "settled";
   if (input.hasSessionError) return "settled";
   if (input.sending || input.statusType !== "idle") return "pending";
   if (input.hasActiveQuestion || input.hasActivePermission) return "pending";

@@ -113,7 +113,7 @@ function normalizePlatform(value) {
   return value === "win32" || value === "darwin" || value === "linux" ? value : "linux";
 }
 
-function resolveNukeEnvironment({ env = {}, homedir, platform, userDataPath }) {
+export function resolveNukeEnvironment({ env = {}, homedir, platform, userDataPath }) {
   const normalizedPlatform = normalizePlatform(platform);
   const paths = pathApi(normalizedPlatform);
   /** @type {Record<string, string | undefined>} */
