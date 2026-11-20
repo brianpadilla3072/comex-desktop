@@ -896,6 +896,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  webNotifications: {
+    label: "Web notifications",
+    description: "In the web app (for example, from a phone or another tab over remote access), a browser notification tells the person when a chat turn or a scheduled task finishes or fails while the tab is hidden, following the existing notification preference. Clicking it opens the session. Permission is asked from Settings, never on its own.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/web-notifications/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
 })
 
 export type FeatureKey = keyof typeof FEATURES

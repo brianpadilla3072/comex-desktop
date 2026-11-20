@@ -497,6 +497,11 @@ function admitRelatedSession(entry: SyncEntry, sessionId: string) {
   if (!isTrackedSession(entry, sessionId)) retainSession(entry.input, entry, sessionId);
 }
 
+function isKnownChildSession(workspaceId: string, sessionId: string) {
+  const records = useSessionActivityStore.getState().recordsByWorkspaceId[workspaceId];
+  return Object.values(records ?? {}).some((record) => record.childSessionIds.includes(sessionId));
+}
+
 function discoverTaskSessions(entry: SyncEntry, parentId: string) {
   if (!isTrackedSession(entry, parentId)) return;
   const records = useSessionActivityStore.getState().recordsByWorkspaceId[entry.input.workspaceId];
@@ -1360,7 +1365,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
         });
         trackTaskFailed(sessionId, Date.now() - runStartedAt);
       }
-      notifyDesktopEvent({ type: "task.failed", sessionId, errorText });
+      notifyDesktopEvent({ type: "task.failed", sessionId, workspaceId, errorText });
       useSessionActivityStore.getState().setError(workspaceId, sessionId, errorText);
       stopTrackingLiveSession(entry, sessionId);
       if (isTrackedSession(entry, sessionId)) {
@@ -1435,6 +1440,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "permission.asked",
       sessionId: permission.sessionID,
+      workspaceId,
       detail: permissionNotificationDetail(permission),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, permission.sessionID, "permission", permission.id, true);
@@ -1457,6 +1463,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "permission.asked",
       sessionId: permission.sessionID,
+      workspaceId,
       detail: permissionNotificationDetail(permission),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, permission.sessionID, "permission", permission.id, true);
@@ -1486,6 +1493,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "question.asked",
       sessionId: question.sessionID,
+      workspaceId,
       question: questionNotificationText(question),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, question.sessionID, "question", question.id, true);
@@ -1924,8 +1932,17 @@ function applySessionRunStatus(
       });
       trackTaskCompleted(sessionId, Date.now() - runStartedAt);
       noteActivationRunCompleted(sessionId, Date.now() - runStartedAt);
-      notifyDesktopEvent({ type: "task.completed", sessionId });
+      notifyDesktopEvent({ type: "task.completed", sessionId, workspaceId });
       entry.titleRecovery?.observe(sessionId);
+    } else if (
+      wasLive
+      && (options.completed ?? !v2)
+      && entry.gatewayUsageRuns.get(sessionId)?.failed !== true
+      && !isKnownChildSession(workspaceId, sessionId)
+    ) {
+      // A run this window only watched (a scheduled task, another device or
+      // tab) finished. Subagent sessions stay quiet: their parent reports.
+      notifyDesktopEvent({ type: "task.completed", sessionId, workspaceId, observed: true });
     }
     const shouldRecordTerminal = wasLive || runStartedAt !== null;
     const shouldConvergeTerminal = shouldRecordTerminal || options.terminalEvent === true;

@@ -167,3 +167,10 @@ export function webFolderBrowserEnabled(env: NodeJS.ProcessEnv = process.env): b
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("webFolderBrowser", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Browser notifications for finished or failed turns in the web app (`webNotifications`). */
+export function webNotificationsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("webNotifications", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

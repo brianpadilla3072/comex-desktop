@@ -48,6 +48,7 @@ import {
   type ConnectPolicyTarget,
 } from "./connect-policy-reconciler";
 import { useDenAuth } from "./den-auth-provider";
+import { setWebNotificationsFeatureEnabled } from "../../shell/web-notifications";
 import {
   bootstrapBrandingFromDesktopConfig,
   bootstrapBrandingNeedsSync,
@@ -285,7 +286,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); }
+          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
@@ -295,11 +296,12 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           setConversationNavigator(feature.conversationNavigator === true);
           setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
+          setWebNotificationsFeatureEnabled(feature.webNotifications === true);
           // Comex screens are in Spanish: suggest Spanish unless the person
           // chose a language. Reload once so every screen switches together.
           if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();
         }
-      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); } }
+      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);

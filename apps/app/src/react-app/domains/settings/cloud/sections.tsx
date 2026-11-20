@@ -106,9 +106,9 @@ function resourceStatusTone(status: string) {
 function cloudProviderStatusLabel(status: CloudProviderRowStatus) {
   switch (status) {
     case "credential_unverified":
-      return "Not checked yet";
+      return t("ai_providers.status_not_checked");
     case "credential_rejected":
-      return "Key not accepted";
+      return t("ai_providers.status_key_rejected");
     case "connected":
       return t("den.cloud_provider_connected");
     case "syncing":
@@ -204,7 +204,7 @@ interface CloudProviderListItemProps {
 function cloudProviderRowStatus(status: CloudProviderRowStatus) {
   switch (status) {
     case "connected":
-      return <ProviderStatus tone="ready">Ready to use</ProviderStatus>;
+      return <ProviderStatus tone="ready">{t("ai_providers.status_ready")}</ProviderStatus>;
     case "error":
     case "conflict":
       return <ProviderStatus tone="error">{cloudProviderStatusLabel(status)}</ProviderStatus>;
@@ -230,7 +230,7 @@ function CloudProviderListItem({ actionId, row, onRetry }: CloudProviderListItem
       status={cloudProviderRowStatus(status)}
       meta={<ProviderMeta id={row.metaId} parts={[row.detail]} />}
       aside={row.access ? <><Users className="size-3.5" aria-hidden />{row.access}</> : null}
-      actions={status === "credential_rejected" ? <span className="text-xs text-muted-foreground">Contact your admin</span> : row.status === "error" && row.provider ? (
+      actions={status === "credential_rejected" ? <span className="text-xs text-muted-foreground">{t("ai_providers.contact_admin")}</span> : row.status === "error" && row.provider ? (
         <Button
           variant="outline"
           size="sm"
@@ -260,7 +260,7 @@ export interface CloudProvidersSectionProps {
 
 export function CloudProvidersSection({ actionError, actionId, busy, rows, onRefresh, onRetry, onOpenDen, onOpenModelConnections, lastVerifiedAt, additionalRows, additionalCount = 0 }: CloudProvidersSectionProps) {
   const { hasActiveOrg, activeOrgName } = useCloudSession();
-  const organizationName = activeOrgName || "your organization";
+  const organizationName = activeOrgName || t("ai_providers.your_organization");
   const verified = lastVerifiedAt ? new Date(lastVerifiedAt) : null;
   const timestamp = verified && Number.isFinite(verified.getTime()) ? formatRelativeTime(verified.getTime()) : null;
   const providerCount = rows.length + additionalCount;
@@ -270,25 +270,25 @@ export function CloudProvidersSection({ actionError, actionId, busy, rows, onRef
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
           {activeOrgName ? <OrganizationMark name={activeOrgName} /> : null}
-          <h2 id="ai-providers-organization" className="min-w-0 truncate text-base font-medium text-dls-text">From {organizationName}</h2>
-          <span className="shrink-0 rounded-full bg-blue-3 px-2 py-0.5 text-xs font-medium text-blue-11">Managed in Den</span>
+          <h2 id="ai-providers-organization" className="min-w-0 truncate text-base font-medium text-dls-text">{t("ai_providers.from_organization", { organization: organizationName })}</h2>
+          <span className="shrink-0 rounded-full bg-blue-3 px-2 py-0.5 text-xs font-medium text-blue-11">{t("ai_providers.managed_in_den")}</span>
         </div>
         <div className="-mr-2 flex shrink-0 items-center gap-1">
-          {onOpenModelConnections ? <Button variant="ghost" size="sm" onClick={onOpenModelConnections}>My model connections</Button> : null}
-          {onOpenDen ? <Button variant="ghost" size="sm" onClick={onOpenDen}>Open in Den<ArrowUpRight className="size-3.5" aria-hidden /></Button> : null}
+          {onOpenModelConnections ? <Button variant="ghost" size="sm" onClick={onOpenModelConnections}>{t("ai_providers.my_model_connections")}</Button> : null}
+          {onOpenDen ? <Button variant="ghost" size="sm" onClick={onOpenDen}>{t("ai_providers.open_in_den")}<ArrowUpRight className="size-3.5" aria-hidden /></Button> : null}
         </div>
       </div>
-      <p className="text-sm text-muted-foreground">Your organization pays for and manages these. Members call them through the OpenWork Gateway; upstream credentials never reach this device.</p>
+      <p className="text-sm text-muted-foreground">{t("ai_providers.org_managed_desc")}</p>
     </div>
     {actionError ? <SettingsNotice tone="error">{actionError}</SettingsNotice> : null}
-    {busy && !providerCount ? <div role="status" aria-label="Loading organization providers" className="grid gap-2">{[0, 1].map((key) => <div key={key} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div> : null}
+    {busy && !providerCount ? <div role="status" aria-label={t("ai_providers.loading_org_providers")} className="grid gap-2">{[0, 1].map((key) => <div key={key} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div> : null}
     {!busy && !providerCount ? <SettingsListEmptyState>{hasActiveOrg ? t("den.no_cloud_providers") : t("den.choose_org_for_providers")}</SettingsListEmptyState> : null}
     {providerCount ? <ProviderList>
       {rows.map((row) => <CloudProviderListItem key={row.key} actionId={actionId} row={row} onRetry={onRetry} />)}
       {additionalRows}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-dls-surface-muted px-4 py-2.5 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2"><RefreshCcw className="size-3.5" aria-hidden />{timestamp ? `Synced with Den ${timestamp}` : "Not synced with Den yet"} · {providerCount === 1 ? "1 provider" : `${providerCount} providers`}, {credentialCount === 1 ? "1 credential" : `${credentialCount} credentials`}</span>
-        <Button variant="ghost" size="sm" disabled={busy || !hasActiveOrg} onClick={() => void onRefresh()}>{busy ? "Syncing…" : "Sync now"}</Button>
+        <span className="inline-flex items-center gap-2"><RefreshCcw className="size-3.5" aria-hidden />{timestamp ? t("ai_providers.synced_with_den", { time: timestamp }) : t("ai_providers.not_synced_with_den")} · {t("ai_providers.provider_count", { count: providerCount })}, {t("ai_providers.credential_count", { count: credentialCount })}</span>
+        <Button variant="ghost" size="sm" disabled={busy || !hasActiveOrg} onClick={() => void onRefresh()}>{busy ? t("ai_providers.syncing") : t("ai_providers.sync_now")}</Button>
       </div>
     </ProviderList> : null}
   </section>;

@@ -5,6 +5,7 @@ import type { LocalProviderEngineState } from "../../connections/provider-auth/l
 import type { ProviderCredentialHealth } from "../../connections/provider-auth/credential-health";
 import { ProviderIcon } from "../../../design-system/provider-icon";
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
+import { t } from "@/i18n";
 
 // Shared rows for Settings › AI Providers and the Connect a provider sheet,
 // so both surfaces render a provider the same way (Paper boards 09–11).
@@ -55,16 +56,16 @@ export function ProviderStatus({ tone, children }: { tone: ProviderStatusTone; c
  * engine yet. Never "Ready to use" for a provider the engine skipped.
  */
 export function CredentialHealthStatus({ health }: { health: ProviderCredentialHealth }) {
-  if (health === "rejected") return <ProviderStatus tone="attention">Key not accepted</ProviderStatus>;
-  if (health === "unverified") return <ProviderStatus tone="neutral">Not checked yet</ProviderStatus>;
-  return <ProviderStatus tone="ready">Ready to use</ProviderStatus>;
+  if (health === "rejected") return <ProviderStatus tone="attention">{t("ai_providers.status_key_rejected")}</ProviderStatus>;
+  if (health === "unverified") return <ProviderStatus tone="neutral">{t("ai_providers.status_not_checked")}</ProviderStatus>;
+  return <ProviderStatus tone="ready">{t("ai_providers.status_ready")}</ProviderStatus>;
 }
 
 export function LocalProviderStatus({ state, organizationName, credentialHealth }: { state?: LocalProviderEngineState; organizationName?: string; credentialHealth?: ProviderCredentialHealth }) {
-  if (state === "managed_by_organization") return <ProviderStatus tone="locked">{organizationName || "Your organization"} manages AI providers</ProviderStatus>;
-  if (state === "not_on_engine") return <ProviderStatus tone="neutral">Not available on the new engine yet</ProviderStatus>;
+  if (state === "managed_by_organization") return <ProviderStatus tone="locked">{t("ai_providers.status_org_managed", { organization: organizationName || t("ai_providers.your_organization_title") })}</ProviderStatus>;
+  if (state === "not_on_engine") return <ProviderStatus tone="neutral">{t("ai_providers.status_not_on_engine")}</ProviderStatus>;
   if (credentialHealth) return <CredentialHealthStatus health={credentialHealth} />;
-  return <ProviderStatus tone="ready">Ready to use</ProviderStatus>;
+  return <ProviderStatus tone="ready">{t("ai_providers.status_ready")}</ProviderStatus>;
 }
 
 /** One meta line: an optional monospace id, then plain parts joined by middle dots. */

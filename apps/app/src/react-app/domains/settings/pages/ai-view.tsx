@@ -69,9 +69,9 @@ export type AiSettingsViewProps = {
 };
 
 function deviceSourceLabel(source: ConnectedProvider["source"]) {
-  if (source === "api") return "API key";
-  if (source === "env") return "Environment credential";
-  return "Configured on this device";
+  if (source === "api") return t("ai_providers.source_api_key");
+  if (source === "env") return t("ai_providers.source_env");
+  return t("ai_providers.source_config");
 }
 
 export function GatewayConnectRow({ provider, busy, onConnect, onCancel }: {
@@ -85,21 +85,21 @@ export function GatewayConnectRow({ provider, busy, onConnect, onCancel }: {
       scope="organization"
       tile={<ProviderTile providerId={provider.providerId} name={provider.name} />}
       name={provider.name}
-      status={<ProviderStatus tone="attention">Needs your sign-in</ProviderStatus>}
-      meta={<ProviderMeta id={provider.cloudProviderId} parts={["OpenWork Gateway", "Each member signs in"]} />}
+      status={<ProviderStatus tone="attention">{t("ai_providers.needs_sign_in")}</ProviderStatus>}
+      meta={<ProviderMeta id={provider.cloudProviderId} parts={["OpenWork Gateway", t("ai_providers.each_member_signs_in")]} />}
       actions={<>
-        <Button disabled={busy || !onConnect} onClick={() => void onConnect?.(provider)}>{busy ? "Waiting for sign-in…" : `Sign in to ${provider.name}`}</Button>
-        {busy && onCancel ? <Button variant="ghost" onClick={onCancel}>Stop waiting</Button> : null}
+        <Button disabled={busy || !onConnect} onClick={() => void onConnect?.(provider)}>{busy ? t("ai_providers.waiting_for_sign_in") : t("ai_providers.sign_in_to", { name: provider.name })}</Button>
+        {busy && onCancel ? <Button variant="ghost" onClick={onCancel}>{t("ai_providers.stop_waiting")}</Button> : null}
       </>}
     />
   );
 }
 
 export function aiProvidersDescription(input: { signedIn: boolean; organizationName?: string }) {
-  const base = "Models your agents can use in this workspace. Keys you add here stay on this device.";
+  const base = t("ai_providers.description");
   return input.signedIn
-    ? `${base} Providers from ${input.organizationName || "your organization"} are included automatically and run through the OpenWork Gateway.`
-    : `${base} Sign in to OpenWork to also get the providers your organization already pays for.`;
+    ? `${base} ${t("ai_providers.description_signed_in", { organization: input.organizationName || t("ai_providers.your_organization") })}`
+    : `${base} ${t("ai_providers.description_signed_out")}`;
 }
 
 export function AiSettingsView(props: AiSettingsViewProps) {
@@ -132,20 +132,20 @@ export function AiSettingsView(props: AiSettingsViewProps) {
         <SettingsPanelDescription>{aiProvidersDescription({ signedIn, organizationName: props.organizationName })}</SettingsPanelDescription>
       </SettingsPanelHeading>
       <Button className="shrink-0 self-start" disabled={locked || props.busy || props.providerAuthBusy || !ready} onClick={() => void props.onOpenProviderAuth()}>
-        {locked ? <Lock className="size-4" /> : <Plus className="size-4" />}Connect a provider
+        {locked ? <Lock className="size-4" /> : <Plus className="size-4" />}{t("ai_providers.connect")}
       </Button>
     </SettingsPanel>
 
-    {locked ? <p className="-mt-3 text-xs text-muted-foreground">Provider connections are managed by your organization administrator.</p> : null}
+    {locked ? <p className="-mt-3 text-xs text-muted-foreground">{t("ai_providers.locked_hint")}</p> : null}
     {error ? <SettingsNotice tone="error" className="flex flex-wrap items-center justify-between gap-3"><div role="alert"><p>{error}</p>{props.connectedProviders.length ? <p>{t("settings.providers_not_refreshed")}</p> : null}</div><Button variant="outline" disabled={props.busy || loading} aria-busy={loading} onClick={() => void props.onRetryProviders()}>{t("settings.providers_retry")}</Button></SettingsNotice> : null}
 
     <section className="flex flex-col gap-3" aria-labelledby="ai-providers-device">
       <div className="space-y-1">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 id="ai-providers-device" className="text-base font-medium text-dls-text">On this device</h2>
-          {ready ? <span className="text-xs text-muted-foreground">{deviceCount === 1 ? "1 provider" : `${deviceCount} providers`}</span> : null}
+          <h2 id="ai-providers-device" className="text-base font-medium text-dls-text">{t("ai_providers.on_this_device")}</h2>
+          {ready ? <span className="text-xs text-muted-foreground">{t("ai_providers.provider_count", { count: deviceCount })}</span> : null}
         </div>
-        <p className="text-sm text-muted-foreground">{signedIn ? "Signed in or pasted by you. Keys never leave this device and only you can disconnect them." : "Works without an account. Keys you paste never leave this device and only you can disconnect them."}</p>
+        <p className="text-sm text-muted-foreground">{signedIn ? t("ai_providers.device_desc_signed_in") : t("ai_providers.device_desc_signed_out")}</p>
       </div>
 
       {loading && !props.connectedProviders.length ? <div role="status" aria-label={t("settings.loading_providers")} className="grid gap-2">{[0, 1].map((key) => <div key={key} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div> : null}
@@ -156,12 +156,12 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           scope="device"
           tile={<ProviderTile providerId="openwork" />}
           name="OpenWork Models"
-          status={autoOff ? <ProviderStatus tone="neutral">Turned off</ProviderStatus>
-            : props.autoError ? <ProviderStatus tone="error">Could not verify</ProviderStatus>
-            : autoAvailable ? <ProviderStatus tone="ready">Ready to use</ProviderStatus>
-            : <ProviderStatus tone="neutral">Unavailable</ProviderStatus>}
+          status={autoOff ? <ProviderStatus tone="neutral">{t("ai_providers.status_turned_off")}</ProviderStatus>
+            : props.autoError ? <ProviderStatus tone="error">{t("ai_providers.status_could_not_verify")}</ProviderStatus>
+            : autoAvailable ? <ProviderStatus tone="ready">{t("ai_providers.status_ready")}</ProviderStatus>
+            : <ProviderStatus tone="neutral">{t("ai_providers.status_unavailable")}</ProviderStatus>}
           meta={<ProviderMeta id="openwork" parts={[autoProviderSubtitle()]} />}
-          actions={props.onSetAutoEnabled ? <Button variant="ghost" disabled={props.autoBusy || (autoOff && !props.autoPreferences?.canEnable)} onClick={() => void props.onSetAutoEnabled?.(autoOff)}>{autoOff ? "Turn on" : "Turn off"}</Button> : null}
+          actions={props.onSetAutoEnabled ? <Button variant="ghost" disabled={props.autoBusy || (autoOff && !props.autoPreferences?.canEnable)} onClick={() => void props.onSetAutoEnabled?.(autoOff)}>{autoOff ? t("ai_providers.turn_on") : t("ai_providers.turn_off")}</Button> : null}
         /> : null}
         {local.map((provider) => <ProviderRow
           key={provider.id}
@@ -170,11 +170,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           tile={<ProviderTile providerId={provider.id} name={provider.name} />}
           name={provider.name}
           status={<LocalProviderStatus state={props.localProviderStates?.get(provider.id)} organizationName={props.organizationName} credentialHealth={providerHealth(provider.id)} />}
-          meta={<ProviderMeta id={provider.id} parts={[deviceSourceLabel(provider.source), props.organizationProviderIds?.has(provider.id) ? `also available from ${props.organizationName || "your organization"}` : null, needsCredentialRecovery(provider.id) && provider.source === "env" ? "Update the environment credential, then restart the workspace." : null]} />}
+          meta={<ProviderMeta id={provider.id} parts={[deviceSourceLabel(provider.source), props.organizationProviderIds?.has(provider.id) ? t("ai_providers.also_available_from", { organization: props.organizationName || t("ai_providers.your_organization") }) : null, needsCredentialRecovery(provider.id) && provider.source === "env" ? t("ai_providers.update_env_hint") : null]} />}
           actions={needsCredentialRecovery(provider.id) && provider.source === "env"
-            ? <span className="text-xs text-muted-foreground" title="Update the environment credential, then restart the workspace.">Update environment</span>
+            ? <span className="text-xs text-muted-foreground" title={t("ai_providers.update_env_hint")}>{t("ai_providers.update_env")}</span>
             : needsCredentialRecovery(provider.id)
-            ? <Button variant="outline" disabled={rowsBusy || !ready || locked || !props.onReplaceProviderKey} onClick={() => void props.onReplaceProviderKey?.(provider.id)}>Replace key</Button>
+            ? <Button variant="outline" disabled={rowsBusy || !ready || locked || !props.onReplaceProviderKey} onClick={() => void props.onReplaceProviderKey?.(provider.id)}>{t("ai_providers.replace_key")}</Button>
             : <Button variant="ghost" disabled={rowsBusy || !ready || !props.canDisconnectProvider(provider)} onClick={() => void props.onDisconnectProvider(provider.id)}>{props.disconnectingProviderId === provider.id ? t("settings.disconnecting") : props.canDisconnectProvider(provider) ? t("settings.disconnect") : t("settings.managed_by_env")}</Button>}
         />)}
         {disabled.map((provider) => <ProviderRow
@@ -190,7 +190,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
       </ProviderList> : ready ? <p className="text-sm text-muted-foreground">{t("settings.no_providers_connected")}</p> : null}
 
       {props.autoError ? <SettingsNotice tone="error">{props.autoError}</SettingsNotice> : null}
-      {props.autoPreferences && !props.autoPreferences.canEnable ? <p className="text-xs text-muted-foreground">OpenWork Free is unavailable on this device or blocked by your organization administrator.</p> : null}
+      {props.autoPreferences && !props.autoPreferences.canEnable ? <p className="text-xs text-muted-foreground">{t("ai_providers.auto_unavailable")}</p> : null}
       {props.providerConnectError ? <SettingsNotice tone="error">{props.providerConnectError}</SettingsNotice> : null}
       {props.providerDisconnectStatus ? <SettingsNotice>{props.providerDisconnectStatus}</SettingsNotice> : null}
       {props.providerDisconnectError ? <SettingsNotice tone="error">{props.providerDisconnectError}</SettingsNotice> : null}
@@ -198,11 +198,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
 
     {props.cloudProvidersView ?? (organization.length || props.gatewayConnectProviders?.length ? <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-medium text-dls-text">From {props.organizationName || "your organization"}</h2>
-        {props.onOpenDen ? <Button variant="ghost" onClick={props.onOpenDen}>Open in Den</Button> : null}
+        <h2 className="text-base font-medium text-dls-text">{t("ai_providers.from_organization", { organization: props.organizationName || t("ai_providers.your_organization") })}</h2>
+        {props.onOpenDen ? <Button variant="ghost" onClick={props.onOpenDen}>{t("ai_providers.open_in_den")}</Button> : null}
       </div>
       <ProviderList>
-        {organization.map((provider) => <ProviderRow key={provider.id} scope="organization" tile={<ProviderTile providerId={provider.id} name={provider.name} />} name={provider.name} status={<CredentialHealthStatus health={providerHealth(provider.id)} />} meta={<ProviderMeta id={provider.id} parts={["Managed in Den"]} />} actions={providerHealth(provider.id) === "rejected" ? <span className="text-xs text-muted-foreground">Contact your admin</span> : null} />)}
+        {organization.map((provider) => <ProviderRow key={provider.id} scope="organization" tile={<ProviderTile providerId={provider.id} name={provider.name} />} name={provider.name} status={<CredentialHealthStatus health={providerHealth(provider.id)} />} meta={<ProviderMeta id={provider.id} parts={[t("ai_providers.managed_in_den")]} />} actions={providerHealth(provider.id) === "rejected" ? <span className="text-xs text-muted-foreground">{t("ai_providers.contact_admin")}</span> : null} />)}
         {props.gatewayConnectProviders?.map((provider) => <GatewayConnectRow key={gatewayConnectProviderKey(provider)} provider={provider} busy={props.connectingGatewayProviderId === gatewayConnectProviderKey(provider)} onConnect={props.onConnectGatewayProvider} onCancel={props.onCancelGatewayConnect} />)}
       </ProviderList>
     </section> : null)}

@@ -98,6 +98,7 @@ config:
     outlookAttachments: ""        # default off · Agents read the files attached to Outlook messages and create Outlook drafts and replies with workspace files attached, after the member approves each draft. Drafts are never sent.
     agentEcosystem: ""            # default off · Coordinate several agents across projects with a shared need board (atomic claim), a cross-project index and a deliverables board. External actions still use the native permission system.
     webApprovals: ""              # default on · openwork-server web keeps manual approvals: the web app shows pending changes to people with owner access (the host or a paired device) to approve or deny, and changes that nobody can approve are rejected at once with a clear message. Off, the web server approves every gated change automatically.
+    webNotifications: ""          # default on · In the web app (for example, from a phone or another tab over remote access), a browser notification tells the person when a chat turn or a scheduled task finishes or fails while the tab is hidden, following the existing notification preference. Clicking it opens the session. Permission is asked from Settings, never on its own.
   # END GENERATED features
   administratorRecovery:
     # Processed only with config.features.administratorRecovery on. Flag off is a

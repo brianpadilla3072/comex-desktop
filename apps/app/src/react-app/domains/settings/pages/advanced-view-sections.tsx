@@ -741,26 +741,26 @@ export function AdvancedEngineV2PreviewSection(props: { client: OpenworkServerCl
   const engineNote = engine.blockedReason ?? engine.v1Locked;
   return (
     <LayoutSection id="advanced-experimental-engine">
-      <LayoutSectionHeader><LayoutSectionTitle>OpenCode engine</LayoutSectionTitle></LayoutSectionHeader>
+      <LayoutSectionHeader><LayoutSectionTitle>{t("engine_settings.title")}</LayoutSectionTitle></LayoutSectionHeader>
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Chat engine</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("engine_settings.chat_engine")}</LayoutSectionItemTitle>
           <LayoutSectionItemHeaderActions>
-            <ToggleGroup aria-label="Chat engine" value={[engine.selected]} variant="outline" disabled={engine.disabled}
+            <ToggleGroup aria-label={t("engine_settings.chat_engine")} value={[engine.selected]} variant="outline" disabled={engine.disabled}
               onValueChange={(value) => { if (value[0] === "v1" || value[0] === "v2") engine.select(value[0]); }}>
               <ToggleGroupItem value="v1" data-engine="v1" disabled={Boolean(engine.v1Locked)}>OpenCode v1</ToggleGroupItem>
-              <ToggleGroupItem value="v2" data-engine="v2">OpenCode v2 (preview)</ToggleGroupItem>
+              <ToggleGroupItem value="v2" data-engine="v2">{t("engine_settings.v2_preview")}</ToggleGroupItem>
             </ToggleGroup>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
-        {engine.status?.connectionSource === "installed" ? <p role="status" className="text-xs text-muted-foreground">Usando tu OpenCode instalado · cuentas y modelos de tu instalación.</p> : null}
+        {engine.status?.connectionSource === "installed" ? <p role="status" className="text-xs text-muted-foreground">{t("engine_settings.installed_source")}</p> : null}
         {engineNote ? <p className="text-xs text-muted-foreground">{engineNote}</p> : null}
-        {engine.status?.enabled && !engine.status.running && !engine.status.lastError ? <p role="status" className="text-xs text-muted-foreground">OpenCode v2 is starting…</p> : null}
+        {engine.status?.enabled && !engine.status.running && !engine.status.lastError ? <p role="status" className="text-xs text-muted-foreground">{t("engine_settings.v2_starting")}</p> : null}
         {engine.error || runtimeError ? <p role="alert" className="text-xs text-destructive">{engine.error ?? runtimeError}</p> : null}
       </LayoutSectionItem>
-      <details className="text-xs text-muted-foreground"><summary>Engine details</summary>
+      <details className="text-xs text-muted-foreground"><summary>{t("engine_settings.details")}</summary>
         {engine.status?.lastWarning ? <p>{engine.status.lastWarning}</p> : null}
-        {engine.status?.running ? <p>OpenCode {engine.status.version} · {engine.status.mirroredProviderIds.length} providers · {engine.status.catalogModelIds.length} models</p> : null}
+        {engine.status?.running ? <p>{t("engine_settings.details_running", { version: engine.status.version ?? "", providers: engine.status.mirroredProviderIds.length, models: engine.status.catalogModelIds.length })}</p> : null}
       </details>
     </LayoutSection>
   );

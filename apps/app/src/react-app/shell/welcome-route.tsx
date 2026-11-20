@@ -191,7 +191,7 @@ export function WelcomeRoute() {
           list = null;
         }
         if (!list) {
-          throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
+          throw new Error(t("welcome.server_unavailable"));
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||
@@ -247,7 +247,7 @@ export function WelcomeRoute() {
       } catch (error) {
         dispatch({
           type: "create:error",
-          error: error instanceof Error ? error.message : "Failed to create workspace.",
+          error: error instanceof Error ? error.message : t("welcome.create_failed"),
         });
       } finally {
         dispatch({ type: "create:finish" });

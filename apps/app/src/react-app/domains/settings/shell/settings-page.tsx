@@ -115,7 +115,7 @@ export function getSettingsTabIcon(tab: SettingsTab) {
 export function getSettingsTabLabel(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "AI Providers";
+      return t("settings.card.ai.title");
     case "ollama":
       return "Ollama";
     case "preferences":
@@ -164,7 +164,7 @@ export function getSettingsTabLabel(tab: SettingsTab) {
 export function getSettingsTabDescription(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "Connect OpenAI, Anthropic, local models and more";
+      return t("ai_providers.tab_desc");
     case "ollama":
       return "Connect to Ollama and manage local models";
     case "preferences":

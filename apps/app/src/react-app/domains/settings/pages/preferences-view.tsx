@@ -30,6 +30,7 @@ import {
   LayoutStack,
 } from "../settings-layout";
 import { DesktopIntegrationSection } from "../desktop-integration-section";
+import { useWebNotificationsAvailable, WebNotificationPermissionItem } from "../web-notification-permission";
 import { useDesktopFeature } from "@/react-app/domains/session/status/use-desktop-feature";
 import {
   AUTO_SETTLE_DAY_OPTIONS,
@@ -114,6 +115,7 @@ function AutoSettleSection() {
 }
 
 export function PreferencesView(props: PreferencesViewProps) {
+  const webNotifications = useWebNotificationsAvailable();
   const linkDestinationItems = [
     { value: "openwork", label: "OpenWork" },
     { value: "external", label: t("settings.links.external") },
@@ -168,8 +170,8 @@ export function PreferencesView(props: PreferencesViewProps) {
 
       <LayoutSection>
         <LayoutSectionHeader>
-          <LayoutSectionTitle>{t("settings.desktop_notifications.title")}</LayoutSectionTitle>
-          <LayoutSectionDescription>{t("settings.desktop_notifications.section_desc")}</LayoutSectionDescription>
+          <LayoutSectionTitle>{t(webNotifications ? "web_notifications.section_title" : "settings.desktop_notifications.title")}</LayoutSectionTitle>
+          <LayoutSectionDescription>{t(webNotifications ? "web_notifications.section_desc" : "settings.desktop_notifications.section_desc")}</LayoutSectionDescription>
         </LayoutSectionHeader>
 
         <LayoutSectionItem>
@@ -205,6 +207,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             </LayoutSectionItemHeaderActions>
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
+        {webNotifications ? <WebNotificationPermissionItem preferenceOff={props.desktopNotifications === "off"} /> : null}
       </LayoutSection>
 
       {isElectronRuntime() ? (

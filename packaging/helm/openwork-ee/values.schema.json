@@ -781,6 +781,16 @@
               ],
               "description": "Approvals in the web app: openwork-server web keeps manual approvals: the web app shows pending changes to people with owner access (the host or a paired device) to approve or deny, and changes that nobody can approve are rejected at once with a clear message. Off, the web server approves every gated change automatically. Renders DEN_FEATURE_WEB_APPROVALS."
             },
+            "webNotifications": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Web notifications: In the web app (for example, from a phone or another tab over remote access), a browser notification tells the person when a chat turn or a scheduled task finishes or fails while the tab is hidden, following the existing notification preference. Clicking it opens the session. Permission is asked from Settings, never on its own. Renders DEN_FEATURE_WEB_NOTIFICATIONS."
+            },
             "gatewayDashboard": {
               "enum": [
                 "",
