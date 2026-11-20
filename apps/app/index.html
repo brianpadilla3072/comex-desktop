@@ -106,21 +106,96 @@
   <body class="bg-dls-surface text-dls-text mac:bg-transparent">
     <div id="root">
       <!-- Visible even when the entry bundle cannot load. React replaces this on mount. -->
-      <div style="min-height: 100dvh; display: flex; align-items: center; justify-content: center; font: 14px system-ui; text-align: center; padding: 24px; box-sizing: border-box">
+      <div id="startup-screen" data-reveal-after-ms="12000" style="min-height: 100dvh; display: flex; align-items: center; justify-content: center; font: 14px system-ui; text-align: center; padding: 24px; box-sizing: border-box">
         <div>
-          <p role="status">Starting OpenWork</p>
+          <p id="startup-status" role="status">Starting OpenWork</p>
           <div id="startup-recovery" hidden>
-            <p>OpenWork is taking longer than usual to start.</p>
-            <button type="button" onclick="window.location.reload()" style="font: inherit; padding: 8px 16px; cursor: pointer">Reload</button>
+            <p id="startup-recovery-message" role="alert">OpenWork is taking longer than usual to start.</p>
+            <button id="startup-reload" type="button" onclick="window.location.reload()" style="font: inherit; padding: 8px 16px; cursor: pointer">Reload</button>
           </div>
         </div>
       </div>
     </div>
-    <script>
-      setTimeout(function () {
-        var recovery = document.getElementById("startup-recovery");
-        if (recovery) recovery.hidden = false;
-      }, 45000);
+    <script id="startup-screen-script">
+      // Startup screen before React mounts (feature startupScreenPolish,
+      // docs/features/startup-screen-polish). No framework, no network: the
+      // flag comes from the last value the app saved (only "off" is stored).
+      // React replaces #startup-screen on mount, which ends everything here.
+      (function () {
+        var STRINGS = {
+          en: {
+            status: "Starting OpenWork",
+            slow: "OpenWork is taking longer than usual to start.",
+            failed: "OpenWork could not load. Reload to try again.",
+            reload: "Reload",
+          },
+          es: {
+            status: "Iniciando OpenWork",
+            slow: "OpenWork está tardando más de lo normal en iniciar.",
+            failed: "OpenWork no pudo cargar. Recarga para intentarlo de nuevo.",
+            reload: "Recargar",
+          },
+        };
+        var LANGUAGES = ["en", "ja", "zh", "vi", "pt-BR", "th", "fr", "ca", "es", "ru"];
+        function read(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        }
+        function strings(code) {
+          var base = String(code || "").toLowerCase().split("-")[0];
+          return base === "es" ? STRINGS.es : STRINGS.en;
+        }
+        function language() {
+          var saved = read("openwork.language");
+          if (LANGUAGES.indexOf(saved) !== -1) return saved;
+          var hint = read("openwork.language.default");
+          if (LANGUAGES.indexOf(hint) !== -1) return hint;
+          return (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+        }
+        function el(id) {
+          return document.getElementById(id);
+        }
+        function mounted() {
+          return !el("startup-screen");
+        }
+        var polish = read("openwork.startupScreenPolish") !== "off";
+        var text = polish ? strings(language()) : STRINGS.en;
+        var revealed = false;
+        function reveal(failed) {
+          if (mounted()) return;
+          var recovery = el("startup-recovery");
+          var message = el("startup-recovery-message");
+          if (failed && message) message.textContent = text.failed;
+          if (recovery) recovery.hidden = false;
+          revealed = true;
+        }
+        if (!polish) {
+          setTimeout(function () { reveal(false); }, 45000);
+          return;
+        }
+        if (el("startup-status")) el("startup-status").textContent = text.status;
+        if (el("startup-recovery-message")) el("startup-recovery-message").textContent = text.slow;
+        if (el("startup-reload")) el("startup-reload").textContent = text.reload;
+        var screen = el("startup-screen");
+        var delay = Number(screen && screen.getAttribute("data-reveal-after-ms")) || 12000;
+        setTimeout(function () { if (!revealed) reveal(false); }, delay);
+        // Capture phase: a script's load error does not bubble to window.
+        window.addEventListener(
+          "error",
+          function (event) {
+            var target = event.target;
+            if (target && target.tagName === "SCRIPT") {
+              if (target.type === "module") reveal(true);
+              return;
+            }
+            if (target === window || !target || !target.tagName) reveal(true);
+          },
+          true
+        );
+      })();
     </script>
     <script type="module" src="/src/index.react.tsx"></script>
   </body>

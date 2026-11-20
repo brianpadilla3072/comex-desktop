@@ -950,6 +950,16 @@ export const FEATURES = defineFeatures({
     docs: "docs/features/results-inbox/README.md",
     deployments: ["self_hosted"],
     default: true,
+  },  startupScreenPolish: {
+    label: "Localized startup screen with early recovery",
+    description: "The screen shown before the app finishes loading speaks the person's language (saved choice, the suggested default, else the browser language) and offers Reload after 12 seconds instead of 45, or right away when the app bundle fails to load. The app remembers the server's answer locally so the next start can honor it before anything else loads.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/startup-screen-polish/README.md",
+    deployments: ["self_hosted"],
+    default: true,
   },
 })
 

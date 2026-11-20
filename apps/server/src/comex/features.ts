@@ -201,3 +201,10 @@ export function resultsInboxEnabled(env: NodeJS.ProcessEnv = process.env): boole
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("resultsInbox", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Localized startup screen with early Reload (docs/features/startup-screen-polish). */
+export function startupScreenPolishEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("startupScreenPolish", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

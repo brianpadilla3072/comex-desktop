@@ -49,6 +49,7 @@ import {
 } from "./connect-policy-reconciler";
 import { useDenAuth } from "./den-auth-provider";
 import { setWebNotificationsFeatureEnabled } from "../../shell/web-notifications";
+import { rememberStartupScreenPolish } from "@/app/lib/startup-screen-flag";
 import {
   bootstrapBrandingFromDesktopConfig,
   bootstrapBrandingNeedsSync,
@@ -297,6 +298,9 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
           setWebNotificationsFeatureEnabled(feature.webNotifications === true);
+          // index.html reads this on the next start, before any bundle loads.
+          // An older server without the field keeps the default (on).
+          rememberStartupScreenPolish(feature.startupScreenPolish !== false);
           // Comex screens are in Spanish: suggest Spanish unless the person
           // chose a language. Reload once so every screen switches together.
           if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();

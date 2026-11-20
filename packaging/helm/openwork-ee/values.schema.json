@@ -831,6 +831,16 @@
               ],
               "description": "Results inbox for scheduled runs: One inbox, on desktop, web and phone, with every finished scheduled task run across all specialist applications: its outcome, the conversation, the outputs it produced and whether its isolated changes still wait for review. Each result can be marked seen or unseen, the state is kept on the server so every device agrees, and the sidebar shows how many results are unread. Renders DEN_FEATURE_RESULTS_INBOX."
             },
+            "startupScreenPolish": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Localized startup screen with early recovery: The screen shown before the app finishes loading speaks the person's language (saved choice, the suggested default, else the browser language) and offers Reload after 12 seconds instead of 45, or right away when the app bundle fails to load. The app remembers the server's answer locally so the next start can honor it before anything else loads. Renders DEN_FEATURE_STARTUP_SCREEN_POLISH."
+            },
             "gatewayDashboard": {
               "enum": [
                 "",
