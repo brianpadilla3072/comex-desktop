@@ -19,6 +19,7 @@ import { agentEcosystemEnabled } from "./comex/features.js";
 import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
 import { createSpecialistScheduler } from "./specialists/scheduler.js";
+import { registerCommandCenterRoutes } from "./command-center.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
 import { ensureComexSession, readComexMemory } from "./comex/seed.js";
 import { comexWorkspaceEnabled } from "./comex/features.js";
@@ -1266,6 +1267,17 @@ export async function startServer(
       }
     },
   };
+  // Reads go through this server's own workspace proxy, like the scheduler.
+  registerCommandCenterRoutes({
+    routes, config, jsonResponse, ensureWritable,
+    deps: {
+      request: async request => serverOptions.fetch(request),
+      engine: () => {
+        const status = engineV2Preview.status();
+        return status.enabled && status.chatRouting ? "v2" : "v1";
+      },
+    },
+  });
 
   let server: ServeResult;
   try {

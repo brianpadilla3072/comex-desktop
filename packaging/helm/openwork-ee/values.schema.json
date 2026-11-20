@@ -761,6 +761,16 @@
               ],
               "description": "Outlook attachments: Agents read the files attached to Outlook messages and create Outlook drafts and replies with workspace files attached, after the member approves each draft. Drafts are never sent. Renders DEN_FEATURE_OUTLOOK_ATTACHMENTS."
             },
+            "commandCenter": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Command center for work in flight: One screen, on desktop, web and phone, that lists every conversation turn that is running or waiting for an approval or answer, and every specialist scheduled task that is running or recently finished or failed, across all workspaces and applications. From there the person opens the conversation, stops a running turn, retries a failed task or runs a task now. It updates live. Renders DEN_FEATURE_COMMAND_CENTER."
+            },
             "agentEcosystem": {
               "enum": [
                 "",

@@ -874,6 +874,17 @@ export const FEATURES = defineFeatures({
     deployments: everywhere,
     default: false,
   },
+  commandCenter: {
+    label: "Command center for work in flight",
+    description: "One screen, on desktop, web and phone, that lists every conversation turn that is running or waiting for an approval or answer, and every specialist scheduled task that is running or recently finished or failed, across all workspaces and applications. From there the person opens the conversation, stops a running turn, retries a failed task or runs a task now. It updates live.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/command-center/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   agentEcosystem: {
     label: "Agent ecosystem board",
     description: "Coordinate several agents across projects with a shared need board (atomic claim), a cross-project index and a deliverables board. External actions still use the native permission system.",
