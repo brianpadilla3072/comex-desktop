@@ -236,3 +236,10 @@ export function projectsExperienceEnabled(env: NodeJS.ProcessEnv = process.env):
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("projectsExperience", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Design studio (docs/features/design-studio). */
+export function designStudioEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("designStudio", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

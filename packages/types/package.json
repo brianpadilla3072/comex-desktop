@@ -586,6 +586,15 @@
       "bun": "./src/projects.ts",
       "development": "./src/projects.ts",
       "default": "./dist/projects.js"
+    },
+    "./designs": {
+      "types": {
+        "openwork-build": "./dist/types/src/designs.d.ts",
+        "default": "./src/designs.ts"
+      },
+      "bun": "./src/designs.ts",
+      "development": "./src/designs.ts",
+      "default": "./dist/designs.js"
     }
   },
   "files": [

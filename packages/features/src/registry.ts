@@ -192,6 +192,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  designStudio: {
+    label: "Design studio",
+    description: "Create slides, screen mockups, design systems and whiteboards with the agent, as local files in the project: gallery, editors, comment-and-edit on the design, and export to PDF, PowerPoint, PNG and HTML. Nothing leaves the computer.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/design-studio/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",

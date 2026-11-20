@@ -141,6 +141,16 @@
               ],
               "description": "Projects experience: A Projects page and a page per project (the folders inside a specialist application): description and pin, instructions that reach every session of the project, a context file area with a capacity bar, project memory, and scheduled tasks per project with an automatic or manual permission mode. Renders DEN_FEATURE_PROJECTS_EXPERIENCE."
             },
+            "designStudio": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Design studio: Create slides, screen mockups, design systems and whiteboards with the agent, as local files in the project: gallery, editors, comment-and-edit on the design, and export to PDF, PowerPoint, PNG and HTML. Nothing leaves the computer. Renders DEN_FEATURE_DESIGN_STUDIO."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",
