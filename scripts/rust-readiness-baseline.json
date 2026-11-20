@@ -2,12 +2,6 @@
   "apps/server/src/local-managed-mcp-url-guard.ts": {
     "R3-double-cast": 2
   },
-  "apps/server/src/opencode-v2-provider-session.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/routes/claude-import.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
   "apps/server/src/server.ts": {
     "R2-unvalidated-json-parse": 1
   },

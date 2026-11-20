@@ -160,8 +160,10 @@ export async function createV2ProviderSessionBridge(current: () => CloudProvider
       if (!sameIdentity() || signal.aborted) { release(); return json({ error: "provider_identity_changed" }, 409); }
       let value: unknown = null;
       try {
-        const parsed: unknown = text ? JSON.parse(text) : null;
-        value = parsed;
+        if (text) {
+          const parsed: unknown = JSON.parse(text);
+          value = parsed;
+        }
       } catch { if (upstream.ok) throw new Error("Invalid inventory JSON"); }
       const safe = JSON.stringify(value, (_key, item: unknown) => typeof item === "string" ? item.replaceAll(session.token, "[redacted]") : item)
         .replaceAll(JSON.stringify(session.token).slice(1, -1), "[redacted]")
