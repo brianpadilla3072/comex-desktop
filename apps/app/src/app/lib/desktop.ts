@@ -745,6 +745,7 @@ const {
   resetOpencodeCache,
   sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
+  designRender,
 } = desktopBridge;
 
 export {
@@ -790,4 +791,5 @@ export {
   resetOpencodeCache,
   sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
+  designRender,
 };

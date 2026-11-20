@@ -198,3 +198,56 @@ const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAge
 
 `bindFrame(page)` is stable per page id, so several frames (screens of a mockup) can be bound at
 once. `onChanged` must make the frame reload from disk after a save or an undo.
+## Slides editor and exports (PDF, PPTX, PNG)
+
+Files: `apps/app/src/react-app/domains/design/editors/slides-*`, `apps/server/src/designs/export-pptx.ts`,
+`apps/server/src/designs/export-routes.ts`, `apps/desktop/electron/design-render.mjs`.
+
+**Editor** (`SlidesEditor`, registry props plus optional `onToggleChat` and `presentSignal`):
+thumbnails on the left (a scaled, non-interactive `DesignFrame` each), the selected slide at
+16:9 with zoom (fit or 25–200 %), speaker notes under it, and a toolbar.
+
+- Add: a slide from a template (blank, title, title and content, two columns) through
+  `addDesignPage` with the template HTML, or "Pedir al agente" (`onAskAgent` with the position).
+- Duplicate (reads the page, adds it after, copies the notes), delete (confirmation; the last
+  slide stays), reorder by drag and drop or `Alt+↑/↓` on a focused thumbnail (`reorderDesignPages`,
+  optimistic, restored on failure). `↑/↓`, `Home/End` move the selection; `Delete` deletes.
+- Speaker notes are `pages[].notes` in `design.json`: the editor re-reads `design.json`, changes
+  only that page's notes (validated with `designManifestSchema`) and writes it back with
+  `writeDesignFile`, 800 ms after typing stops and on blur.
+- Text, table and shapes (rectangle, ellipse, arrow) insert a small absolutely positioned block
+  marked `data-ow-element` right before `</body>` of the selected page. Images are uploaded to
+  `assets/<name>-<suffix>.<ext>` (PNG, JPG, GIF, WebP, SVG, up to 20 MB) and inserted as `<img>`.
+- Presentation mode: full screen, `→ ↓ space PageDown` next, `← ↑ PageUp` previous, `Home/End`,
+  `Esc` exits; slide counter; a click advances.
+
+**Exports** (`slides-export.ts`: `exportPdf`, `exportPng`, `exportPptx`). Every page is first
+made self-contained (`slides-inline.ts`): the shared stylesheet and every asset inside the design
+folder are inlined as `data:` URLs and a strict CSP (`default-src 'none'`) is added.
+
+- PDF, desktop: `designRender` IPC → `design-render.mjs` loads one wrapper document (a sandboxed
+  `srcdoc` iframe per page) in a hidden offscreen `BrowserWindow` (sandbox, context isolation, no
+  Node, no preload, no devtools, in-memory partition whose request filter cancels everything but
+  the page file and `data:`/`blob:`/`about:`; permissions denied; popups and navigation refused)
+  and calls `printToPDF` at the exact page size (1920×1080 px = 20×11.25 in, no margins). Renders
+  run one at a time, each load has a 30 s timeout, and the temporary page file is removed
+  afterwards. Only the app window's main frame may call it.
+  Web: a print document (same iframes, `@page` at the slide size) and the browser's print dialog.
+- PNG, desktop: the same renderer, one page at a time, `capturePage` (the offscreen paint event as
+  fallback). Web: the page as SVG `foreignObject` drawn on a canvas. Limits of the web path:
+  scripts in the page do not run, and only inlined assets show.
+- PPTX: the app renders the PNGs (as above) and sends them to `POST /designs/:ws/:id/export`
+  as JSON `{ format: "pptx", slides: [{ pageId, png }] }` (base64, no `data:` prefix, in slide
+  order). JSON instead of multipart keeps the route simple; the caps keep it bounded: up to 200
+  slides, 8 MiB per decoded PNG, 160 MiB per request (checked on `content-length` and while
+  reading). Titles and notes come from `design.json`, never from the request. The route is a
+  `client` route (it writes nothing) behind `designStudio` (404 `design_studio_disabled`); `pdf`
+  and `png` answer 422 `design_export_client_side`. Other errors: `design_export_invalid`,
+  `design_export_unknown_page`, `design_export_not_slides`, `design_export_invalid_png`,
+  `design_export_too_large` (413).
+  `export-pptx.ts` builds a 16:9 OOXML package with `fflate`: content types, package and part
+  relationships, core/app properties, presentation, one master and one "title only" layout, a
+  notes master, two themes, presentation/view properties and table styles. Per slide: a title
+  placeholder with the page title (outline, search and screen readers; the picture covers it),
+  the PNG as a full-bleed picture (contained and centered when it is not 16:9; alt text = title)
+  and a notes page with the speaker notes.

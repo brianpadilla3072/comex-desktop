@@ -35,6 +35,7 @@ import { createNativeContextMenus } from "./context-menu.mjs";
 import { createNativeDictation, createSpeechDictation } from "./native-dictation.mjs";
 import { applyBrandAppName } from "./brand-app-name.mjs";
 import { createBrowserPanel } from "./browser-panel.mjs";
+import { createDesignRenderer } from "./design-render.mjs";
 import { createComputerControl } from "@openwork/computer-use/computer-control";
 import { createComputerAgentPermissions } from "./computer-agent-permissions.mjs";
 import { createBrowserUploadGrantStore, createBrowserUploadPermissions } from "./browser-upload-permissions.mjs";
@@ -2042,6 +2043,9 @@ async function ensureProjectSkillRoot(projectDir) {
   return modern;
 }
 
+// Design studio exports: offline PDF/PNG rendering in hidden sandboxed windows.
+const designRenderer = createDesignRenderer({ BrowserWindow, session, tempRoot: app.getPath("temp") });
+
 function activeWindowFromEvent(event) {
   return BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
 }
@@ -2790,6 +2794,13 @@ const desktopCommandHandlers = {
   },
   "__joinPath": async (event, ...args) => {
       return path.join(...args.map((value) => String(value ?? "")));
+  },
+  "designRender": async (event, ...args) => {
+      // Only the app window (its main frame) may render; embedded browser tabs never reach this.
+      if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame) {
+        return { ok: false, code: "invalid_request", message: "Rendering is only available to the app window." };
+      }
+      return designRenderer.render(args[0]);
   },
   "__setZoomFactor": async (event, ...args) => {
       const factor = Number(args[0]);
