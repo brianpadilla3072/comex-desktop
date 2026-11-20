@@ -251,3 +251,64 @@ folder are inlined as `data:` URLs and a strict CSP (`default-src 'none'`) is ad
   placeholder with the page title (outline, search and screen readers; the picture covers it),
   the PNG as a full-bleed picture (contained and centered when it is not 16:9; alt text = title)
   and a notes page with the speaker notes.
+## Screens and whiteboard editors (part 5)
+
+Both editors live in `apps/app/src/react-app/domains/design/editors/` and take the registry props
+(`workspaceId`, `design`, `writable`, `client`, `onChanged`, `chatOpen`, `onAskAgent`) plus an
+optional `reloadKey` that changes when the design's files changed outside the editor.
+
+### Screens (`mockup-editor.tsx`, kind `mockup`)
+
+- Screen list (`mockup-screens.tsx`): add from a template (`mockup-templates.ts`: blank, landing,
+  form, dashboard, list; self-contained responsive HTML with neutral sample text) or ask the agent
+  for one; rename (double-click or menu), move up/down (menu or Alt+↑/↓), duplicate, delete
+  (confirmed). Adds go through `addDesignPage`, order through `reorderDesignPages`, deletes through
+  `deleteDesignPage`. Renaming uses `updateDesignPage` when the client has it; otherwise it writes a
+  `designManifestSchema`-validated `design.json` with `writeDesignFile`.
+- Canvas: the screen in `DesignFrame` with zoom steps or "Ajustar", and a width toggle (Escritorio
+  1440, Tableta 834, Celular 390) that passes the page at that width, so the document re-lays out
+  at the new viewport (`mockup-model.ts` `pageAtWidth`).
+- "Presentar" (`mockup-present.tsx`): full screen at the chosen width; ←/→ (also PageUp/PageDown,
+  space, Home/End) move, Esc leaves.
+- The comment/edit bar (part 3) mounts in the toolbar and binds to the main screen's frame; its
+  edits bump the frame's reload key.
+
+### Whiteboard (`board-editor.tsx`, kind `board`)
+
+An own SVG canvas over `board.json` (`boardSchema`); no drawing library.
+
+- Model (`board-model.ts`, pure): create, move, resize (paths scale their points), rotate,
+  duplicate (frames with their children), delete (a frame takes its children), arrange, style,
+  marquee, hit testing, Ramer–Douglas–Peucker pen simplification, viewport math, deterministic text
+  wrapping and an undo history of 100 steps. Frames are not nested; an element belongs to the frame
+  that contains its center (`frameId`) and moves with it.
+- Tools (`board-toolbar.tsx`, `role="toolbar"` with arrow-key focus): Seleccionar V, Mano H, Marco
+  F, Texto T, Nota N, Lápiz P, Rectángulo R, Elipse O, Imagen I. Shift+click and marquee
+  multi-select; space+drag, middle button or wheel/trackpad pan; Ctrl/⌘+wheel, Ctrl/⌘ +/−/0,
+  Shift+1 (fit) and Shift+2 (selection) zoom; Ctrl/⌘+Z, Shift+Z or Y undo/redo; Ctrl/⌘+D
+  duplicate; Supr/Backspace delete; arrows nudge (Shift ×10); `]`/`[` (Shift: to front/back);
+  Enter edits text. Tooltips show each shortcut.
+- Images come from the design folder (`assets/`) as blob URLs; uploads are written to
+  `assets/<name>-<suffix>.<ext>` with `writeDesignFile` (PNG, JPG, GIF, WebP, SVG; asset size cap).
+- Per frame: "Ampliar" fits the view to it; "Descargar PNG" serializes the frame's SVG
+  (`board-svg.ts`, the same drawing description the canvas renders), inlines its images as data
+  URLs, rasterizes it in a canvas at 2× and downloads it. Nothing is loaded from the network.
+- Saving: 600 ms after the last change, validated by `boardSchema` and capped at
+  `DESIGN_LIMITS.boardElements`. When `reloadKey` or the design's `updatedAt` changes, board.json is
+  read again: an outside change (the agent) replaces the board, keeps the selection and can be
+  undone; our own save coming back is ignored. A board.json without a `viewport` opens fitted to
+  its content. Large boards (over 300 elements) render only what is in view.
+- "Pedir al agente" sends the request with a context (`board-agent.ts`): the board path, the
+  numbered frames with ids and bounds, and the selection.
+
+#### What the agent must do with a board (for the design guidance)
+
+- Edit `board.json` as a whole valid document (`format: "openwork.board"`, `version: 1`); keep
+  existing elements and ids, give new elements new unique ids (up to 64 characters), at most 5000
+  elements.
+- Types: `frame` (`title`, "<n> · <name>"), `rect`, `ellipse`, `text` and `sticky` (`text`),
+  `path` (`points` relative to `x`, `y`), `image` (`src`).
+- Illustrations are self-contained SVG files written to `assets/<name>.svg` (no external
+  references, no scripts, no web fonts) and placed with
+  `{ "type": "image", "src": "assets/<name>.svg", x, y, width, height, frameId }`.
+- An element inside a frame has `frameId` set to the frame's id and its center inside the frame.
