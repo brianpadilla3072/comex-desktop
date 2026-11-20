@@ -161,6 +161,31 @@ capacidad del proyecto utilizada" bar).
   copy (default true, as before). `capabilities.isolation` says whether it has any effect.
 - Contract: `taskPermissionReplies` and `runsInProject` vectors in `contracts/projects/v1`.
 
+## Project page (`/projects/:workspaceId`)
+
+Code: `apps/app/src/react-app/domains/projects/project-*.tsx` (pure rules in `project-page-model.ts`),
+test `apps/app/tests/project-page.test.tsx`. Registered in `app-root.tsx` and rendered by
+`SessionRoute` like `/command-center`: it opens at once and redirects home only when the server
+answered that the flag is off. The route selects the project's workspace, so the composer
+("Nueva sesión en <proyecto>") is the app's own new-session composer (model picker and permission
+mode included) and sending creates the session in that workspace and opens it. Its draft has its
+own owner (`project-page:<workspaceId>`).
+
+- Right column: Instrucciones, Contexto, Memoria and Programado rows, each opening its dialog; a
+  row whose feature is off stays visible and disabled (memory while `memory.enabled` is false).
+- Contexto: folder breadcrumb, search over the folder shown, "Seleccionar" with delete after
+  confirming, upload by file picker or drag and drop (one by one, per-file result; a name already
+  listed or answered `context_exists` asks before `replace=true`), new folder, and the capacity
+  bar from the last `usage` the server answered.
+- Memoria: on `memory_conflict` the dialog re-reads the memory and retries once with the new
+  revision (`withMemoryRevision`); an edit of a note deleted meanwhile says so instead of adding it.
+- Programado: the form starts on Automático (with the notice and in-app safety tips) and always
+  sends `permissionMode`; `advanced.isolation` is sent only when `capabilities.isolation`; the
+  dry run is offered after creating (and from the list) when `capabilities.dryRun`.
+- Description edits invalidate the list key `["projects", baseUrl]` so the Projects page and the
+  sidebar refresh.
+- Without `writable` (web without pairing) every dialog is read only and shows `PairDeviceHint`.
+
 ## For the UI
 
 - Feature check: `getComexFeatures().projectsExperience`.

@@ -60,6 +60,10 @@ const SWEPT = [
   "react-app/domains/cloud/usage-limit-card.tsx",
   // Projects experience (projectsExperience): the Proyectos page and its sidebar entries.
   "react-app/domains/projects/projects-list-page.tsx", "react-app/domains/projects/projects-sidebar.tsx",
+  // Project page and its dialogs (projectsExperience).
+  "react-app/domains/projects/project-page.tsx", "react-app/domains/projects/project-instructions-dialog.tsx",
+  "react-app/domains/projects/project-context-dialog.tsx", "react-app/domains/projects/project-memory-dialog.tsx",
+  "react-app/domains/projects/project-tasks-dialog.tsx", "react-app/domains/projects/project-composer.tsx",
 ];
 const ATTRIBUTES = new Set(["aria-label", "placeholder", "title", "alt"]);
 const ENGLISH_WORD = /\b(the|a|an|to|of|and|or|your|this|no|not|add|select|open|save|create|delete|remove|close|new|edit|loading|failed|error|connect|choose|search|copy|show|hide|back|next|cancel|retry|yes|is|are|in|for|with|more|name|folder|file|workspace|session|settings|model|run|stop|send|view|sign|enable|disable|set|use)\b/i;

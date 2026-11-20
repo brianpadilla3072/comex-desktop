@@ -116,6 +116,9 @@ import {
 } from "@/react-app/domains/session/chat/session-page";
 import { ActivityPage } from "@/react-app/domains/activity/activity-page";
 import { CommandCenterPage } from "@/react-app/domains/command-center/command-center-page";
+import { ProjectComposer } from "@/react-app/domains/projects/project-composer";
+import { ProjectPage } from "@/react-app/domains/projects/project-page";
+import { projectRouteWorkspaceId } from "@/react-app/domains/projects/project-page-model";
 import { useCommandCenterAvailability } from "@/react-app/domains/command-center/use-command-center";
 import { ResultsInboxPage } from "@/react-app/domains/results-inbox/results-inbox-page";
 import { flaggedDestinationHandler, flaggedDestinationReachable } from "@/react-app/shell/flagged-destination";
@@ -454,6 +457,8 @@ export function SessionRoute() {
   const projects = useProjectsAvailability();
   const projectsRouteActive = flaggedDestinationReachable(projects) && projectsRouteRequested;
   const sidebarProjectList = useSidebarProjects(projects.enabled);
+  const projectRouteWorkspace = projectRouteWorkspaceId(location.pathname);
+  const projectRouteActive = flaggedDestinationReachable(projects) && projectRouteWorkspace !== null;
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -507,6 +512,10 @@ export function SessionRoute() {
     // Leave only once the server said the flag is off; a slow read never redirects.
     if (projectsRouteRequested && projects.known && !projects.enabled) navigate("/", { replace: true });
   }, [projects.enabled, projects.known, projectsRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (projectRouteWorkspace !== null && projects.known && !projects.enabled) navigate("/", { replace: true });
+  }, [projects.enabled, projects.known, projectRouteWorkspace, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -618,7 +627,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: projectRouteActive ? "project" : commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -3935,6 +3944,41 @@ export function SessionRoute() {
     focusPromptSoon();
   };
 
+  // Creates a session in a workspace from a composer's first message (sidebar, hero, project page).
+  const handleCreateTaskWithPrompt = async (
+    workspaceId: string,
+    prompt: string,
+    attachments?: ComposerAttachment[],
+    handoff?: NewTaskComposerHandoff,
+  ) => {
+    const destination = handoff?.destination ?? { workspaceId };
+    workspaceId = destination.workspaceId;
+    const agent = newTaskAgent;
+    const pending = beginPendingConversation({
+      scope: sessionDraftScope, destination,
+      submitted: handoff?.submitted ?? { draft: prompt, attachments: attachments ?? [], mentions: {}, pasteParts: [], revertMessageId: null },
+    });
+    handoff?.consume?.();
+    if (destination.parent) {
+      const workbench = useWorkbenchStore.getState();
+      const tab = { workspaceId, sessionId: newSessionDraftSlot(destination), title: prompt.trim() || "New session", draftDestination: destination, pendingConversationId: pending.id };
+      workbench.openTab(tab);
+      workbench.setSideChat(destination.parent, tab);
+    } else {
+      const query = new URLSearchParams({ pendingConversation: pending.id });
+      if (destination.groupId) query.set("draftGroup", destination.groupId);
+      navigate(`${workspaceSessionRoute(workspaceId)}?${query}`);
+    }
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    void createPendingConversation(pending.id, async () => {
+      const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
+      if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
+      const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
+      if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
+      return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
+    }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
+  };
+
   return (
     <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
     <WorkspaceProvider
@@ -4086,7 +4130,25 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : projectsRouteActive ? <ProjectsPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
+      primarySlot={projectRouteActive && projectRouteWorkspace !== null ? (
+        <ProjectPage
+          key={projectRouteWorkspace}
+          workspaceId={projectRouteWorkspace}
+          composer={newTaskComposerContext && selectedWorkspace?.id === projectRouteWorkspace ? (
+            <ProjectComposer
+              workspaceId={projectRouteWorkspace}
+              context={newTaskComposerContext}
+              onRunTask={(prompt, attachments, handoff) => handleCreateTaskWithPrompt(projectRouteWorkspace, prompt, attachments, handoff)}
+            />
+          ) : null}
+          onOpenSession={(workspaceId, sessionId) => {
+            setLegacySelectedWorkspaceId(workspaceId);
+            writeActiveWorkspaceId(workspaceId || null);
+            writeLastSessionFor(workspaceId, sessionId);
+            navigateToWorkspaceSession(workspaceId, sessionId);
+          }}
+        />
+      ) : commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : projectsRouteActive ? <ProjectsPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
         <RemoteSessionSurface key={remoteThreadKey} threadKey={remoteThreadKey} navigation={remoteHelperNavigation} />
       ) : pendingConversation ? <PendingConversationView conversation={pendingConversation} composer={newTaskComposerContext} /> : appsRouteActive ? (
         <WorkspaceProvider
@@ -4205,39 +4267,7 @@ export function SessionRoute() {
         onCreateSplitTaskInWorkspace: (workspaceId) => {
           void handleCreateSplitTaskInWorkspace(workspaceId);
         },
-        onCreateTaskWithPrompt: async (
-          workspaceId,
-          prompt,
-          attachments,
-          handoff?: NewTaskComposerHandoff,
-        ) => {
-          const destination = handoff?.destination ?? { workspaceId };
-          workspaceId = destination.workspaceId;
-          const agent = newTaskAgent;
-          const pending = beginPendingConversation({
-            scope: sessionDraftScope, destination,
-            submitted: handoff?.submitted ?? { draft: prompt, attachments: attachments ?? [], mentions: {}, pasteParts: [], revertMessageId: null },
-          });
-          handoff?.consume?.();
-          if (destination.parent) {
-            const workbench = useWorkbenchStore.getState();
-            const tab = { workspaceId, sessionId: newSessionDraftSlot(destination), title: prompt.trim() || "New session", draftDestination: destination, pendingConversationId: pending.id };
-            workbench.openTab(tab);
-            workbench.setSideChat(destination.parent, tab);
-          } else {
-            const query = new URLSearchParams({ pendingConversation: pending.id });
-            if (destination.groupId) query.set("draftGroup", destination.groupId);
-            navigate(`${workspaceSessionRoute(workspaceId)}?${query}`);
-          }
-          const workspace = workspaces.find((item) => item.id === workspaceId);
-          void createPendingConversation(pending.id, async () => {
-            const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
-            if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
-            const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
-            if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
-            return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
-          }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
-        },
+        onCreateTaskWithPrompt: handleCreateTaskWithPrompt,
         onOpenRenameWorkspace: handleOpenRenameWorkspace,
         onRevealWorkspace: (id) => void handleRevealWorkspace(id),
         onRetryWorkspace: (workspaceId) => reloadWorkspaceSessions(workspaceId),

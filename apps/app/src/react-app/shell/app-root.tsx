@@ -555,6 +555,7 @@ export function AppRoot() {
               <Route path="/pair" element={<PairDeviceRoute />} />
               <Route path="/activity" element={<DevProfiler id="ActivityRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/command-center" element={<DevProfiler id="CommandCenterRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/projects/:workspaceId" element={<DevProfiler id="ProjectRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/inbox" element={<DevProfiler id="ResultsInboxRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/projects" element={<DevProfiler id="ProjectsRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/apps" element={<DevProfiler id="AppsRoute"><SessionRoute /></DevProfiler>} />
