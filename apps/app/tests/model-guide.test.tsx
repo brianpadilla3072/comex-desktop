@@ -78,7 +78,7 @@ test("assessed models come first inside providers without mixing billing groups,
   const wrongProvider = { ...scored, providerID: "another-provider" };
   const na = { ...option, modelID: "kimi-k3" };
   const items = [unknown, scored, wrongProvider, na];
-  const groups = ["OpenCode Go", "Pinned", "Recent", "Search results"].map(value => ({ value, items }));
+  const groups = ["OpenCode Go", "pinned", "recent", "search-results"].map(value => ({ value, items }));
   const result = prioritizeAssessedModels(groups, snapshot);
   assert.deepEqual(result[0]?.items, [scored, na, unknown, wrongProvider]);
   assert.deepEqual(groups[0]?.items, items);

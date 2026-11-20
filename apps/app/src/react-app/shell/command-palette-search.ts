@@ -1,5 +1,7 @@
 import fuzzysort from "fuzzysort";
 
+import { t } from "@/i18n";
+
 import { ADVANCED_SETTINGS_SECTIONS } from "@/react-app/domains/settings/advanced-sections";
 
 export type PaletteGroup = "recent" | "actions" | "settings" | "sessions";
@@ -28,12 +30,15 @@ const GROUP_ORDER: PaletteGroup[] = ["recent", "actions", "settings", "sessions"
 // The empty palette previews only a few settings. Developer mode lists the Advanced
 // sections first, so the preview must be wide enough to show every one of them.
 const SETTINGS_PREVIEW_LIMIT = Math.max(6, ADVANCED_SETTINGS_SECTIONS.length);
-const GROUP_LABELS: Record<PaletteGroup, string> = {
-  recent: "Recent",
-  actions: "Actions",
-  settings: "Settings",
-  sessions: "Sessions",
-};
+/** Groups are compared by id; people read this label, translated when the results are built. */
+function groupLabel(group: PaletteGroup): string {
+  switch (group) {
+    case "recent": return t("secondary_ui.palette.group_recent");
+    case "actions": return t("secondary_ui.palette.group_actions");
+    case "settings": return t("secondary_ui.palette.group_settings");
+    case "sessions": return t("secondary_ui.palette.group_sessions");
+  }
+}
 
 function itemGroup(item: PaletteItem): PaletteGroup {
   return item.group ?? "actions";
@@ -54,7 +59,7 @@ function normalizeSearchText(value: string) {
 }
 
 function resultGroup(value: PaletteGroup, items: PaletteItem[]): PaletteResultGroup {
-  return { value, label: GROUP_LABELS[value], items };
+  return { value, label: groupLabel(value), items };
 }
 
 export function rankPaletteItems(

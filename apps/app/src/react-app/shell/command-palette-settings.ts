@@ -12,6 +12,8 @@ import {
 
 import { ADVANCED_SETTINGS_SECTIONS } from "@/react-app/domains/settings/advanced-sections";
 
+import { t } from "@/i18n";
+
 import type { PaletteItem } from "./command-palette-search";
 
 const SETTINGS_KEYWORDS: Partial<Record<SettingsTab, string[]>> = {
@@ -30,13 +32,14 @@ const SETTINGS_KEYWORDS: Partial<Record<SettingsTab, string[]>> = {
   general: ["settings", "preferences", "options", "configure"],
 };
 
-const LIBRARY_SECTIONS = [
-  { slug: "skills", title: "Skills", detail: "Instructions that teach agents specialized workflows", keywords: ["skill", "instructions", "workflows"] },
-  { slug: "mcps", title: "MCP servers", detail: "Tools and services connected through MCP", keywords: ["mcp", "servers", "tools"] },
-  { slug: "connections", title: "Connections", detail: "Connected organization apps and services", keywords: ["apps", "services", "sign in"] },
-  { slug: "plugins", title: "Plugins", detail: "Extensions that add tools and behavior", keywords: ["extensions", "tools", "hooks"] },
-  { slug: "agents", title: "Agents", detail: "Specialized agents available in conversations", keywords: ["agent", "assistants", "modes"] },
-  { slug: "commands", title: "Commands", detail: "Slash commands available in the composer", keywords: ["command", "slash", "prompts"] },
+// Titles and details are read when the palette builds its items, so they follow the language.
+const librarySections = () => [
+  { slug: "skills", title: t("secondary_ui.palette.lib_skills"), detail: t("secondary_ui.palette.lib_skills_detail"), keywords: ["skill", "instructions", "workflows"] },
+  { slug: "mcps", title: t("secondary_ui.palette.lib_mcps"), detail: t("secondary_ui.palette.lib_mcps_detail"), keywords: ["mcp", "servers", "tools"] },
+  { slug: "connections", title: t("secondary_ui.palette.lib_connections"), detail: t("secondary_ui.palette.lib_connections_detail"), keywords: ["apps", "services", "sign in"] },
+  { slug: "plugins", title: t("secondary_ui.palette.lib_plugins"), detail: t("secondary_ui.palette.lib_plugins_detail"), keywords: ["extensions", "tools", "hooks"] },
+  { slug: "agents", title: t("secondary_ui.palette.lib_agents"), detail: t("secondary_ui.palette.lib_agents_detail"), keywords: ["agent", "assistants", "modes"] },
+  { slug: "commands", title: t("secondary_ui.palette.lib_commands"), detail: t("secondary_ui.palette.lib_commands_detail"), keywords: ["command", "slash", "prompts"] },
 ] satisfies Array<{ slug: string; title: string; detail: string; keywords: string[] }>;
 
 export function buildCommandPaletteSettingsItems(input: {
@@ -57,10 +60,10 @@ export function buildCommandPaletteSettingsItems(input: {
 
   const tabItems = tabs.map((tab): PaletteItem => ({
     id: `settings:${tab}`,
-    title: tab === "advanced" ? "Advanced settings" : getSettingsTabLabel(tab),
+    title: tab === "advanced" ? t("secondary_ui.palette.advanced_settings") : getSettingsTabLabel(tab),
     detail: getSettingsTabDescription(tab),
     keywords: SETTINGS_KEYWORDS[tab],
-    breadcrumb: "Settings",
+    breadcrumb: t("secondary_ui.palette.breadcrumb_settings"),
     group: "settings",
     action: () => {
       if (tab === "extensions") {
@@ -71,12 +74,12 @@ export function buildCommandPaletteSettingsItems(input: {
     },
   }));
 
-  const libraryItems = LIBRARY_SECTIONS.map((section): PaletteItem => ({
+  const libraryItems = librarySections().map((section): PaletteItem => ({
     id: `settings:extensions/${section.slug}`,
     title: section.title,
     detail: section.detail,
     keywords: section.keywords,
-    breadcrumb: "Settings › Library",
+    breadcrumb: t("secondary_ui.palette.breadcrumb_library"),
     group: "settings",
     action: () => input.onOpenExtensions(section.slug),
   }));
@@ -86,7 +89,7 @@ export function buildCommandPaletteSettingsItems(input: {
         id: `settings:advanced/${section.id}`,
         title: section.title,
         keywords: section.keywords,
-        breadcrumb: "Settings › Advanced",
+        breadcrumb: t("secondary_ui.palette.breadcrumb_advanced"),
         group: "settings",
         action: () => input.onOpenSettings(`/settings/advanced/${section.id}`),
       }))

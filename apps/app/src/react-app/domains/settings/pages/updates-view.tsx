@@ -29,9 +29,10 @@ import {
 } from "../settings-layout";
 import { Separator } from "@/components/ui/separator";
 
-const RELEASE_CHANNEL_OPTIONS: { label: string; value: ReleaseChannel }[] = [
-  { label: "Stable", value: "stable" },
-  { label: "Alpha", value: "alpha" },
+/** Release channels; the label is read at render time so it follows the language. */
+const releaseChannelOptions = (): { label: string; value: ReleaseChannel }[] => [
+  { label: t("secondary_ui.release.stable"), value: "stable" },
+  { label: t("secondary_ui.release.alpha"), value: "alpha" },
 ];
 
 type UpdateDownloadProgressProps = {
@@ -285,7 +286,7 @@ export function UpdatesView(props: UpdatesViewProps) {
                 <LayoutSectionItemHeaderActions>
                   <Select
                     value={props.releaseChannel}
-                    items={RELEASE_CHANNEL_OPTIONS}
+                    items={releaseChannelOptions()}
                     onValueChange={(value) => {
                       if (value === "stable" || value === "alpha") {
                         props.onReleaseChannelChange?.(value);
@@ -298,7 +299,7 @@ export function UpdatesView(props: UpdatesViewProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {RELEASE_CHANNEL_OPTIONS.map((option) => (
+                        {releaseChannelOptions().map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>

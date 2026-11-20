@@ -14,7 +14,7 @@ import { AutoPickerRecovery, useObservedAutoAccessSnapshot } from "@/react-app/d
 import { autoNotOffered, autoPickerCopy, autoQuietlyUnavailable, freeAutoSwitchedOff, type AutoPickerState } from "@/app/lib/inference-access";
 import type { MenuAction } from "@/components/ui/action-menu-model";
 import { Command, CommandCollection, CommandGroup, CommandGroupLabel, CommandHeader, CommandInput, CommandItem, CommandList, CommandPanel } from "@/components/ui/command";
-import { AUTO_ROUTER_GROUP, fixedModelTitle, immutableModelPin, isAutoModel, isAutoRouterModel, isPinModelShortcut, markExplicitModelChoice, modelGroups, modelMakerId, modelSource, modelStateLabel, modelSubtitle, modelTitle, orderedModelPins, retainedModelCopy, withAutoDefaultPin, MODEL_SOURCE_LABELS, type ModelGroup, type ModelPickerCatalogState, type RetainedModelSelection } from "./model-catalog";
+import { AUTO_ROUTER_GROUP, fixedModelTitle, immutableModelPin, isAutoModel, isAutoRouterModel, isPinModelShortcut, markExplicitModelChoice, modelGroups, modelMakerId, modelSource, modelGroupLabel, modelSourceLabel, modelStateLabel, modelSubtitle, modelTitle, orderedModelPins, retainedModelCopy, withAutoDefaultPin, MODEL_GROUP_IDS, type ModelGroup, type ModelPickerCatalogState, type RetainedModelSelection } from "./model-catalog";
 import { modelRefKey, useModelCollectionsStore } from "@/react-app/domains/session/models/model-collections-store";
 import { PickerNotice } from "./picker-notice";
 import { resolveSearchIntent, searchIntentSummary, searchIntentTag, searchModels } from "./model-search";
@@ -25,7 +25,7 @@ import { formatChord, resolveShortcutOs } from "@/react-app/domains/shortcuts/sh
 export function ModelSourceIcon({ model }: { model: ModelRef & { source?: ModelOption["source"] } }) {
   const source = modelSource(model);
   const Icon = source === "gateway" ? Cloud : source === "organization" ? Building : Laptop;
-  return <Icon role="img" aria-label={MODEL_SOURCE_LABELS[source]} className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />;
+  return <Icon role="img" aria-label={modelSourceLabel(source)} className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />;
 }
 
 function ProviderMark({ model, description, retained = false, plainFreeModel = false }: { model: ModelRef & { title?: string }; description?: string; retained?: boolean; plainFreeModel?: boolean }) {
@@ -39,11 +39,11 @@ function ProviderMark({ model, description, retained = false, plainFreeModel = f
 }
 
 /** Search results, ranked in one unlabeled list. */
-const SEARCH_GROUP = "Search results";
+const SEARCH_GROUP = MODEL_GROUP_IDS.search;
 /** Groups shown without a label: search results, and Smart Routers, which name themselves. */
 const UNLABELED_GROUPS = new Set([SEARCH_GROUP, AUTO_ROUTER_GROUP]);
 /** Groups that list several providers' models together; rows there name their provider. */
-const MIXED_GROUPS = new Set(["Pinned", "Recent", "OpenWork Models", "Gratis", SEARCH_GROUP]);
+const MIXED_GROUPS = new Set<string>([MODEL_GROUP_IDS.pinned, MODEL_GROUP_IDS.recent, MODEL_GROUP_IDS.openwork, MODEL_GROUP_IDS.free, SEARCH_GROUP]);
 
 function ModelLoadingRows({ rows = 3, label = t("models_ui.loading_models"), still = false }: { rows?: number; label?: string; still?: boolean }) {
   // `still`: the rest of the list did not load; placeholders hold its place without suggesting it is loading.
@@ -182,14 +182,14 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
   const retained = retainedSelection && modelRefKey(retainedSelection.model) === modelRefKey(current)
     && !options.some((option) => modelRefKey(option) === modelRefKey(current) && !option.disabled) ? retainedSelection : undefined;
   const retainedCopy = retained ? retainedModelCopy(retained.reason) : null;
-  const retainedName = retained ? (fixedModelTitle(retained.model, display) ?? (retained.title ? modelTitle({ ...retained.model, title: retained.title, description: retained.description }, display) : "Saved model")) : "";
+  const retainedName = retained ? (fixedModelTitle(retained.model, display) ?? (retained.title ? modelTitle({ ...retained.model, title: retained.title, description: retained.description }, display) : t("secondary_ui.models.saved_model"))) : "";
   const retainedVisible = retained && (!query.trim() || `${retainedName} ${retained.description ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()));
   const retainedState = retained && isAutoModel(retained.model) && autoRow && autoRow.state !== "ready" ? autoPickerCopy(autoRow.state, false, undefined, autoRow.code, autoRow.resetsAt).subtitle : retainedCopy?.subtitle;
   const retainedSubtitle = [retained && !isAutoModel(retained.model) ? retained.description?.trim() : null, retainedState].filter(Boolean).join(" · ");
   // A saved model that was pinned stays where the person pinned it, at the top of Pinned.
   const retainedPinned = Boolean(retained && favorites.some((favorite) => modelRefKey(favorite) === modelRefKey(retained.model)));
-  const retainedLabel = retainedPinned ? "Pinned" : "Saved selection";
-  const mergedLabel = retainedVisible && retainedPinned && groups[0]?.value === "Pinned" ? "Pinned" : null;
+  const retainedLabel = modelGroupLabel(retainedPinned ? MODEL_GROUP_IDS.pinned : MODEL_GROUP_IDS.saved);
+  const mergedGroup = retainedVisible && retainedPinned && groups[0]?.value === MODEL_GROUP_IDS.pinned ? MODEL_GROUP_IDS.pinned : null;
   const verifiedDate = catalogState?.lastVerifiedAt ? new Date(catalogState.lastVerifiedAt) : null;
   const verified = verifiedDate && Number.isFinite(verifiedDate.valueOf()) ? verifiedDate : null;
   return <div ref={root} className="flex min-h-0 flex-1 flex-col" onKeyDownCapture={(event) => {
@@ -204,12 +204,12 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
       <CommandHeader className={leading ? "flex items-center gap-0" : undefined}>{leading}<CommandInput ref={searchInputRef} autoFocus={autoFocusSearch} aria-label={t("models.search_all_aria")} placeholder={t("models.search_short")} className="h-8 text-base sm:text-base md:text-base lg:text-sm" /></CommandHeader>
       {/* The list sizes to its rows so placeholders after it stay in view; this panel does the scrolling. */}
       <CommandPanel className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-width:thin] [&>[data-slot=scroll-area]]:h-auto">
-        {retainedVisible ? <div data-testid="retained-selected-model" aria-disabled="true" aria-label={`${retainedName}, current model, ${retainedSubtitle}`} className="px-2 pt-2">
+        {retainedVisible ? <div data-testid="retained-selected-model" aria-disabled="true" aria-label={t("secondary_ui.models.retained_aria", { name: retainedName, subtitle: retainedSubtitle })} className="px-2 pt-2">
           <p className="flex h-7 items-center px-2 text-xs text-muted-foreground">{retainedLabel}</p>
           <div className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-sm opacity-55">
             <ProviderMark model={retained.model} description={retained.description} retained />
             <span className="min-w-0 flex-1 leading-[18px]"><span className="block truncate font-medium">{retainedName}</span><span className="block text-muted-foreground">{retainedSubtitle}</span></span>
-            <span className="flex size-4 shrink-0 items-center justify-center">{retained.reason === "policy" ? <Lock aria-label="Blocked" strokeWidth={1.5} className="size-4" /> : <Check aria-hidden="true" className="size-4" />}</span>
+            <span className="flex size-4 shrink-0 items-center justify-center">{retained.reason === "policy" ? <Lock aria-label={t("secondary_ui.models.blocked")} strokeWidth={1.5} className="size-4" /> : <Check aria-hidden="true" className="size-4" />}</span>
           </div>
         </div> : null}
         {loading && !hasOptions ? <ModelLoadingRows /> : null}
@@ -226,7 +226,7 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
         </div> : null}
         <CommandList>
           {(group: ModelGroup) => <CommandGroup key={group.value} items={group.items}>
-            {group.value === mergedLabel || UNLABELED_GROUPS.has(group.value) ? null : <CommandGroupLabel className="flex min-h-7 items-center">{group.value}</CommandGroupLabel>}
+            {group.value === mergedGroup || UNLABELED_GROUPS.has(group.value) ? null : <CommandGroupLabel className="flex min-h-7 items-center">{modelGroupLabel(group.value)}</CommandGroupLabel>}
             <CommandCollection>{(option: ModelOption) => {
               const key = modelRefKey(option);
               const name = modelTitle(option, display);
@@ -254,7 +254,7 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
               return <ActionContextMenu key={key} actions={actions} render={<CommandItem
                 value={`${group.value}:${key} ${name} ${subtitle}`} disabled={blocked}
                 data-model-key={key} data-checked={active} data-testid={`model-option-${option.providerID}-${option.modelID}`}
-                aria-label={`${name}, ${subtitle}, ${MODEL_SOURCE_LABELS[modelSource(option)]}${active ? t("models_ui.current_model_suffix") : ""}`}
+                aria-label={`${name}, ${subtitle}, ${modelSourceLabel(modelSource(option))}${active ? t("models_ui.current_model_suffix") : ""}`}
                 tabIndex={blocked ? -1 : 0} className={`group/model px-2 data-disabled:opacity-55 ${guideEnabled ? "min-h-8 gap-2 rounded-md py-1 text-xs" : "min-h-9 gap-2.5 rounded-lg py-1.5 text-sm"}`}
                 onFocus={() => setHighlighted(option)} onClick={() => select(option)}
                 onKeyDown={(event) => { if (event.key === "Enter" && event.target === event.currentTarget) { event.preventDefault(); select(option); } }}
@@ -264,7 +264,7 @@ function ModelPickerRows({ options: originalOptions, current, query, onQueryChan
                   <span className={`block truncate${active ? " font-medium" : ""}`} title={name}>{name}</span>
                   {meta ? <span className="block truncate text-xs text-muted-foreground" title={meta}>{meta}</span> : null}
                 </span>
-                {guideEnabled ? <ModelGuideDetails option={option} snapshot={guide.snapshot} open={guideDetailsKey === key} onHover={() => { if (Date.now() >= guideHoverBlockedUntil.current) setGuideDetailsKey(key); }} onOpenChange={open => setGuideDetailsKey(previous => { if (open) return key; if (previous !== key) return previous; guideHoverBlockedUntil.current = Date.now() + 500; return null; })} /> : freeFirst && option.isFree ? <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">Gratis</span> : null}
+                {guideEnabled ? <ModelGuideDetails option={option} snapshot={guide.snapshot} open={guideDetailsKey === key} onHover={() => { if (Date.now() >= guideHoverBlockedUntil.current) setGuideDetailsKey(key); }} onOpenChange={open => setGuideDetailsKey(previous => { if (open) return key; if (previous !== key) return previous; guideHoverBlockedUntil.current = Date.now() + 500; return null; })} /> : freeFirst && option.isFree ? <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">{t("secondary_ui.models.group_free")}</span> : null}
                 {applies ? <span data-testid="model-search-applies" className="shrink-0 text-xs text-muted-foreground">{applies}</span> : null}
                 {shortcutLabels.get(key) ? <kbd data-testid="model-shortcut-key" className="shrink-0 rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground">{shortcutLabels.get(key)}</kbd> : null}
                 {/* Fixed trailing slots keep checks aligned; pin shows on pointer or focus (keyboard: ⇧P). */}

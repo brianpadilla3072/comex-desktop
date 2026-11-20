@@ -12,13 +12,13 @@ test("Comex lists verified free models before paid pins and never duplicates fre
   const free = option("Free", true);
   const paid = option("Paid", false);
   const groups = modelGroups([paid, free, option("Unavailable", true, true)], [paid, free], [free], "", true);
-  expect(groups.map(group => group.value)).toEqual(["Gratis", "Pinned"]);
+  expect(groups.map(group => group.value)).toEqual(["free", "pinned"]);
   expect(groups[0]?.items).toEqual([free]);
   expect(groups.flatMap(group => group.items).filter(model => model.modelID === "Free")).toHaveLength(1);
 });
 test("turning Comex off retains the existing favorites and provider ordering", () => {
   const free = option("Free", true); const paid = option("Paid", false);
-  expect(modelGroups([free, paid], [paid], [], "", false).map(group => group.value)).toEqual(["Pinned", "Fixture"]);
+  expect(modelGroups([free, paid], [paid], [], "", false).map(group => group.value)).toEqual(["pinned", "Fixture"]);
 });
 let restore: (() => void) | undefined;
 afterEach(() => { restore?.(); restore = undefined; });

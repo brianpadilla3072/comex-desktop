@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { AGENT_VIEWPORTS, DEFAULT_AGENT_VIEWPORT, type AgentViewportKey } from "@openwork/browser-tabs";
 
+import { t } from "@/i18n";
+
 import { isActiveWorkSessionStatus } from "../sidebar/utils";
 import { getElectronBrowser } from "./utils";
 
@@ -15,6 +17,16 @@ export function storedAgentViewport(): AgentViewportKey {
     // Storage can be unavailable; the default size still works.
   }
   return DEFAULT_AGENT_VIEWPORT;
+}
+
+/** What people read for an agent page size; `AGENT_VIEWPORTS[key].label` stays the English id. */
+export function agentViewportLabel(key: AgentViewportKey): string {
+  switch (key) {
+    case "panel": return t("secondary_ui.viewport.panel");
+    case "desktop": return t("secondary_ui.viewport.desktop");
+    case "tablet": return t("secondary_ui.viewport.tablet");
+    case "phone": return t("secondary_ui.viewport.phone");
+  }
 }
 
 export function chooseAgentViewport(key: AgentViewportKey) {

@@ -60,7 +60,7 @@ import {
 import { computeBrowserBounds, createBrowserBoundsSync } from "./browser-bounds-sync";
 import { browserOperationLabel } from "./browser-status";
 import type { BrowserPresentationMode } from "./browser-presentation-store";
-import { chooseAgentViewport, storedAgentViewport } from "./agent-viewport";
+import { agentViewportLabel, chooseAgentViewport, storedAgentViewport } from "./agent-viewport";
 
 /** Floating browser presentation controls, present only while that feature is on. */
 export type BrowserPresentationControls = {
@@ -99,8 +99,8 @@ function AgentViewportMenu({ viewport }: { viewport: { key: AgentViewportKey; sc
       <PopoverTrigger
         render={(
           <Button variant="ghost" size="sm" className="h-6 shrink-0 px-2 text-xs text-muted-foreground"
-            aria-label={t("session_ui.agent_page_size_label", { size: AGENT_VIEWPORTS[active].label })} data-testid="browser-agent-page-size">
-            {AGENT_VIEWPORTS[active].label}{viewport && viewport.scale < 1 ? ` · ${Math.round(viewport.scale * 100)}%` : ""}
+            aria-label={t("session_ui.agent_page_size_label", { size: agentViewportLabel(active) })} data-testid="browser-agent-page-size">
+            {agentViewportLabel(active)}{viewport && viewport.scale < 1 ? ` · ${Math.round(viewport.scale * 100)}%` : ""}
           </Button>
         )}
       />
@@ -112,7 +112,7 @@ function AgentViewportMenu({ viewport }: { viewport: { key: AgentViewportKey; sc
           <button key={key} type="button" aria-pressed={key === active} data-testid={`browser-agent-page-size-${key}`}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted aria-pressed:bg-muted"
             onClick={() => { setChosen(key); chooseAgentViewport(key); }}>
-            <span className="font-medium">{AGENT_VIEWPORTS[key].label}</span>
+            <span className="font-medium">{agentViewportLabel(key)}</span>
             <span className="text-muted-foreground">
               {AGENT_VIEWPORTS[key].fitsPanel ? t("session_ui.fits_panel") : `${AGENT_VIEWPORTS[key].width} × ${AGENT_VIEWPORTS[key].height}`}
             </span>
