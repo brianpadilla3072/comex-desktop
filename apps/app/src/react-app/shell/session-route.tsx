@@ -118,6 +118,7 @@ import { ActivityPage } from "@/react-app/domains/activity/activity-page";
 import { CommandCenterPage } from "@/react-app/domains/command-center/command-center-page";
 import { useCommandCenterAvailability } from "@/react-app/domains/command-center/use-command-center";
 import { ResultsInboxPage } from "@/react-app/domains/results-inbox/results-inbox-page";
+import { flaggedDestinationHandler, flaggedDestinationReachable } from "@/react-app/shell/flagged-destination";
 import { useResultsInboxAvailability, useResultsInboxUnread } from "@/react-app/domains/results-inbox/use-results-inbox";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
@@ -441,10 +442,10 @@ export function SessionRoute() {
   const activityRouteRequested = location.pathname === "/activity";
   const commandCenterRouteRequested = location.pathname === "/command-center";
   const commandCenter = useCommandCenterAvailability();
-  const commandCenterRouteActive = commandCenter.enabled && commandCenterRouteRequested;
+  const commandCenterRouteActive = flaggedDestinationReachable(commandCenter) && commandCenterRouteRequested;
   const resultsInboxRouteRequested = location.pathname === "/inbox";
   const resultsInbox = useResultsInboxAvailability();
-  const resultsInboxRouteActive = resultsInbox.enabled && resultsInboxRouteRequested;
+  const resultsInboxRouteActive = flaggedDestinationReachable(resultsInbox) && resultsInboxRouteRequested;
   const resultsInboxUnread = useResultsInboxUnread(resultsInbox.enabled);
   const {
     enabled: mcpAppsDashboardEnabled,
@@ -606,7 +607,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: commandCenterRouteRequested && (!commandCenter.known || commandCenter.enabled) ? "command-center" : resultsInboxRouteRequested && (!resultsInbox.known || resultsInbox.enabled) ? "results-inbox" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -4132,10 +4133,10 @@ export function SessionRoute() {
         startupPhase: effectiveLoading ? "nativeInit" : "ready",
         automationsActive: automationsRouteActive,
         commandCenterActive: commandCenterRouteActive,
-        onOpenCommandCenter: commandCenter.enabled ? () => navigate("/command-center") : undefined,
+        onOpenCommandCenter: flaggedDestinationHandler(commandCenter, () => navigate("/command-center")),
         resultsInboxActive: resultsInboxRouteActive,
         resultsInboxUnread,
-        onOpenResultsInbox: resultsInbox.enabled ? () => navigate("/inbox") : undefined,
+        onOpenResultsInbox: flaggedDestinationHandler(resultsInbox, () => navigate("/inbox")),
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
           ? () => {

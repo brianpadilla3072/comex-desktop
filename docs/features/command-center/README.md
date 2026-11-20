@@ -76,6 +76,8 @@ only for a complete answer with no items.
 `apps/server/src/comex/features.ts`; the app reads it from `/comex/features`. Off: the routes
 answer 404, the sidebar entry disappears, and `/command-center` redirects home once the server
 has answered (a slow or failed read never redirects).
+While the read is pending (right after startup) the entry already shows and opens the page, which
+shows its own loading state (`flaggedDestinationHandler` in `apps/app/src/react-app/shell/flagged-destination.ts`).
 
 ## Tests
 

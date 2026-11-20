@@ -85,6 +85,7 @@ is off, and are zod-validated.
 Entry: in the sidebar next to the command center (standard layout) and in the compact rail
 (Comex layout). Flag off: the entry disappears and `/inbox` redirects home once the server has
 answered (a slow or failed read never redirects).
+While the read is pending the entry already shows and opens the page, as for the command center.
 
 States (DESIGN.md "States"): skeleton while loading; an error panel with "Try again" when the
 first read fails (never the empty state); the last answer plus a warning with its time when a
