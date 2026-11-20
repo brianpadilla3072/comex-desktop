@@ -160,3 +160,10 @@ export function webApprovalsEnabled(env: NodeJS.ProcessEnv = process.env): boole
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("webApprovals", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Owner-only folder browser so the web app can create workspaces (docs/features/web-folder-browser). */
+export function webFolderBrowserEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("webFolderBrowser", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

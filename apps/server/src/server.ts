@@ -11,6 +11,7 @@ import { registerPermissionModeRoutes } from "./comex/permission-mode-routes.js"
 import { agentsRespectMode, permissionHash } from "./comex/permission-modes.js";
 import { registerModelGuideRoutes } from "./model-guide/routes.js";
 import { registerComexGitRoutes } from "./comex/git-routes.js";
+import { registerFolderBrowserRoutes } from "./folder-browser.js";
 import { registerContinuityRoutes } from "./comex/continuity-routes.js";
 import { registerAgentEcosystemRoutes } from "./comex/agent-ecosystem-routes.js";
 import { expireStaleClaims } from "./comex/agent-ecosystem.js";
@@ -4039,6 +4040,7 @@ function createRoutes(
   });
   registerModelGuideRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });
   registerAgentEcosystemRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });
+  registerFolderBrowserRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });
   registerComexGitRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable, resolveWorkspace, resolveSessionDirectory: (workspace, sessionId) => resolveV2SessionExecutionDirectory(config, engineV2Preview, workspace, sessionId) });
   registerContinuityRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable,
     authorizeSession: async (workspaceId, sessionId) => {

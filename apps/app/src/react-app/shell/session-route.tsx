@@ -181,6 +181,7 @@ import {
 import { sendWithRevertRollback } from "@/react-app/domains/session/surface/safe-edit-resend";
 import { assertQueuedSendCurrent, getQueuedSendGeneration } from "@/react-app/domains/session/surface/queued-drain-machine";
 import { CreateWorkspaceModal } from "@/react-app/domains/workspace/create-workspace-modal";
+import { useWebFolderPicker } from "@/react-app/domains/workspace/folder-browser-dialog";
 import type { CreateWorkspaceOptions } from "@/react-app/domains/workspace/types";
 import {
   connectGatewayProvider,
@@ -750,6 +751,8 @@ export function SessionRoute() {
   // One-way latch for "a refreshRouteState is currently running"; prevents
   // overlapping route refreshes from queueing up when the user clicks fast.
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  // Web runtime: owners browse the server's folders instead of a native picker (docs/features/web-folder-browser).
+  const webFolderPicker = useWebFolderPicker(client, !platform.capabilities.nativeFilePicker);
   const [createWorkspaceBusy, setCreateWorkspaceBusy] = useState(false);
   const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
   const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(null);
@@ -4281,15 +4284,20 @@ export function SessionRoute() {
         setCreateWorkspaceError(null);
       }}
       onConfirm={handleCreateWorkspace}
-      onPickFolder={async () => singlePickedDirectory(await pickDirectory({ title: t("onboarding.authorize_folder") }))}
+      onPickFolder={async () => platform.capabilities.nativeFilePicker
+        ? singlePickedDirectory(await pickDirectory({ title: t("onboarding.authorize_folder") }))
+        : webFolderPicker.pick()}
       submitting={createWorkspaceBusy}
       localError={createWorkspaceError}
-      localDisabled={!platform.capabilities.nativeFilePicker}
+      localDisabled={!platform.capabilities.nativeFilePicker && webFolderPicker.availability !== "available"}
       localDisabledReason={
-        platform.capabilities.nativeFilePicker
+        platform.capabilities.nativeFilePicker || webFolderPicker.availability === "available"
           ? undefined
-          : t("app.local_disabled_reason")
+          : webFolderPicker.availability === "needs_owner"
+            ? t("web_folder_browser.needs_owner")
+            : t("app.local_disabled_reason")
       }
+      pickerDialog={webFolderPicker.dialog}
     />
     <RenameWorkspaceModal
       open={renameWorkspaceId !== null}

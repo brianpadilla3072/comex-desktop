@@ -2874,6 +2874,18 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     listPairedDevices: () => requestJson<{ items: Array<{ id: string; name: string; createdAt: number }> }>(baseUrl, "/pairing/devices", { token, hostToken, timeoutMs: timeouts.config }),
     revokePairedDevice: (id: string) => requestJson<{ ok: true }>(baseUrl, `/pairing/devices/${encodeURIComponent(id)}`, { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
 
+    // Folder browser for creating workspaces from the web (docs/features/web-folder-browser).
+    // Owner-only; callers validate the payload (app/lib/web-folder-browser.ts).
+    browseFolders: (path?: string | null, options?: { hidden?: boolean }) => {
+      const params = new URLSearchParams();
+      if (path?.trim()) params.set("path", path.trim());
+      if (options?.hidden) params.set("hidden", "1");
+      const query = params.size ? `?${params.toString()}` : "";
+      return requestJson<unknown>(baseUrl, `/folders/browse${query}`, { token, hostToken, timeoutMs: timeouts.config });
+    },
+    createFolder: (parent: string, name: string) =>
+      requestJson<unknown>(baseUrl, "/folders/browse", { method: "POST", body: { parent, name }, token, hostToken, timeoutMs: timeouts.config }),
+
     getUserEnvStatus: (runtimeKey?: string | null) => {
       const params = new URLSearchParams();
       if (runtimeKey?.trim()) params.set("runtimeKey", runtimeKey.trim());

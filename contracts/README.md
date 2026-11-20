@@ -8,3 +8,4 @@ unchanged. Add a vector before changing behavior; a new major version gets a new
 | Area | Runner |
 | --- | --- |
 | `specialist-app-bundle/v1` | `apps/server/test/specialist-bundle-contract.test.ts` |
+| `folder-browser/v1` | `apps/server/test/folder-browser.test.ts` |

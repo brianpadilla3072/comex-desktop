@@ -91,6 +91,16 @@
               ],
               "description": "Pair other devices with a one-time code: Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does. Renders DEN_FEATURE_REMOTE_DEVICE_PAIRING."
             },
+            "webFolderBrowser": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Browse server folders from the web app: Owners (the desktop or a paired device) browse folders on the server's computer and create a folder, so the web app can create local workspaces without a native folder picker. Renders DEN_FEATURE_WEB_FOLDER_BROWSER."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",

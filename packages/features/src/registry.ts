@@ -137,6 +137,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  webFolderBrowser: {
+    label: "Browse server folders from the web app",
+    description: "Owners (the desktop or a paired device) browse folders on the server's computer and create a folder, so the web app can create local workspaces without a native folder picker.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/web-folder-browser/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",
