@@ -46,6 +46,25 @@ function sameKeys(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((key, index) => key === b[index])
 }
 
+/**
+ * Stable virtualizer keys for the groups. A server message that acknowledged an optimistic
+ * send keeps the optimistic ID as its identity, so its row does not remount. Two rows must
+ * never share an identity: when two identical prompts are acknowledged one after the other,
+ * both server messages can map to the first send's ID, and duplicate keys make the
+ * virtualizer re-measure two rows under one key forever ("Maximum update depth exceeded").
+ * A row whose identity is taken keeps its own key (or a suffixed one if even that repeats).
+ */
+export function uniqueGroupIdentities(keys: readonly string[], identities: ReadonlyMap<string, string>): string[] {
+  const used = new Set<string>()
+  return keys.map((key) => {
+    const identity = identities.get(key) ?? key
+    let candidate = used.has(identity) ? key : identity
+    for (let copy = 1; used.has(candidate); copy += 1) candidate = `${key}#${copy}`
+    used.add(candidate)
+    return candidate
+  })
+}
+
 function sameStructure(a: readonly Segment[], b: readonly Segment[]) {
   return a.length === b.length && a.every((segment, index) => {
     const other = b[index]
@@ -67,7 +86,7 @@ function VirtualGroups<T>(props: ProgressiveMessageListProps<T>) {
   for (const [key, previous] of props.groupKeyReplacements ?? []) {
     if (!identities.current.has(key)) identities.current.set(key, identities.current.get(previous) ?? previous)
   }
-  const identityKeys = React.useMemo(() => currentKeys.map((key) => identities.current.get(key) ?? key), [currentKeys])
+  const identityKeys = React.useMemo(() => uniqueGroupIdentities(currentKeys, identities.current), [currentKeys])
   const getItemKey = React.useCallback((index: number) => identityKeys[index], [identityKeys])
   const anchorIndex = React.useMemo(() => viewport?.anchorMessageId
     ? groups.findIndex((group) => getMessageIds(group).includes(viewport.anchorMessageId!)) : -1,
