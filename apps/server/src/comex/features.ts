@@ -222,3 +222,10 @@ export function activityAnimationsToggleEnabled(env: NodeJS.ProcessEnv = process
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("activityAnimationsToggle", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Cmd/Ctrl+K finds individual settings and opens the page at them (docs/features/palette-setting-search). */
+export function paletteSettingSearchEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("paletteSettingSearch", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

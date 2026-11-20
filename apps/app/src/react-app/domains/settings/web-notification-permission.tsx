@@ -63,7 +63,7 @@ export function WebNotificationPermissionItem(props: {
   }, [props.env]);
 
   return (
-    <LayoutSectionItem>
+    <LayoutSectionItem anchor="web-notifications-permission">
       <LayoutSectionItemHeader>
         <LayoutSectionItemTitle>{t("web_notifications.permission_title")}</LayoutSectionItemTitle>
         <LayoutSectionItemDescription>

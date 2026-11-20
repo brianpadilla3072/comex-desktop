@@ -710,7 +710,7 @@ export function AdvancedWorkspaceRunModeSection() {
         <LayoutSectionTitle>{t("settings_ui.run_mode_title")}</LayoutSectionTitle>
         <LayoutSectionDescription>{t("settings_ui.run_mode_desc")}</LayoutSectionDescription>
       </LayoutSectionHeader>
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="show-workspace-run-mode">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("settings_ui.run_mode_show")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
@@ -742,7 +742,7 @@ export function AdvancedEngineV2PreviewSection(props: { client: OpenworkServerCl
   return (
     <LayoutSection id="advanced-experimental-engine">
       <LayoutSectionHeader><LayoutSectionTitle>{t("engine_settings.title")}</LayoutSectionTitle></LayoutSectionHeader>
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="chat-engine">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("engine_settings.chat_engine")}</LayoutSectionItemTitle>
           <LayoutSectionItemHeaderActions>
@@ -787,7 +787,7 @@ export function AdvancedDeveloperSection(props: AdvancedDeveloperSectionProps) {
         <LayoutSectionTitle>{t("settings.developer")}</LayoutSectionTitle>
       </LayoutSectionHeader>
 
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="developer-mode">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("settings.developer_mode_title")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>{t("settings.developer_mode_desc")}</LayoutSectionItemDescription>

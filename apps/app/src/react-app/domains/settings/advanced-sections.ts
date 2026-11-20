@@ -6,7 +6,7 @@ export const ADVANCED_SETTINGS_SECTIONS = [
   { id: "runtime", titleKey: "settings.runtime_title", keywords: ["opencode engine", "openwork server", "connection status"] },
   { id: "agent-access", titleKey: "secondary_ui.advanced.agent_access_title", keywords: ["cloud mcp", "health", "tools", "connections"] },
   { id: "config-sources", titleKey: "secondary_ui.advanced.config_sources_title", keywords: ["runtime db", "injected config", "project config", "global config"] },
-  { id: "experimental-engine", titleKey: "secondary_ui.advanced.experimental_engine", keywords: ["engine v2", "chat engine", "preview"] },
+  { id: "experimental-engine", titleKey: "engine_settings.title", keywords: ["engine v2", "experimental engine", "preview"] },
   { id: "workspace-run-mode", titleKey: "settings_ui.run_mode_title", keywords: ["approvals", "permissions", "keep going", "feature flag"] },
   { id: "developer", titleKey: "settings.developer", keywords: ["developer mode", "debug", "deep link"] },
 ];

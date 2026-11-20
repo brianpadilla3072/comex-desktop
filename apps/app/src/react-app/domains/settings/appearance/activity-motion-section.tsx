@@ -24,7 +24,7 @@ export function ActivityMotionSection({ busy }: { busy: boolean }) {
         <LayoutSectionTitle>{t("activity_motion.section_title")}</LayoutSectionTitle>
         <LayoutSectionDescription>{t("activity_motion.section_desc")}</LayoutSectionDescription>
       </LayoutSectionHeader>
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="activity-animations">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("activity_motion.toggle_title")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>{t("activity_motion.toggle_desc")}</LayoutSectionItemDescription>

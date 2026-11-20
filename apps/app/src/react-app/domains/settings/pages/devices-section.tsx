@@ -74,7 +74,7 @@ export function DevicesSection({ client }: { client: OpenworkServerClient | null
       <LayoutSectionTitle>{t("pairing.section_title")}</LayoutSectionTitle>
       <LayoutSectionDescription>{t("pairing.section_desc")}</LayoutSectionDescription>
     </LayoutSectionHeader>
-    <LayoutSectionItem>
+    <LayoutSectionItem anchor="connect-device">
       <LayoutSectionItemHeader>
         <LayoutSectionItemTitle>{t("pairing.connect_title")}</LayoutSectionItemTitle>
         <LayoutSectionItemDescription>{t("pairing.connect_desc")}</LayoutSectionItemDescription>

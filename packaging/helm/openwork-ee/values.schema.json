@@ -121,6 +121,16 @@
               ],
               "description": "Option to turn off activity animations: Settings › Appearance gets an \"Activity animations\" switch that freezes the running-work marks (sidebar rows, tool lines) on a still frame. With many running tasks this lowers the window's CPU use by up to about 40% and reduces GPU work; the setting says so. Renders DEN_FEATURE_ACTIVITY_ANIMATIONS_TOGGLE."
             },
+            "paletteSettingSearch": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Find individual settings from the command palette: Cmd/Ctrl+K lists individual settings (theme, language, notifications, activity animations, devices...) in English and Spanish, and opens the settings page scrolled to the one you picked. Port of different-ai/openwork#7415. Renders DEN_FEATURE_PALETTE_SETTING_SEARCH."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",

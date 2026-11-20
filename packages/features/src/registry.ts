@@ -170,6 +170,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  paletteSettingSearch: {
+    label: "Find individual settings from the command palette",
+    description: "Cmd/Ctrl+K lists individual settings (theme, language, notifications, activity animations, devices...) in English and Spanish, and opens the settings page scrolled to the one you picked. Port of different-ai/openwork#7415.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/palette-setting-search/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",

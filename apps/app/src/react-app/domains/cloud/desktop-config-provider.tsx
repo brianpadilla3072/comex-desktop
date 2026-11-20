@@ -51,6 +51,7 @@ import { useDenAuth } from "./den-auth-provider";
 import { setWebNotificationsFeatureEnabled } from "../../shell/web-notifications";
 import { rememberStartupScreenPolish } from "@/app/lib/startup-screen-flag";
 import { rememberActivityAnimationsToggle } from "@/app/lib/activity-motion";
+import { setPaletteSettingSearchEnabled } from "@/react-app/domains/settings/settings-search-index";
 import {
   bootstrapBrandingFromDesktopConfig,
   bootstrapBrandingNeedsSync,
@@ -304,6 +305,8 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           rememberStartupScreenPolish(feature.startupScreenPolish !== false);
           // Settings › Apariencia › "Animaciones de actividad"; an older server keeps the default (on).
           rememberActivityAnimationsToggle(feature.activityAnimationsToggle !== false);
+          // Cmd/Ctrl+K finds individual settings; an older server keeps the default (on).
+          setPaletteSettingSearchEnabled(feature.paletteSettingSearch !== false);
           // Comex screens are in Spanish: suggest Spanish unless the person
           // chose a language. Reload once so every screen switches together.
           if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();

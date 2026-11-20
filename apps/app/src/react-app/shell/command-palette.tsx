@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
@@ -52,6 +53,10 @@ import {
   type PaletteResultGroup,
 } from "./command-palette-search";
 import { buildCommandPaletteSettingsItems } from "./command-palette-settings";
+import { paletteSettingSearchEnabled, subscribePaletteSettingSearch } from "@/react-app/domains/settings/settings-search-index";
+import { useWebNotificationsAvailable } from "@/react-app/domains/settings/web-notification-permission";
+import { useDesktopFeature } from "@/react-app/domains/session/status/use-desktop-feature";
+import { isElectronRuntime } from "@/app/lib/runtime-env";
 
 export type { PaletteItem } from "./command-palette-search";
 
@@ -148,6 +153,10 @@ export type CommandPaletteProps = {
  */
 export function CommandPalette(props: CommandPaletteProps) {
   const platform = usePlatform();
+  // Settings search lists the sidebar's pages and, behind `paletteSettingSearch`, the settings in them.
+  const settingSearch = useSyncExternalStore(subscribePaletteSettingSearch, paletteSettingSearchEnabled, paletteSettingSearchEnabled);
+  const webNotifications = useWebNotificationsAvailable();
+  const computerUse = useDesktopFeature("computerUse") && isElectronRuntime();
   // Key hints read the way this OS writes them: ⌃⇧M on macOS, Ctrl+Shift+M elsewhere.
   const shortcutOs = resolveShortcutOs(platform.os, typeof navigator === "undefined" ? "" : navigator.platform);
   const engine = useOpencodeEngineControls(props.engineClient, props.open);
@@ -353,6 +362,10 @@ export function CommandPalette(props: CommandPaletteProps) {
     () => buildCommandPaletteSettingsItems({
       developerMode: props.developerMode,
       capabilities: platform.capabilities,
+      os: platform.os,
+      computerUse,
+      settingSearch,
+      webNotifications,
       checkRestriction: checkDesktopRestriction,
       onOpenSettings: (route) => {
         props.onClose();
@@ -365,11 +378,15 @@ export function CommandPalette(props: CommandPaletteProps) {
     }),
     [
       checkDesktopRestriction,
+      computerUse,
       platform.capabilities,
+      platform.os,
       props.developerMode,
       props.onClose,
       props.onOpenExtensions,
       props.onOpenSettings,
+      settingSearch,
+      webNotifications,
     ],
   );
 
