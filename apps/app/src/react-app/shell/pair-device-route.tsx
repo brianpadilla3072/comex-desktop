@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { OpenworkServerError, createOpenworkServerClient, forgetPairedDevice, is
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import { resolveOpenworkConnection } from "./openwork-connection";
+import { useBootState } from "./boot-state";
 import { describeError } from "./pair-device-errors";
 
 /** Default device name from the browser, editable before pairing. */
@@ -25,6 +26,10 @@ export function PairDeviceRoute() {
   const [deviceName, setDeviceName] = useState(suggestedDeviceName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // This screen needs no workspace: release the boot overlay, which otherwise waits for a
+  // session route that never mounts here and covers the form (clicks never reached it).
+  const { markRouteReady } = useBootState();
+  useEffect(() => { markRouteReady(); }, [markRouteReady]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
