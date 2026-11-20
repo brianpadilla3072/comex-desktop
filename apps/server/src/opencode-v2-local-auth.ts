@@ -36,7 +36,10 @@ export interface LocalProviderAuth {
 /** Only the active v1 profile, never another installation's fallback directory. */
 export async function readLocalProviderAuth(path = join(opencodeDataDirs()[0], "auth.json")): Promise<LocalProviderAuth> {
   let value: unknown;
-  try { value = JSON.parse(await readFile(path, "utf8")); } catch (error) {
+  try {
+    const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+    value = parsed;
+  } catch (error) {
     if (record(error) && error.code === "ENOENT") return { apiKeys: new Map(), signIns: new Set() };
     throw new Error("Could not read local provider credentials");
   }

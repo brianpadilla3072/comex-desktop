@@ -74,7 +74,9 @@ function errorText(error: unknown): string {
 
 function jsonCopy(value: unknown): unknown {
   try {
-    return value === undefined ? {} : JSON.parse(JSON.stringify(value));
+    if (value === undefined) return {};
+    const copy: unknown = JSON.parse(JSON.stringify(value));
+    return copy;
   } catch {
     return {};
   }

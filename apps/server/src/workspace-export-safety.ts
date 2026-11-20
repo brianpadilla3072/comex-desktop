@@ -60,8 +60,10 @@ const GENERIC_KEY_ASSIGNMENT_PATTERNS = [
   /["'`]key["'`]\s*:\s*["'`]([^"'`\n]{12,})["'`]/gi,
 ] as const;
 
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
+/** A JSON round trip of a plain object is a plain object; anything else becomes `{}`. */
+function cloneJsonRecord(value: Record<string, unknown>): Record<string, unknown> {
+  const copy: unknown = JSON.parse(JSON.stringify(value));
+  return readExportRecord(copy) ?? {};
 }
 
 function hasWordPair(tokens: string[], left: string, right: string): boolean {
@@ -281,11 +283,11 @@ export function stripSensitiveWorkspaceExportData(input: {
   opencode: Record<string, unknown>;
   files: PortableFile[];
 } {
-  const opencode = cloneJson(
+  const opencode = cloneJsonRecord(
     input.opencode && typeof input.opencode === "object" && !Array.isArray(input.opencode)
       ? input.opencode
       : {},
-  ) as Record<string, unknown>;
+  );
 
   for (const [sectionKey, sectionValue] of Object.entries(opencode)) {
     const sanitized = sanitizeValue(sectionValue);
@@ -333,7 +335,7 @@ function readExportRecord(value: unknown): Record<string, unknown> | null {
  * one machine) from an openwork config so exports stay portable.
  */
 export function sanitizeOpenworkTemplateConfig(openwork: Record<string, unknown> | null | undefined): Record<string, unknown> {
-  const next = cloneJson(openwork ?? {});
+  const next = cloneJsonRecord(openwork ?? {});
   const blueprint = readExportRecord(next.blueprint);
   if (!blueprint) return next;
 

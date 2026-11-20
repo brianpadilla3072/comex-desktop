@@ -58,7 +58,10 @@ async function errorBody(response: Response): Promise<unknown> {
       text += decoder.decode(chunk.value, { stream: true });
     }
     text += decoder.decode();
-    try { return JSON.parse(text); } catch { return text; }
+    try {
+      const value: unknown = JSON.parse(text);
+      return value;
+    } catch { return text; }
   } catch {
     return null;
   } finally {
@@ -76,7 +79,10 @@ function correction(body: string, value: unknown): { body: string; parameter: st
   if (parameter !== "reasoning.effort" && parameter !== "reasoning_effort"
     && parameter !== "temperature" && parameter !== "top_p") return null;
   let parsed: unknown;
-  try { parsed = JSON.parse(body); } catch { return null; }
+  try {
+    const value: unknown = JSON.parse(body);
+    parsed = value;
+  } catch { return null; }
   if (!record(parsed)) return null;
   const target = parameter === "reasoning.effort" ? parsed.reasoning : parsed;
   const key = parameter === "reasoning.effort" ? "effort" : parameter;

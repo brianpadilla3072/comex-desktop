@@ -176,7 +176,8 @@ export async function fetchOpencodeV2Json(
     : await readBoundedText(response, init.maxResponseBytes);
   let json: unknown = text;
   try {
-    json = JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    json = parsed;
   } catch {
     // Non-JSON engine responses remain observable as raw text.
   }

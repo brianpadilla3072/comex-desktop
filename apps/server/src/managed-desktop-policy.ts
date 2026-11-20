@@ -281,8 +281,10 @@ class ManagedDesktopPolicy {
       this.identityChanged(generation);
       if (text.trim()) {
         let value: unknown;
-        try { value = JSON.parse(text); }
-        catch { throw new ApiError(400, "invalid_request", "Expected a JSON request body."); }
+        try {
+          const parsed: unknown = JSON.parse(text);
+          value = parsed;
+        } catch { throw new ApiError(400, "invalid_request", "Expected a JSON request body."); }
         if (typeof value === "object" && value !== null && !Array.isArray(value)) input = Object.fromEntries(Object.entries(value));
       }
     }
@@ -316,7 +318,10 @@ class ManagedDesktopPolicy {
     if (providerID) return this.assert("provider", { providerID });
     if (!request.body || !/^\/session(?:\/|$)/.test(enginePath)) return;
     let body: unknown;
-    try { body = JSON.parse(await request.clone().text()); } catch { return; }
+    try {
+      const parsed: unknown = JSON.parse(await request.clone().text());
+      body = parsed;
+    } catch { return; }
     if (!isRecord(body)) return;
     const model = isRecord(body.model) ? body.model : body;
     if (typeof model.providerID === "string") await this.assert("model", { providerID: model.providerID });

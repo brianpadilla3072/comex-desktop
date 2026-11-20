@@ -159,8 +159,10 @@ export async function createV2ProviderSessionBridge(current: () => CloudProvider
       }
       if (!sameIdentity() || signal.aborted) { release(); return json({ error: "provider_identity_changed" }, 409); }
       let value: unknown = null;
-      try { value = text ? JSON.parse(text) : null; }
-      catch { if (upstream.ok) throw new Error("Invalid inventory JSON"); }
+      try {
+        const parsed: unknown = text ? JSON.parse(text) : null;
+        value = parsed;
+      } catch { if (upstream.ok) throw new Error("Invalid inventory JSON"); }
       const safe = JSON.stringify(value, (_key, item: unknown) => typeof item === "string" ? item.replaceAll(session.token, "[redacted]") : item)
         .replaceAll(JSON.stringify(session.token).slice(1, -1), "[redacted]")
         .replace(/ow_gw_[A-Za-z0-9_-]+/g, "ow_local_catalog");

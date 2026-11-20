@@ -82,7 +82,8 @@ const updateQueueByWorkspace = new Map<string, Promise<void>>();
 
 function parseSessionGroupState(stateJson: string): SessionGroupState {
   try {
-    return normalizeSessionGroupState(JSON.parse(stateJson));
+    const value: unknown = JSON.parse(stateJson);
+    return normalizeSessionGroupState(value);
   } catch {
     return EMPTY_SESSION_GROUP_STATE;
   }

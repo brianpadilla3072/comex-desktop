@@ -1,5 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { openworkServerConfigPath } from "@openwork/paths";
+import { z } from "zod";
 import type { ApprovalMode, ApprovalConfig, ServerConfig, WorkspaceConfig, LogFormat } from "./types.js";
 import { buildWorkspaceInfos, hasExternalOpencode } from "./workspaces.js";
 import { parseList, readJsonFile, shortId } from "./utils.js";
@@ -34,24 +35,52 @@ export interface CliArgs {
   bootstrapToken?: boolean;
 }
 
-interface FileConfig {
-  host?: string;
-  port?: number;
-  token?: string;
-  hostToken?: string;
-  approval?: Partial<ApprovalConfig>;
-  workspaces?: WorkspaceConfig[];
-  corsOrigins?: string[];
-  allowedHosts?: string[];
-  authorizedRoots?: string[];
-  readOnly?: boolean;
-  opencodeBaseUrl?: string;
-  opencodeDirectory?: string;
-  opencodeUsername?: string;
-  opencodePassword?: string;
-  logFormat?: LogFormat;
-  logRequests?: boolean;
-}
+// A field with the wrong type is dropped (as if absent); the rest of the file still applies.
+const optionalString = z.string().optional().catch(undefined);
+const optionalStrings = z.array(z.string()).optional().catch(undefined);
+
+const workspaceConfigSchema = z.object({
+  id: z.string().optional(),
+  path: z.string(),
+  name: z.string().optional(),
+  preset: z.string().optional(),
+  workspaceType: z.literal("local").optional(),
+  baseUrl: z.string().optional(),
+  directory: z.string().optional(),
+  displayName: z.string().optional(),
+  sandboxBackend: z.string().optional(),
+  sandboxRunId: z.string().optional(),
+  sandboxContainerName: z.string().optional(),
+  opencodeUsername: z.string().optional(),
+  opencodePassword: z.string().optional(),
+}) satisfies z.ZodType<WorkspaceConfig>;
+
+/** `openwork-server` config file (`server.json`). */
+const fileConfigSchema = z.object({
+  host: optionalString,
+  port: z.number().optional().catch(undefined),
+  token: optionalString,
+  hostToken: optionalString,
+  approval: z.object({
+    mode: z.enum(["manual", "auto"]).optional().catch(undefined),
+    timeoutMs: z.number().optional().catch(undefined),
+    responderWindowMs: z.number().optional().catch(undefined),
+  }).optional().catch(undefined),
+  workspaces: z.array(workspaceConfigSchema).optional().catch(undefined),
+  corsOrigins: optionalStrings,
+  allowedHosts: optionalStrings,
+  authorizedRoots: optionalStrings,
+  readOnly: z.boolean().optional().catch(undefined),
+  opencodeBaseUrl: optionalString,
+  opencodeDirectory: optionalString,
+  opencodeUsername: optionalString,
+  opencodePassword: optionalString,
+  // Free text: normalizeLogFormat accepts aliases such as "text".
+  logFormat: optionalString,
+  logRequests: z.boolean().optional().catch(undefined),
+});
+
+type FileConfig = z.infer<typeof fileConfigSchema>;
 
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = "127.0.0.1";
@@ -254,7 +283,7 @@ export function printHelp(): void {
 }
 
 async function loadFileConfig(configPath: string): Promise<FileConfig> {
-  const parsed = await readJsonFile<FileConfig>(configPath);
+  const parsed = await readJsonFile(configPath, fileConfigSchema);
   return parsed ?? {};
 }
 

@@ -105,7 +105,8 @@ function readCloudImports(config: Record<string, unknown>): WorkspaceCloudImport
 
 function parseInstalledCloudPlugins(configJson: string): WorkspaceCloudImports {
   try {
-    return readCloudImports({ cloudImports: JSON.parse(configJson) });
+    const cloudImports: unknown = JSON.parse(configJson);
+    return readCloudImports({ cloudImports });
   } catch {
     return readCloudImports({});
   }

@@ -54,7 +54,8 @@ async function readServerConfigFile(configPath: string): Promise<Record<string, 
 
   try {
     const raw = await readFile(configPath, "utf8");
-    return ensurePlainObject(JSON.parse(raw));
+    const value: unknown = JSON.parse(raw);
+    return ensurePlainObject(value);
   } catch (error) {
     throw new ApiError(422, "invalid_json", "Failed to parse server config", {
       path: configPath,

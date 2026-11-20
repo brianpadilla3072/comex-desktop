@@ -30,7 +30,8 @@ export type WorkspaceDefaultModelState = {
 function parseStoredModel(json: string): WorkspaceDefaultModel | null {
   let value: unknown;
   try {
-    value = JSON.parse(json);
+    const parsed: unknown = JSON.parse(json);
+    value = parsed;
   } catch {
     return null;
   }

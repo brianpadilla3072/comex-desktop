@@ -485,7 +485,8 @@ async function readBoundedBody(
 
 function parseJson(text: string): unknown {
   try {
-    return JSON.parse(text);
+    const value: unknown = JSON.parse(text);
+    return value;
   } catch {
     throw new SafeProbeFailure("invalid_json");
   }

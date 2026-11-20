@@ -43,7 +43,8 @@ export async function readBoundedBody(stream: ReadableStream<Uint8Array> | null,
   return body;
 }
 export async function readJson(stream: ReadableStream<Uint8Array> | null, limit: number, signal: AbortSignal): Promise<unknown> {
-  return JSON.parse(new TextDecoder().decode(await readBoundedBody(stream, limit, signal)));
+  const value: unknown = JSON.parse(new TextDecoder().decode(await readBoundedBody(stream, limit, signal)));
+  return value;
 }
 /** A gateway response that was not OK, kept whole so it can be replayed to the engine. */
 export class RemoteFailure extends Error {

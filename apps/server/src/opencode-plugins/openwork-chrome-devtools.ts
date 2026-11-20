@@ -36,7 +36,8 @@ export function coerceJsonValue(value: unknown): unknown {
     return value;
   }
   try {
-    return JSON.parse(trimmed);
+    const parsed: unknown = JSON.parse(trimmed);
+    return parsed;
   } catch {
     return value;
   }

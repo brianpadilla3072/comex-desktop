@@ -7,6 +7,7 @@
  * Approvals of external actions are deliberately NOT here: agents use OpenWork's
  * native permission system (allow/ask/deny + thread-approvals) for that.
  */
+import { z } from "zod";
 import { createWorkspaceKvStore, isRecord } from "../workspace-kv-store.js";
 import type { ServerConfig } from "../types.js";
 
@@ -61,6 +62,35 @@ export interface EcosystemState {
   haltedBy: string | null;
 }
 
+// Stored entries keep any extra keys a newer version wrote.
+const projectSummarySchema = z.looseObject({
+  projectId: z.string(),
+  sessionId: z.string(),
+  agentId: z.string(),
+  title: z.string(),
+  status: z.enum(["active", "paused", "done", "halted"]),
+  lastUpdate: z.number(),
+  oneLiner: z.string(),
+}) satisfies z.ZodType<ProjectSummary>;
+
+const deliverableSchema = z.looseObject({
+  id: z.string(),
+  projectId: z.string(),
+  ownerAgent: z.string(),
+  title: z.string(),
+  status: z.enum(["draft", "review", "done"]),
+  draftPath: z.string(),
+  comments: z.array(z.string()),
+  approvalState: z.enum(["none", "approved", "rejected"]),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+}) satisfies z.ZodType<Deliverable>;
+
+function validItem<T>(schema: z.ZodType<T>, value: unknown): T[] {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? [parsed.data] : [];
+}
+
 function emptyState(): EcosystemState {
   return { needs: [], index: [], board: [], halted: false, haltedAt: null, haltedBy: null };
 }
@@ -93,11 +123,15 @@ function parseNeed(value: unknown): Need | undefined {
 
 function parseState(json: string): EcosystemState {
   let value: unknown;
-  try { value = JSON.parse(json); } catch { return emptyState(); }
+  try {
+    const parsed: unknown = JSON.parse(json);
+    value = parsed;
+  } catch { return emptyState(); }
   if (!isRecord(value)) return emptyState();
   const needs = Array.isArray(value.needs) ? value.needs.map(parseNeed).filter((n): n is Need => Boolean(n)) : [];
-  const index = Array.isArray(value.index) ? value.index.filter(isRecord) as unknown as ProjectSummary[] : [];
-  const board = Array.isArray(value.board) ? value.board.filter(isRecord) as unknown as Deliverable[] : [];
+  // A malformed summary or deliverable is dropped, like a malformed need.
+  const index = Array.isArray(value.index) ? value.index.flatMap(item => validItem(projectSummarySchema, item)) : [];
+  const board = Array.isArray(value.board) ? value.board.flatMap(item => validItem(deliverableSchema, item)) : [];
   return {
     needs, index, board,
     halted: value.halted === true,

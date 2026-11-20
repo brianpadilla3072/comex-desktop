@@ -7,7 +7,10 @@ const quarantine = createWorkspaceKvStore<string>({ tableName: "recovery_quarant
 
 export function parseRecoveryJournal<T>(json: string, schema: z.ZodType<T>, limit = 1000) {
   let input: unknown;
-  try { input = JSON.parse(json); } catch { return { records: [], rejected: 1 }; }
+  try {
+    const parsed: unknown = JSON.parse(json);
+    input = parsed;
+  } catch { return { records: [], rejected: 1 }; }
   if (!Array.isArray(input)) return { records: [], rejected: 1 };
   const records: T[] = [];
   let rejected = 0;

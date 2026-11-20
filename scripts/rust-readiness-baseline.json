@@ -1,141 +1,14 @@
 {
-  "apps/server/src/agent-context-cloud-probe.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/audit.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/claude-import.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/cloud-mcp-health.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/cloud-plugins.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/comex/agent-ecosystem.ts": {
-    "R2-unvalidated-json-parse": 1,
-    "R3-double-cast": 2
-  },
-  "apps/server/src/comex/seed.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/connect-automation-catalog.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/connect-mcp-server-catalog.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/connect-mcp-transport.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/engine-pool.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/env-file.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/free-auto/http.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/free-auto/service.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/gateway-quota.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/host-response.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
   "apps/server/src/local-managed-mcp-url-guard.ts": {
     "R3-double-cast": 2
   },
-  "apps/server/src/local-managed-mcp.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/managed-desktop-policy.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/managed-opencode-v2.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/mcp-app-resource-cache.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/mcp-app-sandbox.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/model-guide/store.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/gmail-attachment-fulfillment.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/openwork-anthropic-tool-schema.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/openwork-chrome-devtools.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/openwork-extensions-preview-steering.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/openwork-mcp-results-v2.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-plugins/openwork-title-recovery.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/opencode-plugins/openwork-ui-bridge.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/opencode-v2-background-questions.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-v2-context-bridge.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-v2-local-auth.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/opencode-v2-provider-channel.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
   "apps/server/src/opencode-v2-provider-session.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/openwork-workspace-config-store.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/portable-opencode.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/recover-journal.ts": {
     "R2-unvalidated-json-parse": 1
   },
   "apps/server/src/routes/claude-import.ts": {
     "R2-unvalidated-json-parse": 1
   },
-  "apps/server/src/routes/cloud-mcp.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/routes/files.ts": {
-    "R3-double-cast": 3
-  },
-  "apps/server/src/routes/workspaces.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/runtime-opencode-config-store.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/serve-node.ts": {
-    "R3-double-cast": 1
-  },
   "apps/server/src/server.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/session-groups.ts": {
     "R2-unvalidated-json-parse": 1
   },
   "apps/server/src/specialists/artifacts.ts": {
@@ -163,21 +36,6 @@
     "R2-unvalidated-json-parse": 1
   },
   "apps/server/src/specialists/sync.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/thread-approvals.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/tokens.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/utils.ts": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/server/src/workspace-default-model.ts": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/server/src/workspace-export-safety.ts": {
     "R2-unvalidated-json-parse": 1
   },
   "apps/desktop/electron/automation-runner.mjs": {
@@ -235,13 +93,13 @@
     "R2-unvalidated-json-parse": 1
   },
   "apps/desktop/electron/ui-control-server.mjs": {
-    "R2-unvalidated-json-parse": 3
+    "R2-unvalidated-json-parse": 1
   },
   "apps/desktop/electron/updater.mjs": {
     "R2-unvalidated-json-parse": 4
   },
   "apps/desktop/electron/webmcp-host.mjs": {
-    "R2-unvalidated-json-parse": 10
+    "R2-unvalidated-json-parse": 2
   },
   "apps/desktop/electron/window-state.mjs": {
     "R2-unvalidated-json-parse": 1

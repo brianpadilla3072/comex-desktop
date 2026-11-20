@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, stat } from "node:fs/promises";
+import type { z } from "zod";
 
 export async function exists(path: string): Promise<boolean> {
   try {
@@ -14,10 +15,12 @@ export async function ensureDir(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
 }
 
-export async function readJsonFile<T>(path: string): Promise<T | null> {
+/** Reads a JSON file through `schema`; a missing, unreadable or invalid file is `null`. */
+export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
   try {
     const raw = await readFile(path, "utf8");
-    return JSON.parse(raw) as T;
+    const parsed = schema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -37,7 +40,7 @@ export function parseList(input: string | undefined): string[] {
   if (!trimmed) return [];
   if (trimmed.startsWith("[")) {
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
         return parsed.map((item) => String(item)).filter(Boolean);
       }

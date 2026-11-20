@@ -128,7 +128,8 @@ export function registerCloudMcpRoutes(options: RegisterCloudMcpRoutesOptions): 
     if (raw) {
       let parsed: unknown;
       try {
-        parsed = JSON.parse(raw);
+        const value: unknown = JSON.parse(raw);
+        parsed = value;
       } catch {
         throw new ApiError(400, "invalid_json", "Invalid JSON body");
       }

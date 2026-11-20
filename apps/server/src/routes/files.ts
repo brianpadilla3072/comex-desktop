@@ -2,12 +2,13 @@ import { createReadStream, createWriteStream, existsSync, realpathSync } from "n
 import { link, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { Readable, Transform } from "node:stream";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { recordAudit } from "../audit.js";
 import { ApiError } from "../errors.js";
 import { FileSessionStore } from "../file-sessions.js";
 import type { ApprovalRequest, ServerConfig, TokenScope, WorkspaceInfo } from "../types.js";
+import { nodeReadableToWeb } from "../node-web-stream.js";
 import { ensureDir, exists, shortId } from "../utils.js";
 import { addRoute, type RequestContext, type Route } from "./registry.js";
 
@@ -833,7 +834,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("attachment", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 
@@ -941,7 +942,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("attachment", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 
@@ -1174,7 +1175,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", contentTypeForPath(relativePath));
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("inline", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 

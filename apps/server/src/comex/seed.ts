@@ -2,11 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { comexContinuityEnabled, comexWorkspaceEnabled } from "./features.js";
 import { readComexCheckpoint, redactMemorySecrets } from "./continuity.js";
 import { resolveDataDir } from "../specialists/project-data.js";
 
 const queues = new Map<string, Promise<boolean>>();
+/** `.opencode/.comex-pack-hashes.json`: relative pack path to the sha256 of the copy we installed. */
+const packHashesSchema = z.record(z.string(), z.string());
 const sha = (text: string | Uint8Array) => createHash("sha256").update(text).digest("hex");
 export const PROJECT_MEMORY_PATH = "comex/estado.md";
 export const INITIAL_MEMORY = "# Memoria del proyecto\n\n## Consigna y alcance\nPendiente de confirmar.\n\n## Productos y destinos\nPendientes de decisión de la estudiante.\n\n## Decisiones y supuestos\nSin decisiones registradas.\n\n## Fuentes y evidencia\nVer fuentes.md y cumplimiento.md cuando existan.\n\n## Trabajo de campo\nEncuesta pendiente; no hay respuestas reales registradas.\n\n## Próximos pasos\nConfirmar alcance, productos y destinos.\n";
@@ -62,9 +65,14 @@ export async function seedComexPack(root: string, pack: string): Promise<boolean
   const sourceFiles = [...await files(pack, "skills"), ...await files(pack, "agents"), ...installedRuntime];
   const markerName = ".opencode/.comex-pack-hashes.json";
   const marker = await safePath(root, markerName);
-  const raw: unknown = await info(marker) ? JSON.parse(await readFile(marker, "utf8")) : {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || Object.values(raw).some(value => typeof value !== "string")) throw new Error("Registro del pack inválido; no se sobrescribieron archivos");
-  const previous = new Map(Object.entries(raw));
+  let raw: unknown = {};
+  if (await info(marker)) {
+    const stored: unknown = JSON.parse(await readFile(marker, "utf8"));
+    raw = stored;
+  }
+  const hashes = packHashesSchema.safeParse(raw);
+  if (!hashes.success) throw new Error("Registro del pack inválido; no se sobrescribieron archivos");
+  const previous = new Map(Object.entries(hashes.data));
   const next: Record<string, string> = {};
   let changed = false;
   for (const name of sourceFiles) {

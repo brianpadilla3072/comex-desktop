@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { z } from "zod";
 
 const MAX_CSP_QUERY_BYTES = 8 * 1024;
 
@@ -8,6 +9,15 @@ export type McpAppSandboxCsp = {
   frameDomains: string[];
   baseUriDomains: string[];
 };
+
+/** The `csp` query: a list that is missing or not an array counts as empty. */
+const domainList = z.array(z.unknown()).catch([]);
+const cspQuerySchema = z.object({
+  connectDomains: domainList,
+  resourceDomains: domainList,
+  frameDomains: domainList,
+  baseUriDomains: domainList,
+});
 
 function sourceList(values: string[], fallback: string): string {
   return values.length ? values.join(" ") : fallback;
@@ -32,10 +42,10 @@ export function parseMcpAppSandboxCsp(value: string | null): McpAppSandboxCsp {
     return { connectDomains: [], resourceDomains: [], frameDomains: [], baseUriDomains: [] };
   }
   try {
-    const parsed = JSON.parse(value) as Partial<Record<keyof McpAppSandboxCsp, unknown>>;
-    const domains = (key: keyof McpAppSandboxCsp) => Array.isArray(parsed[key])
-      ? parsed[key].filter(safeOrigin).slice(0, 16)
-      : [];
+    const query = cspQuerySchema.safeParse(JSON.parse(value));
+    if (!query.success) return { connectDomains: [], resourceDomains: [], frameDomains: [], baseUriDomains: [] };
+    const parsed = query.data;
+    const domains = (key: keyof McpAppSandboxCsp) => parsed[key].filter(safeOrigin).slice(0, 16);
     return {
       connectDomains: domains("connectDomains"),
       resourceDomains: domains("resourceDomains"),

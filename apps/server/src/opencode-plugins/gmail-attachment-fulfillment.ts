@@ -56,7 +56,8 @@ function normalizeJson(value: unknown): unknown {
   const text = value.trim();
   if (!text.startsWith("{") && !text.startsWith("[")) return value;
   try {
-    return JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    return parsed;
   } catch {
     return value;
   }

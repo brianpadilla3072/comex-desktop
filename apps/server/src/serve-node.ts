@@ -6,7 +6,7 @@
  * environment (including Electron's main process) without Bun.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { Readable } from "node:stream";
+import { nodeReadableToWeb } from "./node-web-stream.js";
 
 export type ServeOptions = {
   hostname: string;
@@ -112,10 +112,8 @@ function toWebRequest(
 
   const hasBody = method !== "GET" && method !== "HEAD";
 
-  // Readable.toWeb() returns a Node stream/web ReadableStream which is structurally
-  // compatible with the global ReadableStream but TypeScript treats them as distinct.
   const body = hasBody
-    ? (Readable.toWeb(nodeReq) as unknown as ReadableStream<Uint8Array>)
+    ? nodeReadableToWeb(nodeReq)
     : null;
 
   const request = new Request(url, {

@@ -71,7 +71,10 @@ export async function askWithoutWaiting(
         for (const frame of frames) {
           const data = frame.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trim()).join("\n");
           let event: unknown;
-          try { event = JSON.parse(data); } catch { continue; }
+          try {
+            const parsed: unknown = JSON.parse(data);
+            event = parsed;
+          } catch { continue; }
           const settled = settledForm.safeParse(event);
           if (!settled.success || settled.data.data.id !== id) continue;
           if (settled.data.type === "form.cancelled") return;

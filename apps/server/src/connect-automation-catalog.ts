@@ -50,7 +50,8 @@ async function readIndex(cloud: Record<string, unknown>, fetcher: McpFetch): Pro
     clientName: "openwork-server-automation-catalog",
   });
   if (text === null) return null;
-  return parseOpenWorkAutomationIndex(JSON.parse(text));
+  const value: unknown = JSON.parse(text);
+  return parseOpenWorkAutomationIndex(value);
 }
 
 /** The index Den serves at automation://index.json, or null when it is not one. */

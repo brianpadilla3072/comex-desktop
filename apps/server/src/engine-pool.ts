@@ -390,7 +390,8 @@ function sseFramePayload(frame: string): unknown {
     .join("\n");
   if (!data) return null;
   try {
-    return JSON.parse(data);
+    const value: unknown = JSON.parse(data);
+    return value;
   } catch {
     return null;
   }
