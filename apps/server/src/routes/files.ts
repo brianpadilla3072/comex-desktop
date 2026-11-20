@@ -9,7 +9,7 @@ import { ApiError } from "../errors.js";
 import { FileSessionStore } from "../file-sessions.js";
 import type { ApprovalRequest, ServerConfig, TokenScope, WorkspaceInfo } from "../types.js";
 import { nodeReadableToWeb } from "../node-web-stream.js";
-import { ensureDir, exists, shortId } from "../utils.js";
+import { ensureDir, exists, renameWithRetry, shortId } from "../utils.js";
 import { addRoute, type RequestContext, type Route } from "./registry.js";
 
 /**
@@ -727,7 +727,7 @@ export async function writeWorkspaceTextArtifact(absPath: string, content: strin
         if (error instanceof Error && "code" in error && error.code === "EEXIST") throw new ApiError(409, "conflict", "A file already exists at this path");
         throw error;
       }
-    } else await rename(tmp, absPath);
+    } else await renameWithRetry(tmp, absPath);
     return await stat(absPath);
   } finally { await rm(tmp, { force: true }).catch(() => undefined); }
 }
@@ -893,7 +893,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     let bytes: number;
     try {
       bytes = await writeUploadToFile(body, tmp, maxBytes, ctx.request.signal);
-      await rename(tmp, dest);
+      await renameWithRetry(tmp, dest);
     } catch (error) {
       await rm(tmp, { force: true }).catch(() => undefined);
       throw error;
@@ -1224,7 +1224,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     await ensureDir(dirname(absPath));
     const tmp = `${absPath}.tmp-${shortId()}`;
     await writeFile(tmp, bytes);
-    await rename(tmp, absPath);
+    await renameWithRetry(tmp, absPath);
     const after = await stat(absPath);
     const revision = fileRevision(after);
     recordWorkspaceFileEvent(workspace.id, { type: "write", path: relativePath, revision });
