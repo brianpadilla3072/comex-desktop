@@ -59,13 +59,13 @@ function DesignPreview() {
                     <p>Empecemos por elegir los dos productos y sus mercados. Voy a registrar cada requisito de la consigna y la evidencia que falta conseguir.</p>
                     <p>Para cada producto vamos a trabajar la selección del destino, las barreras, los competidores, los canales y la logística con su Incoterm.</p>
                     <p>Podemos preparar el cuestionario ahora. La encuesta quedará pendiente hasta que tengas respuestas reales; mientras tanto, avanzamos con la investigación de fuentes.</p>
-                    <p>¿Tenés productos en mente o querés que preparemos una preselección?</p>
+                    <p>¿Tienes productos en mente o quieres que preparemos una preselección?</p>
                   </div>
                 </div>
               </div>
               <div className="shrink-0 px-4 pb-5 pt-6 lg:px-8">
                 <div data-comex-composer className="mx-auto max-w-[800px] rounded-[18px] border border-border bg-background px-4 pb-3 pt-3">
-                  <textarea aria-label="Mensaje de ejemplo, sin envío" placeholder="Contame qué necesitás para tu trabajo" value={draft} onChange={e => setDraft(e.target.value)} className="min-h-12 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring" />
+                  <textarea aria-label="Mensaje de ejemplo, sin envío" placeholder="Cuéntame qué necesitas para tu trabajo" value={draft} onChange={e => setDraft(e.target.value)} className="min-h-12 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring" />
                   <div data-composer-toolbar className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                     <Plus className="size-4" /><ShieldCheck className="size-3.5" /><span>Con tu autorización</span>
                     <span className="ml-auto hidden sm:inline">Elegir modelo</span><ChevronDown className="size-3" /><Mic className="size-4" />

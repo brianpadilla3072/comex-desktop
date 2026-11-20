@@ -118,7 +118,7 @@ beforeEach(() => {
     if (/^\/specialist-applications\/app_test\/tasks$/.test(path) && method === "POST") {
       if (!flags.scheduledTasksEnabled) return disabled;
       const parsed = taskInputSchema.safeParse(body);
-      if (!parsed.success) return Response.json({ code: "invalid_task", message: "Revisá el nombre, el prompt y el horario de la tarea." }, { status: 422 });
+      if (!parsed.success) return Response.json({ code: "invalid_task", message: "Revisa el nombre, el prompt y el horario de la tarea." }, { status: 422 });
       const now = 1_700_000_000_000;
       const everyMinutes = parsed.data.schedule.kind === "interval" ? parsed.data.schedule.everyMinutes : 20;
       const task: FakeTask = {
@@ -142,7 +142,7 @@ beforeEach(() => {
     if (taskById && method === "PUT") {
       if (!flags.scheduledTasksEnabled) return disabled;
       const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(body);
-      if (!parsed.success) return Response.json({ code: "invalid_task", message: "Revisá los campos de la tarea." }, { status: 422 });
+      if (!parsed.success) return Response.json({ code: "invalid_task", message: "Revisa los campos de la tarea." }, { status: 422 });
       const now = 1_700_000_000_000;
       tasks = tasks.map(task => task.id === taskById[1] ? {
         ...task, ...parsed.data, updatedAt: now + 1,
@@ -230,7 +230,7 @@ test("el usuario guarda una propuesta y administra una tarea desde el menú de l
   expect(hasText("Todavía no hay tareas.")).toBe(true);
   await clickText("Nueva tarea");
   await edit("task-name", "actualizar precios");
-  await edit("task-prompt", "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.");
+  await edit("task-prompt", "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.");
   // Intervalo por defecto: "Cada cuántos minutos" ya trae 20.
   const every = document.getElementById("task-every") as HTMLInputElement | null;
   expect(every?.value).toBe("20");
@@ -241,7 +241,7 @@ test("el usuario guarda una propuesta y administra una tarea desde el menú de l
   expect(create).toBeDefined();
   const parsed = taskInputSchema.safeParse(create?.body);
   expect(parsed.success).toBe(true);
-  expect(create?.body).toEqual({ catchUp: false, name: "actualizar precios", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
+  expect(create?.body).toEqual({ catchUp: false, name: "actualizar precios", prompt: "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
 
   // Confirmación visible y la tarea aparece en la lista con su horario.
   expect(hasText("Tarea creada y activada.")).toBe(true);
@@ -320,7 +320,7 @@ test("una tarea mensual se crea con día del mes y se lee en la lista", async ()
   await clickText("Gestionar");
   await clickText("Nueva tarea");
   await edit("task-name", "cierre mensual");
-  await edit("task-prompt", "Revisá los balances del mes y avisá diferencias.");
+  await edit("task-prompt", "Revisa los balances del mes y avisa diferencias.");
   await clickText("Mensual");
   const day = document.getElementById("task-day") as HTMLInputElement | null;
   expect(day?.value).toBe("1");
@@ -330,7 +330,7 @@ test("una tarea mensual se crea con día del mes y se lee en la lista", async ()
   expect(hasText("1 corrida/mes")).toBe(true);
   await clickText("Crear tarea");
   const create = taskRequests.find(entry => entry.method === "POST" && entry.path === "/specialist-applications/app_test/tasks");
-  expect(create?.body).toEqual({ catchUp: false, name: "cierre mensual", prompt: "Revisá los balances del mes y avisá diferencias.", schedule: { kind: "monthly", dayOfMonth: 1, hour: 9, minute: 0 } });
+  expect(create?.body).toEqual({ catchUp: false, name: "cierre mensual", prompt: "Revisa los balances del mes y avisa diferencias.", schedule: { kind: "monthly", dayOfMonth: 1, hour: 9, minute: 0 } });
   expect(taskInputSchema.safeParse(create?.body).success).toBe(true);
   expect(hasText("Día 1 de cada mes a las 09:00")).toBe(true);
 });

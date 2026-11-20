@@ -44,7 +44,7 @@ const sourceReadSchema = z.object({
   chunk: z.number().int().min(0).describe("Nº de pasaje a leer (el de la cita [fuente:id#n]). Sin este campo se devuelve el índice de pasajes.").optional(),
 });
 const datasetDeriveSchema = z.object({
-  sourceId: z.string().describe("id del dataset del que derivás estos datos, visible en specialist_dataset_list"),
+  sourceId: z.string().describe("id del dataset del que derivas estos datos, visible en specialist_dataset_list"),
   name: z.string().describe("Nombre legible del dataset derivado, 1-120 caracteres"),
   payload: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).describe("Datos limpios o transformados: un arreglo de filas o un objeto con las series; hasta 1 MB"),
 });
@@ -57,7 +57,7 @@ const panelNameSchemaTool = z.object({ name: z.string().describe("kebab-case del
 const outputGenerateSchema = z.object({
   kind: z.enum(["mindmap", "report", "flashcards", "quiz", "table"]).describe("Tipo de salida"),
   title: z.string().describe("Título legible, 1-200 caracteres"),
-  content: z.string().describe("Contenido según el kind: mindmap/report en Markdown (mindmap con fence mindmap/graph), table = array JSON de filas, flashcards = [{front,back}], quiz = [{question, options: [2..6 textos], answer: índice 0-based de la opción correcta}]. Sin campos extra en cada objeto. Incluí citas [fuente:<id>#<n>] verificadas con specialist_source_read."),
+  content: z.string().describe("Contenido según el kind: mindmap/report en Markdown (mindmap con fence mindmap/graph), table = array JSON de filas, flashcards = [{front,back}], quiz = [{question, options: [2..6 textos], answer: índice 0-based de la opción correcta}]. Sin campos extra en cada objeto. Incluye citas [fuente:<id>#<n>] verificadas con specialist_source_read."),
   fromDatasets: z.array(z.string()).describe("ids de datasets usados (de specialist_dataset_list)").default([]),
   fromSources: z.array(z.string()).describe("ids de fuentes citadas").default([]),
   focus: z.string().describe("Foco opcional de la salida (qué se preguntó)").default(""),
@@ -80,14 +80,14 @@ const TOOLS = [
   { name: "specialist_agent_create", description: "Crear un agente nuevo en la biblioteca de la aplicación, a pedido explícito de la persona.", schema: createSchema },
   { name: "specialist_skill_create", description: "Crear una skill nueva en la biblioteca de la aplicación, a pedido explícito de la persona.", schema: createSchema },
   { name: "specialist_context_write", description: "Escribir el contexto propio de la aplicación (instrucciones que se agregan a cada conversación), a pedido explícito de la persona.", schema: contextSchema },
-  { name: "specialist_propose", description: "Guardar una PROPUESTA (skill, agente, contexto, tarea o plan compuesto) cuando la persona te enseñó un procedimiento que se va a repetir y no pidió explícitamente guardarlo. La persona revisa la propuesta en el menú de su aplicación antes de que exista; una tarea propuesta se crea PAUSADA al aceptarla. Nunca la apliques vos.", schema: proposeSchema },
+  { name: "specialist_propose", description: "Guardar una PROPUESTA (skill, agente, contexto, tarea o plan compuesto) cuando la persona te enseñó un procedimiento que se va a repetir y no pidió explícitamente guardarlo. La persona revisa la propuesta en el menú de su aplicación antes de que exista; una tarea propuesta se crea PAUSADA al aceptarla. Nunca la apliques tú.", schema: proposeSchema },
   { name: "specialist_task_create", description: "Crear una tarea programada para la aplicación (cada N minutos, diaria, semanal, mensual o una vez), solo cuando la persona lo pidió explícitamente. El prompt guardado es lo que hará el agente en cada corrida.", schema: taskCreateSchema },
   { name: "specialist_task_list", description: "Listar las tareas programadas de la aplicación con su próxima corrida y último estado.", schema: listSchema },
   { name: "specialist_task_pause", description: "Pausar una tarea programada (no se borra; retoma la persona desde la app o con specialist_task_create de reemplazo).", schema: taskIdSchema },
   { name: "specialist_task_delete", description: "Eliminar una tarea programada, a pedido explícito de la persona.", schema: taskIdSchema },
   { name: "specialist_dataset_list", description: "Listar los datasets de investigación guardados en este proyecto (cada consulta de investigación queda como dataset con sus snapshots).", schema: listSchema },
   { name: "specialist_dataset_read", description: "Leer un dataset: su consulta, las fechas de sus snapshots y el último snapshot. Usarla proactivamente después de investigar, para responder con los datos ya guardados en vez de volver a consultar.", schema: datasetIdSchema },
-  { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, decilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
+  { name: "specialist_dataset_refresh", description: "Volver a ejecutar la consulta guardada de un dataset y dejar un snapshot nuevo (necesita el proveedor de investigación conectado). Solo cuando la persona pidió explícitamente actualizar o reverificar los datos. Si falla, dilo en voz alta: nunca inventes las cifras.", schema: datasetIdSchema },
   { name: "specialist_dataset_derive", description: "Registrar un dataset DERIVADO de otro: una vista limpia o transformada (sin consulta re-ejecutable, con linaje al origen). Usarla proactivamente cuando convertiste los datos de una investigación en algo reutilizable para el proyecto.", schema: datasetDeriveSchema },
   { name: "specialist_source_read", description: "Leer una FUENTE citable del proyecto: sin chunk devuelve el índice de pasajes; con chunk devuelve el texto exacto del pasaje. Obligatorio antes de citar [fuente:<id>#<n>] en una respuesta: nunca cites de memoria ni inventes un ancla.", schema: sourceReadSchema },
   { name: "specialist_source_add", description: "Registrar un archivo LOCAL del proyecto (texto, CSV, Markdown, HTML) como fuente citable con sus [fuente:<id>#<n>] — a pedido explícito de la persona. El contenido se copia al registro (snapshot) para que la cita no se mueva.", schema: sourceAddSchema },
@@ -96,13 +96,13 @@ const TOOLS = [
   { name: "specialist_panel_read", description: "Leer la especificación de un panel y resolverla contra este proyecto (datos del último snapshot o el error exacto si no se puede dibujar).", schema: panelNameSchemaTool },
   { name: "specialist_panel_delete", description: "Eliminar un panel de la aplicación, a pedido explícito de la persona.", schema: panelNameSchemaTool },
   { name: "specialist_openapi_propose", description: "Proponer un pack de consulta desde un spec OpenAPI pegado por la persona: skill de consulta + dataset re-ejecutable (endpoint GET) + panel de tabla, como propuesta plan para que revise. Nunca embebe credenciales.", schema: openapiProposeSchema },
-  { name: "specialist_output_generate", description: "Generar una SALIDA del mini-Studio (mindmap, informe, flashcards, quiz o tabla) sobre los datasets/fuentes del proyecto. El contenido se valida según el kind y la herramienta devuelve la auditoría de citas: avisá lo que dice (sin anclas o con citas rotas) en vez de ignorarlo.", schema: outputGenerateSchema },
+  { name: "specialist_output_generate", description: "Generar una SALIDA del mini-Studio (mindmap, informe, flashcards, quiz o tabla) sobre los datasets/fuentes del proyecto. El contenido se valida según el kind y la herramienta devuelve la auditoría de citas: avisa lo que dice (sin anclas o con citas rotas) en vez de ignorarlo.", schema: outputGenerateSchema },
   { name: "specialist_output_list", description: "Listar las salidas del mini-Studio guardadas en este proyecto.", schema: listSchema },
   { name: "specialist_output_read", description: "Leer una salida con su contenido y la auditoría de sus citas (qué anclas resuelven y cuáles no).", schema: outputIdSchema },
 ] as const;
 
 const failedTool = (error: unknown) => ({
-  content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La herramienta falló sin detalle."} Corregí la llamada o contale el problema a la persona; no la repitas igual.` }],
+  content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La herramienta falló sin detalle."} Corrige la llamada o cuéntale el problema a la persona; no la repitas igual.` }],
 });
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */
@@ -117,7 +117,7 @@ export function createSpecialistLibraryPlugin(descriptorFile: string) {
         const url = new URL(descriptor.url);
         if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.pathname !== "/specialist-tool" || url.search || url.hash) throw new Error();
         return descriptor;
-      } catch { throw new Error("La biblioteca de la aplicación no está disponible en este proyecto. Revisá la biblioteca desde el menú de la aplicación."); }
+      } catch { throw new Error("La biblioteca de la aplicación no está disponible en este proyecto. Revisa la biblioteca desde el menú de la aplicación."); }
     };
     const registration = await context.tool.transform(editor => {
       for (const definition of TOOLS) {

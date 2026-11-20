@@ -82,7 +82,7 @@ export const useWorkspaceResources = create<{
     getItem: name => { try { return localStorage.getItem(name) } catch { return null } },
     setItem: (name, value) => {
       try { localStorage.setItem(name, value) }
-      catch { toast.error("No se pudieron conservar las pestañas y borradores en este navegador. Guardá las páginas en el proyecto antes de cerrar.", { id: "workspace-resource-storage" }) }
+      catch { toast.error("No se pudieron conservar las pestañas y borradores en este navegador. Guarda las páginas en el proyecto antes de cerrar.", { id: "workspace-resource-storage" }) }
     },
     removeItem: name => { try { localStorage.removeItem(name) } catch { /* The in-memory session remains usable. */ } },
   })),

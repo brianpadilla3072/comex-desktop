@@ -209,7 +209,7 @@ test("a CSV in the project draws a table panel: headers, quoted commas, numbers 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("a bad spec names the failing field, not just 'revisá el esquema'", async () => {
+test("a bad spec names the failing field, not just 'revisa el esquema'", async () => {
   const { root, config } = await fixture();
   try {
     await assert.rejects(

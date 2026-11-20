@@ -20,7 +20,7 @@ import { SpecialistLibraryDialog } from "./library-dialog";
 import { specialistErrorMessage } from "./error-message";
 import { DeleteApplicationDialog, downloadApplicationBundle, importNotice, pickBundleFile } from "./portability";
 
-const DEFAULT_PERSONALITY = "Sos una asistente metódica, clara y amable. Explicá en castellano simple, verificá las fuentes y señalá lo que falte. Priorizá que la persona entienda y pueda defender el resultado.";
+const DEFAULT_PERSONALITY = "Eres una asistente metódica, clara y amable. Explica en castellano simple, verifica las fuentes y señala lo que falte. Prioriza que la persona entienda y pueda defender el resultado.";
 const COMEX_SPECIALTY = "Comercio Exterior: investigaciones, cotizaciones y trabajos académicos con fuentes verificables.";
 type State = {
   client: OpenworkServerClient | null;
@@ -208,7 +208,7 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
   }
   async function importBundle() {
     if (!onImport) return;
-    if (first && !userName.trim()) { setError("Ingresá tu nombre para importar la aplicación."); return; }
+    if (first && !userName.trim()) { setError("Ingresa tu nombre para importar la aplicación."); return; }
     setBusy(true); setError(null);
     try { await onImport(first ? userName.trim() : undefined); }
     catch (cause) { setError(specialistErrorMessage(cause, "No se pudo importar la aplicación.")); }
@@ -227,7 +227,7 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
   }
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-h-[90dvh] gap-4 overflow-y-auto lg:max-w-xl">
-      <DialogHeader><DialogTitle>{existing ? "Personalidad de la aplicación" : first ? "Creá tu primera aplicación" : "Nueva aplicación especialista"}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{existing ? "Personalidad de la aplicación" : first ? "Crea tu primera aplicación" : "Nueva aplicación especialista"}</DialogTitle></DialogHeader>
       <form onSubmit={event => { event.preventDefault(); void save(); }} className="grid gap-4">
         {first ? <div className="grid gap-1.5"><Label htmlFor="specialist-user">Tu nombre</Label><Input id="specialist-user" autoFocus autoComplete="given-name" value={userName} onChange={event => setUserName(event.target.value)} required maxLength={100} /></div> : null}
         {!existing ? <div className="flex gap-2" role="group" aria-label="Tipo de aplicación">
@@ -245,7 +245,7 @@ function ApplicationForm({ client, catalog, existing, preferredWorkspaceId, onCl
           {packPath || template === "comex" ? <Button type="button" variant="ghost" size="sm" className="justify-self-start" disabled={busy} onClick={() => void inspect(packPath)}>Revisar pack</Button> : null}
           {summary ? <p role="status" className="text-xs text-muted-foreground">{summary.agents.length} {summary.agents.length === 1 ? "agente" : "agentes"} · {summary.skills.length} {summary.skills.length === 1 ? "skill" : "skills"} · {summary.fileCount} archivos</p> : template === "comex" && !packPath ? <p className="text-xs text-muted-foreground">Se usará el pack incluido de Comercio Exterior.</p> : null}
         </div> : <p className="text-xs text-muted-foreground">Pack importado: {existing.agentCount} {existing.agentCount === 1 ? "agente" : "agentes"} · {existing.skillCount} {existing.skillCount === 1 ? "skill" : "skills"}</p>}
-        {!existing ? <p role="status" className="text-xs text-muted-foreground">{engine.data?.running ? engine.data.connectionSource === "installed" ? "OpenCode instalado conectado. Modelos gratuitos primero." : "Motor conectado. Modelos gratuitos primero." : "Conectá un modelo desde el chat después de crear la aplicación."}</p> : null}
+        {!existing ? <p role="status" className="text-xs text-muted-foreground">{engine.data?.running ? engine.data.connectionSource === "installed" ? "OpenCode instalado conectado. Modelos gratuitos primero." : "Motor conectado. Modelos gratuitos primero." : "Conecta un modelo desde el chat después de crear la aplicación."}</p> : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose}>{first ? "Configurar después" : "Cancelar"}</Button>

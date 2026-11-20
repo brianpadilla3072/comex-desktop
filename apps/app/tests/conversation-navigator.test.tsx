@@ -45,7 +45,7 @@ test("empty chat has no rail; partial history can retry without losing available
     historyComplete={false} onLoadHistory={async () => { attempts++; if (attempts === 1) throw Error("offline"); }} />));
   const load = host.querySelector<HTMLElement>('[aria-label="Cargar toda la conversación"]')!;
   await act(async () => { load.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
-  expect(host.querySelector('[role="alert"]')?.textContent).toContain("Volvé a intentarlo");
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("Vuelve a intentarlo");
   expect(host.querySelectorAll("[data-conversation-stop]").length).toBe(2);
   await act(async () => { load.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
   expect(attempts).toBe(2);

@@ -134,7 +134,7 @@ function fitWidgetPayload(payload: PanelRenderPayload): PanelRenderPayload {
     ? { ...block, series: block.series.map(entry => ({ ...entry, points: entry.points.slice(0, 200) })) }
     : block) };
   if (JSON.stringify(withSeries).length <= MAX_WIDGET_CHARS) return withSeries;
-  return { ok: false, panel: payload.panel, title: payload.title, error: "El panel es demasiado grande para la vista interactiva: achicá la tabla o derivá el dato a un dataset." };
+  return { ok: false, panel: payload.panel, title: payload.title, error: "El panel es demasiado grande para la vista interactiva: achica la tabla o deriva el dato a un dataset." };
 }
 
 function datasetPayload(directory: string, id: string) {
@@ -269,7 +269,7 @@ export async function handlePanelMcpMessage(config: Pick<ServerConfig, "configPa
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
       serverInfo: { name: PANEL_MCP_SERVER_NAME, version: "1.0.0" },
-      instructions: "Paneles declarativos del proyecto. Las herramientas son de solo lectura: para escribir un panel usá la biblioteca de la aplicación.",
+      instructions: "Paneles declarativos del proyecto. Las herramientas son de solo lectura: para escribir un panel usa la biblioteca de la aplicación.",
     });
   }
   if (method === "ping") return reply({});

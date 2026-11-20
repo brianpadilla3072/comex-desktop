@@ -57,7 +57,7 @@ async function fixture() {
   await mkdir(join(pack, "agents"));
   await writeFile(join(pack, "skills", "tono", "SKILL.md"), "---\nname: tono\ndescription: Una skill de prueba.\n---\nAyudá con claridad.\n");
   await writeFile(join(pack, "skills", "tono", "references", "datos.csv"), "dato,valor\na,1\n");
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   const app = store.create(input("Alpha"), { agents: 1, skills: 1 });
   await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
   return { root, config, store, app };
@@ -71,7 +71,7 @@ test("library marks official files, detects edits and separates custom creations
     assert.equal(listing.agents[0]?.origin, "official");
     assert.equal(listing.skills[0]?.origin, "official");
     assert.equal(listing.skills[0]?.resources, 1);
-    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor editado.\nmode: subagent\n---\nRevisá distinto.\n");
+    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor editado.\nmode: subagent\n---\nRevisa distinto.\n");
     await createLibrarySkill(config, app.id, { name: "mi-procedimiento", description: "Repite lo enseñado.", content: undefined });
     listing = await listSpecialistLibrary(config, app.id);
     assert.equal(listing.agents[0]?.origin, "official-modified");
@@ -91,7 +91,7 @@ test("library rejects traversal, broken headers and name mismatches", async () =
     await assert.rejects(writeLibraryFile(config, app.id, "agents/sin-desc.md", "---\nmode: all\n---\nTexto\n"), /descripción/);
     await assert.rejects(writeLibraryFile(config, app.id, "skills/tono/SKILL.md", "---\nname: otra\ndescription: Prueba\n---\nTexto\n"), /coincidir/);
     await assert.rejects(writeLibraryFile(config, app.id, ".opencode/x", "x"), /ocultos/);
-    await assert.rejects(writeLibraryFile(config, app.id, "node_modules/x/y.md", "x"), /Solo podés editar/);
+    await assert.rejects(writeLibraryFile(config, app.id, "node_modules/x/y.md", "x"), /Solo puedes editar/);
     await assert.rejects(createLibraryAgent(config, app.id, { name: "revisor", description: "Duplicado." }), /Ya existe/);
   } finally { store.close(); await rm(root, { recursive: true, force: true }); }
 });
@@ -100,7 +100,7 @@ test("application context is editable and injected into the turn instructions", 
   const { config, store, app, root } = await fixture();
   try {
     assert.equal(await readSpecialistContext(config, app.id), null);
-    await writeSpecialistContext(config, app.id, "Siempre entregá en PDF y firmá con mi seudónimo.");
+    await writeSpecialistContext(config, app.id, "Siempre entrega en PDF y firma con mi seudónimo.");
     const context = await readSpecialistContext(config, app.id);
     assert.ok(context?.includes("seudónimo"));
     await mkdir(join(root, "memproject"));
@@ -120,14 +120,14 @@ test("sync materializes library edits into projects, protects project edits with
     const installed = join(project, ".opencode", "agents", "revisor.md");
     assert.ok((await readFile(installed, "utf8")).includes("Revisor de prueba."));
     // Library edit flows to an unmodified project copy.
-    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor v2.\nmode: subagent\n---\nRevisá doble.\n");
+    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor v2.\nmode: subagent\n---\nRevisa doble.\n");
     let sync = await syncSpecialistWorkspace(config, app, project, "ws_1");
     assert.equal(sync.error, undefined);
     assert.equal(sync.updated, 1);
     assert.ok((await readFile(installed, "utf8")).includes("Revisor v2."));
     // A project-local edit is never overwritten: the update lands as .nuevo.
     await writeFile(installed, "---\ndescription: Edité acá.\nmode: subagent\n---\nLocal.\n");
-    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor v3.\nmode: subagent\n---\nRevisá triple.\n");
+    await writeLibraryFile(config, app.id, "agents/revisor.md", "---\ndescription: Revisor v3.\nmode: subagent\n---\nRevisa triple.\n");
     sync = await syncSpecialistWorkspace(config, app, project, "ws_1");
     assert.ok((await readFile(installed, "utf8")).includes("Edité acá."));
     assert.ok((await readFile(`${installed}.nuevo`, "utf8")).includes("Revisor v3."));
@@ -165,7 +165,7 @@ test("library routes validate, store and materialize into the application's proj
   try {
     const pack = join(root, "source");
     await mkdir(join(pack, "agents"), { recursive: true });
-    await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+    await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
     const app = store.create(input("Alpha"), { agents: 1, skills: 0 });
     await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
     const project = join(root, "project");
@@ -191,16 +191,16 @@ test("library routes validate, store and materialize into the application's proj
     assert.equal(file.status, 200);
     assert.equal(file.json.origin, "official");
 
-    const saved = await api("PUT", `/specialist-applications/${app.id}/library/file`, { path: "agents/revisor.md", content: "---\ndescription: Revisor v2.\nmode: subagent\n---\nRevisá doble.\n" });
+    const saved = await api("PUT", `/specialist-applications/${app.id}/library/file`, { path: "agents/revisor.md", content: "---\ndescription: Revisor v2.\nmode: subagent\n---\nRevisa doble.\n" });
     assert.equal(saved.status, 200);
     assert.ok((await readFile(join(project, ".opencode", "agents", "revisor.md"), "utf8")).includes("Revisor v2."));
 
     const badContext = await api("PUT", `/specialist-applications/${app.id}/context`, { content: "x".repeat(8_001) });
     assert.equal(badContext.status, 422);
-    const context = await api("PUT", `/specialist-applications/${app.id}/context`, { content: "Entregá siempre en PDF." });
+    const context = await api("PUT", `/specialist-applications/${app.id}/context`, { content: "Entrega siempre en PDF." });
     assert.equal(context.status, 200);
     const read = await api("GET", `/specialist-applications/${app.id}/context`);
-    assert.equal(read.json.content, "Entregá siempre en PDF.");
+    assert.equal(read.json.content, "Entrega siempre en PDF.");
 
     const removed = await api("DELETE", `/specialist-applications/${app.id}/library/file`, undefined, `?path=${encodeURIComponent("skills/procedimiento/SKILL.md")}`);
     assert.equal(removed.status, 200);
@@ -217,7 +217,7 @@ test("the library tool bridge authenticates by project token and edits through t
   try {
     const pack = join(root, "source");
     await mkdir(join(pack, "agents"), { recursive: true });
-    await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+    await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
     const app = store.create(input("Alpha"), { agents: 1, skills: 0 });
     await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
     const project = join(root, "project");

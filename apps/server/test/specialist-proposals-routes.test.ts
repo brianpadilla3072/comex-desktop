@@ -74,7 +74,7 @@ test("accepting a task proposal creates the task PAUSED and keeps the schedule v
   const { root, config, app } = await fixture();
   const call = apiHarness(config);
   try {
-    const created = await addProposal(config, app.id, { ...base, kind: "task", name: "refrescar aranceles", content: JSON.stringify({ prompt: "Consultá las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } }) });
+    const created = await addProposal(config, app.id, { ...base, kind: "task", name: "refrescar aranceles", content: JSON.stringify({ prompt: "Consulta las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } }) });
     const proposalId = created.proposals[0]!.id;
     await withFlags({ tasks: "true" }, async () => {
       const accepted = await call("POST", `/specialist-applications/${app.id}/library/proposals/${proposalId}/accept`, {});
@@ -185,7 +185,7 @@ test("the propose tool accepts task and plan kinds and validates their payloads"
     await withFlags({ library: "true", tasks: "true", datasets: "true" }, async () => {
       const task = await runLibraryTool(config, pathA, "specialist_propose", {
         kind: "task", name: "revisar precios", description: "Cada mañana.", reason: "Se repite.",
-        content: JSON.stringify({ prompt: "Revisá precios.", schedule: { kind: "daily", hour: 8, minute: 0 } }),
+        content: JSON.stringify({ prompt: "Revisa precios.", schedule: { kind: "daily", hour: 8, minute: 0 } }),
       }) as { proposal: { kind: string }; note: string };
       assert.equal(task.proposal.kind, "task");
       assert.match(task.note, /PAUSADA/);

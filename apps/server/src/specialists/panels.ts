@@ -124,16 +124,16 @@ export async function writePanel(config: Pick<ServerConfig, "configPath">, id: s
   const parsed = parsePanelName(name);
   if (Buffer.byteLength(JSON.stringify(specInput)) > SPEC_LIMIT) throw failure("La especificación del panel supera 64 KB.");
   const spec = panelBodySchema.safeParse(specInput);
-  // Name the exact failing path: a generic "revisá el esquema" made a model rewrite the same
+  // Name the exact failing path: a generic "revisa el esquema" made a model rewrite the same
   // broken spec four times, and would leave a person guessing which field is wrong.
-  if (!spec.success) throw failure(`Revisá el panel: ${panelIssues(spec.error)}. Los campos válidos son title, source {dataset|file}, refresh y blocks (stat|line|bar|table|markdown|changes).`);
+  if (!spec.success) throw failure(`Revisa el panel: ${panelIssues(spec.error)}. Los campos válidos son title, source {dataset|file}, refresh y blocks (stat|line|bar|table|markdown|changes).`);
   return serialize(id, async () => {
     const file = panelPath(config, id, parsed);
     const existing = await statOrNull(file);
     if (!existing) {
       const names = await readdir(panelsRoot(config, id)).catch(() => [] as string[]);
       if (names.filter(name => name.endsWith(".panel.json")).length >= PANEL_LIMIT) {
-        throw new ApiError(409, "panel_limit", `Hay ${PANEL_LIMIT} paneles; borrá alguno antes de crear otro.`);
+        throw new ApiError(409, "panel_limit", `Hay ${PANEL_LIMIT} paneles; borra alguno antes de crear otro.`);
       }
     }
     const final = { ...spec.data, panel: parsed };
@@ -199,7 +199,7 @@ export async function resolvePanelSpec(directory: string, spec: SpecialistPanelS
   if (!realRel || realRel.startsWith("..") || isAbsolute(realRel)) return { ok: false, spec, error: "La ruta del archivo sale del proyecto (enlace simbólico intermedio)." };
   const info = await statOrNull(realTarget);
   if (!info || !info.isFile()) return { ok: false, spec, error: `El archivo "${spec.source.file}" no es un archivo regular.` };
-  if (info.size > DATA_LIMIT) return { ok: false, spec, error: `El archivo supera 2 MB; achicalo o derivá un dataset.` };
+  if (info.size > DATA_LIMIT) return { ok: false, spec, error: `El archivo supera 2 MB; achícalo o deriva un dataset.` };
   const raw = await readFile(realTarget, "utf8").catch(() => null);
   if (raw === null) return { ok: false, spec, error: "El archivo no se pudo leer como texto." };
   if (/\.json$/i.test(spec.source.file)) {

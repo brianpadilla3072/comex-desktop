@@ -68,7 +68,7 @@ const TASK: FakeTask = { id: "task_1", name: "refrescar", prompt: "Refrescar dat
 // F5: plan tal como lo fabrica specialist_openapi_propose en library-tool-api.ts — skill +
 // dataset re-ejecutable sobre el endpoint + panel de tabla, sin credenciales.
 const openapiPlanContent = JSON.stringify({
-  skill: { name: "consultar-api-soja", description: "Consulta la API de api-soja y deja sus datos como dataset re-ejecutable.", content: "# Consultar api-soja\n\nUsa el endpoint `/precios` de la API para responder consultas. Los datos quedan como dataset re-ejecutable `api-soja`.\n\n## Pasos\n1. Llamá al endpoint con los parámetros que pida la persona (autenticación: las credenciales viven en la integración del usuario, NUNCA embebidas en este skill ni en el dataset).\n2. Guardá la respuesta como snapshot del dataset y citá [fuente:<id>#<n>] tras leer cada pasaje con specialist_source_read.\n3. Si la API falla, decilo en voz alta: nunca inventes cifras." },
+  skill: { name: "consultar-api-soja", description: "Consulta la API de api-soja y deja sus datos como dataset re-ejecutable.", content: "# Consultar api-soja\n\nUsa el endpoint `/precios` de la API para responder consultas. Los datos quedan como dataset re-ejecutable `api-soja`.\n\n## Pasos\n1. Llama al endpoint con los parámetros que pida la persona (autenticación: las credenciales viven en la integración del usuario, NUNCA embebidas en este skill ni en el dataset).\n2. Guarda la respuesta como snapshot del dataset y cita [fuente:<id>#<n>] tras leer cada pasaje con specialist_source_read.\n3. Si la API falla, dilo en voz alta: nunca inventes cifras." },
   dataset: { name: "api-soja", query: { provider: "openapi", operation: "fetch", input: { url: "https://api.ejemplo.test/precios", method: "GET", operationId: "listPrecios", specNote: "Consulta re-ejecutable sobre la API; autenticación vía integración del usuario, nunca embebida." } } },
   panel: { name: "api-soja-panel", spec: { title: "api-soja", source: { dataset: "api-soja" }, refresh: { watch: "latest" }, blocks: [{ type: "table", limit: 50 }] } },
 });
@@ -131,7 +131,7 @@ beforeEach(() => {
       // routes.ts: zod valida { path: trim 1..500 } → 422; sources.ts registerLocalSource:
       // formato no indexable (PDF/XLSX) → 422, archivo inexistente → 422.
       const rawPath = typeof (body as Record<string, unknown> | null)?.path === "string" ? ((body as Record<string, unknown>).path as string).trim() : "";
-      if (!rawPath) return Response.json({ code: "invalid_source", message: "Revisá la ruta del archivo local." }, { status: 422 });
+      if (!rawPath) return Response.json({ code: "invalid_source", message: "Revisa la ruta del archivo local." }, { status: 422 });
       if (/\.pdf$/i.test(rawPath)) return Response.json({ code: "invalid_source", message: "El formato .pdf todavía no se puede indexar como fuente (PDF/XLSX pendientes de extractor)." }, { status: 422 });
       if (rawPath === "noexiste.md" || rawPath.includes("..")) return Response.json({ code: "invalid_source", message: "Ese archivo no existe en este proyecto." }, { status: 422 });
       const title = rawPath.split("/").pop() ?? rawPath;
@@ -296,13 +296,13 @@ test("F4: Nueva tarea con prompt muestra la línea viva Costo estimado con corri
   await openSection("Tareas programadas");
   await clickText("Nueva tarea");
   await edit("task-name", "actualizar precios");
-  await edit("task-prompt", "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.");
+  await edit("task-prompt", "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.");
   // Intervalo por defecto 20 min → 72 corridas/día según estimateTaskBudget de tasks.ts.
   expect(hasText("Costo estimado:")).toBe(true);
   expect(hasText("corridas/día")).toBe(true);
   expect(hasText("72 corridas/día")).toBe(true);
   // No hay problema de horario con el valor por defecto.
-  expect(hasText("Indicá cada cuántos minutos")).toBe(false);
+  expect(hasText("Indica cada cuántos minutos")).toBe(false);
 });
 
 test("F4: intervalo inválido (0) oculta el presupuesto y muestra el problema de horario en su lugar", async () => {
@@ -311,16 +311,16 @@ test("F4: intervalo inválido (0) oculta el presupuesto y muestra el problema de
   await openSection("Tareas programadas");
   await clickText("Nueva tarea");
   await edit("task-name", "actualizar precios");
-  await edit("task-prompt", "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.");
+  await edit("task-prompt", "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.");
   expect(hasText("Costo estimado:")).toBe(true);
 
   await edit("task-every", "0");
   await flush(60);
   // Sin línea de presupuesto mientras el horario no valida (scheduleProblem): no se miente un costo.
   expect(hasText("Costo estimado:")).toBe(false);
-  expect(hasText("Indicá cada cuántos minutos: un entero entre 1 y 43200.")).toBe(true);
+  expect(hasText("Indica cada cuántos minutos: un entero entre 1 y 43200.")).toBe(true);
   const alert = document.querySelector('[role="alert"]')?.textContent ?? "";
-  expect(alert).toContain("Indicá cada cuántos minutos");
+  expect(alert).toContain("Indica cada cuántos minutos");
 
   // Volver a un valor válido recupera la estimación en vivo.
   await edit("task-every", "60");

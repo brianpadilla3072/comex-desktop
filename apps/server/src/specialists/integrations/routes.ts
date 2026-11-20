@@ -26,7 +26,7 @@ export function registerIntegrationRoutes(options: { routes: Route[]; config: Se
     const adapter = provider(ctx.params.provider);
     const body = await readJsonBody(ctx.request);
     const action = z.enum(["install", "login", "disconnect", "test", "key", "enable"]).safeParse(body.action);
-    if (!action.success) throw new ApiError(422, "invalid_integration_action", "Elegí una acción válida para la conexión.");
+    if (!action.success) throw new ApiError(422, "invalid_integration_action", "Elige una acción válida para la conexión.");
     switch (action.data) {
       case "install": return jsonResponse(await adapter.install());
       case "login": return jsonResponse(await adapter.login());
@@ -34,12 +34,12 @@ export function registerIntegrationRoutes(options: { routes: Route[]; config: Se
       case "test": return jsonResponse(await adapter.test());
       case "key": {
         const key = z.string().min(10).max(300).safeParse(body.apiKey);
-        if (!key.success) throw new ApiError(422, "invalid_tavily_key", "Revisá la clave de Tavily.");
+        if (!key.success) throw new ApiError(422, "invalid_tavily_key", "Revisa la clave de Tavily.");
         return jsonResponse(await adapter.saveKey(key.data));
       }
       case "enable": {
         const enabled = z.boolean().safeParse(body.enabled);
-        if (!enabled.success) throw new ApiError(422, "invalid_enabled", "Elegí si querés activar la herramienta.");
+        if (!enabled.success) throw new ApiError(422, "invalid_enabled", "Elige si quieres activar la herramienta.");
         store.setResearchEnabled(ctx.params.id, enabled.data, ctx.params.provider);
         for (const workspace of config.workspaces) if (store.forWorkspace(workspace.id)?.id === ctx.params.id) await syncResearchPlugin(config, workspace.id, workspace.path);
         return jsonResponse({ enabled: enabled.data });
@@ -49,19 +49,19 @@ export function registerIntegrationRoutes(options: { routes: Route[]; config: Se
   addRoute(routes, "POST", "/specialist-applications/:id/pack/preview-update", "host", async ctx => {
     guard(); const body = await readJsonBody(ctx.request);
     const path = z.string().min(1).max(4_096).safeParse(body.packPath);
-    if (!path.success) throw new ApiError(422, "invalid_pack", "Elegí una carpeta de pack o perfil OCX.");
+    if (!path.success) throw new ApiError(422, "invalid_pack", "Elige una carpeta de pack o perfil OCX.");
     return jsonResponse(await createPackFactory(config).preview(ctx.params.id, path.data));
   });
   addRoute(routes, "POST", "/specialist-applications/:id/pack/update", "host", async ctx => {
     guard(true);
     const body = z.object({ packPath: z.string().min(1).max(4_096), fingerprint: z.string().regex(/^[0-9a-f]{64}$/) }).safeParse(await readJsonBody(ctx.request));
-    if (!body.success) throw new ApiError(422, "invalid_pack_review", "Revisá los cambios del pack antes de actualizarlo.");
+    if (!body.success) throw new ApiError(422, "invalid_pack_review", "Revisa los cambios del pack antes de actualizarlo.");
     return jsonResponse(await createPackFactory(config).update(ctx.params.id, body.data.packPath, body.data.fingerprint));
   });
   addRoute(routes, "POST", "/specialist-applications/:id/pack/export-ocx", "host", async ctx => {
     guard(true);
     const body = z.object({ destination: z.string().min(1).max(4_096) }).safeParse(await readJsonBody(ctx.request));
-    if (!body.success) throw new ApiError(422, "invalid_export_folder", "Elegí una carpeta para exportar el perfil.");
+    if (!body.success) throw new ApiError(422, "invalid_export_folder", "Elige una carpeta para exportar el perfil.");
     return jsonResponse(await createPackFactory(config).exportOcx(ctx.params.id, body.data.destination));
   });
 }

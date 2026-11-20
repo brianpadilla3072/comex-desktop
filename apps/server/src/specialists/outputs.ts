@@ -134,8 +134,8 @@ async function writeOutputUnlocked(directory: string, input: { kind: SpecialistO
   if (!title || title.length > 200) throw failure("El título de la salida debe tener entre 1 y 200 caracteres.");
   const outputs = await readIndex(directory);
   const existing = input.id ? outputs.find(entry => entry.id === input.id) : undefined;
-  if (input.id && !existing) throw new ApiError(404, "output_not_found", "Esa salida no existe; creá una nueva o pasá el id correcto.");
-  if (!existing && outputs.length >= OUTPUT_LIMIT) throw new ApiError(409, "output_limit", `Hay ${OUTPUT_LIMIT} salidas; depurá el proyecto.`);
+  if (input.id && !existing) throw new ApiError(404, "output_not_found", "Esa salida no existe; crea una nueva o pasa el id correcto.");
+  if (!existing && outputs.length >= OUTPUT_LIMIT) throw new ApiError(409, "output_limit", `Hay ${OUTPUT_LIMIT} salidas; depura el proyecto.`);
   const id = existing?.id ?? `out-${input.kind}-${randomUUID().slice(0, 8)}`;
   const dir = await mkdir(outputDir(directory, id), { recursive: true }).then(() => outputDir(directory, id));
   const meta: SpecialistOutputMeta = {

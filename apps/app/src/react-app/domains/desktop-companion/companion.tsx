@@ -72,7 +72,7 @@ export function Companion() {
   useEffect(() => {
     if (!pendingSession) return;
     if (pendingSession === activeRecent?.key) { setPendingSession(null); return; }
-    const timer = setTimeout(() => { setPendingSession(null); setError("No se pudo abrir esa conversación. Revisá la app."); }, 8000);
+    const timer = setTimeout(() => { setPendingSession(null); setError("No se pudo abrir esa conversación. Revisa la app."); }, 8000);
     return () => clearTimeout(timer);
   }, [pendingSession, activeRecent?.key]);
   const readCurrent = useRef(() => {});
@@ -116,12 +116,12 @@ export function Companion() {
         if (action.kind === "send") { setDrafts(current => ({ ...current, [originDraftKey]: "" })); setFilesByTarget(current => ({ ...current, [originDraftKey]: [] })); }
         if (action.kind === "permission" || action.kind === "question") setAcknowledged(action.requestId);
       } else { setError(result.error ?? "No se pudo completar la acción."); if (result.uncertain) setUncertain(current => ({ ...current, [originDraftKey]: true })); }
-    } catch { setError("No se pudo confirmar la acción. Revisá el chat en la app."); setUncertain(current => ({ ...current, [originDraftKey]: true })); }
+    } catch { setError("No se pudo confirmar la acción. Revisa el chat en la app."); setUncertain(current => ({ ...current, [originDraftKey]: true })); }
     finally { inFlight.current = false; setBusy(false); }
   }
   async function send() {
     if (!state.snapshot?.canSend || busy || switching || preparingSend.current || uncertain[draftKey] || (!draft.trim() && !files.length)) return;
-    if (files.reduce((sum, file) => sum + file.size, 0) > 8 * 1024 * 1024) { setError("Para adjuntos de más de 8 MB, abrí el chat en la app."); return; }
+    if (files.reduce((sum, file) => sum + file.size, 0) > 8 * 1024 * 1024) { setError("Para adjuntos de más de 8 MB, abre el chat en la app."); return; }
     preparingSend.current = true; setBusy(true);
     try { await execute({ kind: "send", text: draft, files: await Promise.all(files.map(encodeFile)) }); }
     catch { setError("No se pudieron leer los adjuntos. El borrador se conserva."); }
@@ -129,7 +129,7 @@ export function Companion() {
   }
   function attach(input: File[]) {
     if (switching) return;
-    if (input.length + files.length > 8) { setError("Podés adjuntar hasta ocho archivos desde la cápsula."); return; }
+    if (input.length + files.length > 8) { setError("Puedes adjuntar hasta ocho archivos desde la cápsula."); return; }
     setFilesByTarget(current => ({ ...current, [draftKey]: [...(current[draftKey] ?? []), ...input] })); view(true, true);
   }
   async function savePreferences(next: CompanionPreferences) { try { if (!await api?.preferences(next)) setError("No se pudo guardar la preferencia."); } catch { setError("No se pudo guardar la preferencia."); } }
@@ -141,7 +141,7 @@ export function Companion() {
     catch { setPendingSession(null); setError("No se pudo abrir esa conversación."); }
   }
   async function importMascot(file: File) {
-    if (!/^image\/(png|webp|jpeg)$/.test(file.type) || file.size > 5 * 1024 * 1024) { setError("Elegí PNG, WebP o JPG de hasta 5 MB."); return; }
+    if (!/^image\/(png|webp|jpeg)$/.test(file.type) || file.size > 5 * 1024 * 1024) { setError("Elige PNG, WebP o JPG de hasta 5 MB."); return; }
     const url = URL.createObjectURL(file);
     try {
       const image = new Image(); image.src = url; await image.decode();
@@ -192,17 +192,17 @@ export function Companion() {
             <SelectContent><SelectGroup>{AUTO_CLOSE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent>
           </Select></label>
         </div> : <>
-          {!snapshot ? <div className="companion-empty">Abrí una conversación en la app para usarla desde acá.<Button size="sm" onClick={() => void api?.openMain()}>Abrir app</Button></div> : <>
+          {!snapshot ? <div className="companion-empty">Abre una conversación en la app para usarla desde acá.<Button size="sm" onClick={() => void api?.openMain()}>Abrir app</Button></div> : <>
             <div className="companion-navigation"><Button size="xs" variant="ghost" aria-pressed={!activity} onClick={() => setActivity(false)}>Chat</Button><Button size="xs" variant="ghost" aria-pressed={activity} onClick={() => setActivity(true)}>Actividad</Button></div>
             {activity ? <div className="companion-transcript">{snapshot.activity.length ? snapshot.activity.map((line, index) => <p key={index}>{line}</p>) : <p className="text-muted-foreground">Sin actividad de herramientas en este turno.</p>}</div> : <div className="companion-transcript" aria-label="Mensajes del chat">{snapshot.messages.filter(message => message.text).slice(-4).map(message => <div key={message.id} className={`companion-message ${message.role === "user" ? "user" : ""}`}>{message.text}</div>)}</div>}
-            {status === "offline" && <p role="status" className="companion-status">No se pudo verificar el chat. Abrí la app para reconectar.</p>}
+            {status === "offline" && <p role="status" className="companion-status">No se pudo verificar el chat. Abre la app para reconectar.</p>}
             {snapshot.permission && <section className="companion-request" aria-label="Permiso pendiente"><strong>{snapshot.permission.title}</strong><p>{snapshot.permission.detail}</p><div className="companion-actions"><Button size="sm" disabled={busy || switching || stale || snapshot.permission.busy || acknowledged === snapshot.permission.id} onClick={() => void execute({ kind: "permission", requestId: snapshot.permission!.id, reply: "once" })}>Permitir una vez</Button><Button variant="ghost" size="sm" disabled={busy || switching || stale || snapshot.permission.busy || acknowledged === snapshot.permission.id} onClick={() => void execute({ kind: "permission", requestId: snapshot.permission!.id, reply: "reject" })}>Rechazar</Button></div></section>}
             {snapshot.question && <Question key={questionKey} request={snapshot.question} selected={questionDrafts[questionKey] ?? snapshot.question.questions.map(() => [])}
               setSelected={answers => setQuestionDrafts(current => ({ ...current, [questionKey]: answers }))}
               busy={busy || switching || stale || snapshot.question.busy || acknowledged === snapshot.question.id} answer={answers => void execute({ kind: "question", requestId: snapshot.question!.id, answers })} />}
             {!snapshot.permission && !snapshot.question && <div className="companion-composer">
               {files.length > 0 && <div className="companion-files">{files.map((file, index) => <span key={`${index}-${file.name}`}>{file.name}<Button size="icon-xs" variant="ghost" aria-label={`Quitar ${file.name}`} onClick={() => setFilesByTarget(current => ({ ...current, [draftKey]: files.filter((_, i) => i !== index) }))}><X /></Button></span>)}</div>}
-              <Textarea ref={editor} aria-label="Mensaje al asistente" placeholder="Continuá este trabajo…" value={draft} disabled={busy || switching || stale || status === "offline" || uncertain[draftKey]} onFocus={cancelClose}
+              <Textarea ref={editor} aria-label="Mensaje al asistente" placeholder="Continúa este trabajo…" value={draft} disabled={busy || switching || stale || status === "offline" || uncertain[draftKey]} onFocus={cancelClose}
                 onChange={event => setDrafts(current => ({ ...current, [draftKey]: event.target.value }))}
                 onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
               <div className="companion-composer-tools"><input ref={fileInput} type="file" multiple hidden onChange={event => { attach(Array.from(event.target.files ?? [])); event.target.value = ""; }} />

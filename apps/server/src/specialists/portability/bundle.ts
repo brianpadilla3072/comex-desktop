@@ -77,7 +77,7 @@ export type ApplicationBundle = z.infer<typeof bundleSchema>;
 export function parseBundle(value: unknown): ApplicationBundle {
   const format = z.object({ format: z.string(), version: z.number() }).safeParse(value);
   if (!format.success || format.data.format !== BUNDLE_FORMAT) throw failure("El archivo no es una aplicación exportada de OpenWork.");
-  if (format.data.version > BUNDLE_VERSION) throw failure("El archivo es de una versión más nueva de la app. Actualizá la app para importarlo.");
+  if (format.data.version > BUNDLE_VERSION) throw failure("El archivo es de una versión más nueva de la app. Actualiza la app para importarlo.");
   const parsed = bundleSchema.safeParse(value);
   if (!parsed.success) throw failure("El archivo de la aplicación está incompleto o dañado.");
   return parsed.data;

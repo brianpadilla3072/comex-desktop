@@ -243,7 +243,7 @@ test("refresh lento que falla (422 del provider): el botón queda bloqueado mien
 
   // Error verosímil sin Tavily conectado (investigación: el server burbujea el mensaje del
   // provider desde research-factory.ts:44; el estado exacto se verificó en Round 2).
-  refreshBehavior = { delayMs: 80, failWith: { status: 422, code: "invalid_dataset", message: "Conectá Tavily desde Herramientas y fuentes para investigar." } };
+  refreshBehavior = { delayMs: 80, failWith: { status: 422, code: "invalid_dataset", message: "Conecta Tavily desde Herramientas y fuentes para investigar." } };
   await clickAriaLabel("Ver snapshots de search-informe-gigante-3c3c3c3c");
 
   const boton = [...rowFor("search-informe-gigante-3c3c3c3c").querySelectorAll("button")].find(element => element.textContent === "Actualizar") as HTMLButtonElement;
@@ -253,7 +253,7 @@ test("refresh lento que falla (422 del provider): el botón queda bloqueado mien
 
   await flush(120); // resuelve el 422
   const alertas = [...document.querySelectorAll('[role="alert"]')].map(element => element.textContent ?? "").join(" | ");
-  expect(alertas).toContain("Conectá Tavily desde Herramientas y fuentes para investigar.");
+  expect(alertas).toContain("Conecta Tavily desde Herramientas y fuentes para investigar.");
   expect(hasText("Consulta re-ejecutada")).toBe(false); // no hubo notice mentiroso
   expect(boton.disabled).toBe(false); // la UI vuelve a ser usable
   expect(rowFor("search-informe-gigante-3c3c3c3c").textContent).toContain("1 snapshot"); // el conteo NO cambió

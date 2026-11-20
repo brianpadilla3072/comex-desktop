@@ -159,7 +159,7 @@ async function loadTasks(config: Pick<ServerConfig, "configPath">, id: string): 
   let value: unknown;
   try { value = await readJson<unknown>(tasksFile(config, id), []); }
   catch (error) {
-    if (error instanceof SyntaxError) throw new ApiError(409, "tasks_unreadable", "El archivo de tareas de esta aplicación está dañado. Renombrá tasks.json en la carpeta de la aplicación para empezar de nuevo.");
+    if (error instanceof SyntaxError) throw new ApiError(409, "tasks_unreadable", "El archivo de tareas de esta aplicación está dañado. Renombra tasks.json en la carpeta de la aplicación para empezar de nuevo.");
     throw error;
   }
   if (!Array.isArray(value)) return [];
@@ -184,13 +184,13 @@ function mutate(config: Pick<ServerConfig, "configPath">, id: string, taskId: st
 
 export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown, options: { enabled?: boolean } = {}) {
   const parsed = taskInputSchema.safeParse(input);
-  if (!parsed.success) throw failure("Revisá el nombre (1-120), el prompt (1-8000) y el horario de la tarea.");
+  if (!parsed.success) throw failure("Revisa el nombre (1-120), el prompt (1-8000) y el horario de la tarea.");
   const value = parsed.data;
-  if (value.schedule.kind === "once" && value.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
+  if (value.schedule.kind === "once" && value.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programa una fecha futura.");
   const enabled = options.enabled ?? true;
   return serialize(id, async () => {
     const tasks = await loadTasks(config, id);
-    if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borrá alguna antes de crear otra.`);
+    if (tasks.length >= TASK_LIMIT) throw new ApiError(409, "task_limit", `Esta aplicación ya tiene ${TASK_LIMIT} tareas. Borra alguna antes de crear otra.`);
     if (tasks.some(task => task.name === value.name)) throw new ApiError(409, "task_exists", "Ya existe una tarea con ese nombre en esta aplicación.");
     const task: SpecialistTask = {
       id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule, model: value.model ?? null,
@@ -206,7 +206,7 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
 
 export async function updateTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, input: Partial<SpecialistTaskInput> & { enabled?: boolean }) {
   const parsed = taskInputSchema.partial().safeParse(input);
-  if (!parsed.success) throw failure("Revisá los campos de la tarea.");
+  if (!parsed.success) throw failure("Revisa los campos de la tarea.");
   const patch = parsed.data;
   return serialize(id, async () => {
     const tasks = await loadTasks(config, id);
@@ -216,7 +216,7 @@ export async function updateTask(config: Pick<ServerConfig, "configPath">, id: s
       throw new ApiError(409, "task_exists", "Otra tarea de esta aplicación ya usa ese nombre.");
     }
     if (patch.schedule?.kind === "once" && (current.schedule.kind !== "once" || patch.schedule.at !== current.schedule.at) && patch.schedule.at <= Date.now()) {
-      throw failure("La hora de la ejecución única ya pasó; programá una fecha futura.");
+      throw failure("La hora de la ejecución única ya pasó; programa una fecha futura.");
     }
     const schedule = patch.schedule ?? current.schedule;
     const enabled = input.enabled ?? current.enabled;
@@ -237,7 +237,7 @@ export function deleteTask(config: Pick<ServerConfig, "configPath">, id: string,
     const tasks = await loadTasks(config, id);
     const current = tasks.find(task => task.id === taskId);
     if (!current) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
-    if (current.running) throw new ApiError(409, "task_running", "La tarea tiene una corrida en curso; esperá a que termine o pausala.");
+    if (current.running) throw new ApiError(409, "task_running", "La tarea tiene una corrida en curso; espera a que termine o pausala.");
     await writeJson(tasksFile(config, id), tasks.filter(task => task.id !== taskId));
     await rm(runLogFile(config, id, taskId), { force: true }).catch(() => undefined);
     return current;

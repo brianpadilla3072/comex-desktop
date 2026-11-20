@@ -41,17 +41,17 @@ const COMEX_SUGGESTIONS: HeroSuggestion[] = [
   {
     title: "Preparar el TP de investigación",
     description: "Dos productos, destinos distintos y fuentes verificables.",
-    prompt: "Quiero preparar el TP 1 de 2026 de Investigación de Mercados. Leé la consigna y armemos el brief para dos productos nacionales con destinos diferentes. Preguntame las decisiones que falten, registrá los requisitos y las fuentes. La encuesta sigue pendiente hasta contar con respuestas reales.",
+    prompt: "Quiero preparar el TP 1 de 2026 de Investigación de Mercados. Lee la consigna y armemos el brief para dos productos nacionales con destinos diferentes. Pregúntame las decisiones que falten, registra los requisitos y las fuentes. La encuesta sigue pendiente hasta contar con respuestas reales.",
   },
   {
     title: "Armar una cotización de exportación",
     description: "Costos, supuestos y una planilla que pueda explicar.",
-    prompt: "Ayudame a armar una cotización de exportación en Excel. Primero confirmemos producto, destino, unidades, moneda, costos y el Incoterm adecuado al transporte. Dejá los cálculos y supuestos visibles; no inventes costos ni aranceles.",
+    prompt: "Ayudame a armar una cotización de exportación en Excel. Primero confirmemos producto, destino, unidades, moneda, costos y el Incoterm adecuado al transporte. Deja los cálculos y supuestos visibles; no inventes costos ni aranceles.",
   },
   {
     title: "Revisar mi informe y sus fuentes",
     description: "Detectar faltantes antes de entregar y practicar la defensa.",
-    prompt: "Quiero revisar mi informe de Comercio Exterior. Contrastá la consigna y cada cifra con su evidencia, usando revisor-exigente y verificador-de-fuentes. Indicá qué falta y qué no se pudo verificar; después preparemos la defensa con preguntas de práctica.",
+    prompt: "Quiero revisar mi informe de Comercio Exterior. Contrasta la consigna y cada cifra con su evidencia, usando revisor-exigente y verificador-de-fuentes. Indica qué falta y qué no se pudo verificar; después preparemos la defensa con preguntas de práctica.",
   },
 ];
 
@@ -198,7 +198,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
     : specialist?.active?.template === "custom" ? [
       { title: "Empezar un trabajo", description: "Objetivo y alcance", prompt: `Quiero empezar un trabajo de ${specialist.active.specialty}. Ayudame a precisar el objetivo, los datos necesarios y los entregables.` },
       { title: "Revisar un documento", description: "Argumentos y evidencia", prompt: "Quiero que revises un documento según tu especialidad. Primero pedime el archivo y los criterios de revisión." },
-      { title: "Organizar mi proyecto", description: "Etapas y próximos pasos", prompt: "Ayudame a organizar mi proyecto. Confirmá el alcance y proponé etapas concretas, con entregables y evidencia para cada una." },
+      { title: "Organizar mi proyecto", description: "Etapas y próximos pasos", prompt: "Ayudame a organizar mi proyecto. Confirma el alcance y propón etapas concretas, con entregables y evidencia para cada una." },
     ] : comexEnabled ? COMEX_SUGGESTIONS : DEFAULT_SUGGESTIONS;
 
   const submit = async (
@@ -235,7 +235,7 @@ export function SessionEmptyHero(props: SessionEmptyHeroProps) {
     <div data-chat-empty-hero className="mx-auto flex w-full max-w-[640px] flex-col gap-6 px-4 max-lg:h-full max-lg:min-h-0 max-lg:gap-4 max-lg:overflow-y-auto max-lg:px-3 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6">
       <div data-empty-greeting hidden={hideIntroduction} className="text-center max-lg:pt-6">
         <h2 className="text-lg font-medium tracking-tight text-foreground">
-          {specialist?.active ? `¿En qué trabajamos${specialist.catalog?.user?.displayName ? `, ${specialist.catalog.user.displayName}` : ""}?` : comexEnabled ? "¿Qué querés investigar?" : "What do you need done?"}
+          {specialist?.active ? `¿En qué trabajamos${specialist.catalog?.user?.displayName ? `, ${specialist.catalog.user.displayName}` : ""}?` : comexEnabled ? "¿Qué quieres investigar?" : "What do you need done?"}
         </h2>
       </div>
 

@@ -213,20 +213,20 @@ export function createDesktopCompanion({ enabled, app, BrowserWindow, Tray, Menu
     await preferencesWrite; return true;
   });
   ipcMain.handle("openwork:companion:command", (event, value) => {
-    if (!active || !ready || !trustedCapsule(event) || !getMain() || getMain().isDestroyed()) return fail("El chat no está disponible. Abrí la app.");
+    if (!active || !ready || !trustedCapsule(event) || !getMain() || getMain().isDestroyed()) return fail("El chat no está disponible. Abre la app.");
     const command = companionCommand(value, snapshot);
-    if (!command || !connected) return fail("El chat o la solicitud cambió. Revisá el estado antes de continuar.");
+    if (!command || !connected) return fail("El chat o la solicitud cambió. Revisa el estado antes de continuar.");
     if (commands.has(command.id)) return commands.get(command.id).promise;
     const requestKey = command.action.kind === "permission" || command.action.kind === "question" ? `${command.target}:${command.action.requestId}` : null;
-    if (requestKey && [...commands.values()].some(entry => entry.requestKey === requestKey)) return fail("Esta solicitud ya fue respondida. Esperá la actualización del chat.");
+    if (requestKey && [...commands.values()].some(entry => entry.requestKey === requestKey)) return fail("Esta solicitud ya fue respondida. Espera la actualización del chat.");
     // Bound the replay cache; never evict a command that is still in flight.
     for (const [id, entry] of commands) if (entry.done && Date.now() - entry.at > 600000) commands.delete(id);
-    if (commands.size >= 500) return fail("Hay demasiadas solicitudes. Abrí la app para continuar.");
+    if (commands.size >= 500) return fail("Hay demasiadas solicitudes. Abre la app para continuar.");
     let resolve;
     const promise = new Promise(r => { resolve = r; });
     const entry = { promise, resolve, target: command.target, requestKey, done: false, at: Date.now(), timer: null };
     commands.set(command.id, entry);
-    entry.timer = setTimeout(() => { entry.done = true; resolve({ ok: false, uncertain: true, error: "No se pudo confirmar la acción. Revisá el chat antes de volver a enviarla." }); }, 45000);
+    entry.timer = setTimeout(() => { entry.done = true; resolve({ ok: false, uncertain: true, error: "No se pudo confirmar la acción. Revisa el chat antes de volver a enviarla." }); }, 45000);
     getMain().webContents.send("openwork:companion:command", command);
     return promise;
   });

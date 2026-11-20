@@ -132,7 +132,7 @@ export async function runLibraryTool(config: Pick<ServerConfig, "configPath" | "
   } catch (error) {
     // A model that sends a slightly-off input must get a readable 422 it can self-correct from —
     // never a bare "Unexpected server error" (doctrine: fails loud but readable).
-    if (error instanceof z.ZodError) throw new ApiError(422, "invalid_library_tool", "La llamada a la herramienta no trae los campos esperados; revisá el schema del tool y reintentá.");
+    if (error instanceof z.ZodError) throw new ApiError(422, "invalid_library_tool", "La llamada a la herramienta no trae los campos esperados; revisa el schema del tool y reintenta.");
     throw error;
   }
 }
@@ -190,24 +190,24 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       // a simple file and the accept route re-validates before anything runs.
       const { proposals, replaced } = await addProposal(config, app.id, parsed.kind === "context" ? { ...parsed, name: "contexto" } : parsed);
       const note = parsed.kind === "task"
-        ? "Avisá a la persona que la tarea propuesta quedó en el menú de su aplicación; si la acepta, se crea PAUSADA para que la revise antes de dejarla correr."
+        ? "Avisa a la persona que la tarea propuesta quedó en el menú de su aplicación; si la acepta, se crea PAUSADA para que la revise antes de dejarla correr."
         : parsed.kind === "plan"
-          ? "Avisá a la persona que el plan quedó en el menú de su aplicación; al aceptarlo se aplican sus piezas (skill, dataset, tarea pausada, panel) y se informa cuáles fallaron."
-          : "Avisá a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; vos no la guardás.";
+          ? "Avisa a la persona que el plan quedó en el menú de su aplicación; al aceptarlo se aplican sus piezas (skill, dataset, tarea pausada, panel) y se informa cuáles fallaron."
+          : "Avisa a la persona que la propuesta quedó en el menú de su aplicación, en Contexto, agentes y skills; tú no la guardas.";
       return { proposal: proposals[0], total: proposals.length, replaced, note };
     }
     case "specialist_task_create": {
       // A task can pin its model ("provider/model" or {providerID, modelID}); without one the
       // engine's default applies, which may be a pricier model than the person expects.
       const model = z.union([
-        z.string().trim().regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/, "Usá provider/model"),
+        z.string().trim().regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/, "Usa provider/model"),
         taskModelSchema,
       ]).nullable().optional().parse(input.model ?? null);
       const parsedModel = typeof model === "string"
         ? { providerID: model.slice(0, model.indexOf("/")), modelID: model.slice(model.indexOf("/") + 1) }
         : model ?? null;
       const task = await createTask(config, app.id, { name: input.name, prompt: input.prompt, schedule: input.schedule, model: parsedModel });
-      return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. ${task.model ? `Corre con ${task.model.providerID}/${task.model.modelID}.` : "Corre con el modelo predeterminado del motor."} Avisá a la persona que la tarea quedó en "Tareas programadas" de su aplicación, donde puede elegir el modelo.` };
+      return { task, note: `Próxima corrida: ${task.nextRunAt === null ? "—" : new Date(task.nextRunAt).toLocaleString("es-AR")}. ${task.model ? `Corre con ${task.model.providerID}/${task.model.modelID}.` : "Corre con el modelo predeterminado del motor."} Avisa a la persona que la tarea quedó en "Tareas programadas" de su aplicación, donde puede elegir el modelo.` };
     }
     case "specialist_task_list":
       return { tasks: await listTasks(config, app.id) };
@@ -236,13 +236,13 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       return {
         dataset, snapshots, truncated,
         latest: truncated ? preview.slice(0, 40_000) : JSON.parse(preview) as unknown,
-        ...(truncated ? { note: "El snapshot supera 40 KB: recibís un recorte. El resto está en los datasets del proyecto." } : {}),
+        ...(truncated ? { note: "El snapshot supera 40 KB: recibes un recorte. El resto está en los datasets del proyecto." } : {}),
       };
     }
     case "specialist_dataset_refresh": {
       // Same path as the panel's "Actualizar" button: re-runs the stored query through Tavily and records a new snapshot.
       const dataset = await refreshDatasetThroughResearch(config, directory, z.string().min(1).parse(input.id));
-      return { dataset, note: `Consulta re-ejecutada: el dataset ${dataset.id} quedó con un snapshot nuevo. La persona lo ve en Contexto, agentes y skills → Datos. Si el proveedor no está conectado, avisale en voz alta y no inventes cifras.` };
+      return { dataset, note: `Consulta re-ejecutada: el dataset ${dataset.id} quedó con un snapshot nuevo. La persona lo ve en Contexto, agentes y skills → Datos. Si el proveedor no está conectado, avísale en voz alta y no inventes cifras.` };
     }
     case "specialist_dataset_derive": {
       const parsed = z.object({
@@ -259,10 +259,10 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       if (parsed.chunk === undefined) {
         // Index first: the model only ever cites an anchor it has seen.
         const { source, chunks } = await ensureChunks(directory, parsed.id);
-        return { source, totalChunks: chunks.length, chunks: chunks.slice(0, 30), note: "Citá como [fuente:<id>#<n>] donde n es el índice del pasaje. Antes de citar un dato, verificá el pasaje con especialist_source_read {id, chunk:n}; nunca cites de memoria." };
+        return { source, totalChunks: chunks.length, chunks: chunks.slice(0, 30), note: "Cita como [fuente:<id>#<n>] donde n es el índice del pasaje. Antes de citar un dato, verifica el pasaje con especialist_source_read {id, chunk:n}; nunca cites de memoria." };
       }
       const resolved = await readCitation(directory, parsed.id, parsed.chunk);
-      if (!resolved.ok) return { ok: false, error: resolved.error, note: "El ancla no existe: no cites este pasaje como si existiera; decilo o elegí otro." };
+      if (!resolved.ok) return { ok: false, error: resolved.error, note: "El ancla no existe: no cites este pasaje como si existiera; dilo o elige otro." };
       return { ok: true, source: resolved.source, chunk: resolved.chunk, text: resolved.text };
     }
     case "specialist_source_add": {
@@ -282,7 +282,7 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const name = z.string().min(1).parse(input.name);
       const spec = await readPanelSpec(config, app.id, name);
       const resolution = await resolvePanel(config, app.id, name, directory);
-      return { spec, resolution, note: "Si resolution.ok es false, el panel dice qué está mal en vez de dibujar en blanco: pasale el error a la persona tal cual." };
+      return { spec, resolution, note: "Si resolution.ok es false, el panel dice qué está mal en vez de dibujar en blanco: pásale el error a la persona tal cual." };
     }
     case "specialist_panel_delete": {
       const deleted = await deletePanel(config, app.id, z.string().min(1).parse(input.name));
@@ -298,7 +298,7 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const parsed = z.object({ spec: z.string().min(2).max(200_000), title: z.string().trim().max(120).optional() }).parse(input);
       let raw: unknown;
       try { raw = JSON.parse(parsed.spec); }
-      catch { throw new ApiError(422, "invalid_openapi", "El spec OpenAPI debe ser JSON válido (pegá el documento completo)."); }
+      catch { throw new ApiError(422, "invalid_openapi", "El spec OpenAPI debe ser JSON válido (pega el documento completo)."); }
       if (typeof raw !== "object" || raw === null || !("paths" in raw)) throw new ApiError(422, "invalid_openapi", "El spec no tiene el objeto `paths`: ¿es un documento OpenAPI?");
       const paths = (raw as { paths: Record<string, unknown> }).paths;
       const operations = Object.entries(paths).flatMap(([path, item]) => {
@@ -311,7 +311,7 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const [first] = operations;
       const baseUrl = (raw as { servers?: Array<{ url?: string }> }).servers?.[0]?.url ?? "";
       const name = (parsed.title ?? (raw as { info?: { title?: string } }).info?.title ?? "api").toString().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "api";
-      const skillContent = `# Consultar ${name}\n\nUsa el endpoint \`${(first?.path ?? "/")}\` de la API para responder consultas. Los datos quedan como dataset re-ejecutable \`${name}\`.\n\n## Pasos\n1. Llamá al endpoint con los parámetros que pida la persona (autenticación: las credenciales viven en la integración del usuario, NUNCA embebidas en este skill ni en el dataset).\n2. Guardá la respuesta como snapshot del dataset y citá [fuente:<id>#<n>] tras leer cada pasaje con specialist_source_read.\n3. Si la API falla, decilo en voz alta: nunca inventes cifras.`;
+      const skillContent = `# Consultar ${name}\n\nUsa el endpoint \`${(first?.path ?? "/")}\` de la API para responder consultas. Los datos quedan como dataset re-ejecutable \`${name}\`.\n\n## Pasos\n1. Llama al endpoint con los parámetros que pida la persona (autenticación: las credenciales viven en la integración del usuario, NUNCA embebidas en este skill ni en el dataset).\n2. Guarda la respuesta como snapshot del dataset y cita [fuente:<id>#<n>] tras leer cada pasaje con specialist_source_read.\n3. Si la API falla, dilo en voz alta: nunca inventes cifras.`;
       const planContent = JSON.stringify({
         skill: { name: `consultar-${name}`.slice(0, 64), description: `Consulta la API de ${name} y deja sus datos como dataset re-ejecutable.`, content: skillContent },
         dataset: { name, query: { provider: "openapi", operation: "fetch", input: { url: `${baseUrl}${first?.path ?? ""}`, method: "GET", operationId: first?.operation ?? null, specNote: "Consulta re-ejecutable sobre la API; autenticación vía integración del usuario, nunca embebida." } } },
@@ -337,7 +337,7 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       return {
         output: result.output, created: result.created, audit,
         note: audit.total === 0
-          ? "La salida quedó SIN anclas [fuente:…]: avisale a la persona que no está anclada a fuentes del proyecto."
+          ? "La salida quedó SIN anclas [fuente:…]: avísale a la persona que no está anclada a fuentes del proyecto."
           : audit.invalid.length ? `La salida tiene ${audit.invalid.length} cita${audit.invalid.length === 1 ? "" : "s"} que no resuelven: ${audit.invalid[0]!.reason} Revisalas antes de darla por buena.` : "Toda cita de la salida resuelve a un pasaje real del proyecto.",
       };
     }

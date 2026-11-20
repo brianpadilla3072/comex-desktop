@@ -113,7 +113,7 @@ async function createSession(): Promise<SessionCtx> {
   const store = await specialistStore(config as unknown as ServerConfig);
   const pack = join(root, "source");
   await mkdir(join(pack, "agents"), { recursive: true });
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   const app = store.create(applicationInput.parse({ userName: "Usuario de prueba", name: "Sesión", specialty: "Especialidad Sesión", personality: "PERSONA_Sesion", template: "custom" }), { agents: 1, skills: 0 });
   await saveSpecialistPack(config as unknown as ServerConfig, app.id, await inspectSpecialistPack(pack));
   const project = join(root, "project");

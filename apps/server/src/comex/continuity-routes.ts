@@ -39,7 +39,7 @@ export function registerContinuityRoutes(options: {
       checkpointPath(ctx.params.sessionId);
       const root = await authorizeSession(ctx.params.id, ctx.params.sessionId);
       const body = bodySchema.safeParse(await readJsonBody(ctx.request));
-      if (!body.success) throw new ApiError(422, "continuity_invalid", "Revisá los campos del resumen y su revisión.");
+      if (!body.success) throw new ApiError(422, "continuity_invalid", "Revisa los campos del resumen y su revisión.");
       const checkpoint = await writeComexCheckpoint(root, ctx.params.sessionId, body.data.checkpoint, body.data.expectedRevision);
       return jsonResponse({ status: "ready", revision: checkpoint.revision, checkpoint });
     });

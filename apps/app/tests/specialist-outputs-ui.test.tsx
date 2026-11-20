@@ -190,7 +190,7 @@ test("flashcards flip and a quiz marks the answer right or wrong", async () => {
   };
   await openOutput("Tarjetas de estudio");
   expect(hasText("¿Objeto?")).toBe(true);
-  expect(hasText("Tocá para ver la respuesta")).toBe(true);
+  expect(hasText("Toca para ver la respuesta")).toBe(true);
   const card = [...document.querySelectorAll("button")].find(b => (b.textContent ?? "").includes("¿Objeto?"));
   await act(async () => { (card as HTMLButtonElement).click(); });
   await flush();

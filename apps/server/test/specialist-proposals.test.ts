@@ -24,7 +24,7 @@ test("task proposals are validated at rest and land in the inbox", async () => {
       (error) => error instanceof ApiError && error.code === "invalid_proposal");
     await assert.rejects(addProposal(config, "app_x", { ...base, kind: "task", name: "refrescar", content: JSON.stringify({ prompt: "Hazlo", schedule: { kind: "interval", everyMinutes: 0 } }) }),
       (error) => error instanceof ApiError && error.code === "invalid_proposal");
-    const accepted = await addProposal(config, "app_x", { ...base, kind: "task", name: "refrescar datos", content: JSON.stringify({ prompt: "Consultá las fuentes.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) });
+    const accepted = await addProposal(config, "app_x", { ...base, kind: "task", name: "refrescar datos", content: JSON.stringify({ prompt: "Consulta las fuentes.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) });
     assert.equal(accepted.proposals[0]?.kind, "task");
     // Un tarea vieja con el mismo nombre se reemplaza, no se duplica.
     await addProposal(config, "app_x", { ...base, kind: "task", name: "refrescar datos", content: JSON.stringify({ prompt: "Actualizado.", schedule: { kind: "daily", hour: 8, minute: 0 } }) });

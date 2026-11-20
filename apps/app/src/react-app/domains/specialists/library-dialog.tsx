@@ -177,7 +177,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
         <Button size="sm" variant="outline" onClick={() => onOpen({ kind: "new", type: "agent" })}><Plus className="size-4" />Nuevo agente</Button>
       </div>
       {library.agents.length ? library.agents.map(agent => row(agent, agent.name ?? agent.path, <Bot className="mt-0.5 size-4 shrink-0 text-muted-foreground" />, () => onOpen({ kind: "file", path: agent.path, name: agent.name ?? agent.path })))
-        : <p className="text-xs text-muted-foreground">Todavía no hay agentes. Con "Nuevo agente" creás el primero.</p>}
+        : <p className="text-xs text-muted-foreground">Todavía no hay agentes. Con "Nuevo agente" creas el primero.</p>}
     </section>
     <section className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -185,7 +185,7 @@ function Home({ app, client, query, libraryEnabled, scheduled, datasets, sources
         <Button size="sm" variant="outline" onClick={() => onOpen({ kind: "new", type: "skill" })}><Plus className="size-4" />Nueva skill</Button>
       </div>
       {library.skills.length ? library.skills.map(skill => row(skill, skill.name ?? skill.path, <BookText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />, () => onOpen({ kind: "file", path: skill.path, name: skill.name ?? skill.path })))
-        : <p className="text-xs text-muted-foreground">Todavía no hay skills. Cuando le enseñás un procedimiento al asistente, él te propondrá guardarla acá.</p>}
+        : <p className="text-xs text-muted-foreground">Todavía no hay skills. Cuando le enseñas un procedimiento al asistente, él te propondrá guardarla acá.</p>}
       {library.files.length ? <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Otros archivos de la biblioteca ({library.files.length})</summary>
         <ul className="mt-2 grid gap-1">{library.files.map(file => <li key={file.path} className="flex items-center gap-2"><Wrench className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{file.path}</span><Badge variant="outline">{ORIGIN_LABEL[file.origin]}</Badge></li>)}</ul></details> : null}
     </section></> : null}
@@ -212,7 +212,7 @@ function ContextEditor({ app, client, onBack, onChanged }: { app: SpecialistAppl
     <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <Label htmlFor="specialist-context">Contexto de la aplicación</Label>
     <p className="text-xs text-muted-foreground">Lo que esta aplicación siempre debe saber y respetar: tus convenciones, formato de entrega, criterios. Se agrega a cada conversación de todos sus proyectos.</p>
-    <Textarea id="specialist-context" rows={12} spellCheck={false} value={value} onChange={event => setContent(event.target.value)} maxLength={8000} placeholder="Por ejemplo: Entregá siempre los informes en Word y las planillas en Excel. Usá unidades métricas. Confirmá antes de enviar algo a un cliente." />
+    <Textarea id="specialist-context" rows={12} spellCheck={false} value={value} onChange={event => setContent(event.target.value)} maxLength={8000} placeholder="Por ejemplo: Entrega siempre los informes en Word y las planillas en Excel. Usa unidades métricas. Confirma antes de enviar algo a un cliente." />
     <p className="text-xs text-muted-foreground">{value.length} / 8000 caracteres. Vaciarlo y guardar lo elimina.</p>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     <div className="flex gap-2"><Button type="submit" disabled={busy}>{busy ? "Guardando…" : "Guardar contexto"}</Button><Button type="button" variant="ghost" onClick={onBack}>Cancelar</Button></div>
@@ -270,9 +270,9 @@ function NewItem({ app, client, type, onBack, onChanged }: { app: SpecialistAppl
     <div className="grid gap-1.5"><Label htmlFor="library-new-name">Nombre ({type === "agent" ? "del archivo" : "de la carpeta"}, minúsculas, sin espacios)</Label>
       <Input id="library-new-name" autoFocus value={name} onChange={event => setName(event.target.value)} placeholder={type === "agent" ? "por ejemplo: redactor-informes" : "por ejemplo: informe-mensual"} required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={64} /></div>
     <div className="grid gap-1.5"><Label htmlFor="library-new-description">Para qué sirve (aparece en la ficha)</Label>
-      <Textarea id="library-new-description" rows={2} value={description} onChange={event => setDescription(event.target.value)} required maxLength={1024} placeholder="Usar cuando haga falta… Explicá en una frase cuándo y para qué." /></div>
+      <Textarea id="library-new-description" rows={2} value={description} onChange={event => setDescription(event.target.value)} required maxLength={1024} placeholder="Usar cuando haga falta… Explica en una frase cuándo y para qué." /></div>
     <div className="grid gap-1.5"><Label htmlFor="library-new-content">Contenido (opcional)</Label>
-      <Textarea id="library-new-content" rows={8} spellCheck={false} className="font-mono text-xs" value={content} onChange={event => setContent(event.target.value)} placeholder="Si lo dejás vacío, se crea con una plantilla para completar: cuándo usarlo, pasos y entregable." /></div>
+      <Textarea id="library-new-content" rows={8} spellCheck={false} className="font-mono text-xs" value={content} onChange={event => setContent(event.target.value)} placeholder="Si lo dejas vacío, se crea con una plantilla para completar: cuándo usarlo, pasos y entregable." /></div>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !description.trim()}>{busy ? "Creando…" : `Crear ${type === "agent" ? "agente" : "skill"}`}</Button><Button type="button" variant="ghost" onClick={onBack}>Cancelar</Button></div>
   </form>;
@@ -521,7 +521,7 @@ function PanelsView({ app, client, panelApps, onBack }: { app: SpecialistApplica
     <Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <h3 className="text-sm font-medium">Paneles de {app.name}</h3>
     <p className="text-xs text-muted-foreground">Vistas declarativas sobre los datasets: se redibujan solas cuando llega un snapshot nuevo. Si algo no se puede dibujar, el panel lo dice en vez de quedar en blanco.</p>
-    {panelApps ? <p className="text-xs text-muted-foreground">Este panel también se abre como <span className="font-medium">App interactiva dentro del chat</span>: pedile al asistente que lo muestre y vas a poder refrescarlo desde la tarjeta.</p> : null}
+    {panelApps ? <p className="text-xs text-muted-foreground">Este panel también se abre como <span className="font-medium">App interactiva dentro del chat</span>: pídele al asistente que lo muestre y vas a poder refrescarlo desde la tarjeta.</p> : null}
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     {pendingDelete ? <div ref={revealOnMount} role="alertdialog" aria-label={`Confirmar eliminación del panel ${pendingDelete.title}`} className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <span className="min-w-0 flex-1">¿Eliminar el panel "{pendingDelete.title}"? Dejará de dibujarse en los proyectos.</span>
@@ -536,7 +536,7 @@ function PanelsView({ app, client, panelApps, onBack }: { app: SpecialistApplica
         <Button size="sm" variant="ghost" aria-label={`Eliminar panel ${panel.title}`} onClick={() => setPendingDelete({ name: panel.name, title: panel.title })}><Trash2 className="size-4" /></Button>
       </div>
       {openName === panel.name ? <PanelCanvas key={panel.name} app={app} client={client} name={panel.name} /> : null}
-    </div>) : <p className="text-xs text-muted-foreground">Sin paneles todavía. Pedile al asistente "mostrame los datos en un panel" y te propondrá crear uno.</p>}
+    </div>) : <p className="text-xs text-muted-foreground">Sin paneles todavía. Pídele al asistente "muéstrame los datos en un panel" y te propondrá crear uno.</p>}
   </div>;
 }
 
@@ -611,7 +611,7 @@ export function PanelResolutionBlocks({ resolution, spec }: { resolution: Specia
         return <div key={index} className="rounded-md bg-muted/40 p-2 text-xs">
           <p className="font-medium">{block.title ?? "Cambios desde la última corrida"}</p>
           {diff?.diff ? <p className="text-muted-foreground">{diff.diff.summary ?? "sin detalle"} · {formatWhen(diff.at ?? null)}</p>
-            : "file" in spec.source ? <p className="text-muted-foreground">Este panel lee un archivo, no un dataset: no hay corridas que comparar. Para ver cambios entre versiones, guardá los datos como dataset.</p>
+            : "file" in spec.source ? <p className="text-muted-foreground">Este panel lee un archivo, no un dataset: no hay corridas que comparar. Para ver cambios entre versiones, guarda los datos como dataset.</p>
             : <p className="text-muted-foreground">Todavía no hubo una corrida que compare: aparece tras el primer refresh.</p>}
         </div>;
       }
@@ -772,7 +772,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}
       {openId === output.id ? <OutputDetail key={output.id} app={app} client={client} output={output} /> : null}
-    </div>) : <p className="text-xs text-muted-foreground">Sin salidas todavía. Pedile "haceme un mapa mental de esto" y el asistente lo generará acá.</p>}
+    </div>) : <p className="text-xs text-muted-foreground">Sin salidas todavía. Pídele "hazme un mapa mental de esto" y el asistente lo generará acá.</p>}
   </div>;
 }
 
@@ -843,7 +843,7 @@ function FlashcardsView({ cards }: { cards: Array<{ front: string; back: string 
     className="grid gap-1 rounded-md border p-2 text-left text-xs hover:bg-muted/40"
   >
     <span className="font-medium">{card.front}</span>
-    <span className={open.has(index) ? "text-muted-foreground" : "text-muted-foreground blur-[3px] select-none"}>{open.has(index) ? card.back : "Tocá para ver la respuesta"}</span>
+    <span className={open.has(index) ? "text-muted-foreground" : "text-muted-foreground blur-[3px] select-none"}>{open.has(index) ? card.back : "Toca para ver la respuesta"}</span>
   </button>)}</div>;
 }
 
@@ -856,7 +856,7 @@ function QuizView({ questions }: { questions: Array<{ question: string; options:
       const state = chosen === undefined ? "" : index === question.answer ? " border-emerald-500/60 bg-emerald-500/10" : index === chosen ? " border-destructive/60 bg-destructive/5" : " opacity-70";
       return <button key={index} type="button" className={`rounded border p-1 text-left${state}`} onClick={() => setPicked(current => ({ ...current, [qIndex]: index }))}>{option}</button>;
     })}</div>
-    {picked[qIndex] === undefined ? <p className="text-muted-foreground">Elegí una opción.</p>
+    {picked[qIndex] === undefined ? <p className="text-muted-foreground">Elige una opción.</p>
       : <p role="status" className={picked[qIndex] === question.answer ? "text-emerald-600" : "text-destructive"}>{picked[qIndex] === question.answer ? "Correcto." : `Incorrecto: la respuesta es "${question.options[question.answer] ?? "—"}".`}</p>}
   </li>)}</ol>;
 }
@@ -924,7 +924,7 @@ function TasksSummary({ app, client }: { app: SpecialistApplication; client: Ope
   if (query.isPending) return <Skeleton className="h-8 w-full" />;
   if (query.isError) return <p role="alert" className="text-xs text-destructive">No se pudieron leer las tareas. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => void query.refetch()}>Volver a intentar</Button></p>;
   const tasks = query.data?.tasks ?? [];
-  if (!tasks.length) return <p className="text-xs text-muted-foreground">Sin tareas programadas. El asistente puede crearlas si le pedís que revise algo periódicamente.</p>;
+  if (!tasks.length) return <p className="text-xs text-muted-foreground">Sin tareas programadas. El asistente puede crearlas si le pides que revise algo periódicamente.</p>;
   return <ul className="grid gap-1 text-xs text-muted-foreground">{tasks.slice(0, 4).map(task => <li key={task.id} className="flex items-center gap-2">
     <CalendarClock className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate">{task.name}</span>
     <span>{task.enabled ? `Próxima: ${formatWhen(task.nextRunAt)}` : "Pausada"}</span>
@@ -999,9 +999,9 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
   const minutesValue = Number(every);
   const dayValue = Number(dayOfMonth);
   const scheduleProblem = kind === "interval" && (!Number.isInteger(minutesValue) || minutesValue < 1 || minutesValue > 43_200)
-    ? "Indicá cada cuántos minutos: un entero entre 1 y 43200."
-    : kind === "weekly" && !days.length ? "Elegí al menos un día de la semana."
-      : kind === "monthly" && (!Number.isInteger(dayValue) || dayValue < 1 || dayValue > 31) ? "Indicá el día del mes: un entero entre 1 y 31." : null;
+    ? "Indica cada cuántos minutos: un entero entre 1 y 43200."
+    : kind === "weekly" && !days.length ? "Elige al menos un día de la semana."
+      : kind === "monthly" && (!Number.isInteger(dayValue) || dayValue < 1 || dayValue > 31) ? "Indica el día del mes: un entero entre 1 y 31." : null;
   // F4 live estimate (mirrors the server's estimateTaskBudget): time/space cost in local terms.
   const budgetEstimate = (() => {
     if (!prompt.trim() || scheduleProblem) return null;
@@ -1035,7 +1035,7 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
     <p className="text-xs text-muted-foreground">Cada corrida abre un chat propio en el proyecto de la aplicación con el prompt guardado. Requiere esta aplicación abierta. Las ejecuciones perdidas se omiten, salvo que autorices recuperar una al retomar.</p>
     {creating && !readOnly ? <form className="grid gap-2 rounded-md border p-3" onSubmit={event => { event.preventDefault(); void create(); }}>
       <div className="grid gap-1.5"><Label htmlFor="task-name">Nombre</Label><Input id="task-name" autoFocus value={name} onChange={event => setName(event.target.value)} maxLength={120} placeholder="por ejemplo: actualizar precios" required /></div>
-      <div className="grid gap-1.5"><Label htmlFor="task-prompt">Qué debe hacer el agente en cada corrida</Label><Textarea id="task-prompt" rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} required placeholder="Consultá las fuentes de costo de flete y actualizá la planilla del proyecto." /></div>
+      <div className="grid gap-1.5"><Label htmlFor="task-prompt">Qué debe hacer el agente en cada corrida</Label><Textarea id="task-prompt" rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={8000} required placeholder="Consulta las fuentes de costo de flete y actualiza la planilla del proyecto." /></div>
       <div className="flex flex-wrap gap-1">{(["interval", "daily", "weekly", "monthly", "once"] as const).map(option => <Button key={option} type="button" size="sm" variant={kind === option ? "default" : "outline"} onClick={() => setKind(option)}>{option === "interval" ? "Cada X tiempo" : option === "daily" ? "Diaria" : option === "weekly" ? "Semanal" : option === "monthly" ? "Mensual" : "Una vez"}</Button>)}</div>
       {kind === "interval" ? <div className="grid gap-1.5"><Label htmlFor="task-every">Cada cuántos minutos</Label><Input id="task-every" type="number" min={1} max={43200} value={every} onChange={event => setEvery(event.target.value)} className="max-w-40" /></div> : null}
       {kind === "monthly" ? <div className="grid gap-1.5"><Label htmlFor="task-day">Día del mes</Label><Input id="task-day" type="number" min={1} max={31} value={dayOfMonth} onChange={event => setDayOfMonth(event.target.value)} className="max-w-40" /><p className="text-xs text-muted-foreground">Si el mes tiene menos días, corre el último.</p></div> : null}
@@ -1056,7 +1056,7 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
             {(models.data ?? []).map(entry => <SelectItem key={entry.key} value={entry.key}>{entry.name} · {entry.providerID}</SelectItem>)}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">{models.isError ? "No se pudo leer el catálogo de modelos; se usará el predeterminado del motor." : "Se usa en cada corrida. Elegí uno barato si la tarea corre seguido."}</p>
+        <p className="text-xs text-muted-foreground">{models.isError ? "No se pudo leer el catálogo de modelos; se usará el predeterminado del motor." : "Se usa en cada corrida. Elige uno barato si la tarea corre seguido."}</p>
       </div>
       <Label className="flex items-center gap-2"><Checkbox checked={catchUp} onCheckedChange={value => setCatchUp(value === true)} />Ejecutar una vez al retomar si se perdió el horario</Label>
       <div className="flex gap-2"><Button type="submit" disabled={busy || !name.trim() || !prompt.trim() || (kind === "once" && !once) || scheduleProblem !== null}>{busy ? "Creando…" : "Crear tarea"}</Button><Button type="button" variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button></div>
@@ -1080,8 +1080,8 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
       <p className="line-clamp-2 text-xs text-muted-foreground">{task.prompt}</p>
       <div className="flex flex-wrap gap-2">
         {!readOnly ? <>
-        <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mirá el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
-        {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mirá el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
+        <Button size="sm" variant="outline" disabled={busy || !!task.running} onClick={() => void run(async () => { const result = await client.runSpecialistTaskNow(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo iniciar."); }, "Corrida iniciada: mira el chat nuevo de la tarea.")}><Play className="size-4" />Correr ahora</Button>
+        {dryRun ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => { const result = await client.dryRunSpecialistTask(app.id, task.id); if (!result.started) throw new Error(result.detail ?? "No se pudo lanzar el ensayo."); }, "Ensayo lanzado: corre en una sesión aparte y no guarda nada. Mira el chat nuevo.")}><ScanSearch className="size-4" />Ensayar</Button> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { enabled: !task.enabled }))}>{task.enabled ? <><Pause className="size-4" />Pausar</> : <><Play className="size-4" />Reanudar</>}</Button>
         <Button size="sm" variant="ghost" disabled={busy} aria-pressed={task.catchUp !== false} onClick={() => void run(() => client.updateSpecialistTask(app.id, task.id, { catchUp: task.catchUp === false }))}>{task.catchUp === false ? "Horarios perdidos: omitir" : "Horarios perdidos: recuperar una vez"}</Button>
         </> : null}

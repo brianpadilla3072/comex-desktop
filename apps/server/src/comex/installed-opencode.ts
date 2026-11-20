@@ -8,7 +8,7 @@ const serviceSchema = z.object({ url: z.string(), password: z.string().min(1), p
 const infoSchema = z.object({ version: z.string().regex(/^2\./), pid: z.number().int().positive() });
 const providersSchema = z.object({ data: z.array(z.object({ id: z.string() })) });
 const modelsSchema = z.object({ data: z.array(z.object({ id: z.string(), providerID: z.string() })) });
-const unavailable = "No se pudo conectar al OpenCode instalado. Iniciá su servicio con «opencode service start» y volvé a intentar. Comex no cambió a otro motor.";
+const unavailable = "No se pudo conectar al OpenCode instalado. Inicia su servicio con «opencode service start» y vuelve a intentar. Comex no cambió a otro motor.";
 
 /** The service receipt contains a local transport password, never provider keys.
  * Read it again after a service restart; do not persist it or send it to the UI. */
@@ -82,12 +82,12 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false, 
     }
   }
   async function keepV2(enabled: boolean) {
-    if (!enabled) throw new Error("Para dejar de usar OpenCode instalado, iniciá Comex con OPENWORK_COMEX_OPENCODE_MODE=managed.");
+    if (!enabled) throw new Error("Para dejar de usar OpenCode instalado, inicia Comex con OPENWORK_COMEX_OPENCODE_MODE=managed.");
     await probe();
     return status();
   }
   async function unsupportedMcp() {
-    throw new Error("Administrá las conexiones MCP desde tu OpenCode instalado. Comex no modifica su configuración.");
+    throw new Error("Administra las conexiones MCP desde tu OpenCode instalado. Comex no modifica su configuración.");
   }
   async function ensureWorkspaceReady(directory: string) {
     if (browser) {

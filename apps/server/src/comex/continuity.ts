@@ -111,19 +111,19 @@ export async function writeComexCheckpoint(root: string, sessionId: string, inpu
   await safeTarget(root, sessionId);
   const lockPath = `${target}.lock`;
   const lock = await open(lockPath, "wx", 0o600).catch(error => {
-    if (error.code === "EEXIST") throw new ContinuityError("busy", "Hay otro guardado en curso. Volvé a leer antes de reintentar.");
+    if (error.code === "EEXIST") throw new ContinuityError("busy", "Hay otro guardado en curso. Vuelve a leer antes de reintentar.");
     throw error;
   });
   const temp = `${target}.${randomUUID()}.tmp`;
   try {
     const previous = await readComexCheckpoint(root, sessionId);
     if (previous.status === "invalid") throw new ContinuityError("invalid", "El checkpoint existente es inválido; conservado para recuperación manual.");
-    if (previous.revision !== expectedRevision) throw new ContinuityError("conflict", "La memoria cambió. Volvé a leer y reconciliá las decisiones antes de guardar.");
+    if (previous.revision !== expectedRevision) throw new ContinuityError("conflict", "La memoria cambió. Vuelve a leer y reconcilia las decisiones antes de guardar.");
     const clean = checkpointInput.safeParse(cleanInput(parsed.data));
-    if (!clean.success || expectedRevision === Number.MAX_SAFE_INTEGER) throw new ContinuityError("invalid", "Resumí las notas antes de guardar; se alcanzó un límite del checkpoint.");
+    if (!clean.success || expectedRevision === Number.MAX_SAFE_INTEGER) throw new ContinuityError("invalid", "Resume las notas antes de guardar; se alcanzó un límite del checkpoint.");
     const checkpoint = storedCheckpoint.parse({ ...clean.data, version: 1, revision: expectedRevision + 1, sessionId, updatedAt: new Date().toISOString() });
     const encoded = JSON.stringify(checkpoint, null, 2) + "\n";
-    if (Buffer.byteLength(encoded) > MAX_BYTES) throw new ContinuityError("invalid", "El checkpoint supera el límite de memoria. Resumí los avances.");
+    if (Buffer.byteLength(encoded) > MAX_BYTES) throw new ContinuityError("invalid", "El checkpoint supera el límite de memoria. Resume los avances.");
     const file = await open(temp, "wx", 0o600);
     try { await file.writeFile(encoded); await file.sync(); } finally { await file.close(); }
     await safeTarget(root, sessionId);

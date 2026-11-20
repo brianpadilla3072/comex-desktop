@@ -22,7 +22,7 @@ const NO_PROJECT_RETRY_MS = 30 * 60_000;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 export type SpecialistScheduler = {
-  /** Run one task now, outside the schedule (manual button / "probala ya"). */
+  /** Run one task now, outside the schedule (manual button / "pruébala ya"). */
   trigger: (applicationId: string, taskId: string) => Promise<{ ok: boolean; detail?: string }>;
   /** Rehearse once in a disposable session: no claim, no run log, no evidence (F3). */
   dryRun: (applicationId: string, taskId: string) => Promise<{ ok: boolean; sessionId?: string; workspaceId?: string; detail?: string }>;
@@ -180,7 +180,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
         ...(t.schedule.kind === "once" ? { enabled: false, nextRunAt: null } : {}),
       }));
     };
-    if (Date.now() - running.startedAt > RUN_TIMEOUT_MS) { await finish("failed", "La corrida superó 15 minutos sin confirmarse; revisá el chat de la tarea."); return; }
+    if (Date.now() - running.startedAt > RUN_TIMEOUT_MS) { await finish("failed", "La corrida superó 15 minutos sin confirmarse; revisa el chat de la tarea."); return; }
     if (!running.sessionId) return; // crashed between claim and create; the timeout above covers it
     try {
       const messages = payload(await call(running.workspaceId, `/session/${encodeURIComponent(running.sessionId)}/message?order=desc&limit=10`));
@@ -189,7 +189,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       const assistant = messages.find(message => isRecord(message) && message.type === "assistant");
       if (!assistant || !isRecord(assistant) || !isRecord(assistant.time) || !Number(assistant.time.completed)) return;
       const failed = assistant.outcome === "failed" || assistant.outcome === "interrupted" || assistant.error != null;
-      await finish(failed ? "failed" : "ok", failed ? "El motor terminó con un error o una interrupción. Revisá el chat de la tarea." : null);
+      await finish(failed ? "failed" : "ok", failed ? "El motor terminó con un error o una interrupción. Revisa el chat de la tarea." : null);
     } catch {
       // Engine unavailable right now: the timeout will retire the run if it never comes back.
     }
@@ -273,7 +273,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
           model: { providerID: task.model.providerID, id: task.model.modelID },
         });
         await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/prompt`, {
-          text: `[ENSAYO — no guardes nada: esta corrida no escribe archivos, no crea sesiones y no muta el proyecto; mostrá qué herramientas usarías y qué escribirías]\n\n${task.prompt}`,
+          text: `[ENSAYO — no guardes nada: esta corrida no escribe archivos, no crea sesiones y no muta el proyecto; muestra qué herramientas usarías y qué escribirías]\n\n${task.prompt}`,
           delivery: "queue",
           metadata: { openworkScheduledTask: task.id, openworkScheduledTaskName: task.name, openworkDryRun: true },
         });

@@ -123,7 +123,7 @@ beforeEach(() => {
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
   tasks = [
-    { id: "task_1", name: "actualizar precios", prompt: "Consultá las fuentes de costo de flete.", schedule: { kind: "interval", everyMinutes: 20 }, enabled: true, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000, nextRunAt: 1_700_000_900_000, lastRunAt: null, lastStatus: null, runs: 1, running: null },
+    { id: "task_1", name: "actualizar precios", prompt: "Consulta las fuentes de costo de flete.", schedule: { kind: "interval", everyMinutes: 20 }, enabled: true, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000, nextRunAt: 1_700_000_900_000, lastRunAt: null, lastStatus: null, runs: 1, running: null },
   ];
   runsByTask = { task_1: [] };
   datasets = [
@@ -242,7 +242,7 @@ beforeEach(() => {
     if (path === "/specialist-applications/app_test/sources/local" && method === "POST") {
       localCalls.push({ method, path, body });
       const rawPath = typeof (body as Record<string, unknown> | null)?.path === "string" ? ((body as Record<string, unknown>).path as string).trim() : "";
-      if (!rawPath) return Response.json({ code: "invalid_source", message: "Revisá la ruta del archivo local." }, { status: 422 });
+      if (!rawPath) return Response.json({ code: "invalid_source", message: "Revisa la ruta del archivo local." }, { status: 422 });
       if (/\.pdf$/i.test(rawPath)) return Response.json({ code: "invalid_source", message: "El formato .pdf todavía no se puede indexar como fuente (PDF/XLSX pendientes de extractor)." }, { status: 422 });
       if (rawPath === "noexiste.md" || rawPath.includes("..")) return Response.json({ code: "invalid_source", message: "Ese archivo no existe en este proyecto." }, { status: 422 });
       const title = rawPath.split("/").pop() ?? rawPath;
@@ -385,7 +385,7 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   expect(hasText("Tareas programadas de Taller")).toBe(true);
   await clickIn(document, "Nueva tarea");
   await edit("task-name", "vigilar aranceles");
-  await edit("task-prompt", "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.");
+  await edit("task-prompt", "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.");
   // F4: con intervalo 20 min la línea de costo aparece en vivo antes de crear.
   expect(hasText("Costo estimado:")).toBe(true);
   expect(hasText("72 corridas/día")).toBe(true);
@@ -393,7 +393,7 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   await flush(120);
   const createCall = taskCalls.find(entry => entry.method === "POST");
   expect(createCall).toBeDefined();
-  expect(createCall!.body).toEqual({ catchUp: false, name: "vigilar aranceles", prompt: "Consultá las fuentes de costo de flete y actualizá la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
+  expect(createCall!.body).toEqual({ catchUp: false, name: "vigilar aranceles", prompt: "Consulta las fuentes de costo de flete y actualiza la planilla del proyecto.", schedule: { kind: "interval", everyMinutes: 20 } });
   expect(hasText("Tarea creada y activada.")).toBe(true);
   const newRow = rowFor("vigilar aranceles");
   expect(newRow.textContent).toContain("Cada 20 min");
@@ -410,7 +410,7 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   await flush(120);
   expect(runNowCalls.length).toBe(1);
   expect(runNowCalls[0]!.path).toContain("/tasks/task_2/run-now");
-  expect(hasText("Corrida iniciada: mirá el chat nuevo de la tarea.")).toBe(true);
+  expect(hasText("Corrida iniciada: mira el chat nuevo de la tarea.")).toBe(true);
   // Ensayar: POST dry-run + notice que no guardó nada.
   await clickIn(rowFor("vigilar aranceles"), "Ensayar");
   await flush(120);
@@ -436,12 +436,12 @@ test("sesión completa end-to-end: home, tareas (escribir), datasets (escribir),
   expect(hasText("2 snapshots en el proyecto")).toBe(true);
   expect(hasText("China")).toBe(true); // el preview muestra el JSON del snapshot
   // Actualizar que falla con 422: mensaje accionable visible, sin notice de éxito.
-  refreshFailsWith = { status: 422, code: "invalid_dataset", message: "Conectá Tavily desde Herramientas y fuentes para investigar." };
+  refreshFailsWith = { status: 422, code: "invalid_dataset", message: "Conecta Tavily desde Herramientas y fuentes para investigar." };
   await clickIn(rowFor("search-aranceles-soja-1a2b3c4d"), "Actualizar");
   await flush(80);
   expect(refreshCalls.length).toBe(1);
   const alertText = [...document.querySelectorAll('[role="alert"]')].map(el => el.textContent ?? "").join(" | ");
-  expect(alertText).toContain("Conectá Tavily desde Herramientas y fuentes para investigar.");
+  expect(alertText).toContain("Conecta Tavily desde Herramientas y fuentes para investigar.");
   expect(hasText("Consulta re-ejecutada")).toBe(false);
   // Eliminar con confirmación: la fila desaparece y hay notice.
   const delBtn = [...rowFor("search-precios-borrable-1111aaaa").querySelectorAll("button")].find(b => (b.getAttribute("aria-label") ?? "") === "Eliminar search-precios-borrable-1111aaaa");

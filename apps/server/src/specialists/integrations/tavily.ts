@@ -32,11 +32,11 @@ export async function runTavilyCommand(file: string, args: string[], options: { 
       if (error) { child.kill(); reject(error); } else resolve({ code, stdout: output });
     };
     const abort = () => finish(new Error("Se canceló la operación de Tavily."));
-    const timer = setTimeout(() => finish(new Error("Tavily no respondió a tiempo. Volvé a intentar.")), options.timeout ?? 30_000);
+    const timer = setTimeout(() => finish(new Error("Tavily no respondió a tiempo. Vuelve a intentar.")), options.timeout ?? 30_000);
     options.signal?.addEventListener("abort", abort, { once: true });
     if (options.signal?.aborted) abort();
     child.on("error", () => finish(new Error("La herramienta de Tavily no está disponible. Preparala desde Herramientas y fuentes.")));
-    child.stdout.on("data", (chunk: Buffer) => { bytes += chunk.length; if (bytes > 8_000_000) finish(new Error("La respuesta de Tavily superó el límite. Reducí la consulta.")); else output += chunk.toString(); });
+    child.stdout.on("data", (chunk: Buffer) => { bytes += chunk.length; if (bytes > 8_000_000) finish(new Error("La respuesta de Tavily superó el límite. Reduce la consulta.")); else output += chunk.toString(); });
     child.stderr.on("data", (chunk: Buffer) => { bytes += chunk.length; if (bytes > 8_000_000) finish(new Error("Tavily superó el límite de salida.")); });
     child.on("close", code => finish(undefined, code ?? 1));
     child.stdin.on("error", () => undefined);
@@ -51,7 +51,7 @@ export async function tavilyStatus(config: Config) {
     const value = z.object({ version: z.string(), authenticated: z.boolean() }).safeParse(JSON.parse(result.stdout));
     if (result.code !== 0 || !value.success) throw new Error();
     return { installed: true, ...value.data, loginPending: !!pending && !pending.error, error: pending?.error ?? null };
-  } catch { return { installed: false, authenticated: false, loginPending: false, error: "Prepará Tavily para conectar tu cuenta." }; }
+  } catch { return { installed: false, authenticated: false, loginPending: false, error: "Prepara Tavily para conectar tu cuenta." }; }
 }
 
 export async function installTavily(config: Config) {
@@ -64,10 +64,10 @@ export async function installTavily(config: Config) {
       const python = process.env.OPENWORK_INTEGRATIONS_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
       const directory = join(root, "tavily-cli");
       const setup = await runTavilyCommand(python, ["-m", "venv", directory], { timeout: 60_000 });
-      if (setup.code !== 0) throw new ApiError(422, "tavily_python_missing", "No se pudo preparar Tavily. Instalá Python 3.10 o posterior con soporte para entornos virtuales y volvé a intentar.");
+      if (setup.code !== 0) throw new ApiError(422, "tavily_python_missing", "No se pudo preparar Tavily. Instala Python 3.10 o posterior con soporte para entornos virtuales y vuelve a intentar.");
       const executable = join(directory, process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
       const install = await runTavilyCommand(executable, ["-m", "pip", "install", "--disable-pip-version-check", `tavily-cli==${TAVILY_CLI_VERSION}`], { timeout: 180_000 });
-      if (install.code !== 0) throw new ApiError(502, "tavily_install_failed", "No se pudo descargar Tavily. Revisá la conexión y volvé a intentar.");
+      if (install.code !== 0) throw new ApiError(502, "tavily_install_failed", "No se pudo descargar Tavily. Revisa la conexión y vuelve a intentar.");
       if (!(await tavilyStatus(config)).installed) throw new Error("No se pudo verificar Tavily después de instalarlo.");
     })();
     jobs.set(root, pending);
@@ -80,14 +80,14 @@ export async function startTavilyLogin(config: Config) {
   const key = tavilyHome(config);
   const previous = logins.get(key);
   if (previous?.url && !previous.error) return { authorizationUrl: previous.url };
-  if (previous && !previous.error) throw new ApiError(409, "login_pending", "El inicio de sesión ya está en curso. Volvé a intentar en unos segundos.");
+  if (previous && !previous.error) throw new ApiError(409, "login_pending", "El inicio de sesión ya está en curso. Vuelve a intentar en unos segundos.");
   await mkdir(key, { recursive: true, mode: 0o700 });
   const child = spawn(await tavilyCli(config), ["login", "--no-browser", "--json"], { env: environment(config), stdio: ["ignore", "pipe", "pipe"], shell: false, windowsHide: true });
   const state: { child: ChildProcess; url?: string; error?: string } = { child };
   logins.set(key, state);
   return new Promise<{ authorizationUrl: string }>((resolve, reject) => {
     let buffer = ""; let complete = false;
-    const fail = () => { state.error = "No se pudo completar el acceso a Tavily. Conectá la cuenta de nuevo."; if (!complete) { complete = true; clearTimeout(timer); reject(new ApiError(502, "tavily_login_failed", state.error)); } };
+    const fail = () => { state.error = "No se pudo completar el acceso a Tavily. Conecta la cuenta de nuevo."; if (!complete) { complete = true; clearTimeout(timer); reject(new ApiError(502, "tavily_login_failed", state.error)); } };
     const timer = setTimeout(() => { child.kill(); fail(); }, 30_000);
     const lifetime = setTimeout(() => { child.kill(); fail(); }, 10 * 60_000); lifetime.unref?.();
     child.on("error", fail);
@@ -111,7 +111,7 @@ export async function startTavilyLogin(config: Config) {
 }
 
 export async function saveTavilyKey(config: Config, apiKey: string) {
-  if (!/^tvly-[A-Za-z0-9_-]{10,250}$/.test(apiKey)) throw new ApiError(422, "invalid_tavily_key", "Revisá la clave de Tavily.");
+  if (!/^tvly-[A-Za-z0-9_-]{10,250}$/.test(apiKey)) throw new ApiError(422, "invalid_tavily_key", "Revisa la clave de Tavily.");
   await mkdir(tavilyHome(config), { recursive: true, mode: 0o700 });
   const cli = await tavilyCli(config);
   // Use the CLI's own credential store. Pass the secret over stdin, never argv.
@@ -124,13 +124,13 @@ export async function saveTavilyKey(config: Config, apiKey: string) {
 export async function disconnectTavily(config: Config) {
   const pending = logins.get(tavilyHome(config)); pending?.child.kill(); logins.delete(tavilyHome(config));
   const result = await runTavilyCommand(await tavilyCli(config), ["logout", "--json"], { env: environment(config) });
-  if (result.code !== 0) throw new ApiError(502, "tavily_logout_failed", "No se pudo desconectar Tavily. Volvé a intentar.");
+  if (result.code !== 0) throw new ApiError(502, "tavily_logout_failed", "No se pudo desconectar Tavily. Vuelve a intentar.");
   return tavilyStatus(config);
 }
 
 export async function testTavily(config: Config) {
   const result = await runTavilyCommand(await tavilyCli(config), ["search", "Tavily official documentation", "--client-name", "opencode", "--max-results", "1", "--json"], { env: environment(config), timeout: 45_000 });
-  if (result.code !== 0) throw new ApiError(result.code === 3 ? 401 : 502, "tavily_search_failed", result.code === 3 ? "Conectá tu cuenta de Tavily para buscar." : "Tavily no pudo completar la búsqueda. Revisá el saldo o volvé a intentar.");
+  if (result.code !== 0) throw new ApiError(result.code === 3 ? 401 : 502, "tavily_search_failed", result.code === 3 ? "Conecta tu cuenta de Tavily para buscar." : "Tavily no pudo completar la búsqueda. Revisa el saldo o vuelve a intentar.");
   const value = z.object({ results: z.array(z.object({ title: z.string(), url: z.string().url() })) }).parse(JSON.parse(result.stdout));
   return { verifiedAt: new Date().toISOString(), sources: value.results.map(({ title, url }) => ({ title, url })) };
 }

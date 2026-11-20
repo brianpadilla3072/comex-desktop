@@ -111,11 +111,11 @@ beforeEach(() => {
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
   proposals = [
-    { id: "prop_task", kind: "task", name: "refrescar aranceles", description: "Cada 20 minutos traer los aranceles.", content: JSON.stringify({ prompt: "Consultá.", schedule: { kind: "interval", everyMinutes: 20 } }), reason: "Se repite.", createdAt: 1_700_000_000_000 },
+    { id: "prop_task", kind: "task", name: "refrescar aranceles", description: "Cada 20 minutos traer los aranceles.", content: JSON.stringify({ prompt: "Consulta.", schedule: { kind: "interval", everyMinutes: 20 } }), reason: "Se repite.", createdAt: 1_700_000_000_000 },
     { id: "prop_plan", kind: "plan", name: "programa aranceles", description: "Varias piezas juntas.", content: planContent, reason: "Se repite.", createdAt: 1_700_000_100_000 },
   ];
   tasks = [
-    { id: "task_1", name: "actualizar precios", prompt: "Consultá las fuentes de costo de flete.", schedule: { kind: "interval", everyMinutes: 20 }, enabled: true, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000, nextRunAt: 1_700_000_900_000, lastRunAt: null, lastStatus: null, runs: 1, running: null },
+    { id: "task_1", name: "actualizar precios", prompt: "Consulta las fuentes de costo de flete.", schedule: { kind: "interval", everyMinutes: 20 }, enabled: true, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000, nextRunAt: 1_700_000_900_000, lastRunAt: null, lastStatus: null, runs: 1, running: null },
   ];
   runs = [];
   datasets = [
@@ -369,7 +369,7 @@ test("paso 3 — Correr ahora: tras el POST, el historial de corridas se vuelve 
 
   await act(async () => { [...rowFor("actualizar precios").querySelectorAll("button")].find(b => (b.textContent ?? "").includes("Correr ahora"))!.click(); });
   await flush(60);
-  expect(hasText("Corrida iniciada: mirá el chat nuevo de la tarea.")).toBe(true);
+  expect(hasText("Corrida iniciada: mira el chat nuevo de la tarea.")).toBe(true);
   // El fix de invalidación: el GET de runs vuelve a salir y la fila manual recién creada se ve.
   expect(countRequests("GET", /\/tasks\/task_1\/runs$/)).toBeGreaterThan(corridasAntes);
   expect(hasText("a pedido")).toBe(true);
@@ -383,12 +383,12 @@ test("paso 4a — refresh que falla (422 del provider): el mensaje se ve en pant
   await openSection("Datos de investigación");
   expect(hasText("Datasets de investigación de Taller")).toBe(true);
 
-  refreshFailsWith = { status: 422, code: "invalid_dataset", message: "Conectá Tavily desde Herramientas y fuentes para investigar." };
+  refreshFailsWith = { status: 422, code: "invalid_dataset", message: "Conecta Tavily desde Herramientas y fuentes para investigar." };
   const fila = rowFor("search-aranceles-soja-1a2b3c4d");
   await act(async () => { [...fila.querySelectorAll("button")].find(b => (b.textContent ?? "") === "Actualizar")!.click(); });
   await flush(60);
   const alertas = [...document.querySelectorAll('[role="alert"]')].map(element => element.textContent ?? "").join(" | ");
-  expect(alertas).toContain("Conectá Tavily desde Herramientas y fuentes para investigar.");
+  expect(alertas).toContain("Conecta Tavily desde Herramientas y fuentes para investigar.");
   expect(hasText("Consulta re-ejecutada")).toBe(false); // ningún notice mentiroso
   expect(rowFor("search-aranceles-soja-1a2b3c4d").textContent).toContain("2 snapshots"); // el conteo no cambió
 });

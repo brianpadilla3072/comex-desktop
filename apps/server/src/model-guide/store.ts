@@ -92,7 +92,7 @@ export async function openModelGuideStore(path: string, options: { bundled?: Mod
       const next = modelGuideCatalogSchema.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
       if (new Date(next.publishedAt).getTime() > now() + DAY) throw new Error("La fecha del catálogo es inválida.");
       if (next.revision < catalog.revision) throw new Error("Se conservó el catálogo más reciente.");
-      if (next.revision === catalog.revision && JSON.stringify(next) !== JSON.stringify(catalog)) throw new Error("Incrementá la revisión para publicar cambios.");
+      if (next.revision === catalog.revision && JSON.stringify(next) !== JSON.stringify(catalog)) throw new Error("Incrementa la revisión para publicar cambios.");
       if (next.revision > catalog.revision) {
         transaction(() => { set("catalog", JSON.stringify(next)); set("source", "remote"); set("updatedAt", checked); sql.run("INSERT INTO model_guide_catalog_versions VALUES (?, ?, ?, ?)", [next.revision, JSON.stringify(next), "remote", checked]); });
         catalog = next;

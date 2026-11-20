@@ -19,7 +19,7 @@ export type ChatCommandOption = SlashCommandOption & { appCommand: ChatCommandId
 export type ChatCommandRuntime = { hasSession: boolean; busy: boolean; nativeV2: boolean; canArchive: boolean; canFork: boolean; canAttach: boolean; secondary: boolean; pending?: boolean; pinned?: boolean; hasMessages?: boolean };
 export function chatCommandOptions(runtime: ChatCommandRuntime): ChatCommandOption[] {
   return CHAT_COMMANDS.map(command => {
-    const disabledReason = runtime.pending ? "Hay otro comando en curso." : command.session && !runtime.hasSession ? "Abrí una conversación primero."
+    const disabledReason = runtime.pending ? "Hay otro comando en curso." : command.session && !runtime.hasSession ? "Abre una conversación primero."
       : command.id === "archive" && !runtime.canArchive ? "No hay conexión para archivar."
       : command.id === "fork" && runtime.hasMessages === false ? "Todavía no hay mensajes para bifurcar."
       : command.id === "fork" && !runtime.canFork ? "No hay conexión para bifurcar."

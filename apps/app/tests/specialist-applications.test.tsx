@@ -121,5 +121,5 @@ test("a read-only connection never opens the first-application form by itself", 
   server = { enabled: true, writable: false, portabilityEnabled: true, user: null, applications: [] };
   await render();
   expect(document.querySelector("#specialist-name")).toBe(null);
-  expect(document.body.textContent).not.toContain("Creá tu primera aplicación");
+  expect(document.body.textContent).not.toContain("Crea tu primera aplicación");
 });

@@ -207,7 +207,7 @@ test("specialist session journey: one continuous session through the tool bridge
       const index = await runLibraryTool(config, pathA, "specialist_source_read", { id: sourceId }) as { totalChunks: number; chunks: string[]; note: string };
       assert.ok(index.totalChunks >= 2);
       assert.equal(index.chunks.length, Math.min(index.totalChunks, 30));
-      assert.match(index.note, /Citá como \[fuente/);
+      assert.match(index.note, /Cita como \[fuente/);
       const chunkOne = await runLibraryTool(config, pathA, "specialist_source_read", { id: sourceId, chunk: 1 }) as { ok: boolean; text: string };
       assert.equal(chunkOne.ok, true);
       assert.match(chunkOne.text, /soja/);

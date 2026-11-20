@@ -68,7 +68,7 @@ export function createPackFactory(config: Config) {
     preview: async (id: string, sourcePath: string) => (await plan(id, sourcePath)).summary,
     async update(id: string, sourcePath: string, expectedFingerprint: string) {
       const value = await plan(id, sourcePath);
-      if (value.summary.fingerprint !== expectedFingerprint) throw new ApiError(409, "pack_changed", "El pack o los proyectos cambiaron desde la revisión. Revisá los cambios otra vez.");
+      if (value.summary.fingerprint !== expectedFingerprint) throw new ApiError(409, "pack_changed", "El pack o los proyectos cambiaron desde la revisión. Revisa los cambios otra vez.");
       const stage = `${value.packRoot}.next-${randomUUID()}`, backup = `${value.packRoot}.previous-${randomUUID()}`;
       await mkdir(stage, { recursive: true });
       let moved = false;
@@ -106,12 +106,12 @@ export function createPackFactory(config: Config) {
       return { applied, preserved: skipped, pack: value.next.summary };
     },
     async exportOcx(id: string, destination: string) {
-      if (!isAbsolute(destination)) throw new ApiError(422, "invalid_export_folder", "Elegí una carpeta con ruta absoluta.");
+      if (!isAbsolute(destination)) throw new ApiError(422, "invalid_export_folder", "Elige una carpeta con ruta absoluta.");
       const app = (await specialistStore(config)).application(id);
       const root = join(destination, `specialist-${app.id.slice(4)}`);
       await safeParents(destination, "placeholder");
       try { await mkdir(root, { mode: 0o700 }); }
-      catch { throw new ApiError(409, "export_exists", "No se pudo crear la carpeta de exportación. Elegí otra carpeta vacía."); }
+      catch { throw new ApiError(409, "export_exists", "No se pudo crear la carpeta de exportación. Elige otra carpeta vacía."); }
       try {
         const pack = app.agentCount || app.skillCount ? await inspectSpecialistPack(join(specialistDirectory(config), id, "pack")) : null;
         for (const file of pack?.files ?? []) { const target = join(root, file.path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, file.data, { flag: "wx", mode: 0o600 }); }

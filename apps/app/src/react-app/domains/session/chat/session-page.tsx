@@ -2530,7 +2530,7 @@ export function SessionPage(props: SessionPageProps) {
           {props.selectedSessionId ? <div className="mt-3 flex justify-end gap-3">
             <button type="button" className="text-sm text-primary hover:underline" onClick={() => void saveLastAssistantSummary()}>Guardar último resumen del asistente</button>
             <button type="button" className="text-sm text-primary hover:underline" onClick={() => {
-              const prompt = "Consolidá la memoria de esta sesión: resumí lo importante, preguntame qué quiero recordar y actualizá las notas existentes si algo cambió.";
+              const prompt = "Consolida la memoria de esta sesión: resume lo importante, pregúntame qué quiero recordar y actualiza las notas existentes si algo cambió.";
               useComposerStateStore.getState().setDraft(props.selectedSessionId ?? "", prompt);
               markComposerAutoSend(props.selectedSessionId ?? "");
               setMemoryOpen(false);

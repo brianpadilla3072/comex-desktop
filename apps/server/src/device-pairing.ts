@@ -45,12 +45,12 @@ export function createPairingRegistry(options: { now?: () => number } = {}) {
       const current = active;
       if (!current || current.expiresAt <= now()) {
         active = null;
-        throw new ApiError(410, "pairing_code_expired", "El código venció o ya se usó. Generá uno nuevo en la app de escritorio.");
+        throw new ApiError(410, "pairing_code_expired", "El código venció o ya se usó. Genera uno nuevo en la app de escritorio.");
       }
       if (!sameCode(normalizePairingCode(input), current.code)) {
         current.failures += 1;
         if (current.failures >= PAIRING_MAX_FAILURES) active = null;
-        throw new ApiError(400, "pairing_code_invalid", "El código no es correcto. Revisalo y volvé a intentar.");
+        throw new ApiError(400, "pairing_code_invalid", "El código no es correcto. Revísalo y vuelve a intentar.");
       }
       active = null;
     },

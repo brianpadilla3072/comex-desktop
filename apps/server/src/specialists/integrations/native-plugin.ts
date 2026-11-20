@@ -17,7 +17,7 @@ export function createResearchPlugin(descriptorFile: string) {
         const descriptor = researchDescriptor.parse(JSON.parse(await readFile(descriptorFile, "utf8")));
         if (descriptor.directory !== directory || !descriptor.enabled) throw new Error();
         return descriptor;
-      } catch { throw new Error("La investigación web está desactivada en este perfil. Revisá Herramientas y fuentes."); }
+      } catch { throw new Error("La investigación web está desactivada en este perfil. Revisa Herramientas y fuentes."); }
     };
     // Keep registered tools stable while enabling/disabling without disposing chat history.
     const registration = await context.tool.transform(editor => {
@@ -36,7 +36,7 @@ export function createResearchPlugin(descriptorFile: string) {
               // model as the text "undefined" and the search looked empty.
               return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
             } catch (error) {
-              return { content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La búsqueda falló sin detalle."} No inventes resultados: decile a la persona qué pasó.` }] };
+              return { content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La búsqueda falló sin detalle."} No inventes resultados: dile a la persona qué pasó.` }] };
             }
           },
         });

@@ -24,7 +24,7 @@ export function TaskContinuityPanel({ client, workspaceId, sessionId }: { client
     if (!task || busy) return;
     setBusy(true); setError("");
     try { await client.updateTaskGoal(workspaceId, sessionId, { revision: task.revision, action, ...(goal ? { goal } : {}) }); setEditing(false); await state.refetch(); }
-    catch (e) { setError(e instanceof OpenworkServerError ? e.message : "No pude guardar el objetivo. Actualizá y volvé a intentar."); await state.refetch(); }
+    catch (e) { setError(e instanceof OpenworkServerError ? e.message : "No pude guardar el objetivo. Actualiza y vuelve a intentar."); await state.refetch(); }
     finally { setBusy(false); }
   };
   return <section className="border-t border-border pt-4" data-testid="task-continuity-panel">

@@ -53,7 +53,7 @@ export function registerAgentEcosystemRoutes(options: {
   }
   async function body<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
     const parsed = schema.safeParse(await readJsonBody(request));
-    if (!parsed.success) throw new ApiError(422, "ecosystem_invalid_payload", "Revisá los datos enviados.");
+    if (!parsed.success) throw new ApiError(422, "ecosystem_invalid_payload", "Revisa los datos enviados.");
     return parsed.data;
   }
 

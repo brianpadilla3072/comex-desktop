@@ -45,7 +45,7 @@ async function fixture() {
   const store = await specialistStore(config as unknown as ServerConfig);
   const pack = join(root, "source");
   await mkdir(join(pack, "agents"), { recursive: true });
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   const app = store.create(input("Alpha"), { agents: 1, skills: 0 });
   await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
   return { root, config, store, app };
@@ -140,7 +140,7 @@ test("task routes live and die with the scheduledTasks flag", async () => {
     await withFlag("true", async () => {
       const catalog = await call("GET", "/specialist-applications");
       assert.equal(catalog.json.scheduledTasksEnabled, true);
-      const created = await call("POST", `/specialist-applications/${app.id}/tasks`, { name: "monitoreo", prompt: "Consultá las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } });
+      const created = await call("POST", `/specialist-applications/${app.id}/tasks`, { name: "monitoreo", prompt: "Consulta las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } });
       assert.equal(created.status, 200);
       const listed = await call("GET", `/specialist-applications/${app.id}/tasks`);
       assert.equal((listed.json.tasks as Array<Record<string, unknown>>).length, 1);
@@ -293,7 +293,7 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
     store.bind(workspaceId, app.id, project);
     await syncLibraryToolPlugin(config as unknown as ServerConfig, workspaceId, project);
     await withFlag("true", async () => {
-      const created = await runLibraryTool(config, project, "specialist_task_create", { name: "lunes", prompt: "Resumí la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) as { task: { name: string; schedule: { kind: string } } };
+      const created = await runLibraryTool(config, project, "specialist_task_create", { name: "lunes", prompt: "Resume la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) as { task: { name: string; schedule: { kind: string } } };
       assert.equal(created.task.name, "lunes");
       assert.equal(created.task.schedule.kind, "weekly");
       const listed = await runLibraryTool(config, project, "specialist_task_list", {}) as { tasks: Array<{ name: string; id: string }> };

@@ -72,7 +72,7 @@ test("create, organize, move and share an application without the engine", async
 
   // 3. Scheduled tasks: create, list, delete.
   const tasksPath = `/specialist-applications/${app.application.id}/tasks`;
-  const made = await call("POST", tasksPath, host, { name: "Resumen semanal", prompt: "Resumí la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } });
+  const made = await call("POST", tasksPath, host, { name: "Resumen semanal", prompt: "Resume la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } });
   assert.equal(made.status, 200, made.text);
   const taskId = z.object({ task }).parse(made.json).task.id;
   assert.deepEqual(tasks.parse((await call("GET", tasksPath, bearer(CLIENT))).json).tasks.map(item => item.name), ["Resumen semanal"]);
@@ -80,7 +80,7 @@ test("create, organize, move and share an application without the engine", async
   assert.equal(removed.status, 200, removed.text);
   assert.deepEqual(tasks.parse(removed.json).tasks, []);
   // Leave one task so the bundle carries it (imported tasks come back paused).
-  assert.equal((await call("POST", tasksPath, host, { name: "Diaria", prompt: "Revisá novedades.", schedule: { kind: "daily", hour: 8, minute: 30 } })).status, 200);
+  assert.equal((await call("POST", tasksPath, host, { name: "Diaria", prompt: "Revisa novedades.", schedule: { kind: "daily", hour: 8, minute: 30 } })).status, 200);
 
   // 4. Export, delete, import the bundle back.
   // The default export is a .owapp archive (a ZIP); it travels as raw bytes.

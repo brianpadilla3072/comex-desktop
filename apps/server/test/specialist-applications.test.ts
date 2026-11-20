@@ -16,7 +16,7 @@ async function fixturePack(root: string) {
   await mkdir(join(pack, "scripts"));
   await writeFile(join(pack, "skills", "tono", "SKILL.md"), "---\nname: tono\ndescription: Una skill de prueba.\n---\nAyudá con claridad.\n");
   await writeFile(join(pack, "skills", "tono", "references", "datos.csv"), "dato,valor\na,1\n");
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   await writeFile(join(pack, "scripts", "example.txt"), "Recurso de prueba");
   await writeFile(join(pack, ".env"), "SECRET=fixture\n");
   await writeFile(join(pack, "opencode.json"), '{"plugins":["not-loaded"]}');
@@ -157,5 +157,5 @@ test("the specialist instructions point to Tavily research only when it is conne
   const without = specialistInstructions(app, null, memory, null, false, false, true, false, true, false, false);
   assert.doesNotMatch(without, /tavily_search/);
   // Even disconnected, the model must say a search failed out loud instead of inventing.
-  assert.match(without, /decilo en voz alta/);
+  assert.match(without, /dilo en voz alta/);
 });

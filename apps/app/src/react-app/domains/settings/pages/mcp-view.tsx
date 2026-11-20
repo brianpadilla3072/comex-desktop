@@ -2148,7 +2148,7 @@ export function McpView(props: McpViewProps) {
         catalog={<div className="space-y-10">
           <section>
             <h3 className="mb-5 text-sm font-medium">Catálogo sugerido de skills</h3>
-            <p className="mb-4 text-sm text-muted-foreground">Packs de alto valor para precargar. No consumen nada hasta que los instalás. Cloná el repo y luego usá “Elegir carpeta” para importarlo.</p>
+            <p className="mb-4 text-sm text-muted-foreground">Packs de alto valor para precargar. No consumen nada hasta que los instalas. Clona el repo y luego usa “Elegir carpeta” para importarlo.</p>
             <div className="grid gap-x-12 gap-y-4 xl:grid-cols-2">
               {[
                 { name: "Impeccable", description: "Diseño UI/UX, auditoría visual y eliminación de “AI slop”.", url: "https://github.com/pbakaus/impeccable" },

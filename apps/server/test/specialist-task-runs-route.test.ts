@@ -24,7 +24,7 @@ test("task runs answer 404 for unknown or path-like task ids and never read outs
     const config = { configPath: join(root, "server.json"), port: 4711, token: "test-token", workspaces: [] };
     const store = await specialistStore(config as unknown as ServerConfig);
     const app = store.create(applicationInput.parse({ userName: "Persona", name: "Alpha", specialty: "Pruebas", template: "custom" }), { agents: 0, skills: 0 });
-    const task = await createTask(config, app.id, { name: "diaria", prompt: "Revisá.", schedule: { kind: "interval", everyMinutes: 30 } });
+    const task = await createTask(config, app.id, { name: "diaria", prompt: "Revisa.", schedule: { kind: "interval", everyMinutes: 30 } });
     // A run-shaped file outside the tasks folder that a traversal would reach.
     await mkdir(specialistDirectory(config), { recursive: true });
     await writeFile(join(specialistDirectory(config), "secret.json"), JSON.stringify([run]));

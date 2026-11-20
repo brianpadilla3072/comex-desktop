@@ -126,7 +126,7 @@ async function writeArtifactUnlocked(directory: string, input: ArtifactInput): P
   const artifacts = await readIndex(directory);
   const existing = input.id ? artifacts.find(entry => entry.id === input.id) : undefined;
   if (input.id && !existing) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
-  if (!existing && artifacts.length >= ARTIFACT_LIMIT) throw new ApiError(409, "artifact_limit", `Hay ${ARTIFACT_LIMIT} artefactos; depurá el proyecto.`);
+  if (!existing && artifacts.length >= ARTIFACT_LIMIT) throw new ApiError(409, "artifact_limit", `Hay ${ARTIFACT_LIMIT} artefactos; depura el proyecto.`);
 
   const id = existing?.id ?? `art-${randomUUID().slice(0, 8)}`;
   const dir = artifactDir(directory, id);

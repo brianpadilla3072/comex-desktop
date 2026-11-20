@@ -676,7 +676,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     }
     if (method.type === "cloud") return "Managed by your organization.";
     if (isOpencodeAccountProvider(entry.id)) {
-      return "Conectá tu cuenta de OpenCode Console o una API key de OpenCode.";
+      return "Conecta tu cuenta de OpenCode Console o una API key de OpenCode.";
     }
     return "Paste a secret key that OpenWork stores locally on this device.";
   };
@@ -740,7 +740,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
         <DialogHeader className="pr-8">
           <DialogTitle ref={titleRef} tabIndex={-1}>Connect a provider</DialogTitle>
           <DialogDescription className="text-pretty">
-            Conectá una cuenta o guardá una clave en este dispositivo.{props.organizationName ? ` Los proveedores de ${props.organizationName} se administran en Den.` : ""}
+            Conecta una cuenta o guarda una clave en este dispositivo.{props.organizationName ? ` Los proveedores de ${props.organizationName} se administran en Den.` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -869,13 +869,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   </div>
                   <div className="text-xs text-gray-10">
                     {isOpencodeAccountProvider(selectedEntry.id)
-                      ? `Conectá ${selectedEntry.name} con una API key vigente de opencode.ai/auth.`
+                      ? `Conecta ${selectedEntry.name} con una API key vigente de opencode.ai/auth.`
                       : "Paste your API key to connect."}
                   </div>
                   {isOpencodeAccountProvider(selectedEntry.id) ? (
                     <div className="rounded-lg border border-indigo-5/30 bg-indigo-3/15 px-3 py-2.5 text-xs text-indigo-12 space-y-1.5">
                       <div>
-                        Si la clave venció, generá una nueva en tu consola de OpenCode y reemplazala aquí.
+                        Si la clave venció, genera una nueva en tu consola de OpenCode y reemplazala aquí.
                       </div>
                       <button
                         type="button"
@@ -889,7 +889,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <SecretTextInput
                     id="provider-auth-api-key"
                     label="API key"
-                    placeholder="Pegá tu API key"
+                    placeholder="Pega tu API key"
                     handleRef={apiKeyField}
                     onValueChange={(next) => {
                       setHasApiKey(next);

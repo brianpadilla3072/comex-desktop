@@ -88,7 +88,7 @@ async function registerSourceUnlocked(directory: string, input: { provider: stri
     retrievedAt: existing?.retrievedAt ?? Date.now(),
     chunks: existing?.chunks ?? 0,
   };
-  if (!existing && sources.length >= SOURCE_LIMIT) throw new ApiError(409, "source_limit", `Hay ${SOURCE_LIMIT} fuentes registradas; depurá el proyecto.`);
+  if (!existing && sources.length >= SOURCE_LIMIT) throw new ApiError(409, "source_limit", `Hay ${SOURCE_LIMIT} fuentes registradas; depura el proyecto.`);
   await writeIndex(directory, existing ? sources.map(source => source.id === meta.id ? meta : source) : [meta, ...sources]);
   // Index the passages now, not on first read: the library said "sin pasajes" for a source that
   // had plenty of text, and a person registering their own file needs to see what can be cited.
@@ -207,7 +207,7 @@ export async function registerLocalSource(directory: string, input: { path: stri
   if (!realRel || realRel.startsWith("..") || isAbsolute(realRel)) throw failure("El archivo sale del proyecto por un enlace simbólico.");
   const info = await statOrNull(realTarget);
   if (!info || !info.isFile()) throw failure("Esa ruta no es un archivo regular.");
-  if (info.size > 8_000_000) throw failure("El archivo supera 8 MB; achicalo o subí el extracto en texto.");
+  if (info.size > 8_000_000) throw failure("El archivo supera 8 MB; achícalo o sube el extracto en texto.");
   const localDir = await ensureFolder(join(fuentesRoot(directory), "local"));
   const stamped = `${Date.now()}-${randomUUID().slice(0, 8)}-${relativePath.split("/").pop()!.replace(/[^A-Za-z0-9._-]/g, "_")}`;
   const evidencePath = dataRelative(directory, "fuentes", "local", stamped);

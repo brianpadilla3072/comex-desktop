@@ -37,7 +37,7 @@ export function AgentEcosystemPanel({ client, workspaceId }: { client: OpenworkS
   return <section className="border-t border-border pt-4">
     <Button variant="ghost" className="w-full justify-start" aria-expanded={open} onClick={() => setOpen(v => !v)}>Ecosistema de agentes</Button>
     {open && <div className="mt-3 space-y-3">
-      {state.isLoading ? <Skeleton className="h-16 w-full" /> : state.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer el tablero. Verificá la conexión con el proyecto.</p> : state.data && <>
+      {state.isLoading ? <Skeleton className="h-16 w-full" /> : state.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer el tablero. Verifica la conexión con el proyecto.</p> : state.data && <>
         <p role="status" className="text-xs text-muted-foreground">
           {state.data.halted ? `Detenido por ${state.data.haltedBy ?? "el usuario"}` : counts ? `${counts.open} abiertos · ${counts.claimed} en curso · ${counts.resolved} resueltos` : "Sin actividad"}
         </p>
@@ -46,7 +46,7 @@ export function AgentEcosystemPanel({ client, workspaceId }: { client: OpenworkS
         {state.data.halted
           ? <Button variant="outline" size="sm" disabled={busy} onClick={() => void halt(false)}>Reanudar agentes</Button>
           : confirmHalt
-            ? <div className="space-y-2"><p className="text-xs">Se detienen las tareas nuevas. Las que están en curso terminan. Podés reanudar cuando quieras.</p><div className="flex gap-2"><Button variant="destructive" size="sm" disabled={busy} onClick={() => void halt(true)}>Detener</Button><Button variant="ghost" size="sm" onClick={() => setConfirmHalt(false)}>Cancelar</Button></div></div>
+            ? <div className="space-y-2"><p className="text-xs">Se detienen las tareas nuevas. Las que están en curso terminan. Puedes reanudar cuando quieras.</p><div className="flex gap-2"><Button variant="destructive" size="sm" disabled={busy} onClick={() => void halt(true)}>Detener</Button><Button variant="ghost" size="sm" onClick={() => setConfirmHalt(false)}>Cancelar</Button></div></div>
             : <Button variant="outline" size="sm" onClick={() => setConfirmHalt(true)}>Detener agentes</Button>}
       </>}
       {error && <p role="alert" className="text-xs text-muted-foreground">{error}</p>}

@@ -426,7 +426,7 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
     requirePairing();
     ensureWritable(config);
     const parsed = redeemInput.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(400, "invalid_pairing_request", "Ingresá el código y un nombre para este dispositivo.");
+    if (!parsed.success) throw new ApiError(400, "invalid_pairing_request", "Ingresa el código y un nombre para este dispositivo.");
     pairing.consume(parsed.data.code);
     const issued = await tokens.create("owner", { label: `${DEVICE_LABEL_PREFIX}${parsed.data.deviceName}` });
     return jsonResponse({ id: issued.id, token: issued.token, scope: issued.scope, deviceName: parsed.data.deviceName }, 201);

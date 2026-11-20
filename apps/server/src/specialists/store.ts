@@ -10,7 +10,7 @@ import type { ServerConfig } from "../types.js";
  * name in the switcher, sidebar and exports; names are also stored in Unicode NFC. */
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 export const displayText = (max: number) => z.string().trim().min(1).max(max)
-  .refine(value => !UNSAFE_TEXT.test(value), "Usá solo texto visible (sin caracteres de control).")
+  .refine(value => !UNSAFE_TEXT.test(value), "Usa solo texto visible (sin caracteres de control).")
   .transform(value => value.normalize("NFC"));
 /** Duplicate check for names: case-insensitive beyond ASCII ("Árbol" = "árbol"). */
 export const nameKey = (name: string) => name.normalize("NFC").toLocaleLowerCase("es");
@@ -19,7 +19,7 @@ export const applicationInput = z.object({
   userName: displayText(100).optional(),
   name: displayText(80),
   specialty: displayText(500),
-  personality: z.string().trim().max(8_000).default("Respondé en castellano, con claridad, fuentes verificables y pasos concretos. Preguntá cuando falten datos y distinguí hechos de supuestos."),
+  personality: z.string().trim().max(8_000).default("Responde en castellano, con claridad, fuentes verificables y pasos concretos. Pregunta cuando falten datos y distingue hechos de supuestos."),
   template: z.enum(["comex", "custom"]).default("custom"),
   packPath: z.string().trim().min(1).max(4_096).optional(),
 });
@@ -107,9 +107,9 @@ export async function openSpecialistStore(path: string) {
     create: (input: z.infer<typeof applicationInput>, counts: { agents: number; skills: number }, id = `app_${randomUUID()}`) => {
       applicationId.parse(id);
       if (sql.all("SELECT id FROM specialist_applications LIMIT 100").length >= 100) throw new ApiError(409, "application_limit", "Ya hay 100 aplicaciones locales.");
-      if (sql.all("SELECT id, name FROM specialist_applications").some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tenés una aplicación con ese nombre.");
+      if (sql.all("SELECT id, name FROM specialist_applications").some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tienes una aplicación con ese nombre.");
       const local = user();
-      if (!local && !input.userName) throw new ApiError(400, "user_name_required", "Ingresá tu nombre para crear el perfil local.");
+      if (!local && !input.userName) throw new ApiError(400, "user_name_required", "Ingresa tu nombre para crear el perfil local.");
       sql.exec("BEGIN IMMEDIATE");
       try {
         if (!local) sql.run("INSERT INTO specialist_users(id, display_name) VALUES ('local', ?)", [input.userName!]);
@@ -143,7 +143,7 @@ export async function openSpecialistStore(path: string) {
     },
     update: (id: string, input: Pick<SpecialistApplication, "name" | "specialty" | "personality">) => {
       application(id);
-      if (sql.all("SELECT id, name FROM specialist_applications WHERE id <> ?", [id]).some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tenés una aplicación con ese nombre.");
+      if (sql.all("SELECT id, name FROM specialist_applications WHERE id <> ?", [id]).some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tienes una aplicación con ese nombre.");
       sql.run("UPDATE specialist_applications SET name = ?, specialty = ?, personality = ? WHERE id = ?", [input.name, input.specialty, input.personality, id]);
       return application(id);
     },

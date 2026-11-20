@@ -30,7 +30,7 @@ export function installedBrowserPlugin(descriptorFile: string) {
         const url = new URL(value.url);
         if (value.directory !== canonical || url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.pathname !== "/browser" || url.search || url.hash || url.username || url.password) throw new Error();
         return value;
-      } catch { throw new Error("El navegador de Comex no está conectado a este proyecto. Abrí Comex y volvé a intentar."); }
+      } catch { throw new Error("El navegador de Comex no está conectado a este proyecto. Abre Comex y vuelve a intentar."); }
     };
     const definitions = (await browserTools()).tool;
     const registration = await context.tool.transform(editor => {

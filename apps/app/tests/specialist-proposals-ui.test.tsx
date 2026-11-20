@@ -46,7 +46,7 @@ beforeEach(() => {
   flags = { libraryEnabled: true, scheduledTasksEnabled: true, datasetsEnabled: true };
   tasks = [];
   proposals = [
-    { id: "prop_task", kind: "task", name: "refrescar aranceles", description: "Cada 20 minutos traer los aranceles.", content: JSON.stringify({ prompt: "Consultá.", schedule: { kind: "interval", everyMinutes: 20 } }), reason: "Se repite.", createdAt: 1_700_000_000_000 },
+    { id: "prop_task", kind: "task", name: "refrescar aranceles", description: "Cada 20 minutos traer los aranceles.", content: JSON.stringify({ prompt: "Consulta.", schedule: { kind: "interval", everyMinutes: 20 } }), reason: "Se repite.", createdAt: 1_700_000_000_000 },
     { id: "prop_plan", kind: "plan", name: "programa aranceles", description: "Varias piezas juntas.", content: JSON.stringify({ skill: { name: "traer-aranceles", description: "Busca.", content: "# pasos" }, dataset: { name: "aranceles", query: { provider: "tavily", operation: "search", input: { query: "arancel soja" } } }, panel: { name: "aranceles-panel", spec: { title: "Aranceles", source: { dataset: "aranceles" }, blocks: [{ type: "table" }] } }, task: { prompt: "Refrescá.", schedule: { kind: "interval", everyMinutes: 20 } } }), reason: "Se repite.", createdAt: 1_700_000_100_000 },
     { id: "prop_skill", kind: "skill", name: "metodo-lento", description: "Un procedimiento.", content: "# pasos", reason: "", createdAt: 1_700_000_200_000 },
   ];
@@ -178,7 +178,7 @@ test("aceptar una tarea la muestra en el acto, sin esperar el sondeo de 30 s", a
   await openLibraryDialog();
   expect(hasText("Sin tareas programadas.")).toBe(true);
   acceptResult = { accepted: "prop_task", applied: [{ piece: "tarea", ok: true }] };
-  tasks = [{ id: "task_1", name: "refrescar aranceles", prompt: "Consultá.", enabled: false, nextRunAt: 0, runs: 0, schedule: { kind: "interval", everyMinutes: 20 }, running: null }];
+  tasks = [{ id: "task_1", name: "refrescar aranceles", prompt: "Consulta.", enabled: false, nextRunAt: 0, runs: 0, schedule: { kind: "interval", everyMinutes: 20 }, running: null }];
   await act(async () => { [...rowFor("refrescar aranceles").querySelectorAll("button")].find(b => b.textContent === "Aceptar")!.click(); });
   await flush(80);
   expect(hasText("refrescar aranceles")).toBe(true);

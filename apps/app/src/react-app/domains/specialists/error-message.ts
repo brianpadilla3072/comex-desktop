@@ -1,7 +1,7 @@
 import { OpenworkServerError } from "@/app/lib/openwork-server";
 
 export const SPECIALIST_DESKTOP_ONLY_MESSAGE =
-  "Esta acción solo está disponible en la app de escritorio. Desde el navegador podés consultar la aplicación, pero no modificarla.";
+  "Esta acción solo está disponible en la app de escritorio. Desde el navegador puedes consultar la aplicación, pero no modificarla.";
 
 /**
  * The message a person sees when a specialist action fails. Writes need the

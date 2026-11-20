@@ -66,7 +66,7 @@ async function sourcePack(root: string) {
   const pack = join(root, "pack-source");
   await mkdir(join(pack, "agents"), { recursive: true });
   await mkdir(join(pack, "skills", "tono"), { recursive: true });
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   await writeFile(join(pack, "skills", "tono", "SKILL.md"), "---\nname: tono\ndescription: Una skill de prueba.\n---\nAyudá con claridad.\n");
   return pack;
 }
@@ -80,7 +80,7 @@ test("an application moves to another computer with its library, context, paused
     const app = created.json.application as { id: string };
     const project = a.config.workspaces[0]!;
     await a.call("PUT", `/specialist-applications/${app.id}/context`, { content: "Citar siempre la fuente." });
-    await createTask(a.config, app.id, { name: "semanal", prompt: "Revisá precios.", schedule: { kind: "interval", everyMinutes: 60 } });
+    await createTask(a.config, app.id, { name: "semanal", prompt: "Revisa precios.", schedule: { kind: "interval", everyMinutes: 60 } });
     await writeFile(join(project.path, "proyecto", "estado.md"), "# Memoria\nDecisión: puerto de Rosario.\n");
     await mkdir(join(project.path, "proyecto", "sesiones"), { recursive: true });
     await writeFile(join(project.path, "proyecto", "sesiones", "ses_1.md"), "# Notas\nAvance: tabla de precios.\n");

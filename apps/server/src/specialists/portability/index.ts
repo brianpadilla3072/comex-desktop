@@ -325,7 +325,7 @@ export async function deleteApplication(input: {
   try {
     await rm(appDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   } catch {
-    throw new ApiError(409, "application_files_busy", "No se pudieron borrar todos los archivos de la aplicación porque todavía se están usando. Esperá unos segundos y volvé a intentar.");
+    throw new ApiError(409, "application_files_busy", "No se pudieron borrar todos los archivos de la aplicación porque todavía se están usando. Espera unos segundos y vuelve a intentar.");
   }
   store.remove(id);
   return { removedWorkspaceIds, keptWorkspaceIds };

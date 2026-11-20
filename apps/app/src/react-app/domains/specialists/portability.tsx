@@ -114,7 +114,7 @@ export function DeleteApplicationDialog({ app, client, zip, onClose, onDeleted }
           Se borran su biblioteca, su contexto, sus tareas y los proyectos creados dentro de la aplicación, con su memoria y sus notas de sesión. Las carpetas que agregaste desde otro lugar conservan todos sus archivos.
         </DialogDescription>
       </DialogHeader>
-      <p className="text-sm text-muted-foreground">{exported ? "Exportaste una copia. Podés importarla en esta u otra computadora." : "Si querés conservarla, exportá una copia antes de eliminarla."}</p>
+      <p className="text-sm text-muted-foreground">{exported ? "Exportaste una copia. Puedes importarla en esta u otra computadora." : "Si quieres conservarla, exporta una copia antes de eliminarla."}</p>
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>

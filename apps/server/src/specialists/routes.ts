@@ -90,10 +90,10 @@ export function registerSpecialistRoutes(options: {
     requireFeature(true);
     const body = await readJsonBody(ctx.request);
     const parsed = applicationInput.safeParse(body);
-    if (!parsed.success) throw new ApiError(422, "invalid_application", "Revisá tu nombre, el nombre de la aplicación, la especialidad y la personalidad.");
+    if (!parsed.success) throw new ApiError(422, "invalid_application", "Revisa tu nombre, el nombre de la aplicación, la especialidad y la personalidad.");
     const store = await specialistStore(config);
     const before = store.list();
-    if (!before.user && !parsed.data.userName) throw new ApiError(422, "user_name_required", "Ingresá tu nombre.");
+    if (!before.user && !parsed.data.userName) throw new ApiError(422, "user_name_required", "Ingresa tu nombre.");
     const id = `app_${randomUUID()}`;
     const source = parsed.data.packPath ?? (parsed.data.template === "comex" ? builtInComexPack() : null);
     const pack = source ? await inspectSpecialistPack(source) : null;
@@ -184,7 +184,7 @@ export function registerSpecialistRoutes(options: {
   addRoute(routes, "PATCH", "/specialist-applications/:id", "host", async ctx => {
     requireFeature(true);
     const parsed = applicationInput.pick({ name: true, specialty: true, personality: true }).safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_application", "Revisá el nombre, la especialidad y la personalidad.");
+    if (!parsed.success) throw new ApiError(422, "invalid_application", "Revisa el nombre, la especialidad y la personalidad.");
     const store = await specialistStore(config);
     const previous = store.application(ctx.params.id);
     const app = store.update(ctx.params.id, parsed.data);
@@ -208,7 +208,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     const parsed = z.object({ name: displayText(80) }).safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_project", "Ingresá el nombre del proyecto.");
+    if (!parsed.success) throw new ApiError(422, "invalid_project", "Ingresa el nombre del proyecto.");
     const folderPath = join(specialistDirectory(config), app.id, "projects", randomUUID());
     await mkdir(folderPath, { recursive: true });
     const workspaceId = await createWorkspace(ctx, { folderPath, name: parsed.data.name, preset: "specialist", applicationId: app.id });
@@ -234,7 +234,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     const parsed = z.object({ path: libraryFileInput.shape.path, content: libraryFileInput.shape.content }).safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_library_file", "Revisá la ruta y el contenido del archivo.");
+    if (!parsed.success) throw new ApiError(422, "invalid_library_file", "Revisa la ruta y el contenido del archivo.");
     const item = await writeLibraryFile(config, app.id, parsed.data.path, parsed.data.content);
     return jsonResponse({ item, ...(await applyLibraryChange(app)) });
   });
@@ -303,7 +303,7 @@ export function registerSpecialistRoutes(options: {
     const found = await rawProposal(config, app.id, ctx.params.proposalId);
     if (!found) throw new ApiError(404, "proposal_not_found", "Esa propuesta ya no está.");
     const parsedProposal = proposalSchema.safeParse(found);
-    if (!parsedProposal.success) throw new ApiError(422, "invalid_proposal", "La propuesta guardada está dañada; revisala con el asistente o descartala.");
+    if (!parsedProposal.success) throw new ApiError(422, "invalid_proposal", "La propuesta guardada está dañada; revísala con el asistente o descártala.");
     const proposal = parsedProposal.data;
     const taskContent = proposal.kind === "task" ? parseTaskProposalContent(proposal.content) : null;
     const planContent = proposal.kind === "plan" ? parsePlanProposalContent(proposal.content) : null;
@@ -382,7 +382,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     const parsed = taskInputSchema.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá el nombre, el prompt y el horario de la tarea.");
+    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisa el nombre, el prompt y el horario de la tarea.");
     const task = await createTask(config, app.id, parsed.data);
     return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
@@ -391,7 +391,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisá los campos de la tarea.");
+    if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisa los campos de la tarea.");
     const task = await updateTask(config, app.id, ctx.params.taskId, parsed.data);
     return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
@@ -526,7 +526,7 @@ export function registerSpecialistRoutes(options: {
     const target = targets[0];
     if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible.");
     const parsed = z.object({ path: z.string().trim().min(1).max(500), title: z.string().trim().max(200).optional() }).safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_source", "Revisá la ruta del archivo local.");
+    if (!parsed.success) throw new ApiError(422, "invalid_source", "Revisa la ruta del archivo local.");
     const source = await registerLocalSource(target.workspacePath, parsed.data);
     return jsonResponse({ source: { ...source, workspaceId: target.workspaceId, workspaceName: workspaceName(target) } }, 201);
   });
@@ -606,14 +606,14 @@ export function registerSpecialistRoutes(options: {
     const target = targets[0];
     if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar la salida.");
     const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
+    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisa el tipo, el título y el contenido de la salida.");
     const result = await writeOutput(target.workspacePath, parsed.data);
     return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, 201);
   });
   addRoute(routes, "PUT", "/specialist-applications/:id/outputs/:outputId", "host", async ctx => {
     requireOutputs(true);
     const parsed = outputInputSchema.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisá el tipo, el título y el contenido de la salida.");
+    if (!parsed.success) throw new ApiError(422, "invalid_output", "Revisa el tipo, el título y el contenido de la salida.");
     for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
       const meta = (await listOutputs(target.workspacePath)).find(entry => entry.id === ctx.params.outputId);
       if (!meta) continue;
@@ -690,7 +690,7 @@ export function registerSpecialistRoutes(options: {
   addRoute(routes, "POST", "/specialist-applications/:id/artifacts", "host", async ctx => {
     requireArtifacts(true);
     const parsed = artifactInputSchema.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisá el tipo, el título y el contenido del artefacto.");
+    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisa el tipo, el título y el contenido del artefacto.");
     const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
     const target = targets[0];
     if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar el artefacto.");
@@ -728,7 +728,7 @@ export function registerSpecialistRoutes(options: {
   addRoute(routes, "PUT", "/specialist-applications/:id/artifacts/:artifactId", "host", async ctx => {
     requireArtifacts(true);
     const parsed = artifactInputSchema.safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisá el tipo, el título y el contenido del artefacto.");
+    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Revisa el tipo, el título y el contenido del artefacto.");
     for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
       const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
       if (!found) continue;

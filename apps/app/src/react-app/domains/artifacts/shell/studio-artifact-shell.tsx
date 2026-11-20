@@ -52,7 +52,7 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
   }, [artifact]);
 
   const askChange = React.useCallback((text?: string) => {
-    const prompt = `Pedí un cambio en el artefacto "${artifact?.meta.title ?? artifactId}".${text ? `\n\nTexto seleccionado: "${text}"` : ""}\n\nCambio solicitado: `;
+    const prompt = `Pide un cambio en el artefacto "${artifact?.meta.title ?? artifactId}".${text ? `\n\nTexto seleccionado: "${text}"` : ""}\n\nCambio solicitado: `;
     if (onRequestChange) onRequestChange(prompt);
     else void navigator.clipboard?.writeText(prompt);
   }, [artifact?.meta.title, artifactId, onRequestChange]);

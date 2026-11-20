@@ -3146,7 +3146,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           const question = props.activeQuestion!.questions[index];
           return !answers.length || (!question.multiple && answers.length !== 1)
             || (question.custom === false && answers.some(answer => !question.options.some(option => option.label === answer)));
-        }))) return { ok: false, error: "Revisá las respuestas en el chat completo." };
+        }))) return { ok: false, error: "Revisa las respuestas en el chat completo." };
         await props.respondQuestion(action.requestId, action.answers); return { ok: true };
       }
       if (action.kind === "stop") { await handleAbort(); return { ok: true }; }
@@ -3165,7 +3165,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       const next = { ...buildDraft(action.text, files, { draft: action.text, attachments: files, mentions: {}, pasteParts: [], revertMessageId: null }), messageId };
       const result = await sendDraft(next, messageId);
       if (result.outcome === "sent" || result.outcome === "accepted") return { ok: true };
-      return { ok: false, uncertain: result.outcome === "unknown", error: result.outcome === "unknown" ? "No se pudo confirmar el envío. Revisá el chat antes de reenviar." : "El mensaje no se envió. Revisá el chat en la app." };
+      return { ok: false, uncertain: result.outcome === "unknown", error: result.outcome === "unknown" ? "No se pudo confirmar el envío. Revisa el chat antes de reenviar." : "El mensaje no se envió. Revisa el chat en la app." };
     },
   });
 

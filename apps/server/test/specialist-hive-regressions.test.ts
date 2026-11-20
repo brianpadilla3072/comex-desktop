@@ -20,7 +20,7 @@ async function fixture(label: string) {
   const store = await specialistStore(config as unknown as ServerConfig);
   const pack = join(root, "pack-source");
   await mkdir(join(pack, "agents"), { recursive: true });
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor.\nmode: subagent\n---\nRevisá.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor.\nmode: subagent\n---\nRevisa.\n");
   const app = store.create(applicationInput.parse({ userName: "Persona", name: `App ${label}`, specialty: "Pruebas", template: "custom" }), { agents: 1, skills: 0 });
   await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
   return { root, config, store, app };
@@ -111,7 +111,7 @@ test("one application's corrupt tasks never stop the others, and a corrupt run l
       return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
     };
     const scheduler = await createSpecialistScheduler(config as unknown as ServerConfig, engine);
-    const task = await createTask(config, app.id, { name: "sana", prompt: "Revisá.", schedule: { kind: "interval", everyMinutes: 20 } });
+    const task = await createTask(config, app.id, { name: "sana", prompt: "Revisa.", schedule: { kind: "interval", everyMinutes: 20 } });
     await patchTask(config, app.id, task.id, current => ({ ...current, nextRunAt: Date.now() - 1_000 }));
     await scheduler.tick();
     // Reached and dispatched despite the corrupt application before it.

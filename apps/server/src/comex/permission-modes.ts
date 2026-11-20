@@ -43,7 +43,7 @@ export async function readNativePermissions(root: string) {
 }
 /** Preserve existing restrictive rules, and detect concurrent/manual permission edits before replacing a mode. */
 export function nextPermissionRules(state: PermissionModesState, current: NativePermissionRule[], profile: PermissionProfile) {
-  if (state.appliedHash && state.appliedHash !== permissionHash(current)) throw new ApiError(409, "mode_changed", "Los permisos cambiaron fuera del selector. Revisá la configuración antes de aplicar otro modo.");
+  if (state.appliedHash && state.appliedHash !== permissionHash(current)) throw new ApiError(409, "mode_changed", "Los permisos cambiaron fuera del selector. Revisa la configuración antes de aplicar otro modo.");
   const baseline = state.baseline ?? current;
   return { baseline, rules: [...profilePermissionRules(profile), ...baseline.filter(rule => rule.effect !== "allow")] };
 }
@@ -55,7 +55,7 @@ export async function writeNativePermissions(current: Awaited<ReturnType<typeof 
   try { await handle.writeFile(content, "utf8"); await handle.sync(); } finally { await handle.close(); }
   try {
     const latest = await readJsoncFile<unknown>(current.path, {}, { allowInvalid: true, regularFileOnly: true });
-    if ((latest.raw || "{}\n") !== current.raw) throw new ApiError(409, "mode_config_changed", "La configuración cambió mientras se guardaba. Volvé a intentar.");
+    if ((latest.raw || "{}\n") !== current.raw) throw new ApiError(409, "mode_config_changed", "La configuración cambió mientras se guardaba. Vuelve a intentar.");
     await rename(temp, current.path);
   } finally { await rm(temp, { force: true }); }
 }

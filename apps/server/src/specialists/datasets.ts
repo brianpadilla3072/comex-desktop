@@ -113,7 +113,7 @@ export function recordDatasetRun(directory: string, query: SpecialistDatasetQuer
   const created = meta === undefined;
   // Check the limit before writing anything: a refused new query used to leave its folder and
   // snapshot on disk, outside the index.
-  if (created && datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
+  if (created && datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depura antes de registrar otro.`);
   const dir = await ensureFolder(datasetDir(directory, id));
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const snapshotFile = join(dir, "snapshots");
@@ -185,7 +185,7 @@ export function registerDerivedDataset(directory: string, sourceId: string, name
   const slug = slugify(name);
   if (!slug) throw failure("Dale un nombre legible al dataset derivado.");
   const id = `ds-${slug}-${randomUUID().slice(0, 8)}`;
-  if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
+  if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depura antes de registrar otro.`);
   const dir = datasetDir(directory, id);
   const snapshotFolder = await ensureFolder(join(dir, "snapshots"));
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -211,7 +211,7 @@ export function registerDatasetQuery(directory: string, input: { name: string; q
     const existing = datasets.find(entry => entry.queryHash === hash);
     if (existing) return existing;
     const slug = slugify(input.name) || "consulta";
-    if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depurá antes de registrar otro.`);
+    if (datasets.length >= DATASET_LIMIT) throw new ApiError(409, "dataset_limit", `Hay ${DATASET_LIMIT} datasets; depura antes de registrar otro.`);
     const id = `ds-${slug}-${randomUUID().slice(0, 8)}`;
     const dir = await ensureFolder(datasetDir(directory, id));
     const now = Date.now();

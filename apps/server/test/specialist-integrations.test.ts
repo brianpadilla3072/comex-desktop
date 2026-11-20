@@ -18,9 +18,9 @@ async function setup() {
   const source = join(root, "source");
   await mkdir(join(source, "skills", "fuentes"), { recursive: true });
   await mkdir(join(source, "agents")); await mkdir(join(source, "commands"));
-  await writeFile(join(source, "skills", "fuentes", "SKILL.md"), "---\nname: fuentes\ndescription: Verifica fuentes.\n---\nLeé las fuentes originales.\n");
-  await writeFile(join(source, "agents", "revisor.md"), "---\ndescription: Revisa el trabajo.\nmode: subagent\n---\nPedí evidencia.\n");
-  await writeFile(join(source, "commands", "revisar.md"), "Revisá este trabajo.");
+  await writeFile(join(source, "skills", "fuentes", "SKILL.md"), "---\nname: fuentes\ndescription: Verifica fuentes.\n---\nLee las fuentes originales.\n");
+  await writeFile(join(source, "agents", "revisor.md"), "---\ndescription: Revisa el trabajo.\nmode: subagent\n---\nPide evidencia.\n");
+  await writeFile(join(source, "commands", "revisar.md"), "Revisa este trabajo.");
   await writeFile(join(source, "opencode.jsonc"), '{"plugins":["untrusted-plugin"],"provider":{"secret":"NOT_EXPORTED"}}');
   const config = { configPath: join(root, "server.json"), workspaces: new Array<WorkspaceInfo>() };
   const store = await specialistStore(config);
@@ -68,10 +68,10 @@ test("pack updates preserve project edits, detect stale reviews and propagate in
     const factory = createPackFactory(f.config);
     await writeFile(join(f.project, ".opencode/agents/revisor.md"), "Mi edición local");
     await writeFile(join(f.source, "agents/revisor.md"), "---\ndescription: Revisión nueva.\n---\nNueva guía.\n");
-    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias.");
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias.");
     const review = await factory.preview(f.app.id, f.source);
     assert.deepEqual(review.conflicts.map(item => item.path), ["agents/revisor.md"]);
-    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias y fechas.");
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias y fechas.");
     await assert.rejects(() => factory.update(f.app.id, f.source, review.fingerprint), /cambiaron/);
     const fresh = await factory.preview(f.app.id, f.source);
     const result = await factory.update(f.app.id, f.source, fresh.fingerprint);
@@ -136,7 +136,7 @@ test("after a pack update the next sync reports no conflicts and pack files stay
   const f = await setup();
   try {
     const factory = createPackFactory(f.config);
-    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias.");
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias.");
     const review = await factory.preview(f.app.id, f.source);
     const result = await factory.update(f.app.id, f.source, review.fingerprint);
     assert.ok(result.applied > 0);

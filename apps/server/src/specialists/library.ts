@@ -35,7 +35,7 @@ export function safeLibraryPath(value: string): string {
   if (!path || parts.some(part => !part || part === "." || part === "..")) throw failure("Ruta inválida dentro de la biblioteca.");
   if (parts.some(part => part.startsWith("."))) throw failure("No se editan archivos ocultos desde la biblioteca.");
   if (parts.length === 1 && ROOT_FILES.has(parts[0]!)) return path;
-  if (!TOP.has(parts[0]!)) throw failure("Solo podés editar agentes, skills y recursos del pack (agents/, skills/, scripts/, references/, templates/, assets/, resources/, tools/, commands/).");
+  if (!TOP.has(parts[0]!)) throw failure("Solo puedes editar agentes, skills y recursos del pack (agents/, skills/, scripts/, references/, templates/, assets/, resources/, tools/, commands/).");
   if (parts[0] === "agents" && !(parts.length === 2 && parts[1]!.endsWith(".md") && NAME.test(parts[1]!.slice(0, -3)))) throw failure("Los agentes son agents/nombre.md con nombre kebab-case.");
   if (parts[0] === "skills" && !NAME.test(parts[1]!)) throw failure("La carpeta de la skill debe tener nombre kebab-case.");
   return parts.join("/");
@@ -58,10 +58,10 @@ function validateEntryContent(path: string, content: string) {
   if (!content.trim()) throw failure("El archivo no puede quedar vacío.");
   let data: Record<string, unknown>;
   try { ({ data } = parseFrontmatter(content)); }
-  catch { throw failure("El encabezado YAML no es válido. Revisá los guiones y las comillas."); }
+  catch { throw failure("El encabezado YAML no es válido. Revisa los guiones y las comillas."); }
   const kind = agent ? "agente" : "skill";
   try { validateDescription(typeof data.description === "string" ? data.description : undefined); }
-  catch { throw failure(`Revisá la descripción del ${kind} (entre 1 y 1024 caracteres).`); }
+  catch { throw failure(`Revisa la descripción del ${kind} (entre 1 y 1024 caracteres).`); }
   if (skill && data.name !== skill[1]) throw failure("El nombre de la skill debe coincidir con el de su carpeta.");
   if (agent && !["primary", "subagent", "all"].includes(String(data.mode ?? "all"))) throw failure("El modo del agente debe ser primary, subagent o all.");
 }
@@ -162,7 +162,7 @@ export async function readLibraryFile(config: Pick<ServerConfig, "configPath">, 
   await assertInsideNoSymlink(root, path);
   const stat = await statOrNull(join(root, path));
   if (!stat?.isFile()) throw new ApiError(404, "library_file_not_found", "Ese archivo no está en la biblioteca.");
-  if (stat.size > TEXT_LIMIT) throw failure("El archivo supera 1 MB; abrí la carpeta para editarlo aparte.");
+  if (stat.size > TEXT_LIMIT) throw failure("El archivo supera 1 MB; abre la carpeta para editarlo aparte.");
   const manifest = await readManifest(root);
   const data = await readFile(join(root, path));
   return { path, content: data.toString("utf8"), bytes: data.byteLength, updatedAt: stat.mtimeMs, origin: originFor(path, data, manifest) };
@@ -206,7 +206,7 @@ export async function deleteLibraryFile(config: Pick<ServerConfig, "configPath">
 
 const agentTemplate = (name: string, description: string) =>
   buildFrontmatter({ description, mode: "all" })
-  + `\nSos el agente "${name}". ${description}\n\n## Tu forma de trabajar\n\n1. Confirmá el objetivo y los datos que faltan antes de empezar; preguntá si hace falta.\n2. Describí acá los pasos concretos que seguís, en orden.\n3. Guardá cada resultado en el proyecto y enlazá los archivos generados.\n\n## Entregables\n\nQué producís y dónde lo guardás.\n`;
+  + `\nEres el agente "${name}". ${description}\n\n## Tu forma de trabajar\n\n1. Confirma el objetivo y los datos que faltan antes de empezar; pregunta si hace falta.\n2. Describe acá los pasos concretos que sigues, en orden.\n3. Guarda cada resultado en el proyecto y enlaza los archivos generados.\n\n## Entregables\n\nQué produces y dónde lo guardas.\n`;
 
 const skillTemplate = (name: string, description: string) =>
   buildFrontmatter({ name, description })

@@ -52,7 +52,7 @@ export function useCompanionHost(options: {
       const unsubscribe = host.onCommand(command => {
         if (disposed || command.target !== target || seen.has(command.id)) return;
         if (!latest.current.active || latest.current.owner !== options.owner) {
-          host.reply(command.id, { ok: false, error: "La conversación cambió. Volvé a abrir la cápsula." }); return;
+          host.reply(command.id, { ok: false, error: "La conversación cambió. Vuelve a abrir la cápsula." }); return;
         }
         seen.add(command.id);
         if (seen.size > 1000) { const first = seen.values().next().value; if (first) seen.delete(first); }

@@ -78,7 +78,7 @@ test("offline save and collapse preserve the unsaved draft", async () => {
   expect(field().value).toBe("Mi borrador"); expect(writes).toBe(0);
   await click("Continuidad de esta conversación"); await click("Continuidad de esta conversación");
   expect(field().value).toBe("Mi borrador");
-  expect(host.textContent).toContain("Conservás el borrador");
+  expect(host.textContent).toContain("Conservas el borrador");
 });
 test("conflicts expose the saved notes and require another explicit save", async () => {
   await open(); await edit("Mi decisión");
