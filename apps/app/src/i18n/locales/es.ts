@@ -4526,4 +4526,9 @@ export default {
   "secondary_ui.cloud.no_description_provided": "Sin descripción.",
   "secondary_ui.cloud.installed_files": "Archivos instalados: {files}",
   "secondary_ui.cloud.message_saved": "Tu mensaje está guardado",
+  "activity_motion.section_title": "Rendimiento",
+  "activity_motion.section_desc": "Usa menos CPU cuando hay muchas tareas en marcha.",
+  "activity_motion.toggle_title": "Animaciones de actividad",
+  "activity_motion.toggle_desc": "Anima la marca de “trabajando” junto a las tareas en curso. Desactívala para mostrar una marca quieta.",
+  "activity_motion.impact": "Desactivarlas baja el uso de CPU de la ventana hasta un 40 % aproximadamente con muchas tareas en marcha (medido con 10 tareas: de 13,8 % a 8,4 % de un núcleo) y reduce el trabajo gráfico. Con una o dos tareas la diferencia es pequeña.",
 } as const;

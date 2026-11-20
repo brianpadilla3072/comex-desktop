@@ -111,6 +111,16 @@
               ],
               "description": "Browse server folders from the web app: Owners (the desktop or a paired device) browse folders on the server's computer and create a folder, so the web app can create local workspaces without a native folder picker. Renders DEN_FEATURE_WEB_FOLDER_BROWSER."
             },
+            "activityAnimationsToggle": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Option to turn off activity animations: Settings › Appearance gets an \"Activity animations\" switch that freezes the running-work marks (sidebar rows, tool lines) on a still frame. With many running tasks this lowers the window's CPU use by up to about 40% and reduces GPU work; the setting says so. Renders DEN_FEATURE_ACTIVITY_ANIMATIONS_TOGGLE."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",

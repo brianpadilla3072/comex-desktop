@@ -159,6 +159,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  activityAnimationsToggle: {
+    label: "Option to turn off activity animations",
+    description: "Settings › Appearance gets an \"Activity animations\" switch that freezes the running-work marks (sidebar rows, tool lines) on a still frame. With many running tasks this lowers the window's CPU use by up to about 40% and reduces GPU work; the setting says so.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/activity-animations-toggle/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",

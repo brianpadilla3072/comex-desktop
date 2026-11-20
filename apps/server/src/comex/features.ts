@@ -215,3 +215,10 @@ export function lazyV1EngineEnabled(env: NodeJS.ProcessEnv = process.env): boole
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("lazyV1Engine", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Settings › Apariencia › "Animaciones de actividad" switch (docs/features/activity-animations-toggle). */
+export function activityAnimationsToggleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("activityAnimationsToggle", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

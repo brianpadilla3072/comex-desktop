@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { applyActivityMotion } from "@/app/lib/activity-motion";
 import * as React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -41,6 +42,8 @@ const startup = Promise.resolve().then(async () => {
   startWebErrorMonitoring();
   bootstrapTheme();
   initLocale();
+  // Before the first paint: a frozen activity mark never flashes animated.
+  applyActivityMotion();
   startDeepLinkBridge();
   await initializeDenBootstrapConfig();
 

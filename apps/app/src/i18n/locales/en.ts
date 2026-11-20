@@ -4501,4 +4501,9 @@ export default {
   "secondary_ui.cloud.no_description_provided": "No description provided.",
   "secondary_ui.cloud.installed_files": "Installed files: {files}",
   "secondary_ui.cloud.message_saved": "Your message is saved",
+  "activity_motion.section_title": "Performance",
+  "activity_motion.section_desc": "Use less CPU while many tasks are running.",
+  "activity_motion.toggle_title": "Activity animations",
+  "activity_motion.toggle_desc": "Animate the “working” mark next to running tasks. Turn it off to show a still mark instead.",
+  "activity_motion.impact": "Turning them off lowers the window's CPU use by up to about 40% with many tasks running (measured with 10 tasks: from 13.8% to 8.4% of a CPU thread) and reduces graphics work. With one or two tasks the difference is small.",
 } as const;

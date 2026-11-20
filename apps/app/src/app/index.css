@@ -565,6 +565,17 @@ select:disabled {
   }
 }
 
+/* Settings › Apariencia › "Animaciones de actividad" off (app/lib/activity-motion.ts): the same
+   still first frame as reduced motion, chosen in the app. Saves CPU/GPU with many running tasks. */
+.ow-calm-activity .ow-dot-ticker {
+  animation: none;
+  background-color: rgb(var(--dls-accent-rgb) / 0.6);
+}
+
+.ow-calm-activity .ow-dot-matrix-dot {
+  animation: none;
+}
+
 .dark,
 [data-theme="dark"] {
   --background: var(--slate-1);
