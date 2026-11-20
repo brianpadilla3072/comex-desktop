@@ -15,6 +15,7 @@ import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 import { DesignChatPanel, designAskMessage, type DesignChatHost } from "./design-chat-panel";
 import { DesignClientContext, designErrorText, designQueryKeys, type DesignClient } from "./design-client";
 import { registerDesktopThumbnailCapturer, useDesignThumbnailRefresh } from "./design-thumbnail";
+import { exportPdf, exportPng, exportPptx } from "./editors/slides-export";
 import { DESIGN_EDITORS, type DesignEditorProps } from "./editors";
 import { useDesignConnection } from "./use-designs";
 
@@ -23,6 +24,14 @@ import { useDesignConnection } from "./use-designs";
  * page lists every slot in its export menu; `run` downloads or saves the file itself.
  */
 export type DesignExportSlot = { id: string; label: string; kinds?: DesignKind[]; run: (input: { client: DesignClient; workspaceId: string; design: DesignManifest }) => Promise<void> };
+
+/** The slides formats in the header's single "Exportar" menu (HTML is built in). A function, so
+ *  the labels are read in the person's language at render time, not when the module loads. */
+const slidesExportSlots = (): DesignExportSlot[] => [
+  { id: "slides-pdf", label: t("design_ui.slides.export.pdf"), kinds: ["slides"], run: async ({ client, workspaceId, design }) => { await exportPdf({ workspaceId, design }, { client }); } },
+  { id: "slides-pptx", label: t("design_ui.slides.export.pptx"), kinds: ["slides"], run: async ({ client, workspaceId, design }) => { await exportPptx({ workspaceId, design }, { client }); } },
+  { id: "slides-png", label: t("design_ui.slides.export.png_all"), kinds: ["slides"], run: async ({ client, workspaceId, design }) => { await exportPng({ workspaceId, design }, { client }); } },
+];
 
 /** How often an open design checks for changes the agent made to its files. */
 const POLL_MS = 3_000;
@@ -154,7 +163,7 @@ export function DesignPagePanel({ client, workspaceId, designId, chat, exportSlo
     return detail.isPending ? <PageSkeleton /> : <PageError message={designErrorText(detail.error)} onRetry={() => void detail.refetch()} onBack={onBack} />;
   }
   const Editor = editors[design.kind];
-  const slots = exportSlots.filter(slot => !slot.kinds || slot.kinds.includes(design.kind));
+  const slots = [...slidesExportSlots(), ...exportSlots].filter(slot => !slot.kinds || slot.kinds.includes(design.kind));
 
   return <DesignClientContext value={client}>
     <main data-design-page={design.id} data-design-kind={design.kind} className="flex h-full min-h-0 w-full min-w-0 flex-col">
@@ -191,7 +200,7 @@ export function DesignPagePanel({ client, workspaceId, designId, chat, exportSlo
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <section aria-label={t("design_ui.studio.editor_label")} className={cn("flex min-h-0 min-w-0 flex-1 flex-col overflow-auto p-3", chatOpen && "max-md:hidden")}>
           <Editor workspaceId={workspaceId} design={design} writable={writable} client={client} onChanged={refresh}
-            chatOpen={chatOpen} onAskAgent={ask} revision={revision} reloadKey={revision} onToggleChat={toggleChat} presentSignal={presentSignal} />
+            chatOpen={chatOpen} onAskAgent={ask} revision={revision} reloadKey={revision} presentSignal={presentSignal} />
         </section>
         {chatOpen ? <div className="flex min-h-0 flex-1 flex-col md:w-96 md:flex-none">
           <DesignChatPanel host={chat} sessionId={sessionId} busy={chatBusy} error={chatError} writable={writable}

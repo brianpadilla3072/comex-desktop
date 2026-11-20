@@ -111,6 +111,9 @@ export function createDesignRenderer(deps) {
       width,
       height,
       useContentSize: true,
+      // Slides are 1920×1080: without this the window is clamped to the screen and the PNG/PDF
+      // came out smaller (1680×967 on a 1680-wide display, seen live).
+      enableLargerThanScreen: true,
       frame: false,
       paintWhenInitiallyHidden: true,
       webPreferences: {
@@ -146,14 +149,38 @@ export function createDesignRenderer(deps) {
     await delay(settleMs);
   }
 
+  /**
+   * Linux and Windows clamp even a hidden window to the screen (enableLargerThanScreen is macOS
+   * only), so a 1920×1080 slide on a 1680-wide display was captured cropped at 1680×967. When the
+   * window is smaller than the page, zoom the page out until it fits whole, capture that, and scale
+   * the image back to the page size.
+   */
+  async function fitToWindow(win, width, height) {
+    const size = typeof win.getContentSize === "function" ? win.getContentSize() : [width, height];
+    const factor = Math.min(1, size[0] / width, size[1] / height);
+    if (factor < 1 && typeof win.webContents.setZoomFactor === "function") {
+      win.webContents.setZoomFactor(factor);
+      await delay(settleMs);
+    }
+    return factor;
+  }
+
   async function capture(win, width, height) {
-    const image = await win.webContents.capturePage({ x: 0, y: 0, width, height });
-    if (!image.isEmpty()) return image.toPNG();
-    // Offscreen windows paint on demand: ask for a frame and take it from the paint event.
-    const painted = new Promise((resolve) => win.webContents.once("paint", (_event, _dirty, frame) => resolve(frame)));
-    win.webContents.invalidate();
-    const frame = await withTimeout(painted, timeoutMs);
-    return frame.toPNG();
+    const factor = await fitToWindow(win, width, height);
+    const shotWidth = Math.max(1, Math.floor(width * factor));
+    const shotHeight = Math.max(1, Math.floor(height * factor));
+    let image = await win.webContents.capturePage({ x: 0, y: 0, width: shotWidth, height: shotHeight });
+    if (image.isEmpty()) {
+      // Offscreen windows paint on demand: ask for a frame and take it from the paint event.
+      const painted = new Promise((resolve) => win.webContents.once("paint", (_event, _dirty, frame) => resolve(frame)));
+      win.webContents.invalidate();
+      image = await withTimeout(painted, timeoutMs);
+    }
+    const shot = image.getSize?.();
+    if (shot && (shot.width !== width || shot.height !== height) && typeof image.resize === "function") {
+      return image.resize({ width, height, quality: "best" }).toPNG();
+    }
+    return image.toPNG();
   }
 
   /** @returns {Promise<{ ok: true, files: Uint8Array[] }>} */

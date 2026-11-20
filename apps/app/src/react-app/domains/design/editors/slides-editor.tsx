@@ -378,7 +378,8 @@ export function SlidesEditor(props: SlidesEditorProps) {
           </DropdownMenuContent>
         </DropdownMenu>
         <Button variant="ghost" size="icon-sm" aria-label={t("design_ui.slides.zoom.in")} onClick={() => setZoom(stepZoom(scale, 1))}><ZoomIn aria-hidden /></Button>
-        <div className="ms-auto flex items-center gap-1">
+        {/* Inside the design page its header already offers Presentar, Exportar and the chat toggle. */}
+        {presentSignal === undefined ? <div className="ms-auto flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="sm" disabled={!pages.length || busy !== null} data-slides-export />}>
               <Download aria-hidden />{t("design_ui.slides.export.label")}<ChevronDown className="size-3.5" aria-hidden />
@@ -398,7 +399,7 @@ export function SlidesEditor(props: SlidesEditorProps) {
               <PanelRight aria-hidden />{t("design_ui.slides.toolbar.chat")}
             </Button>
           ) : null}
-        </div>
+        </div> : null}
       </div>
 
       <div className="flex min-h-0 flex-1">

@@ -50,7 +50,7 @@ export function BoardToolbar(props: {
       role="toolbar"
       aria-label={t("design_ui.board.toolbar_label")}
       aria-orientation="horizontal"
-      className="flex items-center gap-0.5 rounded-xl bg-background p-1 shadow-[var(--dls-card-shadow)]"
+      className="flex min-w-0 max-w-full flex-wrap items-center gap-0.5 rounded-xl bg-background p-1 shadow-[var(--dls-card-shadow)]"
       onKeyDown={rovingToolbarKeys}
     >
       {tools.map(({ id, shortcut }) => {

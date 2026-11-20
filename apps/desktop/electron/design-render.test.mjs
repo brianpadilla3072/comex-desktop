@@ -160,3 +160,43 @@ test("URL policy and wrapper helpers", () => {
   assert.equal(designRenderUrlAllowed("http://127.0.0.1:8778/x", null), false);
   assert.match(buildPdfWrapper([{ html: "<p>a</p>", width: 100, height: 50 }]), /srcdoc="&lt;p&gt;a&lt;\/p&gt;"/);
 });
+
+test("a window clamped to a smaller screen still yields a full page at its exact size", async (t) => {
+  // Linux clamps the hidden window to the display; the page must be zoomed to fit and the
+  // capture scaled back, never cropped (seen live: 1680×967 instead of 1920×1080).
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "design-render-clamp-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const zooms = [];
+  const resized = [];
+  class ClampedContents {
+    constructor() { this.listeners = new Map(); }
+    setWindowOpenHandler() {}
+    on(name, listener) { this.listeners.set(name, listener); }
+    once(name, listener) { this.listeners.set(name, listener); }
+    setZoomFactor(factor) { zooms.push(factor); }
+    async capturePage(rect) {
+      return {
+        isEmpty: () => false,
+        getSize: () => ({ width: rect.width, height: rect.height }),
+        resize: (size) => { resized.push(size); return { toPNG: () => Buffer.from("scaled") }; },
+        toPNG: () => Buffer.from("raw"),
+      };
+    }
+  }
+  class ClampedWindow {
+    constructor() { this.webContents = new ClampedContents(); this.destroyedFlag = false; }
+    getContentSize() { return [1680, 967]; }
+    setContentSize() {}
+    async loadFile() {}
+    isDestroyed() { return this.destroyedFlag; }
+    destroy() { this.destroyedFlag = true; }
+  }
+  const base = fakeElectron();
+  const renderer = createDesignRenderer({ ...base, BrowserWindow: ClampedWindow, tempRoot, settleMs: 0, delay: async () => {} });
+  const result = await renderer.render({ format: "png", pages: [{ html: "<p>x</p>", width: 1920, height: 1080 }] });
+  assert.equal(result.ok, true);
+  assert.equal(zooms.length, 1);
+  assert.ok(Math.abs(zooms[0] - 1680 / 1920) < 1e-9);
+  assert.deepEqual(resized, [{ width: 1920, height: 1080, quality: "best" }]);
+  assert.equal(Buffer.from(result.files[0]).toString(), "scaled");
+});
