@@ -27,6 +27,8 @@ const userSchema = z.object({ id: z.string(), displayName: z.string() });
 const applicationId = z.string().regex(/^app_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 const applicationSchema = z.object({ id: applicationId, name: z.string(), specialty: z.string(), personality: z.string(), template: z.enum(["comex", "custom"]), agentCount: z.number(), skillCount: z.number(), createdAt: z.number() });
 const projectSchema = z.object({ workspaceId: z.string(), applicationId: z.string(), rootPath: z.string() });
+const projectMetaSchema = z.object({ description: z.string(), pinnedAt: z.number().int().nullable(), lastActivityAt: z.number().int().nullable() });
+export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type SpecialistApplication = z.infer<typeof applicationSchema>;
 export type SpecialistUser = z.infer<typeof userSchema>;
 type Binding = string | number | null;
@@ -74,6 +76,11 @@ export async function openSpecialistStore(path: string) {
     `CREATE TABLE IF NOT EXISTS specialist_projects (
       workspace_id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES specialist_applications(id),
       root_path TEXT NOT NULL UNIQUE)`,
+    // Projects experience: what the person adds to a project beyond its folder. Rows are made
+    // lazily (a project without one has no description, is not pinned and has no activity yet).
+    `CREATE TABLE IF NOT EXISTS specialist_project_meta (
+      workspace_id TEXT PRIMARY KEY REFERENCES specialist_projects(workspace_id) ON DELETE CASCADE,
+      description TEXT NOT NULL DEFAULT '', pinned_at INTEGER, last_activity_at INTEGER)`,
   ]) sql.exec(statement);
   const application = (id: string) => {
     const value = sql.get(`SELECT ${APP_COLUMNS} FROM specialist_applications WHERE id = ?`, [id]);
@@ -125,6 +132,7 @@ export async function openSpecialistStore(path: string) {
       application(id);
       sql.exec("BEGIN IMMEDIATE");
       try {
+        sql.run("DELETE FROM specialist_project_meta WHERE workspace_id IN (SELECT workspace_id FROM specialist_projects WHERE application_id = ?)", [id]);
         sql.run("DELETE FROM specialist_projects WHERE application_id = ?", [id]);
         sql.run("DELETE FROM specialist_provider_settings WHERE application_id = ?", [id]);
         const active = sql.get("SELECT application_id AS id FROM specialist_user_state WHERE id = 'local'");
@@ -156,6 +164,25 @@ export async function openSpecialistStore(path: string) {
     projectsFor: (id: string) => {
       application(id);
       return sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects WHERE application_id = ?", [id]).map(value => projectSchema.parse(value));
+    },
+    /** Every bound project (registry order is the caller's job). */
+    allProjects: () => sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects").map(value => projectSchema.parse(value)),
+    projectMeta: (workspaceId: string): ProjectMeta => {
+      const row = sql.get("SELECT description, pinned_at AS pinnedAt, last_activity_at AS lastActivityAt FROM specialist_project_meta WHERE workspace_id = ?", [workspaceId]);
+      return row ? projectMetaSchema.parse(row) : { description: "", pinnedAt: null, lastActivityAt: null };
+    },
+    /** Change the description or pin of a bound project; pinning a pinned project keeps its pin time. */
+    updateProjectMeta: (workspaceId: string, patch: { description?: string; pinned?: boolean }, now = Date.now()) => {
+      if (!sql.get("SELECT workspace_id FROM specialist_projects WHERE workspace_id = ?", [workspaceId])) throw new ApiError(404, "project_not_found", "Ese proyecto no existe.");
+      sql.run("INSERT INTO specialist_project_meta(workspace_id) VALUES (?) ON CONFLICT(workspace_id) DO NOTHING", [workspaceId]);
+      if (patch.description !== undefined) sql.run("UPDATE specialist_project_meta SET description = ? WHERE workspace_id = ?", [patch.description, workspaceId]);
+      if (patch.pinned === false) sql.run("UPDATE specialist_project_meta SET pinned_at = NULL WHERE workspace_id = ?", [workspaceId]);
+      if (patch.pinned === true) sql.run("UPDATE specialist_project_meta SET pinned_at = COALESCE(pinned_at, ?) WHERE workspace_id = ?", [now, workspaceId]);
+    },
+    /** Something happened in the project (a prompt, an edit): the newer instant wins. */
+    touchProject: (workspaceId: string, at = Date.now()) => {
+      if (!sql.get("SELECT workspace_id FROM specialist_projects WHERE workspace_id = ?", [workspaceId])) return;
+      sql.run("INSERT INTO specialist_project_meta(workspace_id, last_activity_at) VALUES (?, ?) ON CONFLICT(workspace_id) DO UPDATE SET last_activity_at = MAX(COALESCE(last_activity_at, 0), excluded.last_activity_at)", [workspaceId, at]);
     },
     forWorkspace: (workspaceId: string) => {
       const row = sql.get("SELECT application_id AS applicationId FROM specialist_projects WHERE workspace_id = ?", [workspaceId]);

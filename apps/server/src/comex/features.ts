@@ -229,3 +229,10 @@ export function paletteSettingSearchEnabled(env: NodeJS.ProcessEnv = process.env
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("paletteSettingSearch", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Projects page, project detail, instructions, context files, memory and per-project tasks (docs/features/projects-experience). */
+export function projectsExperienceEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("projectsExperience", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

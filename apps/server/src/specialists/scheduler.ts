@@ -2,12 +2,12 @@ import { mkdir, lstat, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { ApiError } from "../errors.js";
-import { scheduledTasksEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
+import { projectsExperienceEnabled, scheduledTasksEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
 import { nativeSessionDirectory } from "../opencode-v2-session-home.js";
 import { closeIsolation, createIsolation } from "./isolation/service.js";
 import { specialistStore } from "./store.js";
 import { dataPath, dataRelative } from "./project-data.js";
-import { appendRun, finishRun, identifyRun, isolateRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
+import { appendRun, finishRun, identifyRun, isolateRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun, type TaskPermissionMode } from "./tasks.js";
 import type { ServerConfig } from "../types.js";
 
 /** The local recurring-run loop. Mirrors task-continuity's rules: a single in-flight tick,
@@ -17,6 +17,8 @@ import type { ServerConfig } from "../types.js";
 
 const TICK_MS = 10_000;
 const RUN_TIMEOUT_MS = 15 * 60_000;
+/** A "manual" run that waits for an approval is kept this long before it is retired. */
+const MANUAL_WAIT_MS = 24 * 60 * 60_000;
 const NO_PROJECT_RETRY_MS = 30 * 60_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -29,6 +31,27 @@ export type SpecialistScheduler = {
   tick: () => Promise<void>;
   stop: () => Promise<void>;
 };
+
+type Store = Awaited<ReturnType<typeof specialistStore>>;
+
+/** The project a task runs in: its own when it names one (and it is still live on this host),
+ *  otherwise the application's first live project. Null when there is none to run in. */
+export function taskProject(store: Store, applicationId: string, task: Pick<SpecialistTask, "workspaceId">, live: (workspaceId: string) => boolean = () => true) {
+  const bound = store.projectsFor(applicationId).filter(project => live(project.workspaceId));
+  if (task.workspaceId) return bound.find(project => project.workspaceId === task.workspaceId) ?? null;
+  return bound[0] ?? null;
+}
+
+/**
+ * Which pending permission requests the scheduler answers for a run (contracts/projects/v1).
+ * "auto" answers every request of the run's own sessions with "once" (a `deny` rule never
+ * reaches the ask stage, so it still denies); "manual" answers nothing, so the request waits
+ * for the person in the command center and the chat. Requests of other sessions are never touched.
+ */
+export function taskPermissionReplies(mode: TaskPermissionMode, autoEnabled: boolean, runSessions: readonly string[], pending: readonly { id: string; sessionID: string }[]) {
+  if (mode !== "auto" || !autoEnabled) return [];
+  return pending.filter(request => runSessions.includes(request.sessionID)).map(request => ({ sessionId: request.sessionID, requestId: request.id, reply: "once" as const }));
+}
 
 let active: SpecialistScheduler | undefined;
 export function currentSpecialistScheduler(): SpecialistScheduler | undefined { return active; }
@@ -88,15 +111,15 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
 
   const dispatch = async (applicationId: string, task: SpecialistTask, mode: "scheduled" | "manual") => {
     const store = await specialistStore(config);
-    const bound = store.projectsFor(applicationId).filter(project => config.workspaces.some(workspace => workspace.id === project.workspaceId));
-    const project = bound[0];
+    const project = taskProject(store, applicationId, task, workspaceId => config.workspaces.some(workspace => workspace.id === workspaceId));
     if (!project) {
       // Nothing to run in: keep the task honest about why and back off instead of spinning.
       // Note: this rewrites nextRunAt to now+30min, so a daily task that returns drifts off its
       // wall-clock time until the next recalculation — accepted over re-probing every tick.
+      const detail = task.workspaceId ? "El proyecto de esta tarea ya no está disponible en este host." : "La aplicación no tiene ningún proyecto disponible en este host.";
       await patchTask(config, applicationId, task.id, t => ({ ...t, lastStatus: "blocked", nextRunAt: t.enabled ? Date.now() + NO_PROJECT_RETRY_MS : t.nextRunAt }));
-      await appendRun(config, applicationId, task.id, { at: Date.now(), mode, missed: 0, workspaceId: "none", sessionId: null, status: "blocked", detail: "La aplicación no tiene ningún proyecto disponible en este host." });
-      return { ok: false, detail: "La aplicación no tiene ningún proyecto disponible." };
+      await appendRun(config, applicationId, task.id, { at: Date.now(), mode, missed: 0, workspaceId: task.workspaceId ?? "none", sessionId: null, status: "blocked", detail });
+      return { ok: false, detail: task.workspaceId ? "El proyecto de esta tarea ya no está disponible." : "La aplicación no tiene ningún proyecto disponible." };
     }
     const startedAt = Date.now();
     // CAS claim: if another route/tool/scheduler claimed first, abort instead of overwriting.
@@ -134,7 +157,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       evidencePath = await writeEvidence(project.rootPath, task.id, stamp, record("dispatched", null));
       await patchTask(config, applicationId, task.id, t => ({ ...t, running: t.running ? { ...t.running, sessionId, evidencePath } : t.running }));
       if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");
-      if (taskIsolationReviewEnabled()) {
+      if (taskIsolationReviewEnabled() && task.isolation) {
         // The run works in an isolated copy; its changes wait for review (taskIsolationReview).
         const isolation = await createIsolation(config, {
           applicationId, workspaceId: project.workspaceId, projectRoot: project.rootPath,
@@ -163,6 +186,23 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     }
   };
 
+  /** Pending permission requests of a run: its session and the sessions it delegated to. */
+  const runPermissions = async (workspaceId: string, sessionId: string) => {
+    const children = payload(await call(workspaceId, `/session?parentID=${encodeURIComponent(sessionId)}&limit=50`).catch(() => null));
+    const sessions = [sessionId, ...(Array.isArray(children)
+      ? children.flatMap(child => isRecord(child) && typeof child.id === "string" && child.parentID === sessionId ? [child.id] : [])
+      : [])];
+    const requests: { id: string; sessionID: string }[] = [];
+    for (const session of sessions) {
+      const items = payload(await call(workspaceId, `/session/${encodeURIComponent(session)}/permission`));
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (isRecord(item) && typeof item.id === "string") requests.push({ id: item.id, sessionID: typeof item.sessionID === "string" ? item.sessionID : session });
+      }
+    }
+    return { sessions, requests };
+  };
+
   const observe = async (applicationId: string, task: SpecialistTask, projectRoot: string | null) => {
     const running = task.running;
     if (!running) return;
@@ -180,7 +220,24 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
         ...(t.schedule.kind === "once" ? { enabled: false, nextRunAt: null } : {}),
       }));
     };
-    if (Date.now() - running.startedAt > RUN_TIMEOUT_MS) { await finish("failed", "La corrida superó 15 minutos sin confirmarse; revisa el chat de la tarea."); return; }
+    // Permission mode (projectsExperience): "auto" answers the run's own requests, "manual"
+    // leaves them for the person, and a run waiting for the person is not timed out early.
+    let waitingForPerson = false;
+    if (running.sessionId && projectsExperienceEnabled()) {
+      const pending = await runPermissions(running.workspaceId, running.sessionId).catch(() => null);
+      if (pending) {
+        const replies = taskPermissionReplies(task.permissionMode, true, pending.sessions, pending.requests);
+        for (const reply of replies) {
+          await call(running.workspaceId, `/session/${encodeURIComponent(reply.sessionId)}/permission/${encodeURIComponent(reply.requestId)}/reply`, { decision: reply.reply, reply: reply.reply }).catch(() => undefined);
+        }
+        waitingForPerson = task.permissionMode === "manual" && pending.requests.length > 0;
+      }
+    }
+    const timeout = waitingForPerson ? MANUAL_WAIT_MS : RUN_TIMEOUT_MS;
+    if (Date.now() - running.startedAt > timeout) {
+      await finish("failed", waitingForPerson ? "La corrida esperó una aprobación durante 24 horas; revisa el chat de la tarea." : "La corrida superó 15 minutos sin confirmarse; revisa el chat de la tarea.");
+      return;
+    }
     if (!running.sessionId) return; // crashed between claim and create; the timeout above covers it
     try {
       const messages = payload(await call(running.workspaceId, `/session/${encodeURIComponent(running.sessionId)}/message?order=desc&limit=10`));
@@ -262,9 +319,8 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       void store.application(applicationId);
       const task = (await listTasks(config, applicationId)).find(entry => entry.id === taskId);
       if (!task) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
-      const bound = store.projectsFor(applicationId).filter(project => config.workspaces.some(workspace => workspace.id === project.workspaceId));
-      const project = bound[0];
-      if (!project) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para ensayar la tarea.");
+      const project = taskProject(store, applicationId, task, workspaceId => config.workspaces.some(workspace => workspace.id === workspaceId));
+      if (!project) throw new ApiError(409, "no_workspace", task.workspaceId ? "El proyecto de esta tarea ya no está disponible para ensayarla." : "La aplicación no tiene ningún proyecto disponible para ensayar la tarea.");
       try {
         const created = payload(await call(project.workspaceId, "/session", { title: `Ensayo (sin guardar): ${task.name}` }));
         const sessionId = isRecord(created) && typeof created.id === "string" ? created.id : null;

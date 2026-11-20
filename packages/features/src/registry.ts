@@ -181,6 +181,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  projectsExperience: {
+    label: "Projects experience",
+    description: "A Projects page and a page per project (the folders inside a specialist application): description and pin, instructions that reach every session of the project, a context file area with a capacity bar, project memory, and scheduled tasks per project with an automatic or manual permission mode.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/projects-experience/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   specialistAppPortability: {
     label: "Export, import and delete specialist applications",
     description: "Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.",

@@ -217,7 +217,7 @@ export function isSupportedWorkspaceTextFilePath(relativePath: string): boolean 
   );
 }
 
-function resolveSafeChildPath(root: string, child: string): string {
+export function resolveSafeChildPath(root: string, child: string): string {
   const rootResolved = resolve(root);
   const candidate = resolve(rootResolved, child);
   if (candidate === rootResolved) {

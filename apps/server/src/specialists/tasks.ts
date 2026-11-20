@@ -32,6 +32,18 @@ export const taskModelSchema = z.object({
 }).strict();
 export type SpecialistTaskModel = z.infer<typeof taskModelSchema>;
 
+export const taskPermissionModeSchema = z.enum(["auto", "manual"]);
+export type TaskPermissionMode = z.infer<typeof taskPermissionModeSchema>;
+
+/** Settings only the person may choose, through owner routes. They are not part of
+ *  `taskInputSchema`, so agent tools, proposals and imported bundles can never set them. */
+export const taskOwnerSettingsSchema = z.object({
+  workspaceId: z.string().min(1).max(200).nullable().optional(),
+  permissionMode: taskPermissionModeSchema.optional(),
+  isolation: z.boolean().optional(),
+});
+export type TaskOwnerSettings = z.infer<typeof taskOwnerSettingsSchema>;
+
 export const taskSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -40,6 +52,14 @@ export const taskSchema = z.object({
   model: taskModelSchema.nullable().default(null),
   enabled: z.boolean(),
   catchUp: z.boolean().default(true),
+  /** The project (workspace) the task runs in; null runs in the application's first project. */
+  workspaceId: z.string().nullable().default(null),
+  /** "auto": the scheduler approves the run's permission requests itself; "manual": they wait
+   *  for the person (command center, chat). Tasks the person did not set explicitly (older
+   *  tasks, agent-created, accepted proposals, imports) are "manual". */
+  permissionMode: taskPermissionModeSchema.default("manual"),
+  /** With taskIsolationReview on, whether this task's runs work in an isolated copy. */
+  isolation: z.boolean().default(true),
   createdAt: z.number(),
   updatedAt: z.number(),
   nextRunAt: z.number().nullable(),
@@ -91,7 +111,7 @@ export const taskInputSchema = z.object({
 });
 export type SpecialistTaskInput = z.infer<typeof taskInputSchema>;
 
-const TASK_LIMIT = 20;
+export const TASK_LIMIT = 20;
 const RUN_LOG_LIMIT = 20;
 
 const failure = (message: string) => new ApiError(422, "invalid_task", message);
@@ -182,10 +202,11 @@ function mutate(config: Pick<ServerConfig, "configPath">, id: string, taskId: st
   });
 }
 
-export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown, options: { enabled?: boolean } = {}) {
+export async function createTask(config: Pick<ServerConfig, "configPath">, id: string, input: unknown, options: { enabled?: boolean; owner?: TaskOwnerSettings } = {}) {
   const parsed = taskInputSchema.safeParse(input);
   if (!parsed.success) throw failure("Revisa el nombre (1-120), el prompt (1-8000) y el horario de la tarea.");
   const value = parsed.data;
+  const owner = taskOwnerSettingsSchema.parse(options.owner ?? {});
   if (value.schedule.kind === "once" && value.schedule.at <= Date.now()) throw failure("La hora de la ejecución única ya pasó; programa una fecha futura.");
   const enabled = options.enabled ?? true;
   return serialize(id, async () => {
@@ -196,7 +217,8 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
       id: `task_${randomUUID()}`, name: value.name, prompt: value.prompt, schedule: value.schedule, model: value.model ?? null,
       // Accepted proposals are born PAUSED (the plan's rule): a task that runs unseen once is the
       // recipe for ghost data. Re-enabling recalculates nextRunAt from the current instant.
-      catchUp: value.catchUp ?? true, enabled, createdAt: Date.now(), updatedAt: Date.now(),
+      catchUp: value.catchUp ?? true, workspaceId: owner.workspaceId ?? null, permissionMode: owner.permissionMode ?? "manual", isolation: owner.isolation ?? true,
+      enabled, createdAt: Date.now(), updatedAt: Date.now(),
       nextRunAt: enabled ? nextRun(value.schedule, Date.now()) : null, lastRunAt: null, lastStatus: null, runs: 0, running: null,
     };
     await writeJson(tasksFile(config, id), [task, ...tasks]);
@@ -204,10 +226,18 @@ export async function createTask(config: Pick<ServerConfig, "configPath">, id: s
   });
 }
 
-export async function updateTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, input: Partial<SpecialistTaskInput> & { enabled?: boolean }) {
+export async function updateTask(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, input: Partial<SpecialistTaskInput> & { enabled?: boolean }, owner: TaskOwnerSettings = {}) {
   const parsed = taskInputSchema.partial().safeParse(input);
   if (!parsed.success) throw failure("Revisa los campos de la tarea.");
-  const patch = parsed.data;
+  const ownerPatch = taskOwnerSettingsSchema.safeParse(owner);
+  if (!ownerPatch.success) throw failure("Revisa el proyecto, el modo de permisos y la configuración avanzada de la tarea.");
+  const settings = ownerPatch.data;
+  const patch = {
+    ...parsed.data,
+    ...(settings.workspaceId !== undefined ? { workspaceId: settings.workspaceId } : {}),
+    ...(settings.permissionMode !== undefined ? { permissionMode: settings.permissionMode } : {}),
+    ...(settings.isolation !== undefined ? { isolation: settings.isolation } : {}),
+  };
   return serialize(id, async () => {
     const tasks = await loadTasks(config, id);
     const current = tasks.find(task => task.id === taskId);

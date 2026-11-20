@@ -27,6 +27,7 @@ export default defineConfig({
     "openwork-provider": "src/openwork-provider.ts",
     "permission-modes": "src/permission-modes.ts",
     "scoped-memory": "src/scoped-memory.ts",
+    "projects": "src/projects.ts",
     "task-continuity": "src/task-continuity.ts",
   },
   tsconfig: "./tsconfig.json",

@@ -4,8 +4,10 @@ import { lstat, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistAppZipBundleEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, projectsExperienceEnabled, specialistAppPortabilityEnabled, specialistAppZipBundleEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
+import { registerProjectRoutes } from "./projects/routes.js";
+import { ownerTaskSettings } from "./projects/tasks-view.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, displayText, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
@@ -57,6 +59,7 @@ export function registerSpecialistRoutes(options: {
   registerIntegrationRoutes(options);
   registerSpecialistToolRoutes(options);
   registerSpecialistMcpRoutes(options);
+  registerProjectRoutes(options);
   function requireFeature(write = false) {
     if (!specialistApplicationsEnabled()) throw new ApiError(404, "specialists_disabled", "Los perfiles especialistas están desactivados.");
     if (write) ensureWritable(config);
@@ -381,18 +384,23 @@ export function registerSpecialistRoutes(options: {
     requireTasks(true);
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
-    const parsed = taskInputSchema.safeParse(await readJsonBody(ctx.request));
+    const body = await readJsonBody(ctx.request);
+    const parsed = taskInputSchema.safeParse(body);
     if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisa el nombre, el prompt y el horario de la tarea.");
-    const task = await createTask(config, app.id, parsed.data);
+    // Project, permission mode and advanced settings (projectsExperience) are owner choices.
+    const settings = projectsExperienceEnabled() ? ownerTaskSettings(body, store.projectsFor(app.id).map(project => project.workspaceId)) : { owner: {}, catchUp: undefined };
+    const task = await createTask(config, app.id, { ...parsed.data, ...(settings.catchUp !== undefined ? { catchUp: settings.catchUp } : {}) }, { owner: settings.owner });
     return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
   addRoute(routes, "PUT", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {
     requireTasks(true);
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
-    const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(await readJsonBody(ctx.request));
+    const body = await readJsonBody(ctx.request);
+    const parsed = taskInputSchema.partial().extend({ enabled: z.boolean().optional() }).safeParse(body);
     if (!parsed.success) throw new ApiError(422, "invalid_task", "Revisa los campos de la tarea.");
-    const task = await updateTask(config, app.id, ctx.params.taskId, parsed.data);
+    const settings = projectsExperienceEnabled() ? ownerTaskSettings(body, store.projectsFor(app.id).map(project => project.workspaceId)) : { owner: {}, catchUp: undefined };
+    const task = await updateTask(config, app.id, ctx.params.taskId, { ...parsed.data, ...(settings.catchUp !== undefined ? { catchUp: settings.catchUp } : {}) }, settings.owner);
     return jsonResponse({ task, tasks: await listTasks(config, app.id), budget: estimateTaskBudget(task) });
   });
   addRoute(routes, "DELETE", "/specialist-applications/:id/tasks/:taskId", "host", async ctx => {

@@ -131,6 +131,16 @@
               ],
               "description": "Find individual settings from the command palette: Cmd/Ctrl+K lists individual settings (theme, language, notifications, activity animations, devices...) in English and Spanish, and opens the settings page scrolled to the one you picked. Port of different-ai/openwork#7415. Renders DEN_FEATURE_PALETTE_SETTING_SEARCH."
             },
+            "projectsExperience": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Projects experience: A Projects page and a page per project (the folders inside a specialist application): description and pin, instructions that reach every session of the project, a context file area with a capacity bar, project memory, and scheduled tasks per project with an automatic or manual permission mode. Renders DEN_FEATURE_PROJECTS_EXPERIENCE."
+            },
             "specialistAppPortability": {
               "enum": [
                 "",

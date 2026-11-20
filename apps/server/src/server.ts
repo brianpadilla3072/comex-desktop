@@ -16,10 +16,12 @@ import { registerFolderBrowserRoutes } from "./folder-browser.js";
 import { registerContinuityRoutes } from "./comex/continuity-routes.js";
 import { registerAgentEcosystemRoutes } from "./comex/agent-ecosystem-routes.js";
 import { expireStaleClaims } from "./comex/agent-ecosystem.js";
-import { agentEcosystemEnabled } from "./comex/features.js";
+import { agentEcosystemEnabled, projectsExperienceEnabled } from "./comex/features.js";
 import { specialistStore } from "./specialists/store.js";
 import { specialistInstructions } from "./specialists/instructions.js";
 import { createSpecialistScheduler } from "./specialists/scheduler.js";
+import { projectAgentInstructions } from "./specialists/projects/instructions.js";
+import { configureProjectSessions } from "./specialists/projects/sessions.js";
 import { registerCommandCenterRoutes } from "./command-center.js";
 import { registerResultsInboxRoutes } from "./results-inbox.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
@@ -1278,16 +1280,16 @@ export async function startServer(
     },
   };
   // Reads go through this server's own workspace proxy, like the scheduler.
-  registerCommandCenterRoutes({
-    routes, config, jsonResponse, ensureWritable,
-    deps: {
-      request: async request => serverOptions.fetch(request),
-      engine: () => {
-        const status = engineV2Preview.status();
-        return status.enabled && status.chatRouting ? "v2" : "v1";
-      },
+  const inProcessEngineReads = {
+    request: async (request: Request) => serverOptions.fetch(request),
+    engine: (): "v1" | "v2" => {
+      const status = engineV2Preview.status();
+      return status.enabled && status.chatRouting ? "v2" : "v1";
     },
-  });
+  };
+  registerCommandCenterRoutes({ routes, config, jsonResponse, ensureWritable, deps: inProcessEngineReads });
+  // A project's "Recientes" (GET /projects/:workspaceId) read the same way.
+  configureProjectSessions(inProcessEngineReads);
   registerResultsInboxRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
 
   let server: ServeResult;
@@ -1635,6 +1637,14 @@ async function forwardOpencodeV2Request(input: {
       const memory = await readComexMemory(input.workspace.path, sessionId);
       if (specialist) Object.assign(value, { specialist: specialistInstructions(specialist, profiles?.user() ?? null, memory, specialistLibraryEnabled() ? await readSpecialistContext(input.config, specialist.id) : null, specialistLibraryEnabled(), scheduledTasksEnabled(), specialistDatasetsEnabled(), specialistPanelsEnabled(), specialistSourcesEnabled(), studioOutputsEnabled(), (profiles?.researchEnabled(specialist.id) ?? false)) });
       else Object.assign(value, { projectContext: generalProjectInstructions(input.workspace.path, sessionId, memory, process.env.COMEX_DOCUMENTS_PYTHON) });
+    }
+    if (specialist && profiles && projectsExperienceEnabled()) {
+      // Projects experience: the project's own instructions and context files reach every
+      // session of the project as their own entry; the prompt also counts as project activity.
+      profiles.touchProject(input.workspace.id);
+      const name = input.workspace.displayName?.trim() || input.workspace.name?.trim() || input.workspace.path;
+      const project = await projectAgentInstructions(input.workspace.path, name).catch(() => null);
+      if (project) Object.assign(value, { project });
     }
     if (comexScopedMemoryEnabled()) {
       if (!sessionId.startsWith("ses_")) throw new ApiError(404, "session_not_found", "No se pudo verificar la conversación para leer memoria.");

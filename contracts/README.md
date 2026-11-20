@@ -11,3 +11,4 @@ unchanged. Add a vector before changing behavior; a new major version gets a new
 | `folder-browser/v1` | `apps/server/test/folder-browser.test.ts` |
 | `task-isolation/v1` | `apps/server/test/task-isolation-core.test.ts` |
 | `results-inbox/v1` | `apps/server/test/results-inbox.test.ts` |
+| `projects/v1` | `apps/server/test/projects-experience.test.ts` |

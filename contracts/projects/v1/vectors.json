@@ -1,0 +1,557 @@
+{
+ "contract": "openwork.projects",
+ "version": 1,
+ "routes": "GET /specialist-projects, GET|PATCH /specialist-projects/:workspaceId, GET|PUT /specialist-projects/:workspaceId/instructions, GET|DELETE /specialist-projects/:workspaceId/context, POST /specialist-projects/:workspaceId/context/files, POST /specialist-projects/:workspaceId/context/folders, GET|POST /specialist-projects/:workspaceId/memory, DELETE /specialist-projects/:workspaceId/memory/:noteId, GET /specialist-projects/:workspaceId/tasks",
+ "constants": {
+  "nameChars": 80,
+  "descriptionChars": 2000,
+  "instructionsChars": 8000,
+  "contextBytes": 52428800,
+  "contextFiles": 500,
+  "contextFileBytes": 26214400,
+  "contextFolders": 100,
+  "contextDepth": 6,
+  "recentSessions": 10,
+  "agentContextListing": 40,
+  "contextFolder": "contexto",
+  "instructionsFile": "instrucciones.md",
+  "manualWaitMs": 86400000
+ },
+ "contextPaths": [
+  {
+   "input": "",
+   "allowRoot": true,
+   "result": {
+    "ok": true,
+    "path": ""
+   }
+  },
+  {
+   "input": "",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_required"
+   }
+  },
+  {
+   "input": "/",
+   "allowRoot": true,
+   "result": {
+    "ok": true,
+    "path": ""
+   }
+  },
+  {
+   "input": "a/b.txt",
+   "allowRoot": false,
+   "result": {
+    "ok": true,
+    "path": "a/b.txt"
+   }
+  },
+  {
+   "input": "\\a\\b.txt",
+   "allowRoot": false,
+   "result": {
+    "ok": true,
+    "path": "a/b.txt"
+   }
+  },
+  {
+   "input": "a//b/",
+   "allowRoot": false,
+   "result": {
+    "ok": true,
+    "path": "a/b"
+   }
+  },
+  {
+   "input": "A\u0301rbol.pdf",
+   "allowRoot": false,
+   "result": {
+    "ok": true,
+    "path": "\u00c1rbol.pdf"
+   }
+  },
+  {
+   "input": "1/2/3/4/5/6",
+   "allowRoot": false,
+   "result": {
+    "ok": true,
+    "path": "1/2/3/4/5/6"
+   }
+  },
+  {
+   "input": "1/2/3/4/5/6/7",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_too_deep"
+   }
+  },
+  {
+   "input": "../x",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "a/./b",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": ".git",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_hidden"
+   }
+  },
+  {
+   "input": "a/.env",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_hidden"
+   }
+  },
+  {
+   "input": "con.txt",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "nota.",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "nota ",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": " nota",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "a:b",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "a\u0000b",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "a\u202eb",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "path_invalid"
+   }
+  },
+  {
+   "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "allowRoot": false,
+   "result": {
+    "ok": false,
+    "code": "name_too_long"
+   }
+  }
+ ],
+ "usagePercent": [
+  {
+   "usage": {
+    "files": 0,
+    "bytes": 0
+   },
+   "percent": 0
+  },
+  {
+   "usage": {
+    "files": 250,
+    "bytes": 0
+   },
+   "percent": 50
+  },
+  {
+   "usage": {
+    "files": 1,
+    "bytes": 26214400
+   },
+   "percent": 50
+  },
+  {
+   "usage": {
+    "files": 499,
+    "bytes": 0
+   },
+   "percent": 99
+  },
+  {
+   "usage": {
+    "files": 500,
+    "bytes": 0
+   },
+   "percent": 100
+  },
+  {
+   "usage": {
+    "files": 10,
+    "bytes": 52428800
+   },
+   "percent": 100
+  },
+  {
+   "usage": {
+    "files": 600,
+    "bytes": 0
+   },
+   "percent": 100
+  }
+ ],
+ "uploads": [
+  {
+   "usage": {
+    "files": 0,
+    "bytes": 0
+   },
+   "size": 26214400,
+   "replacing": null,
+   "result": {
+    "ok": true
+   },
+   "budget": 26214400
+  },
+  {
+   "usage": {
+    "files": 0,
+    "bytes": 0
+   },
+   "size": 26214401,
+   "replacing": null,
+   "result": {
+    "ok": false,
+    "code": "context_file_too_large"
+   },
+   "budget": 26214400
+  },
+  {
+   "usage": {
+    "files": 500,
+    "bytes": 0
+   },
+   "size": 1,
+   "replacing": null,
+   "result": {
+    "ok": false,
+    "code": "context_capacity_files"
+   },
+   "budget": 26214400
+  },
+  {
+   "usage": {
+    "files": 500,
+    "bytes": 100
+   },
+   "size": 1,
+   "replacing": 100,
+   "result": {
+    "ok": true
+   },
+   "budget": 26214400
+  },
+  {
+   "usage": {
+    "files": 10,
+    "bytes": 52428790
+   },
+   "size": 11,
+   "replacing": null,
+   "result": {
+    "ok": false,
+    "code": "context_capacity_bytes"
+   },
+   "budget": 10
+  },
+  {
+   "usage": {
+    "files": 10,
+    "bytes": 52428790
+   },
+   "size": 10,
+   "replacing": null,
+   "result": {
+    "ok": true
+   },
+   "budget": 10
+  },
+  {
+   "usage": {
+    "files": 10,
+    "bytes": 52428800
+   },
+   "size": 5,
+   "replacing": 5,
+   "result": {
+    "ok": true
+   },
+   "budget": 5
+  },
+  {
+   "usage": {
+    "files": 10,
+    "bytes": 60000000
+   },
+   "size": 0,
+   "replacing": null,
+   "result": {
+    "ok": false,
+    "code": "context_capacity_bytes"
+   },
+   "budget": 0
+  }
+ ],
+ "order": {
+  "projects": [
+   {
+    "workspaceId": "ws_a",
+    "name": "Alfa",
+    "pinnedAt": 100,
+    "lastActivityAt": 1
+   },
+   {
+    "workspaceId": "ws_b",
+    "name": "Bravo",
+    "pinnedAt": 200,
+    "lastActivityAt": 0
+   },
+   {
+    "workspaceId": "ws_c",
+    "name": "Beta",
+    "pinnedAt": null,
+    "lastActivityAt": 500
+   },
+   {
+    "workspaceId": "ws_d",
+    "name": "Delta",
+    "pinnedAt": null,
+    "lastActivityAt": 900
+   },
+   {
+    "workspaceId": "ws_e",
+    "name": "\u00e1rbol",
+    "pinnedAt": null,
+    "lastActivityAt": 500
+   },
+   {
+    "workspaceId": "ws_f",
+    "name": "Beta",
+    "pinnedAt": null,
+    "lastActivityAt": 500
+   }
+  ],
+  "expected": [
+   "ws_b",
+   "ws_a",
+   "ws_d",
+   "ws_e",
+   "ws_c",
+   "ws_f"
+  ]
+ },
+ "permissionReplies": [
+  {
+   "name": "auto answers every request of the run sessions once, never other sessions",
+   "mode": "auto",
+   "autoEnabled": true,
+   "runSessions": [
+    "ses_run",
+    "ses_child"
+   ],
+   "pending": [
+    {
+     "id": "per_1",
+     "sessionID": "ses_run"
+    },
+    {
+     "id": "per_2",
+     "sessionID": "ses_other"
+    },
+    {
+     "id": "per_3",
+     "sessionID": "ses_child"
+    }
+   ],
+   "replies": [
+    {
+     "sessionId": "ses_run",
+     "requestId": "per_1",
+     "reply": "once"
+    },
+    {
+     "sessionId": "ses_child",
+     "requestId": "per_3",
+     "reply": "once"
+    }
+   ]
+  },
+  {
+   "name": "manual answers nothing",
+   "mode": "manual",
+   "autoEnabled": true,
+   "runSessions": [
+    "ses_run"
+   ],
+   "pending": [
+    {
+     "id": "per_1",
+     "sessionID": "ses_run"
+    }
+   ],
+   "replies": []
+  },
+  {
+   "name": "auto with the feature off answers nothing",
+   "mode": "auto",
+   "autoEnabled": false,
+   "runSessions": [
+    "ses_run"
+   ],
+   "pending": [
+    {
+     "id": "per_1",
+     "sessionID": "ses_run"
+    }
+   ],
+   "replies": []
+  }
+ ],
+ "runsInProject": [
+  {
+   "task": {
+    "workspaceId": null
+   },
+   "workspaceId": "ws_1",
+   "firstLive": "ws_1",
+   "runs": true
+  },
+  {
+   "task": {
+    "workspaceId": null
+   },
+   "workspaceId": "ws_2",
+   "firstLive": "ws_1",
+   "runs": false
+  },
+  {
+   "task": {
+    "workspaceId": "ws_2"
+   },
+   "workspaceId": "ws_2",
+   "firstLive": "ws_1",
+   "runs": true
+  },
+  {
+   "task": {
+    "workspaceId": "ws_2"
+   },
+   "workspaceId": "ws_1",
+   "firstLive": "ws_1",
+   "runs": false
+  },
+  {
+   "task": {
+    "workspaceId": null
+   },
+   "workspaceId": "ws_1",
+   "firstLive": null,
+   "runs": false
+  }
+ ],
+ "recentSessions": {
+  "limit": 2,
+  "rows": {
+   "data": [
+    {
+     "id": "ses_old",
+     "title": "Antigua",
+     "time": {
+      "created": 1700000000,
+      "updated": 1700000100
+     }
+    },
+    {
+     "id": "ses_child",
+     "parentID": "ses_new",
+     "title": "Subagente",
+     "time": {
+      "updated": 1800000000000
+     }
+    },
+    {
+     "id": "ses_archived",
+     "title": "Archivada",
+     "time": {
+      "updated": 1800000000000,
+      "archived": 1800000000001
+     }
+    },
+    {
+     "id": "ses_new",
+     "title": "  ",
+     "time": {
+      "created": 1750000000000
+     }
+    },
+    {
+     "id": "ses_mid",
+     "title": "Media",
+     "time": {
+      "updated": 1720000000000
+     }
+    }
+   ]
+  },
+  "expected": [
+   {
+    "id": "ses_new",
+    "title": null,
+    "updatedAt": 1750000000000
+   },
+   {
+    "id": "ses_mid",
+    "title": "Media",
+    "updatedAt": 1720000000000
+   }
+  ]
+ }
+}

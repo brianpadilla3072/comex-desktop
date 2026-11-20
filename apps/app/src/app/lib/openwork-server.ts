@@ -3,6 +3,7 @@ import type { TaskState, GoalInput } from "@openwork/types/task-continuity";
 import type { PermissionProfileInput, PermissionModesSnapshot } from "@openwork/types/permission-modes";
 import type { GuideObservation, GuideSnapshot } from "@openwork/types/model-guide";
 import { z } from "zod";
+import { projectContextChangeSchema, projectContextListingSchema, projectDetailSchema, projectInstructionsSchema, projectListSchema, projectMemorySchema, projectPatchResponseSchema, projectTaskInputSchema, projectTaskListSchema, projectTaskSavedSchema, type ProjectPatchInput, type ProjectTaskInput } from "./projects";
 import type { McpStatusMap } from "../types";
 import type { ConnectionActionIntent } from "@openwork/types/connection-action-app";
 import type { Message, Part, Session, Todo } from "@opencode-ai/sdk/v2/client";
@@ -204,6 +205,9 @@ export interface SpecialistTask {
   id: string; name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean;
   /** Pinned model for each run; null means the engine's default. */
   model?: SpecialistTaskModel | null;
+  /** Projects experience: the project it runs in (null: the application's first project),
+   *  whether its runs approve their own permission requests, and per-task isolation. */
+  workspaceId?: string | null; permissionMode?: "auto" | "manual"; isolation?: boolean;
   createdAt: number; updatedAt: number; nextRunAt: number | null; lastRunAt: number | null;
   lastStatus: "ok" | "failed" | "blocked" | "running" | "skipped" | null; runs: number;
   running: { workspaceId: string; sessionId: string | null; startedAt: number; mode: "scheduled" | "manual"; missed: number } | null;
@@ -2684,6 +2688,40 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean; catchUp: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
     deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    // Projects experience (feature projectsExperience; docs/features/projects-experience).
+    // Reads work with the collaborator token; writes need owner access (host token or paired device).
+    listProjects: async () => projectListSchema.parse(await requestJson<unknown>(baseUrl, "/specialist-projects", { token, hostToken })),
+    getProject: async (workspaceId: string) => projectDetailSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}`, { token, hostToken, timeoutMs: 30_000 })),
+    updateProject: async (workspaceId: string, patch: ProjectPatchInput) => projectPatchResponseSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}`, { token, hostToken, method: "PATCH", body: patch, timeoutMs: 60_000 })).project,
+    getProjectInstructions: async (workspaceId: string) => projectInstructionsSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/instructions`, { token, hostToken })),
+    /** An empty text removes the instructions. */
+    setProjectInstructions: async (workspaceId: string, text: string) => projectInstructionsSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/instructions`, { token, hostToken, method: "PUT", body: { text } })),
+    listProjectContext: async (workspaceId: string, path = "") => projectContextListingSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: 30_000 })),
+    /** Streams the file as the raw body into `folder` (context root by default) under `name` (the file's own name by default). */
+    uploadProjectContextFile: async (workspaceId: string, file: Blob, options: { name: string; folder?: string; replace?: boolean }) => {
+      const query = new URLSearchParams({ path: options.folder ?? "", name: options.name, ...(options.replace ? { replace: "true" } : {}) });
+      const result = await requestUploadRaw(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context/files?${query.toString()}`, {
+        token, hostToken, method: "POST", contentType: "application/octet-stream", body: file,
+        timeoutMs: Math.max(timeouts.binary, (file.size / UPLOAD_MIN_BYTES_PER_SECOND) * 1000),
+      });
+      const parsed: unknown = result.text.trim() ? JSON.parse(result.text) : null;
+      if (!result.ok) {
+        const failure = z.object({ code: z.string().optional(), message: z.string().optional(), details: z.unknown().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(result.status, failure.success && failure.data.code ? failure.data.code : "request_failed", failure.success && failure.data.message ? failure.data.message : "Upload failed", failure.success ? failure.data.details : undefined);
+      }
+      return projectContextChangeSchema.parse(parsed);
+    },
+    createProjectContextFolder: async (workspaceId: string, path: string) => projectContextChangeSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context/folders`, { token, hostToken, method: "POST", body: { path } })),
+    /** Removes a file, or a folder with everything in it. */
+    deleteProjectContextEntry: async (workspaceId: string, path: string) => projectContextChangeSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context?path=${encodeURIComponent(path)}`, { token, hostToken, method: "DELETE" })),
+    getProjectMemory: async (workspaceId: string) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory`, { token, hostToken })),
+    /** Without `id` adds a note; with it replaces that note. `expectedRevision` comes from the last read. */
+    saveProjectMemoryNote: async (workspaceId: string, input: { expectedRevision: number; text: string; id?: string }) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory`, { token, hostToken, method: "POST", body: input })),
+    deleteProjectMemoryNote: async (workspaceId: string, noteId: string, expectedRevision: number) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(noteId)}?expectedRevision=${expectedRevision}`, { token, hostToken, method: "DELETE" })),
+    listProjectTasks: async (workspaceId: string) => projectTaskListSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/tasks`, { token, hostToken })),
+    /** Creates a task that runs in this project (through the application's task route). Send `permissionMode` explicitly: without it the task is "manual". */
+    createProjectTask: async (applicationId: string, workspaceId: string, input: ProjectTaskInput) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks`, { token, hostToken, method: "POST", body: { ...projectTaskInputSchema.parse(input), workspaceId }, timeoutMs: 60_000 })),
+    updateProjectTask: async (applicationId: string, taskId: string, patch: Partial<ProjectTaskInput>) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: projectTaskInputSchema.partial().parse(patch), timeoutMs: 60_000 })),
     dryRunSpecialistTask: (id: string, taskId: string) => requestJson<{ started: boolean; sessionId: string | null; workspaceId: string | null; detail: string | null; note: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/dry-run`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
     getSpecialistDatasets: (id: string, workspaceId?: string) => requestJson<{ datasets: SpecialistDataset[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
@@ -2729,7 +2767,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     // Gated server writes waiting for someone with owner access (host token or a paired device).
     listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
     /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
     getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center/snapshot", { token, hostToken, timeoutMs: 30_000 }),
     stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),

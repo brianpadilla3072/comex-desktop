@@ -577,6 +577,15 @@
       "bun": "./src/scoped-memory.ts",
       "development": "./src/scoped-memory.ts",
       "default": "./dist/scoped-memory.js"
+    },
+    "./projects": {
+      "types": {
+        "openwork-build": "./dist/types/src/projects.d.ts",
+        "default": "./src/projects.ts"
+      },
+      "bun": "./src/projects.ts",
+      "development": "./src/projects.ts",
+      "default": "./dist/projects.js"
     }
   },
   "files": [
