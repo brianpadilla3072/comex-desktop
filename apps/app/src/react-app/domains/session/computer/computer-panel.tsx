@@ -5,6 +5,7 @@ import { ExternalLink, Maximize2, Minimize2, Minus, Monitor, PanelBottomClose, P
 import type { ComputerPresentation } from "@openwork/types/desktop-ipc"
 
 import { desktopBridge } from "@/app/lib/desktop"
+import { t } from "@/i18n"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { openComputerPopout, type ComputerPopout } from "./computer-popout"
@@ -15,7 +16,13 @@ type Observation = Omit<ComputerPresentation, "phase" | "frame"> & {
   frame?: NonNullable<ComputerPresentation["frame"]> & { key: string }
 }
 type Interaction = "takeover" | "resume"
-const inputLabels: Record<string, string> = { move: "Moving", click: "Click", double_click: "Double click", triple_click: "Triple click", drag: "Dragging", scroll: "Scrolling", key: "Key press", type: "Typing", press: "Press", set_value: "Editing", enter_value: "Editing", focus: "Focus" }
+/** Locale keys of the badge for each input; translated when shown. */
+const inputLabelKeys: Record<string, string> = {
+  move: "secondary_ui.computer.input_move", click: "secondary_ui.computer.input_click", double_click: "secondary_ui.computer.input_double_click",
+  triple_click: "secondary_ui.computer.input_triple_click", drag: "secondary_ui.computer.input_drag", scroll: "secondary_ui.computer.input_scroll",
+  key: "secondary_ui.computer.input_key", type: "secondary_ui.computer.input_type", press: "secondary_ui.computer.input_press",
+  set_value: "secondary_ui.computer.input_editing", enter_value: "secondary_ui.computer.input_editing", focus: "secondary_ui.computer.input_focus",
+}
 const pausedPhases = ["paused", "person_interacting", "ready_to_continue", "requery_required"]
 
 /** Full window, like the browser's full screen: Escape returns to the floating view. */
@@ -34,7 +41,7 @@ function FullScreen({ children, onExit }: { children: ReactNode; onExit: () => v
   return createPortal(
     <dialog
       ref={dialog}
-      aria-label="Computer view, full screen"
+      aria-label={t("secondary_ui.computer.fullscreen_dialog")}
       data-testid="session-computer-fullscreen"
       className="fixed inset-0 m-0 h-dvh max-h-none w-dvw max-w-none border-0 bg-dls-surface p-0 text-foreground backdrop:bg-black/70"
       onCancel={(event) => { event.preventDefault(); onExit() }}
@@ -123,7 +130,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
     const at = grab ? { left: grab.screenX - grab.x, top: grab.screenY - grab.y }
       : { left: window.screenX + window.outerWidth - size.width - 32, top: window.screenY + 72 }
     const next = openComputerPopout({ ...at, ...size })
-    if (!next) { setActionError("The computer view could not open in its own window."); return }
+    if (!next) { setActionError(t("secondary_ui.computer.popout_failed")); return }
     drag.current = null; setDragging(false)
     monitor.current.popout = next
     monitor.current.minimized = false; monitor.current.fullscreen = false
@@ -303,7 +310,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
       if (action === "resume") useComputerStore.getState().markContinued(sessionId)
     } catch {
       if (mounted.current && scope.current === actionScope) {
-        setActionError(`${action === "takeover" ? "Take over" : action === "resume" ? "Continue" : "Window choice"} was not confirmed. Check the updated state before trying again.`)
+        setActionError(t("secondary_ui.computer.action_not_confirmed", { action: action === "takeover" ? t("secondary_ui.computer.take_over") : action === "resume" ? t("secondary_ui.computer.continue") : t("secondary_ui.computer.window_choice") }))
         clearScreen()
       }
     } finally {
@@ -318,7 +325,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
   const unavailable = readFailed || presentation.phase === "unavailable"
   const frame = !minimized && !unavailable && !stopPending && !paused && presentation.frame?.key !== failedFrame ? presentation.frame : undefined
   const live = !minimized && (popout?.window.document ?? document).visibilityState === "visible" && presentation.phase === "working" && frame && loadedFrame === frame.key && now - frame.capturedAt >= 0 && now - frame.capturedAt < 1_500
-  const status = unavailable || failedFrame !== null ? "View unavailable" : paused ? "Paused" : live ? "Live" : "Connecting"
+  const status = unavailable || failedFrame !== null ? t("secondary_ui.computer.status_unavailable") : paused ? t("secondary_ui.computer.status_paused") : live ? t("secondary_ui.computer.status_live") : t("secondary_ui.computer.status_connecting")
   const disabled = controlsBusy || busy !== null || unavailable || cleanupPending || !enabled
   const maxX = Math.max(12, bounds.width - cardSize.width - 12)
   const maxY = Math.max(12, bounds.height - cardSize.height - 12)
@@ -331,14 +338,15 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
   const points = interrupted ? [] : recent.filter((input): input is ComputerPresentation["inputs"][number] & { x: number; y: number } => input.x !== undefined && input.y !== undefined && Number.isFinite(input.x) && Number.isFinite(input.y) && input.x >= 0 && input.x <= 1 && input.y >= 0 && input.y <= 1)
   const pointer = points.at(-1)
   const lastInput = recent.at(-1)
-  const badge = interrupted ? "Interrupted" : lastInput ? inputLabels[lastInput.action] : undefined
+  const inputKey = lastInput ? inputLabelKeys[lastInput.action] : undefined
+  const badge = interrupted ? t("secondary_ui.computer.input_interrupted") : inputKey ? t(inputKey) : undefined
   const trail: string[] = []
   for (const point of points.slice(-12).reverse()) {
     if (point.action !== "drag") break
     trail.unshift(`${point.x * imageWidth},${point.y * imageHeight}`)
     if (point.phase === "down") break
   }
-  const title = `Computer${presentation.appName ? ` · ${presentation.appName}` : ""}`
+  const title = `${t("settings_ui.computer_computer")}${presentation.appName ? ` · ${presentation.appName}` : ""}`
 
   const screen = (
     <div
@@ -351,7 +359,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
         <img
           key={frame.key}
           src={`data:image/png;base64,${frame.data}`}
-          alt={`${presentation.windowTitle || presentation.appName || "Computer"}, watch only`}
+          alt={t("secondary_ui.computer.frame_alt", { name: presentation.windowTitle || presentation.appName || t("settings_ui.computer_computer") })}
           draggable={false}
           className="block h-full w-full select-none object-contain"
           data-testid="session-computer-frame"
@@ -365,7 +373,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
             setPresentation((current) => current?.frame?.key === frame.key ? { ...current, frame: undefined, inputs: [] } : current)
           }}
         />
-        {loadedFrame !== null && pointer ? <div className="pointer-events-none absolute inset-0" role="img" aria-label="Latest computer input position" data-testid="session-computer-input">
+        {loadedFrame !== null && pointer ? <div className="pointer-events-none absolute inset-0" role="img" aria-label={t("secondary_ui.computer.input_position")} data-testid="session-computer-input">
           {trail.length > 1 ? <svg className="absolute inset-0 h-full w-full text-primary" viewBox={`0 0 ${imageWidth} ${imageHeight}`} aria-hidden><polyline points={trail.join(" ")} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" /></svg> : null}
           <div
             className="absolute"
@@ -377,16 +385,16 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
             <svg viewBox="0 0 20 26" width="18" height="24" className="relative drop-shadow-md" aria-hidden><path d="M1 1v19l5-5 4 9 4-2-4-8h8Z" fill="white" stroke="black" strokeWidth="1.5" strokeLinejoin="round" /></svg>
           </div>
         </div> : null}
-      </div> : <p role="status" className="max-w-64 px-5 text-center text-xs leading-relaxed text-white/70">{stopPending ? "Stopping computer use. Waiting for release confirmation." : unavailable || failedFrame !== null ? "The computer view is unavailable. This does not confirm a stop." : paused ? "You have control. Continue when you are ready." : "Connecting to the app window..."}</p>}
-      {badge && (interrupted || (frame && loadedFrame !== null)) ? <span className={cn("pointer-events-none absolute bottom-2.5 left-2.5 z-20 rounded-full bg-black/55 px-2 py-0.5 text-[11px] backdrop-blur-md", interrupted ? "text-amber-9" : "text-white/90")} aria-label={`Latest computer input: ${badge}`}>{badge}</span> : null}
+      </div> : <p role="status" className="max-w-64 px-5 text-center text-xs leading-relaxed text-white/70">{stopPending ? t("secondary_ui.computer.screen_stopping") : unavailable || failedFrame !== null ? t("secondary_ui.computer.screen_unavailable") : paused ? t("secondary_ui.computer.screen_paused") : t("secondary_ui.computer.screen_connecting")}</p>}
+      {badge && (interrupted || (frame && loadedFrame !== null)) ? <span className={cn("pointer-events-none absolute bottom-2.5 left-2.5 z-20 rounded-full bg-black/55 px-2 py-0.5 text-[11px] backdrop-blur-md", interrupted ? "text-amber-9" : "text-white/90")} aria-label={t("secondary_ui.computer.input_latest", { input: badge })}>{badge}</span> : null}
     </div>
   )
 
   const footer = <>
     <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-3 py-2">
       <div className="min-w-0 flex-1 basis-24 text-xs text-muted-foreground">
-        <p className="truncate" title={presentation.windowTitle}>{presentation.windowTitle || presentation.appName || "This computer"}</p>
-        <p className="mt-0.5">{stopPending ? "Stop not yet confirmed" : paused ? presentation.canContinue ? "Ready when you are" : "Waiting for your input to finish" : "Watch only"}</p>
+        <p className="truncate" title={presentation.windowTitle}>{presentation.windowTitle || presentation.appName || t("settings_ui.computer_this_computer")}</p>
+        <p className="mt-0.5">{stopPending ? t("secondary_ui.computer.stop_unconfirmed") : paused ? presentation.canContinue ? t("secondary_ui.computer.ready_when_you_are") : t("secondary_ui.computer.waiting_for_input") : t("secondary_ui.computer.watch_only")}</p>
       </div>
       {!stopPending ? <Button
         size="sm"
@@ -396,11 +404,11 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
         aria-busy={busy === "takeover" || busy === "resume"}
         onClick={() => void interact(paused ? "resume" : "takeover")}
       >
-        {busy === "takeover" ? "Pausing..." : busy === "resume" ? "Continuing..." : paused ? "Continue" : "Take over"}
+        {busy === "takeover" ? t("secondary_ui.computer.pausing") : busy === "resume" ? t("secondary_ui.computer.continuing") : paused ? t("secondary_ui.computer.continue") : t("secondary_ui.computer.take_over")}
       </Button> : null}
-      <Button size="sm" variant="ghost" className="text-red-11 hover:text-red-11" data-testid="session-computer-panel-stop" disabled={controlsBusy || !canStop} aria-busy={stopping} title="Stop this task. The next message can start a new task." onClick={onStop}>{stopping ? "Stopping..." : "Stop"}</Button>
+      <Button size="sm" variant="ghost" className="text-red-11 hover:text-red-11" data-testid="session-computer-panel-stop" disabled={controlsBusy || !canStop} aria-busy={stopping} title={t("secondary_ui.computer.stop_title")} onClick={onStop}>{stopping ? t("secondary_ui.computer.stopping") : t("secondary_ui.computer.stop")}</Button>
     </footer>
-    {unavailable || actionError || stopError || cleanupPending ? <p role="alert" className="max-h-24 shrink-0 overflow-y-auto border-t border-border px-3 py-2 text-[11px] leading-relaxed text-amber-11">{stopError || actionError || (cleanupPending ? "Stopping is not yet confirmed. Access stays off while release is checked." : "View unavailable. Work may still be running; Stop is available.")}</p> : null}
+    {unavailable || actionError || stopError || cleanupPending ? <p role="alert" className="max-h-24 shrink-0 overflow-y-auto border-t border-border px-3 py-2 text-[11px] leading-relaxed text-amber-11">{stopError || actionError || (cleanupPending ? t("secondary_ui.computer.cleanup_pending") : t("secondary_ui.computer.view_unavailable_alert"))}</p> : null}
   </>
 
   const liveStatus = <span role="status" className={cn("shrink-0 text-xs", live ? "text-green-11" : "text-muted-foreground")} data-testid="session-computer-live-status">{status}</span>
@@ -413,7 +421,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
           <h2 className="min-w-0 truncate text-xs font-medium">{title}</h2>
           {liveStatus}
           <span className="flex-1" />
-          <Button variant="ghost" size="icon-xs" className="titlebar-no-drag" aria-label="Put the computer view back in the chat" title="Back in the chat" data-testid="session-computer-pop-in" onClick={popIn}>
+          <Button variant="ghost" size="icon-xs" className="titlebar-no-drag" aria-label={t("secondary_ui.computer.pop_in")} title={t("secondary_ui.computer.pop_in_title")} data-testid="session-computer-pop-in" onClick={popIn}>
             <PanelBottomClose />
           </Button>
         </header>
@@ -433,7 +441,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
             <h2 className="min-w-0 truncate text-sm font-medium">{title}</h2>
             {liveStatus}
             <span className="flex-1" />
-            <Button variant="ghost" size="icon-sm" className="titlebar-no-drag" aria-label="Exit full screen" data-computer-exit-fullscreen data-testid="session-computer-exit-fullscreen" onClick={() => expand(false)}>
+            <Button variant="ghost" size="icon-sm" className="titlebar-no-drag" aria-label={t("secondary_ui.computer.exit_fullscreen")} data-computer-exit-fullscreen data-testid="session-computer-exit-fullscreen" onClick={() => expand(false)}>
               <Minimize2 size={16} />
             </Button>
           </header>
@@ -451,7 +459,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
   const toolButton = "rounded-full text-white/85 hover:bg-white/15 hover:text-white focus-visible:ring-white/40"
   const reveal = "opacity-0 transition-opacity duration-150 group-hover/pip:opacity-100 group-focus-within/pip:opacity-100"
   const alert = unavailable || actionError || stopError || cleanupPending
-    ? <p role="alert" className="max-h-20 overflow-y-auto bg-black/85 px-3 py-1.5 text-[11px] leading-relaxed text-amber-9">{stopError || actionError || (cleanupPending ? "Stopping is not yet confirmed. Access stays off while release is checked." : "View unavailable. Work may still be running; Stop is available.")}</p>
+    ? <p role="alert" className="max-h-20 overflow-y-auto bg-black/85 px-3 py-1.5 text-[11px] leading-relaxed text-amber-9">{stopError || actionError || (cleanupPending ? t("secondary_ui.computer.cleanup_pending") : t("secondary_ui.computer.view_unavailable_alert"))}</p>
     : null
   const moveHandlers = {
     onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -492,9 +500,9 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
       aria-busy={busy === "takeover" || busy === "resume"}
       onClick={() => void interact(paused ? "resume" : "takeover")}
     >
-      {busy === "takeover" ? "Pausing..." : busy === "resume" ? "Continuing..." : paused ? "Continue" : "Take over"}
+      {busy === "takeover" ? t("secondary_ui.computer.pausing") : busy === "resume" ? t("secondary_ui.computer.continuing") : paused ? t("secondary_ui.computer.continue") : t("secondary_ui.computer.take_over")}
     </Button> : null}
-    <Button size="xs" variant="ghost" className="rounded-full px-2.5 text-red-9 hover:bg-white/15 hover:text-red-9" data-testid="session-computer-panel-stop" disabled={controlsBusy || !canStop} aria-busy={stopping} title="Stop this task. The next message can start a new task." onClick={onStop}>{stopping ? "Stopping..." : "Stop"}</Button>
+    <Button size="xs" variant="ghost" className="rounded-full px-2.5 text-red-9 hover:bg-white/15 hover:text-red-9" data-testid="session-computer-panel-stop" disabled={controlsBusy || !canStop} aria-busy={stopping} title={t("secondary_ui.computer.stop_title")} onClick={onStop}>{stopping ? t("secondary_ui.computer.stopping") : t("secondary_ui.computer.stop")}</Button>
   </div> : null
 
   return createPortal(
@@ -511,12 +519,12 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
       style={{ left: shown.x, top: shown.y, width: minimized ? undefined : Math.min(320, Math.max(0, bounds.width - 24)), maxWidth: Math.max(0, bounds.width - 24), maxHeight: Math.max(0, bounds.height - 24) }}
       onKeyDown={(event) => { if (event.key === "Escape" && !drag.current && !minimized) { event.preventDefault(); event.stopPropagation(); minimize(true) } }}
     >
-      <p id={`${id}-move`} className="sr-only">Drag anywhere within the chat, or past the edge of OpenWork to give it its own window. Arrow keys also move it. Shift moves faster. Home and End move to corners. Escape minimizes the view without stopping work.</p>
+      <p id={`${id}-move`} className="sr-only">{t("secondary_ui.computer.move_help")}</p>
       {minimized ? <div className="flex h-9 items-center gap-1 pl-1 pr-1">
         <button
           ref={moveButton}
           type="button"
-          aria-label={`Move ${title} view`}
+          aria-label={t("secondary_ui.computer.move_view", { title })}
           aria-describedby={`${id}-move`}
           data-testid="session-computer-drag"
           className="flex min-w-0 touch-none select-none items-center gap-2 rounded-full px-2 py-1 text-xs font-medium outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
@@ -524,10 +532,10 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
           {...moveHandlers}
         >
           {dot}
-          <span className="max-w-32 truncate">{presentation.appName || "Computer"}</span>
+          <span className="max-w-32 truncate">{presentation.appName || t("settings_ui.computer_computer")}</span>
         </button>
-        <Button variant="ghost" size="icon-xs" className={toolButton} aria-label="Restore computer view" title="Show the computer view" data-testid="session-computer-minimize" onClick={() => minimize(false)}><PictureInPicture2 /></Button>
-        <Button variant="ghost" size="xs" className="rounded-full px-2 text-red-9 hover:bg-white/15 hover:text-red-9" disabled={controlsBusy || !canStop} aria-busy={stopping} onClick={onStop}>{stopping ? "Stopping..." : "Stop"}</Button>
+        <Button variant="ghost" size="icon-xs" className={toolButton} aria-label={t("secondary_ui.computer.restore")} title={t("secondary_ui.computer.restore_title")} data-testid="session-computer-minimize" onClick={() => minimize(false)}><PictureInPicture2 /></Button>
+        <Button variant="ghost" size="xs" className="rounded-full px-2 text-red-9 hover:bg-white/15 hover:text-red-9" disabled={controlsBusy || !canStop} aria-busy={stopping} onClick={onStop}>{stopping ? t("secondary_ui.computer.stopping") : t("secondary_ui.computer.stop")}</Button>
       </div> : <>
         <div className="relative">
           {screen}
@@ -535,7 +543,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
           <button
             ref={moveButton}
             type="button"
-            aria-label={`Move ${title} view`}
+            aria-label={t("secondary_ui.computer.move_view", { title })}
             aria-describedby={`${id}-move`}
             data-testid="session-computer-drag"
             className="absolute inset-0 z-10 touch-none select-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/50"
@@ -545,14 +553,14 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-gradient-to-b from-black/45 to-transparent p-2">
             <div className="flex min-w-0 items-center rounded-full bg-black/55 px-1.5 py-1.5 text-[11px] font-medium leading-none backdrop-blur-md">
               {dot}
-              <span className="max-w-0 truncate opacity-0 transition-all duration-150 group-hover/pip:ml-1.5 group-hover/pip:max-w-40 group-hover/pip:opacity-100 group-focus-within/pip:ml-1.5 group-focus-within/pip:max-w-40 group-focus-within/pip:opacity-100">{presentation.appName || "Computer"}</span>
+              <span className="max-w-0 truncate opacity-0 transition-all duration-150 group-hover/pip:ml-1.5 group-hover/pip:max-w-40 group-hover/pip:opacity-100 group-focus-within/pip:ml-1.5 group-focus-within/pip:max-w-40 group-focus-within/pip:opacity-100">{presentation.appName || t("settings_ui.computer_computer")}</span>
               <span className="sr-only">{liveStatus}</span>
             </div>
             <span className="flex-1" />
             <div className={cn("pointer-events-auto flex items-center rounded-full bg-black/55 p-0.5 backdrop-blur-md", reveal)}>
-              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label="Open computer view in its own window" title="Its own window, over any app" data-testid="session-computer-pop-out" onClick={() => popOut()}><ExternalLink /></Button>
-              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label="Expand computer view full screen" title="Full screen" data-testid="session-computer-fullscreen-toggle" onClick={() => expand(true)}><Maximize2 /></Button>
-              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label="Minimize computer view" title="Hide the view without stopping work" data-testid="session-computer-minimize" onClick={() => minimize(true)}><Minus /></Button>
+              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label={t("secondary_ui.computer.pop_out")} title={t("secondary_ui.computer.pop_out_title")} data-testid="session-computer-pop-out" onClick={() => popOut()}><ExternalLink /></Button>
+              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label={t("secondary_ui.computer.expand")} title={t("secondary_ui.computer.expand_title")} data-testid="session-computer-fullscreen-toggle" onClick={() => expand(true)}><Maximize2 /></Button>
+              <Button variant="ghost" size="icon-xs" className={toolButton} aria-label={t("secondary_ui.computer.minimize")} title={t("secondary_ui.computer.minimize_title")} data-testid="session-computer-minimize" onClick={() => minimize(true)}><Minus /></Button>
             </div>
           </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-end bg-gradient-to-t from-black/45 to-transparent p-2">
@@ -561,7 +569,7 @@ export function ComputerPanel({ sessionId, slot, enabled, canStop, controlsBusy,
         </div>
         {alert}
       </>}
-      {minimized && (stopPending || stopError) ? <p role="status" className="px-3 pb-2 text-[11px] text-amber-9">Stop not yet confirmed. Restore the view for details.</p> : null}
+      {minimized && (stopPending || stopError) ? <p role="status" className="px-3 pb-2 text-[11px] text-amber-9">{t("secondary_ui.computer.stop_unconfirmed_minimized")}</p> : null}
     </aside>,
     slot,
   )

@@ -792,13 +792,13 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
     <div className="space-y-4">
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>How to connect another client</CardTitle>
+          <CardTitle>{t("secondary_ui.mcp_connect.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-            <div>OpenWork desktop starts a private localhost bridge automatically.</div>
-            <div>Your MCP client starts <span className="font-mono text-card-foreground">openwork-ui-mcp</span> over stdio; the wrapper discovers the bridge and proxies UI tools to it.</div>
-            <div>Do not point clients at the random localhost bridge URL directly.</div>
+            <div>{t("secondary_ui.mcp_connect.bridge")}</div>
+            <div>{t("secondary_ui.mcp_connect.starts_before")}<span className="font-mono text-card-foreground">openwork-ui-mcp</span>{t("secondary_ui.mcp_connect.starts_after")}</div>
+            <div>{t("secondary_ui.mcp_connect.no_direct_url")}</div>
           </div>
         </CardContent>
       </Card>
@@ -827,7 +827,7 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
 
       <Card variant="outline" size="sm">
         <CardHeader>
-          <CardTitle>Discovery</CardTitle>
+          <CardTitle>{t("secondary_ui.mcp_connect.discovery")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative overflow-hidden rounded-xl bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-xl)-1px)] before:border before:border-border">
@@ -835,32 +835,32 @@ function UiControlConnectionDetails(props: UiControlConnectionDetailsProps) {
               <TableBody>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 w-40 py-2 text-xs font-medium">
-                    Production discovery file
+                    {t("secondary_ui.mcp_connect.production_file")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
-                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.differentai.openwork/openwork-ui-control.json</span>
+                    <span className="font-mono text-xs break-all">{"~/Library/Application Support/com.differentai.openwork/openwork-ui-control.json"}</span>
                   </TableCell>
                 </TableRow>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                    Dev discovery file
+                    {t("secondary_ui.mcp_connect.dev_file")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
-                    <span className="font-mono text-xs break-all">~/Library/Application Support/com.differentai.openwork.dev/openwork-ui-control.json</span>
+                    <span className="font-mono text-xs break-all">{"~/Library/Application Support/com.differentai.openwork.dev/openwork-ui-control.json"}</span>
                   </TableCell>
                 </TableRow>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                   <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                    Override
+                    {t("secondary_ui.mcp_connect.override")}
                   </TableCell>
                   <TableCell className="py-2 whitespace-normal">
-                    <span className="font-mono text-xs break-all">OPENWORK_UI_CONTROL_DISCOVERY=/path/to/openwork-ui-control.json</span>
+                    <span className="font-mono text-xs break-all">{"OPENWORK_UI_CONTROL_DISCOVERY=/path/to/openwork-ui-control.json"}</span>
                   </TableCell>
                 </TableRow>
                 {props.environment?.OPENWORK_UI_CONTROL_DISCOVERY ? (
                   <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
                     <TableCell className="bg-muted/50 py-2 text-xs font-medium">
-                      Current override
+                      {t("secondary_ui.mcp_connect.current_override")}
                     </TableCell>
                     <TableCell className="py-2 whitespace-normal">
                       <span className="font-mono text-xs break-all">{props.environment.OPENWORK_UI_CONTROL_DISCOVERY}</span>

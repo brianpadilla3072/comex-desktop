@@ -26,9 +26,10 @@ import {
 
 type Busy = "choose" | "reset" | ComputerPermission | null;
 
-const PERMISSIONS: Array<{ id: ComputerPermission; title: string; purpose: string }> = [
-  { id: "accessibility", title: "Accessibility", purpose: "Use app controls, the mouse and the keyboard in Mac apps." },
-  { id: "screenRecording", title: "Screen Recording", purpose: "See app windows. macOS may call it Screen & System Audio Recording." },
+/** Locale keys; the macOS pane names are translated as macOS shows them in each language. */
+const PERMISSIONS: Array<{ id: ComputerPermission; titleKey: string; purposeKey: string }> = [
+  { id: "accessibility", titleKey: "secondary_ui.computer.perm_accessibility", purposeKey: "secondary_ui.computer.perm_accessibility_purpose" },
+  { id: "screenRecording", titleKey: "secondary_ui.computer.perm_screen", purposeKey: "secondary_ui.computer.perm_screen_purpose" },
 ];
 // After opening a pane, give macOS a moment before offering the stale-entry fix.
 const STUCK_AFTER_MS = 15_000;
@@ -217,9 +218,9 @@ export function ComputerUseView() {
       {showPermissions ? (
         <LayoutSection>
           <LayoutSectionHeader>
-            <LayoutSectionTitle>macOS permissions</LayoutSectionTitle>
+            <LayoutSectionTitle>{t("secondary_ui.computer.perm_title")}</LayoutSectionTitle>
             <LayoutSectionDescription>
-              In System Settings, turn on <span className="font-medium text-foreground" data-testid="settings-computer-entry">{entry}</span> for both permissions. This page updates on its own.
+              {t("secondary_ui.computer.perm_desc_before")}<span className="font-medium text-foreground" data-testid="settings-computer-entry">{entry}</span>{t("secondary_ui.computer.perm_desc_after")}
             </LayoutSectionDescription>
           </LayoutSectionHeader>
 
@@ -231,33 +232,33 @@ export function ComputerUseView() {
             return (
               <LayoutSectionItem key={permission.id}>
                 <LayoutSectionItemHeader>
-                  <LayoutSectionItemTitle>{permission.title}</LayoutSectionItemTitle>
-                  <LayoutSectionItemDescription>{permission.purpose}</LayoutSectionItemDescription>
+                  <LayoutSectionItemTitle>{t(permission.titleKey)}</LayoutSectionItemTitle>
+                  <LayoutSectionItemDescription>{t(permission.purposeKey)}</LayoutSectionItemDescription>
                   <LayoutSectionItemHeaderActions>
                     <span
                       data-testid={`settings-computer-permission-${permission.id}`}
                       data-state={on ? "done" : waiting ? "waiting" : "todo"}
                       className={cn("text-sm", on ? "text-green-11" : waiting ? "text-amber-11" : "text-muted-foreground")}
                     >
-                      {on ? "On" : waiting ? "Waiting for macOS" : "Off"}
+                      {on ? t("secondary_ui.computer.perm_on") : waiting ? t("secondary_ui.computer.perm_waiting") : t("secondary_ui.computer.perm_off")}
                     </span>
                     {!on ? (
                       <Button size="sm" variant={nextPermission === permission.id ? "default" : "outline"} disabled={busy !== null || !verified} aria-busy={busy === permission.id} onClick={() => openPermission(permission.id)}>
-                        Open {permission.title}
+                        {t("secondary_ui.computer.perm_open", { permission: t(permission.titleKey) })}
                       </Button>
                     ) : null}
                   </LayoutSectionItemHeaderActions>
                 </LayoutSectionItemHeader>
                 {stuck ? (status?.entry.ours
-                  ? <div><Button size="sm" variant="ghost" disabled={busy !== null} aria-busy={busy === "reset"} data-testid={`settings-computer-reset-${permission.id}`} onClick={() => void act("reset", () => desktopBridge.computerResetPermission(permission.id))}>Already on? Reset and ask again</Button></div>
-                  : <LayoutSectionItemFootnote>Already on? Remove {entry} from the list with the minus button, then add it again.</LayoutSectionItemFootnote>) : null}
+                  ? <div><Button size="sm" variant="ghost" disabled={busy !== null} aria-busy={busy === "reset"} data-testid={`settings-computer-reset-${permission.id}`} onClick={() => void act("reset", () => desktopBridge.computerResetPermission(permission.id))}>{t("secondary_ui.computer.perm_reset")}</Button></div>
+                  : <LayoutSectionItemFootnote>{t("secondary_ui.computer.perm_remove", { entry })}</LayoutSectionItemFootnote>) : null}
               </LayoutSectionItem>
             );
           })}
 
           <LayoutSectionItem>
             <LayoutSectionItemFootnote>
-              macOS lists them under {entry}, the helper OpenWork uses for computer use. The agent still sees the app window it is using, and its content goes to your AI model provider. If macOS offers Quit &amp; Reopen, either choice is fine: OpenWork stays open and this page checks again on its own.
+              {t("secondary_ui.computer.perm_footnote", { entry })}
             </LayoutSectionItemFootnote>
           </LayoutSectionItem>
         </LayoutSection>
