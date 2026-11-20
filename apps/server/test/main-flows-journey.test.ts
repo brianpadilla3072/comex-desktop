@@ -83,18 +83,22 @@ test("create, organize, move and share an application without the engine", async
   assert.equal((await call("POST", tasksPath, host, { name: "Diaria", prompt: "Revisá novedades.", schedule: { kind: "daily", hour: 8, minute: 30 } })).status, 200);
 
   // 4. Export, delete, import the bundle back.
-  const exported = await call("GET", `/specialist-applications/${app.application.id}/export`, host);
-  assert.equal(exported.status, 200, exported.text);
-  const bundle = z.object({ format: z.literal("openwork.specialist-application") }).passthrough().parse(exported.json);
-  assert.equal(exported.text.includes(dir), false, "the bundle never carries machine paths");
+  // The default export is a .owapp archive (a ZIP); it travels as raw bytes.
+  const exportResponse = await fetch(`http://127.0.0.1:${server.port}/specialist-applications/${app.application.id}/export`, { headers: host });
+  assert.equal(exportResponse.status, 200);
+  assert.match(exportResponse.headers.get("content-type") ?? "", /application\/zip/);
+  const archive = Buffer.from(await exportResponse.arrayBuffer());
+  assert.equal(archive.subarray(0, 2).toString("latin1"), "PK");
+  assert.equal(archive.toString("latin1").includes(dir), false, "the bundle never carries machine paths");
   const deleted = await call("DELETE", `/specialist-applications/${app.application.id}`, host);
   assert.equal(deleted.status, 200, deleted.text);
   assert.deepEqual(z.object({ catalog }).parse(deleted.json).catalog.applications, []);
   const afterDelete = workspaces.parse((await call("GET", "/workspaces", bearer(CLIENT))).json).items.map(item => item.id);
   assert.equal(afterDelete.includes(app.workspaceId) || afterDelete.includes(projectId), false);
-  const imported = await call("POST", "/specialist-applications/import", host, { bundle });
-  assert.equal(imported.status, 201, imported.text);
-  const restored = z.object({ application, workspaceId: z.string() }).parse(imported.json);
+  const importResponse = await fetch(`http://127.0.0.1:${server.port}/specialist-applications/import`, { method: "POST", headers: { ...host, "content-type": "application/zip" }, body: archive });
+  const importedText = await importResponse.text();
+  assert.equal(importResponse.status, 201, importedText);
+  const restored = z.object({ application, workspaceId: z.string() }).parse(JSON.parse(importedText));
   assert.equal(restored.application.name, "Viaje");
   const restoredTasks = tasks.parse((await call("GET", `/specialist-applications/${restored.application.id}/tasks`, bearer(CLIENT))).json).tasks;
   assert.deepEqual(restoredTasks.map(item => [item.name, item.enabled]), [["Diaria", false]]);
