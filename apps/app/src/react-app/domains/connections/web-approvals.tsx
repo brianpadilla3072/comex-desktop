@@ -31,6 +31,35 @@ export type WebApprovalsState =
 
 const POLL_MS = 3_000;
 
+// Translated titles for the actions `openwork-server` gates behind an approval
+// (`requireApproval` in apps/server). The server's summary is English, so it is
+// only shown, with the raw action code, for an action this map does not know.
+const ACTION_TITLE_KEYS: Record<string, string> = {
+  "workspace.files.session.ops": "web_approvals.action_files_session_ops",
+  "workspace.file.write": "web_approvals.action_file_write",
+  "cloud_plugins.remove": "web_approvals.action_cloud_plugins_remove",
+  "config.write": "web_approvals.action_config_write",
+  "config.patch": "web_approvals.action_config_write",
+  "config.global.write": "web_approvals.action_config_global_write",
+  "config.authorized_folders.write": "web_approvals.action_authorized_folders_write",
+  "plugins.add": "web_approvals.action_plugins_add",
+  "plugins.remove": "web_approvals.action_plugins_remove",
+  "skills.upsert": "web_approvals.action_skills_upsert",
+  "skills.delete": "web_approvals.action_skills_delete",
+  "mcp.add": "web_approvals.action_mcp_add",
+  "mcp.remove": "web_approvals.action_mcp_remove",
+  "mcp.auth.remove": "web_approvals.action_mcp_auth_remove",
+  "commands.upsert": "web_approvals.action_commands_upsert",
+  "commands.delete": "web_approvals.action_commands_delete",
+};
+
+/** What a card says about an approval: a translated title, or the server's own words and code. */
+export function describeWebApproval(item: Pick<OpenworkPendingApproval, "action" | "summary">): { title: string; code: string | null } {
+  const key = Object.hasOwn(ACTION_TITLE_KEYS, item.action) ? ACTION_TITLE_KEYS[item.action] : undefined;
+  if (key) return { title: t(key), code: null };
+  return { title: item.summary, code: item.action };
+}
+
 /** One poll: nothing to do unless the server waits for manual approvals. */
 export async function loadWebApprovals(client: WebApprovalsClient): Promise<WebApprovalsState> {
   const status = await client.status();
@@ -87,16 +116,19 @@ export function WebApprovalsPanel(props: PanelProps) {
     <div className="fixed bottom-4 right-4 z-[100] flex w-[min(420px,calc(100vw-2rem))] flex-col gap-2" data-testid="web-approvals" aria-live="polite">
       {items.map((item) => {
         const busy = props.busyId === item.id;
+        const description = describeWebApproval(item);
         return (
           <div key={item.id} className="rounded-xl border border-dls-border bg-dls-surface p-3 shadow-lg" data-approval-id={item.id}>
             <div className="flex items-start gap-3">
               <ShieldCheck size={16} className="mt-0.5 shrink-0 text-dls-secondary" />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium leading-5 text-dls-text">{t("web_approvals.title")}</div>
-                <div className="mt-0.5 break-words text-[12px] leading-5 text-dls-text">{item.summary}</div>
-                <div className="mt-1 text-[12px] leading-5 text-dls-secondary">
-                  {t("web_approvals.action", { action: item.action })}
-                </div>
+                <div className="mt-0.5 break-words text-[12px] leading-5 text-dls-text">{description.title}</div>
+                {description.code ? (
+                  <div className="mt-1 text-[12px] leading-5 text-dls-secondary">
+                    {t("web_approvals.action", { action: description.code })}
+                  </div>
+                ) : null}
                 {item.paths.length > 0 ? (
                   <ul className="mt-1 flex flex-col gap-0.5">
                     {item.paths.map((path) => (

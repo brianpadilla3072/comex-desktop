@@ -11,7 +11,8 @@ const { createRoot } = await import("react-dom/client");
 const { renderToStaticMarkup } = await import("react-dom/server");
 const { OpenworkServerError } = await import("../src/app/lib/openwork-server");
 import type { OpenworkPendingApproval } from "../src/app/lib/openwork-server";
-const { answerWebApproval, loadWebApprovals, WebApprovalsPanel, WebApprovalsResponder } = await import("../src/react-app/domains/connections/web-approvals");
+const { currentLocale, setLocale } = await import("../src/i18n");
+const { answerWebApproval, describeWebApproval, loadWebApprovals, WebApprovalsPanel, WebApprovalsResponder } = await import("../src/react-app/domains/connections/web-approvals");
 import type { WebApprovalsClient } from "../src/react-app/domains/connections/web-approvals";
 const { isDesktopRuntime } = await import("../src/app/utils");
 
@@ -77,10 +78,37 @@ describe("web approvals panel", () => {
   test("shows the change with approve and deny", () => {
     const html = renderToStaticMarkup(<WebApprovalsPanel state={{ kind: "owner", items: [pending] }} onRespond={() => {}} />);
     expect(html).toContain("Approve this change?");
-    expect(html).toContain("Upsert skill reporte");
+    expect(html).toContain("Save a skill");
     expect(html).toContain("/workspace/.opencode/skills/reporte/SKILL.md");
     expect(html).toContain("Approve");
     expect(html).toContain("Deny");
+    // A known action gets a translated title instead of the server's English summary and code.
+    expect(html).not.toContain("Upsert skill reporte");
+    expect(html).not.toContain("skills.upsert");
+  });
+
+  test("an unknown action falls back to the server's summary and action code", () => {
+    const unknown = { ...pending, action: "future.thing", summary: "Do a future thing" };
+    expect(describeWebApproval(unknown)).toEqual({ title: "Do a future thing", code: "future.thing" });
+    const html = renderToStaticMarkup(<WebApprovalsPanel state={{ kind: "owner", items: [unknown] }} />);
+    expect(html).toContain("Do a future thing");
+    expect(html).toContain("Action: future.thing");
+  });
+
+  test("in Spanish the card names the change in Spanish, not the server's English", () => {
+    const previous = currentLocale();
+    setLocale("es");
+    try {
+      const patch = { ...pending, action: "config.patch", summary: "Patch workspace config" };
+      const html = renderToStaticMarkup(<WebApprovalsPanel state={{ kind: "owner", items: [patch] }} />);
+      expect(html).toContain("¿Aprobar este cambio?");
+      expect(html).toContain("Cambiar la configuración del proyecto");
+      expect(html).not.toContain("Patch workspace config");
+      expect(html).not.toContain("config.patch");
+      expect(describeWebApproval({ action: "mcp.add", summary: "Add MCP x" }).title).toBe("Agregar una conexión MCP");
+    } finally {
+      setLocale(previous);
+    }
   });
 
   test("renders nothing with no pending approvals or in auto mode", () => {
@@ -126,11 +154,11 @@ describe("web approvals responder (non-desktop runtime)", () => {
   test("approve sends allow and removes the card", async () => {
     const { client, replies } = fakeClient({});
     const container = await mountResponder(client);
-    expect(container.textContent).toContain("Upsert skill reporte");
+    expect(container.textContent).toContain("Save a skill");
     await act(async () => { button(container, "Approve").click(); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     expect(replies).toEqual([{ id: "apr_1", reply: "allow" }]);
-    expect(container.textContent).not.toContain("Upsert skill reporte");
+    expect(container.textContent).not.toContain("Save a skill");
   });
 
   test("deny sends deny", async () => {
@@ -146,7 +174,7 @@ describe("web approvals responder (non-desktop runtime)", () => {
     const container = await mountResponder(client);
     await act(async () => { button(container, "Approve").click(); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-    expect(container.textContent).toContain("Upsert skill reporte");
+    expect(container.textContent).toContain("Save a skill");
     expect(container.textContent).toContain("Couldn't send your answer");
   });
 

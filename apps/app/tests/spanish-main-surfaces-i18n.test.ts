@@ -11,7 +11,7 @@ const esEntries: Record<string, string> = es;
 // The composer, model picker, sidebar and status bar showed English labels
 // ("Select model", "Model no longer available", "Retry", "Workspaces") inside
 // a Spanish app. These sections must stay fully translated.
-const MAIN_SURFACES = ["composer", "models", "model_picker", "model_behavior", "workspace_list", "workspace", "common", "dashboard", "app", "status", "settings", "session", "session_management"];
+const MAIN_SURFACES = ["composer", "models", "model_picker", "model_behavior", "workspace_list", "workspace", "common", "dashboard", "app", "status", "settings", "session", "session_management", "web_approvals"];
 // Sent to the model, not shown to people: stays in English on purpose.
 const MODEL_FACING = new Set(["composer.connect_skill_prompt"]);
 
