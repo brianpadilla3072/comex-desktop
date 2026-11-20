@@ -4,6 +4,7 @@ export { selectPrimaryCredentialEnvName } from "@openwork/types/managed-provider
 
 import { enginePoolForConfig } from "./engine-pool.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
+import { v1EngineDormant } from "./lazy-v1-engine.js";
 import { readGlobalRuntimeOpencodeConfig, runtimeProviderMap } from "./runtime-opencode-config-store.js";
 import type { ServerConfig } from "./types.js";
 import { readOpenworkWorkspaceConfig, writeOpenworkWorkspaceConfig } from "./openwork-workspace-config-store.js";
@@ -174,6 +175,9 @@ function resolveManagedProviderAuthTarget(
     const primary = pool.connections().find((connection) => connection.role === "primary");
     const baseUrl = normalizeBaseUrl(primary?.baseUrl);
     if (!primary || !baseUrl) return null;
+    // A stopped on-demand v1 is seeded when it next starts (embedded.ts);
+    // delivering now would start it just to store a credential.
+    if (v1EngineDormant(config, baseUrl)) return null;
     const authHeader = basicAuthHeader(primary.username, primary.password);
     return {
       scope: `managed-engine\u0000generation:${primary.generationId}`,

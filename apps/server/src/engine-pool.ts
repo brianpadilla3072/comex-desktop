@@ -720,6 +720,15 @@ export class EnginePool {
     const fingerprint = await this.currentFingerprint();
     const primary = this.generations.find((entry) => entry.status === "primary") ?? null;
 
+    // A stopped on-demand engine (lazy-v1-engine.ts) reads the file written
+    // above when it next starts: it already "serves" the new config, and a
+    // reload or standby would only start it.
+    if (primary?.handle.dormant?.() && !this.generations.some((entry) => entry.status === "draining")) {
+      primary.fingerprint = fingerprint;
+      primary.reloadedDirectories.clear();
+      return { action: "updated_live" };
+    }
+
     // Nothing this workspace's instance reads at build time changed: either
     // the process was spawned on this config or this directory was already
     // reloaded onto it. Skipping here is what keeps a repeating no-op sync

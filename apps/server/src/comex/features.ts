@@ -208,3 +208,10 @@ export function startupScreenPolishEnabled(env: NodeJS.ProcessEnv = process.env)
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("startupScreenPolish", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** Engine v1 starts on demand while v2 serves chats and stops when idle (docs/features/lazy-v1-engine). */
+export function lazyV1EngineEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("lazyV1Engine", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

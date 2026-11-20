@@ -841,6 +841,16 @@
               ],
               "description": "Localized startup screen with early recovery: The screen shown before the app finishes loading speaks the person's language (saved choice, the suggested default, else the browser language) and offers Reload after 12 seconds instead of 45, or right away when the app bundle fails to load. The app remembers the server's answer locally so the next start can honor it before anything else loads. Renders DEN_FEATURE_STARTUP_SCREEN_POLISH."
             },
+            "lazyV1Engine": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Start the legacy chat engine only when needed: While chats run on the current engine, the legacy engine (OpenCode v1) no longer starts with the app: it starts the first time something needs it, such as an old chat or a provider sign-in, and stops again after 10 idle minutes, saving about 440 MB of memory. Renders DEN_FEATURE_LAZY_V1_ENGINE."
+            },
             "gatewayDashboard": {
               "enum": [
                 "",

@@ -25,7 +25,8 @@ can safely run in parallel on this kind of machine.
   embeds `openwork-server`) stays at 150–255 MB.
 - **Fixed overhead worth removing (recommendation):** the OpenCode **v1 engine runs the
   whole time (438 MB)** even though every chat goes through v2. It serves no traffic
-  and uses about 1% CPU.
+  and uses about 1% CPU. Now started on demand behind `lazyV1Engine` (see
+  recommendation 2; saving pending live verification).
 - **Dev tooling costs about 1 GB per dev session.** Vite takes 340–840 MB, and the
   pnpm/node launcher chain about 430–610 MB. A packaged app does not have it.
 - **Bug seen once under load (defensive fix):** at 6 parallel chats the renderer crashed
@@ -176,11 +177,15 @@ about 300 bytes of props diff.
      minute until it was restarted. Any dev session older than this change should be
      restarted before parallel runs.
 2. **Stop the idle OpenCode v1 engine once v2 serves the chats** (438 MB and about 1%
-   CPU per app, all the time). It stays up because v1 still answers reads and Stop for
-   history it created (`docs/opencode-engine-migration.md`). Starting it on demand, or
-   letting the existing idle reaper (`engine-instance-reaper.ts`) cover the whole v1
-   process, would save more than any other single change. It touches the engine
-   switch fence, so it needs its own design and review; it is not done here.
+   CPU per app, all the time). It stayed up because v1 still answers reads and Stop for
+   history it created (`docs/opencode-engine-migration.md`), the provider settings and
+   some MCP reads. **Done behind `lazyV1Engine`** (on by default,
+   `docs/features/lazy-v1-engine/README.md`): while v2 serves chats, v1 starts on the
+   first request that needs it and stops after 10 idle minutes. **Expected saving about
+   440 MB of PSS and ~1% CPU for as long as nothing uses v1, pending live verification**
+   (re-measure the idle and 10-chat scenarios with `perf-sample.mjs`). Opening Settings,
+   the Connections page or creating a workspace from the first chat still starts v1
+   for 10 minutes.
 3. **Renderer CPU in dev is high**: 60–90% of a thread with 10 chats. React's
    development profiling builds a props diff on every render, so much of this
    disappears in production. Still, with 10 stalled tasks and no turns, the renderer

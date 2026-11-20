@@ -29,6 +29,12 @@ export type ManagedOpencodeServer = {
   execution: OpencodeExecutionSnapshot;
   isAlive: () => boolean;
   close: () => Promise<void>;
+  /**
+   * Present on an on-demand engine (lazy-v1-engine.ts): true while its address
+   * is served but no engine process runs. A dormant engine needs no reload,
+   * since its next start reads the current config.
+   */
+  dormant?: () => boolean;
 };
 
 export type OpencodeExecutionEnvEntry = {
@@ -96,7 +102,7 @@ export function createManagedProcessClose(
 
 const SECRET_ENV_PATTERN = /(TOKEN|PASSWORD|USERNAME|AUTH|SECRET|KEY|CREDENTIAL)/i;
 
-function randomSecret(): string {
+export function randomSecret(): string {
   return randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
 }
 
@@ -125,7 +131,7 @@ async function findFreePort(hostname: string, excludedPorts: number[] = []): Pro
   throw new Error("Failed to resolve free port outside the excluded set");
 }
 
-type ManagedOpencodeServerOptions = {
+export type ManagedOpencodeServerOptions = {
   bin?: string;
   cwd: string;
   hostname?: string;
@@ -139,6 +145,12 @@ type ManagedOpencodeServerOptions = {
    * keep that recovery disabled.
    */
   stateDir?: string;
+  /**
+   * Fixed Basic auth credentials. An on-demand engine keeps one address and
+   * one set of credentials across process restarts, so connections configured
+   * earlier still authenticate. Omit them to generate fresh ones per spawn.
+   */
+  credentials?: { username: string; password: string };
 };
 
 class ManagedOpencodeExitError extends Error {
@@ -224,8 +236,8 @@ async function startManagedOpencodeServer(
   hostname: string,
   port: number,
 ): Promise<ManagedOpencodeServer> {
-  const username = randomSecret();
-  const password = randomSecret();
+  const username = options.credentials?.username ?? randomSecret();
+  const password = options.credentials?.password ?? randomSecret();
   const args = ["serve", "--hostname", hostname, "--port", String(port), "--cors", "*"];
   const command = options.bin?.trim() || "opencode";
   // The engine's in-process npm installs use Arborist, which audits by default.

@@ -961,6 +961,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  lazyV1Engine: {
+    label: "Start the legacy chat engine only when needed",
+    description: "While chats run on the current engine, the legacy engine (OpenCode v1) no longer starts with the app: it starts the first time something needs it, such as an old chat or a provider sign-in, and stops again after 10 idle minutes, saving about 440 MB of memory.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/lazy-v1-engine/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
 })
 
 export type FeatureKey = keyof typeof FEATURES

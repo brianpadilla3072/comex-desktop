@@ -51,6 +51,7 @@ import {
   isEngineConnectionFailure,
   setEnginePoolForConfig,
   type EnginePoolConnection,
+  type EnginePoolHooks,
   type EnginePoolStandby,
   type EngineEventProxyLease,
   type EngineSpawnTemplate,
@@ -66,6 +67,7 @@ import {
   setEngineInstanceReaperForConfig,
   type TrackedEngineInstance,
 } from "./engine-instance-reaper.js";
+import { lazyV1EngineForUrl, v1EngineDormant } from "./lazy-v1-engine.js";
 import { shouldDeferInPlaceEngineReload } from "./engine-reload-defer.js";
 import { LatestTrailingWorkQueue } from "./latest-trailing-work-queue.js";
 import { buildEngineAuthProbeHeader } from "./engine-registry.js";
@@ -827,6 +829,8 @@ export async function startServer(
 ): Promise<ServeResult & {
   completeManagedEngineStartup: () => Promise<void>;
   setEngineForcePolicy: EngineV2Preview["setForcePolicy"];
+  /** True while OpenCode v2 serves chats, so an on-demand v1 may stop when idle. */
+  v2ServesChats: () => boolean;
 }> {
   let managedEngineReady = options.deferManagedEngineStartup !== true;
   let stopped = false;
@@ -860,8 +864,12 @@ export async function startServer(
   const engineInstanceReaper = new EngineInstanceReaper({
     // Only the managed engine is swept: the pool exists exactly when this
     // server owns the engine process. An attached engine may serve other
-    // clients, so its per-directory instances are not ours to trim.
-    engineBaseUrl: () => enginePoolForConfig(config)?.primaryUrl() ?? null,
+    // clients, so its per-directory instances are not ours to trim. A stopped
+    // on-demand v1 has no instances, and probing it would start it.
+    engineBaseUrl: () => {
+      const url = enginePoolForConfig(config)?.primaryUrl() ?? null;
+      return url && !v1EngineDormant(config, url) ? url : null;
+    },
     activeDirectory: () => {
       const active = config.workspaces[0];
       return active ? resolveOpencodeDirectory(active) : null;
@@ -1389,6 +1397,10 @@ export async function startServer(
   return {
     ...server,
     setEngineForcePolicy: (policy) => engineV2Preview.setForcePolicy(policy),
+    v2ServesChats: () => {
+      const status = engineV2Preview.status();
+      return status.enabled && status.chatRouting;
+    },
     completeManagedEngineStartup: async () => {
       if (managedEngineReady) return;
       const pool = enginePoolForConfig(config);
@@ -3665,13 +3677,16 @@ function createRoutes(
   });
 
   addRoute(routes, "GET", "/experimental/engine-v2-preview/status", "client", async () => {
-    return jsonResponse(engineV2Preview.status());
+    return jsonResponse({ ...engineV2Preview.status(), v1Engine: describeV1EngineState(config) });
   });
 
   // Counts only. The app checks this before a switch or migration so it can
   // say what is still running instead of orphaning or copying it mid-turn.
   addRoute(routes, "GET", "/experimental/engine-v2-preview/activity", "client", async () => {
-    const response = jsonResponse(await describeEngineActivity(config, engineV2Preview));
+    const response = jsonResponse({
+      ...await describeEngineActivity(config, engineV2Preview),
+      v1Engine: describeV1EngineState(config),
+    });
     response.headers.set("Cache-Control", "no-store");
     return response;
   });
@@ -3717,6 +3732,14 @@ function createRoutes(
         await apply();
       } });
     } else await apply();
+    if (!(status.enabled && status.chatRouting)) {
+      // v1 serves chats again: an on-demand v1 starts now, not on the first message.
+      await ensureV1EngineRunning(config).catch((error: unknown) => {
+        logger.log("warn", "Engine v1 did not start after switching to it; it starts on the next request.", {
+          "error.message": error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
     if (shouldSyncLiveProviderOwnerTransition(previouslyLiveProviderSync, status.liveProviderSync)) {
       void cloudProviderSync.run("engine_routing_changed");
     }
@@ -5328,6 +5351,10 @@ async function probeWorkspaceActivity(config: ServerConfig, workspace: Workspace
   for (const entry of enginePoolForConfig(config)?.connections() ?? []) {
     connections.set(entry.baseUrl, buildEngineAuthProbeHeader(entry.username, entry.password));
   }
+  // A stopped on-demand v1 runs nothing; probing it would only start it.
+  for (const baseUrl of [...connections.keys()]) {
+    if (v1EngineDormant(config, baseUrl)) connections.delete(baseUrl);
+  }
   type ProbeResult =
     | { kind: "unknown"; reason: "unreachable" | "unreadable" }
     | { kind: "sessions"; busy: number }
@@ -5484,6 +5511,77 @@ export async function describeEngineActivity(
   return { v1, v2, checkedAt: new Date().toISOString() };
 }
 
+export type V1EngineState =
+  | { onDemand: false }
+  | {
+      onDemand: true;
+      /** "stopped" is the normal resting state while v2 serves chats, not an error. */
+      state: "stopped" | "starting" | "running" | "stopping";
+      starts: number;
+      idleStopMs: number;
+      lastStartedAt: string | null;
+      lastStoppedAt: string | null;
+      lastError: string | null;
+    };
+
+/** Whether the managed v1 engine runs on demand, and whether its process runs now. */
+export function describeV1EngineState(config: ServerConfig): V1EngineState {
+  const engine = lazyV1EngineForUrl(config, enginePoolForConfig(config)?.primaryUrl());
+  if (!engine) return { onDemand: false };
+  const status = engine.status();
+  const iso = (at: number | null) => (at === null ? null : new Date(at).toISOString());
+  return {
+    onDemand: true,
+    state: status.state,
+    starts: status.starts,
+    idleStopMs: status.idleMs,
+    lastStartedAt: iso(status.lastStartedAt),
+    lastStoppedAt: iso(status.lastStoppedAt),
+    lastError: status.lastError,
+  };
+}
+
+/** Start the on-demand v1 engine now, when v1 runs on demand. Otherwise a no-op. */
+export async function ensureV1EngineRunning(config: ServerConfig): Promise<void> {
+  await lazyV1EngineForUrl(config, enginePoolForConfig(config)?.primaryUrl())?.ensureStarted();
+}
+
+/**
+ * Whether a running v1 process still has work: a non-idle session or an
+ * unanswered permission or question, in the default folder and every folder
+ * that saw v1 traffic (the instance reaper's record; probing any other folder
+ * would only boot an instance for it). Probed at the process's own URL so the
+ * probe never counts as traffic. Throws when the answer is unknown, which
+ * keeps the engine running.
+ */
+export async function v1EngineProcessBusy(
+  config: ServerConfig,
+  engine: { url: string; username: string; password: string },
+): Promise<boolean> {
+  const directories = new Set<string>();
+  for (const instance of engineInstanceReaperForConfig(config)?.snapshot() ?? []) directories.add(instance.directory);
+  const authorization = buildEngineAuthProbeHeader(engine.username, engine.password);
+  const probes = [null, ...directories].flatMap((directory) =>
+    ["/session/status", "/permission", "/question"].map(async (path) => {
+      const url = new URL(path, engine.url);
+      if (directory) url.searchParams.set("directory", directory);
+      const response = await loopbackFetch(url.toString(), {
+        headers: { Authorization: authorization },
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) throw new Error(`Engine v1 activity probe failed with status ${response.status}`);
+      const payload: unknown = await response.json();
+      if (path === "/session/status") {
+        if (!isRecord(payload)) throw new Error("Engine v1 returned unreadable session status");
+        return Object.values(payload).some((status) => !isRecord(status) || status.type !== "idle");
+      }
+      if (!Array.isArray(payload)) throw new Error("Engine v1 returned an unreadable request list");
+      return payload.length > 0;
+    }));
+  const results = await Promise.all(probes);
+  return results.some(Boolean);
+}
+
 /**
  * True when the managed engine reports any non-idle session (subagent child
  * sessions carry their own ids and statuses, so they count too). Unknown
@@ -5491,6 +5589,7 @@ export async function describeEngineActivity(
  * own, and "unknown" must never park reloads forever.
  */
 async function engineHasActiveSessions(config: ServerConfig, workspace: WorkspaceInfo): Promise<boolean> {
+  if (v1EngineDormant(config, resolveWorkspaceOpencodeConnection(config, workspace).baseUrl)) return false;
   try {
     const opencode = createWorkspaceOpencodeClient(config, workspace);
     const statuses: unknown = unwrapOpencodeResult(await opencode.session.status(), "/session/status");
@@ -5619,6 +5718,9 @@ async function reloadOpencodeEngineInPlace(
   if (!baseUrl) {
     throw new ApiError(400, "opencode_unconfigured", "OpenCode base URL is missing for this workspace");
   }
+  // A stopped on-demand v1 reads current config when it next starts, so there
+  // is nothing to reload, and waking it here would defeat stopping it.
+  if (v1EngineDormant(config, baseUrl)) return;
 
   const directory = resolveOpencodeDirectory(workspace);
   const targetUrl = buildOpencodeReloadUrl(baseUrl, directory);
@@ -5814,7 +5916,8 @@ async function runRuntimeMcpSyncToOpencodeEngine(
   const registrationIdentity = engineMcpRegistrationIdentity(config, workspace);
   if (activeState) reconcileEngineMcpWorkspaceIdentity(activeState, workspace.id, connectionIdentity);
   if (activeState && !options?.deferred) cancelDeferredEngineMcpSync(activeState, workspace.id);
-  if (!baseUrl || !connectionIdentity) {
+  // A stopped on-demand v1 gets every runtime MCP pushed when it next starts.
+  if (!baseUrl || !connectionIdentity || v1EngineDormant(config, baseUrl)) {
     return { status: "skipped", syncedNames: [], failures: [] };
   }
 
@@ -6363,7 +6466,8 @@ export async function warmActiveEngineFolder(
   const connection = standby
     ? { baseUrl: standby.baseUrl, authHeader: buildEngineAuthProbeHeader(standby.username, standby.password) }
     : resolveWorkspaceOpencodeConnection(config, workspace);
-  if (!connection.baseUrl) return null;
+  // Warming a stopped on-demand v1 would start it for nothing.
+  if (!connection.baseUrl || (!standby && v1EngineDormant(config, connection.baseUrl))) return null;
   const result = await warmEngineFolder({
     target: { baseUrl: connection.baseUrl, ...(connection.authHeader ? { authHeader: connection.authHeader } : {}) },
     directory,
@@ -6380,6 +6484,31 @@ export async function warmActiveEngineFolder(
 }
 
 /**
+ * Seed a freshly started on-demand v1 process (lazy-v1-engine.ts) with the
+ * managed provider credentials, at its own address, before it serves traffic.
+ * Only the pool's primary is seeded here; a rollover standby is seeded by the
+ * pool. Throws when a credential could not be delivered.
+ */
+export async function seedOnDemandV1Process(
+  config: ServerConfig,
+  gateUrl: string,
+  engine: { url: string; username: string; password: string },
+): Promise<void> {
+  const primary = enginePoolForConfig(config)?.connections().find((entry) => entry.role === "primary");
+  const env = envServiceForConfig(config);
+  if (!primary || !env || primary.baseUrl !== gateUrl) return;
+  const result = await syncManagedProviderAuth({
+    config,
+    env,
+    logger: toManagedProviderAuthLogger(createServerLogger(config)),
+    target: { generationId: primary.generationId, baseUrl: engine.url, username: engine.username, password: engine.password },
+  });
+  if (result.failed.length > 0) {
+    throw new Error(`Managed provider credential seed failed for ${result.failed.map((entry) => entry.providerId).join(", ")}`);
+  }
+}
+
+/**
  * Build the engine pool for a config and register it.
  *
  * Lives here so the pool can reuse server-private helpers (in-place reload,
@@ -6393,6 +6522,8 @@ export function createEnginePoolForConfig(input: {
   fingerprint: string;
   registryId: string | null;
   trustedIdentity: string | null;
+  /** Replacement engines (rollover, recovery). Defaults to a plain managed spawn. */
+  spawn?: EnginePoolHooks["spawn"];
 }): EnginePool {
   const { config } = input;
   const logger = createServerLogger(config);
@@ -6443,6 +6574,7 @@ export function createEnginePoolForConfig(input: {
       writeRuntimeConfigFile: (poolConfig) => writeOpenworkRuntimeConfigFile(poolConfig),
       registerTrusted: (poolConfig, generation) => registerTrustedOpencodeProcess(poolConfig, generation),
       clearTrusted: (poolConfig, identity) => clearTrustedOpencodeProcess(poolConfig, identity),
+      ...(input.spawn ? { spawn: input.spawn } : {}),
       logger,
     },
   });
@@ -6455,7 +6587,16 @@ export function createEnginePoolForConfig(input: {
   setEnginePoolForConfig(config, pool);
   threadApprovals = startThreadApprovalReplayer({
     config,
-    primary: () => pool.connections().find((entry) => entry.role === "primary") ?? null,
+    // An on-demand v1 is followed at its process's own address: a held event
+    // stream through its gate would count as traffic and keep it running, and
+    // while it is stopped there is nothing to follow.
+    primary: () => {
+      const primary = pool.connections().find((entry) => entry.role === "primary") ?? null;
+      const engine = primary ? lazyV1EngineForUrl(config, primary.baseUrl) : null;
+      if (!primary || !engine) return primary;
+      const direct = engine.directUrl();
+      return direct ? { ...primary, baseUrl: direct } : null;
+    },
     // The engine reports an instance by its canonical path (macOS resolves
     // /tmp and /var through /private), so compare canonical forms.
     workspaceIdForDirectory: async (directory) => {
@@ -6976,7 +7117,8 @@ async function disconnectMcpFromOpencodeEngine(
 ): Promise<void> {
   const connection = resolveWorkspaceOpencodeConnection(config, workspace);
   const baseUrl = connection.baseUrl?.trim() ?? "";
-  if (!baseUrl) return;
+  // A stopped on-demand v1 holds no MCP clients to drop.
+  if (!baseUrl || v1EngineDormant(config, baseUrl)) return;
 
   const url = new URL(baseUrl);
   url.pathname = `/mcp/${encodeURIComponent(name)}/disconnect`;

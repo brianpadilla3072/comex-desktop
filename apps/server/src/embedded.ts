@@ -23,19 +23,29 @@ import {
 import {
   clearEnginePoolForConfig,
   computeEngineConfigFingerprint,
+  enginePoolForConfig,
   type EnginePool,
   type EnginePoolSnapshot,
   type EngineSpawnTemplate,
 } from "./engine-pool.js";
-import { createManagedOpencodeServer, type ManagedOpencodeServer, type OpencodeExecutionSnapshot } from "./managed-opencode.js";
+import {
+  createManagedOpencodeServer,
+  randomSecret,
+  type ManagedOpencodeServer,
+  type OpencodeExecutionSnapshot,
+} from "./managed-opencode.js";
 import {
   clearTrustedOpencodeProcess,
   createEnginePoolForConfig,
   createServerLogger,
   registerTrustedOpencodeProcess,
+  seedOnDemandV1Process,
   startServer,
   syncAllWorkspacesRuntimeMcpToEngine,
+  v1EngineProcessBusy,
 } from "./server.js";
+import { createLazyEngine, lazyV1EngineIdleMs, registerLazyV1Engine, type LazyEngine } from "./lazy-v1-engine.js";
+import { lazyV1EngineEnabled } from "./comex/features.js";
 import { ensureLocalWorkspaceFiles } from "./workspace-init.js";
 import { findManagedEngineWorkspace, resolveManagedEngineCwd, shouldStartManagedEngine } from "./workspaces.js";
 import { runtimeStorageDir } from "./runtime-db.js";
@@ -209,6 +219,9 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
   // first workspace later inherits this connection instead of a new spawn.
   const manageEngine = !config.opencodeBaseUrl && options.manageOpencode === true
     && shouldStartManagedEngine(config.workspaces);
+  const lazyV1 = manageEngine && lazyV1EngineEnabled();
+  let engineSpawnForPool: (() => Promise<ManagedOpencodeServer>) | null = null;
+  let onDemandEngine: LazyEngine | null = null;
   server = await duringStartup(() => startServer(config, { deferManagedEngineStartup: manageEngine }));
   config.port = server.port;
   const serverUrl = `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${server.port}`;
@@ -282,13 +295,23 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
         return [...new Set([config.port, ...poolPorts, startupPort].filter((port) => port > 0))];
       },
     };
-    managedOpencode = await duringStartup(() => createManagedOpencodeServer({
+    // Feature lazyV1Engine: v1 keeps its address, but its process starts on
+    // the first request and stops when idle while v2 serves chats.
+    const onDemandTemplate = lazyV1 ? engineSpawnTemplate : null;
+    const v2ServesChats = server.v2ServesChats;
+    onDemandEngine = onDemandTemplate
+      ? await duringStartup(() => createOnDemandV1Engine({ config, template: onDemandTemplate, v2ServesChats }))
+      : null;
+    managedOpencode = onDemandEngine ?? await duringStartup(() => createManagedOpencodeServer({
       bin: opencodeBin,
       cwd,
       excludedPorts: [config.port],
       env: engineEnv,
       stateDir: engineStateDir,
     }));
+    if (onDemandTemplate) {
+      engineSpawnForPool = () => createOnDemandV1Engine({ config, template: onDemandTemplate, v2ServesChats });
+    }
 
     config.opencodeBaseUrl = managedOpencode.url;
     config.opencodeUsername = managedOpencode.username;
@@ -301,17 +324,20 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
     }
     // The identity only needs to be unique per managed-process boot; a
     // random nonce provides that without routing the engine credentials
-    // through the fast identity hash.
-    managedOpencodeIdentity = [
+    // through the fast identity hash. An on-demand engine registers its trust
+    // and registry record each time its process starts (createOnDemandV1Engine).
+    managedOpencodeIdentity = lazyV1 ? null : [
       managedOpencode.pid ?? "unknown",
       randomUUID(),
     ].join(":");
-    registerTrustedOpencodeProcess(config, {
-      baseUrl: managedOpencode.url,
-      identity: managedOpencodeIdentity,
-      isAlive: managedOpencode.isAlive,
-    });
-    if (managedOpencode.pid) {
+    if (managedOpencodeIdentity) {
+      registerTrustedOpencodeProcess(config, {
+        baseUrl: managedOpencode.url,
+        identity: managedOpencodeIdentity,
+        isAlive: managedOpencode.isAlive,
+      });
+    }
+    if (managedOpencode.pid && managedOpencodeIdentity) {
       managedEngineRecordId = randomUUID();
       await registerEngineInstance(config, {
         id: managedEngineRecordId,
@@ -348,7 +374,14 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
       fingerprint: await computeEngineConfigFingerprint(engineSpawnTemplate),
       registryId: managedEngineRecordId,
       trustedIdentity: managedOpencodeIdentity,
+      ...(engineSpawnForPool ? { spawn: engineSpawnForPool } : {}),
     });
+    // v1 still serves chats: start it now, as before, so the first message
+    // does not wait for it.
+    const onDemand = onDemandEngine;
+    if (onDemand?.dormant() && !server.v2ServesChats()) {
+      await duringStartup(() => onDemand.ensureStarted());
+    }
     await duringStartup(server.completeManagedEngineStartup);
   }
 
@@ -369,4 +402,86 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
     managedOpencodePool: () => enginePool?.snapshot() ?? null,
     stop,
   };
+}
+
+/**
+ * Engine v1 behind an on-demand gate (feature lazyV1Engine, lazy-v1-engine.ts).
+ * Each process start registers the process for orphan reaping, re-registers
+ * the trusted engine identity (so runtime MCPs are pushed again), and seeds
+ * managed provider credentials; each stop undoes the first two.
+ */
+async function createOnDemandV1Engine(input: {
+  config: ServerConfig;
+  template: EngineSpawnTemplate;
+  v2ServesChats: () => boolean;
+}): Promise<LazyEngine> {
+  const { config, template } = input;
+  const logger = createServerLogger(config);
+  let recordId: string | null = null;
+  let trustedIdentity: string | null = null;
+  let unregister: () => void = () => undefined;
+  const isPrimary = () => enginePoolForConfig(config)?.primaryUrl() === engine.url;
+  const engine: LazyEngine = await createLazyEngine({
+    credentials: { username: randomSecret(), password: randomSecret() },
+    excludedPorts: template.reservedPorts(),
+    idleMs: lazyV1EngineIdleMs(),
+    idleStopAllowed: input.v2ServesChats,
+    busy: (child) => v1EngineProcessBusy(config, child),
+    execution: { command: template.bin?.trim() || "opencode", args: ["serve"], cwd: template.cwd, env: [] },
+    logger,
+    spawn: (credentials) => createManagedOpencodeServer({
+      bin: template.bin,
+      cwd: template.cwd,
+      excludedPorts: template.reservedPorts(),
+      ...(template.spawnTimeoutMs ? { timeoutMs: template.spawnTimeoutMs } : {}),
+      ...(template.stateDir ? { stateDir: template.stateDir } : {}),
+      env: { ...template.env, OPENCODE_CONFIG: template.runtimeConfigPath },
+      credentials,
+    }),
+    prepare: (child) => seedOnDemandV1Process(config, engine.url, child),
+    onStarted: async (child) => {
+      if (child.pid) {
+        const id = randomUUID();
+        recordId = id;
+        await registerEngineInstance(config, {
+          id,
+          pid: child.pid,
+          port: Number(new URL(child.url).port) || 0,
+          url: child.url,
+          startedAt: Date.now(),
+          role: "primary",
+          serverRunId: id,
+          ownerPid: process.pid,
+          authProbe: buildEngineAuthProbeHeader(child.username, child.password),
+          bin: template.bin?.trim() || "opencode",
+        }).catch(() => undefined);
+      }
+      if (!isPrimary()) return;
+      // A new identity drops the evidence that runtime MCPs were registered,
+      // then the push below registers them on the fresh process.
+      trustedIdentity = [child.pid ?? "unknown", randomUUID()].join(":");
+      registerTrustedOpencodeProcess(config, {
+        baseUrl: engine.url,
+        identity: trustedIdentity,
+        isAlive: () => engine.state() === "running",
+      });
+      void syncAllWorkspacesRuntimeMcpToEngine(config).catch((error: unknown) => {
+        logger.log("error", "Engine v1 MCP synchronization after an on-demand start failed.", {
+          "mcp.trigger": "engine_v1_on_demand_start",
+          "mcp.failure.message": error instanceof Error ? error.message : String(error),
+        });
+      });
+    },
+    onStopped: async () => {
+      const identity = trustedIdentity;
+      trustedIdentity = null;
+      if (identity) clearTrustedOpencodeProcess(config, identity);
+      const id = recordId;
+      recordId = null;
+      if (id) await removeEngineInstance(config, id).catch(() => undefined);
+    },
+    onClosed: () => unregister(),
+  });
+  unregister = registerLazyV1Engine(config, engine);
+  return engine;
 }
