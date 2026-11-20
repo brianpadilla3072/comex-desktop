@@ -81,6 +81,16 @@
               ],
               "description": "Persistent goals and automatic continuity: Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review. Renders DEN_FEATURE_TASK_CONTINUITY."
             },
+            "taskIsolationReview": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Isolated task copies with a review panel: Scheduled specialist task runs and conversations can work in an isolated copy of the project; the person reviews each changed file and accepts or discards it before it lands in the project. Renders DEN_FEATURE_TASK_ISOLATION_REVIEW."
+            },
             "remoteDevicePairing": {
               "enum": [
                 "",

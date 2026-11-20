@@ -19,6 +19,8 @@ import { comexDefaultTheme } from "@/react-app/design-system/comex-theme";
 import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
 import { useArtifactUiStore } from "../artifacts/state/artifact-store";
 import { specialistErrorMessage } from "./error-message";
+import { TaskIsolationReviewDialog } from "./task-isolation-review";
+import { t } from "../../../i18n";
 
 const ORIGIN_LABEL: Record<SpecialistLibraryEntry["origin"], string> = { official: "Del pack", "official-modified": "Del pack, editado", custom: "Propio" };
 
@@ -942,6 +944,8 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
   const [creating, setCreating] = useState(false);
   const [runsFor, setRunsFor] = useState<{ id: string; name: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  // A run that worked in an isolated copy (taskIsolationReview) opens its review here.
+  const [reviewing, setReviewing] = useState<{ isolationId: string; taskName: string } | null>(null);
   const runs = useQuery({ queryKey: runsFor ? RUNS_KEY(client, app, runsFor.id) : ["specialist-task-runs", client.baseUrl, app.id, "idle"], queryFn: () => runsFor ? client.getSpecialistTaskRuns(app.id, runsFor.id) : Promise.resolve({ runs: [] }), retry: false, enabled: runsFor !== null });
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -1017,6 +1021,11 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las tareas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
   const tasks = query.data?.tasks ?? [];
   return <div className="grid gap-3">
+    <TaskIsolationReviewDialog client={client} applicationId={app.id} isolationId={reviewing?.isolationId ?? null} title={t("task_isolation.dialog_title_run", { name: reviewing?.taskName ?? "" })} onOpenChange={open => {
+      if (open) return;
+      setReviewing(null);
+      void queryClient.invalidateQueries({ queryKey: ["specialist-task-runs", client.baseUrl, app.id] });
+    }} />
     <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button>
     <div className="flex items-center justify-between gap-2">
       <h3 className="font-medium">Tareas programadas de {app.name}</h3>
@@ -1087,6 +1096,8 @@ export function SpecialistTasksView({ app, client, dryRun, onBack, readOnly = fa
             <Badge variant={entry.status === "ok" ? "outline" : entry.status === "dispatched" ? "secondary" : "destructive"}>{entry.status === "ok" ? "ok" : entry.status === "dispatched" ? "corriendo" : entry.status === "failed" ? "falló" : entry.status === "blocked" ? "bloqueada" : entry.status === "skipped_missed" ? "horario omitido" : "solapada"}</Badge>
             <span>{entry.mode === "manual" ? "a pedido" : "programada"}{entry.missed ? ` · ${entry.missed} perdidas` : ""}</span>
             {entry.detail ? <span className="truncate">{entry.detail}</span> : null}
+            {entry.isolationId && entry.review === "pending" ? <Button size="sm" variant="outline" className="ml-auto shrink-0" disabled={readOnly} onClick={() => setReviewing({ isolationId: entry.isolationId ?? "", taskName: task.name })}>{t("task_isolation.open_review")}</Button>
+              : entry.isolationId && entry.review === "reviewed" ? <span className="ml-auto shrink-0">{t("task_isolation.run_reviewed")}</span> : null}
           </div>) : <span>Sin corridas todavía.</span>}
       </div> : null}
     </div>) : <p className="text-xs text-muted-foreground">Todavía no hay tareas.</p>}

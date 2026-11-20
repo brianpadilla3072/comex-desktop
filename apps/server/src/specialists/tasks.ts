@@ -59,6 +59,8 @@ export const taskSchema = z.object({
     evidencePath: z.string().nullable().default(null),
     /** One "skipped_overlap" log line per claimed run, not one per tick. */
     skippedLogged: z.boolean().default(false),
+    /** Isolated copy the run works in (taskIsolationReview); null when it writes to the project. */
+    isolationId: z.string().nullable().default(null),
   }).nullable(),
 });
 export type SpecialistTask = z.infer<typeof taskSchema>;
@@ -71,8 +73,11 @@ export const runSchema = z.object({
   sessionId: z.string().nullable(),
   status: z.enum(["dispatched", "ok", "failed", "blocked", "skipped_overlap", "skipped_missed"]),
   detail: z.string().max(2000).nullable(),
+  /** Isolated copy whose changes wait for review (taskIsolationReview). */
+  isolationId: z.string().nullable().default(null),
 });
-export type SpecialistTaskRun = z.infer<typeof runSchema>;
+/** Input shape: `isolationId` may be omitted by writers (it defaults to null). */
+export type SpecialistTaskRun = z.input<typeof runSchema>;
 
 export const taskInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -291,6 +296,19 @@ export function identifyRun(config: Pick<ServerConfig, "configPath">, id: string
     const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
     if (index >= 0) {
       runs[index] = { ...runs[index]!, sessionId };
+      await writeJson(runLogFile(config, id, taskId), runs);
+    }
+    return runs;
+  });
+}
+
+/** Record the isolated copy a dispatched entry works in (taskIsolationReview). */
+export function isolateRun(config: Pick<ServerConfig, "configPath">, id: string, taskId: string, at: number, isolationId: string) {
+  return serialize(id, async () => {
+    const runs = await listRuns(config, id, taskId);
+    const index = runs.findIndex(run => run.at === at && run.status === "dispatched");
+    if (index >= 0) {
+      runs[index] = { ...runs[index]!, isolationId };
       await writeJson(runLogFile(config, id, taskId), runs);
     }
     return runs;

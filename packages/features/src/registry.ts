@@ -126,6 +126,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: false,
   },
+  taskIsolationReview: {
+    label: "Isolated task copies with a review panel",
+    description: "Scheduled specialist task runs and conversations can work in an isolated copy of the project; the person reviews each changed file and accepts or discards it before it lands in the project.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/task-isolation-review/README.md",
+    deployments: ["self_hosted"],
+    default: false,
+  },
   remoteDevicePairing: {
     label: "Pair other devices with a one-time code",
     description: "Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does.",

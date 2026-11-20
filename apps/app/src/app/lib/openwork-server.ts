@@ -211,6 +211,8 @@ export interface SpecialistTask {
 export interface SpecialistTaskRun {
   at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
   sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap" | "skipped_missed"; detail: string | null;
+  /** Isolated copy the run worked in, and whether its changes still wait for review (taskIsolationReview). */
+  isolationId?: string | null; review?: "pending" | "reviewed" | null;
 }
 export interface SpecialistDataset {
   id: string; name: string; question: string; provider: string; operation: string;
@@ -2727,7 +2729,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     // Gated server writes waiting for someone with owner access (host token or a paired device).
     listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
     /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
     getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center", { token, hostToken, timeoutMs: 30_000 }),
     stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),
@@ -2902,6 +2904,23 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     redeemPairingCode: (code: string, deviceName: string) => requestJson<{ id: string; token: string; scope: "owner"; deviceName: string }>(baseUrl, "/pairing/redeem", { method: "POST", body: { code, deviceName }, timeoutMs: timeouts.config }),
     listPairedDevices: () => requestJson<{ items: Array<{ id: string; name: string; createdAt: number }> }>(baseUrl, "/pairing/devices", { token, hostToken, timeoutMs: timeouts.config }),
     revokePairedDevice: (id: string) => requestJson<{ ok: true }>(baseUrl, `/pairing/devices/${encodeURIComponent(id)}`, { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
+
+    // Isolated task copies and their review (docs/features/task-isolation-review). Owner-only;
+    // callers validate the payload (app/lib/task-isolation.ts).
+    getTaskIsolation: (applicationId: string, isolationId: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}`, { token, hostToken, timeoutMs: 60_000 }),
+    getTaskIsolationDiff: (applicationId: string, isolationId: string, path: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/diff?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: 60_000 }),
+    acceptTaskIsolationFiles: (applicationId: string, isolationId: string, paths: string[], overwrite?: boolean) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/accept`, { method: "POST", body: { paths, ...(overwrite ? { overwrite: true } : {}) }, token, hostToken, timeoutMs: 120_000 }),
+    discardTaskIsolationFiles: (applicationId: string, isolationId: string, paths: string[]) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/discard`, { method: "POST", body: { paths }, token, hostToken, timeoutMs: 120_000 }),
+    closeTaskIsolation: (applicationId: string, isolationId: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}`, { method: "DELETE", token, hostToken, timeoutMs: 120_000 }),
+    getSessionIsolation: (workspaceId: string, sessionId: string) =>
+      requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/task-isolation/sessions/${encodeURIComponent(sessionId)}`, { token, hostToken }),
+    isolateSession: (workspaceId: string, sessionId: string) =>
+      requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/task-isolation/sessions/${encodeURIComponent(sessionId)}`, { method: "POST", body: {}, token, hostToken, timeoutMs: 300_000 }),
 
     // Folder browser for creating workspaces from the web (docs/features/web-folder-browser).
     // Owner-only; callers validate the payload (app/lib/web-folder-browser.ts).

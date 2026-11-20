@@ -28,6 +28,7 @@ config:
   features:
     desktopCompanion: ""          # default off · Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.
     taskContinuity: ""            # default off · Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.
+    taskIsolationReview: ""       # default off · Scheduled specialist task runs and conversations can work in an isolated copy of the project; the person reviews each changed file and accepts or discards it before it lands in the project.
     remoteDevicePairing: ""       # default on · Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does.
     webFolderBrowser: ""          # default on · Owners (the desktop or a paired device) browse folders on the server's computer and create a folder, so the web app can create local workspaces without a native folder picker.
     specialistAppPortability: ""  # default on · Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected.

@@ -167,6 +167,14 @@ export function webApprovalsEnabled(env: NodeJS.ProcessEnv = process.env): boole
   return resolveFeature("webApprovals", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+/** Isolated task copies with per-file review (docs/features/task-isolation-review). Off by
+ *  default: it changes where scheduled runs write. */
+export function taskIsolationReviewEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("taskIsolationReview", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 /** Owner-only folder browser so the web app can create workspaces (docs/features/web-folder-browser). */
 export function webFolderBrowserEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);

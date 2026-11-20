@@ -7,6 +7,7 @@ import { specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEn
 import { readSpecialistContext } from "./specialists/library.js";
 import { createTaskContinuity, taskController, taskContinuityEnabled } from "./task-continuity.js";
 import { registerTaskContinuityRoutes } from "./task-continuity-routes.js";
+import { registerTaskIsolationRoutes } from "./specialists/isolation/routes.js";
 import { registerPermissionModeRoutes } from "./comex/permission-mode-routes.js";
 import { agentsRespectMode, permissionHash } from "./comex/permission-modes.js";
 import { registerModelGuideRoutes } from "./model-guide/routes.js";
@@ -4048,6 +4049,21 @@ function createRoutes(
       const payload: unknown = await response.json();
       // Session lists retain pagination so cleanup can verify every conversation.
       return path.startsWith("/api/session?") ? payload : isRecord(payload) && "data" in payload ? payload.data : payload;
+    },
+  });
+  // Isolated task copies and their review (docs/features/task-isolation-review).
+  registerTaskIsolationRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable, resolveWorkspace,
+    authorizeSession: (workspace, sessionId) => resolveV2SessionExecutionDirectory(config, engineV2Preview, workspace, sessionId),
+    moveSession: async (workspace, sessionId, directory) => {
+      const connection = engineV2Preview.connection();
+      if (!connection) throw new ApiError(503, "engine_unavailable", "El motor no está disponible.");
+      const url = new URL(`/api/session/${encodeURIComponent(sessionId)}/move`, connection.url);
+      url.searchParams.set("location[directory]", workspace.path);
+      const response = await loopbackFetch(url.toString(), { method: "POST",
+        headers: { authorization: `Basic ${Buffer.from(`opencode:${connection.password}`).toString("base64")}`, "content-type": "application/json" },
+        body: JSON.stringify({ directory, delivery: "queue" }), signal: AbortSignal.timeout(15_000) });
+      await response.body?.cancel();
+      if (!response.ok) throw new ApiError(409, "task_isolation_engine_rejected", "El motor rechazó el cambio de carpeta; actualiza el chat y vuelve a intentarlo.");
     },
   });
   registerModelGuideRoutes({ routes, config, jsonResponse, readJsonBody, ensureWritable });

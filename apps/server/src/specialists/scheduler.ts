@@ -1,10 +1,13 @@
-import { mkdir, lstat, writeFile } from "node:fs/promises";
+import { mkdir, lstat, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { ApiError } from "../errors.js";
-import { scheduledTasksEnabled } from "../comex/features.js";
+import { scheduledTasksEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
+import { nativeSessionDirectory } from "../opencode-v2-session-home.js";
+import { closeIsolation, createIsolation } from "./isolation/service.js";
 import { specialistStore } from "./store.js";
 import { dataPath, dataRelative } from "./project-data.js";
-import { appendRun, finishRun, identifyRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
+import { appendRun, finishRun, identifyRun, isolateRun, listTasks, missedOccurrences, nextRun, patchTask, type SpecialistTask, type SpecialistTaskRun } from "./tasks.js";
 import type { ServerConfig } from "../types.js";
 
 /** The local recurring-run loop. Mirrors task-continuity's rules: a single in-flight tick,
@@ -70,6 +73,19 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     return dataRelative(rootPath, "tareas", taskId, "runs", `${stamp}.json`);
   };
 
+  /** Move a fresh run session into its isolated copy and confirm the engine applied it before
+   *  the prompt is sent: a run must never write to the project by accident. */
+  const moveIntoCopy = async (workspaceId: string, sessionId: string, directory: string) => {
+    await call(workspaceId, `/session/${encodeURIComponent(sessionId)}/move`, { directory, delivery: "queue" });
+    const expected = await realpath(directory);
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const current = nativeSessionDirectory(await call(workspaceId, `/session/${encodeURIComponent(sessionId)}`).catch(() => null));
+      if (current && await realpath(current).catch(() => current) === expected) return;
+      await delay(120);
+    }
+    throw new ApiError(409, "task_isolation_move_unverified", "No se confirmó que la tarea trabaje en la copia aislada; no se envió el pedido.");
+  };
+
   const dispatch = async (applicationId: string, task: SpecialistTask, mode: "scheduled" | "manual") => {
     const store = await specialistStore(config);
     const bound = store.projectsFor(applicationId).filter(project => config.workspaces.some(workspace => workspace.id === project.workspaceId));
@@ -92,7 +108,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
         running: {
           workspaceId: project.workspaceId, sessionId: null, startedAt, mode,
           missed: mode === "scheduled" && t.nextRunAt !== null ? missedOccurrences(t.schedule, t.nextRunAt, startedAt) : 0,
-          evidencePath: null, skippedLogged: false,
+          evidencePath: null, skippedLogged: false, isolationId: null,
         },
         nextRunAt: mode === "scheduled" ? nextRun(t.schedule, startedAt) : t.nextRunAt,
       };
@@ -100,6 +116,7 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
     const running = claimed.running!;
     let evidencePath: string | null = null;
     let sessionId: string | null = null;
+    let isolationId: string | null = null;
     const stamp = new Date(startedAt).toISOString().replace(/[:.]/g, "-");
     const record = (status: SpecialistTaskRun["status"], detail: string | null): SpecialistTaskRun => ({
       at: startedAt, mode, missed: running.missed, workspaceId: project.workspaceId, sessionId, status, detail,
@@ -117,12 +134,25 @@ export async function createSpecialistScheduler(config: ServerConfig, request: (
       evidencePath = await writeEvidence(project.rootPath, task.id, stamp, record("dispatched", null));
       await patchTask(config, applicationId, task.id, t => ({ ...t, running: t.running ? { ...t.running, sessionId, evidencePath } : t.running }));
       if (!sessionId) throw new ApiError(502, "task_engine", "El motor no devolvió el id de la sesión creada.");
+      if (taskIsolationReviewEnabled()) {
+        // The run works in an isolated copy; its changes wait for review (taskIsolationReview).
+        const isolation = await createIsolation(config, {
+          applicationId, workspaceId: project.workspaceId, projectRoot: project.rootPath,
+          origin: { kind: "task_run", taskId: task.id, runAt: startedAt }, sessionId,
+        });
+        isolationId = isolation.id;
+        await isolateRun(config, applicationId, task.id, startedAt, isolation.id);
+        await patchTask(config, applicationId, task.id, t => ({ ...t, running: t.running ? { ...t.running, isolationId: isolation.id } : t.running }));
+        await moveIntoCopy(project.workspaceId, sessionId, isolation.copyPath);
+      }
       await call(project.workspaceId, `/session/${encodeURIComponent(sessionId)}/prompt`, {
         text: task.prompt, delivery: "queue", metadata: { openworkScheduledTask: task.id, openworkScheduledTaskName: task.name },
       });
       return { ok: true };
     } catch (error) {
       const detail = error instanceof ApiError ? error.message : "No se pudo confirmar el envío al motor.";
+      // Nothing ran in the copy: remove it instead of leaving an empty review behind.
+      if (isolationId) await closeIsolation(config, applicationId, isolationId).catch(() => undefined);
       await finishRun(config, applicationId, task.id, startedAt, { status: "failed", detail });
       if (evidencePath) await writeEvidence(project.rootPath, task.id, stamp, record("failed", detail)).catch(() => undefined);
       await patchTask(config, applicationId, task.id, t => ({

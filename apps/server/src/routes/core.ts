@@ -19,7 +19,7 @@ import { takeApprovedDriveUpload } from "../extensions/approved-drive-upload.js"
 import { callDriveFileAction } from "../extensions/drive-files.js";
 import type { TokenService } from "../tokens.js";
 import { createPairingRegistry, DEVICE_LABEL_PREFIX, redeemInput } from "../device-pairing.js";
-import { remoteDevicePairingEnabled } from "../comex/features.js";
+import { remoteDevicePairingEnabled, specialistApplicationsEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
 import type { Capabilities, ServerConfig, WorkspaceInfo } from "../types.js";
 import { addRoute, type Route } from "./registry.js";
 
@@ -152,6 +152,7 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
   };
 
   addRoute(routes, "GET", "/comex/features", "client", async () => jsonResponse({ enabled: comexWorkspaceEnabled(), comexArtifacts: comexArtifactsEnabled(), comexScopedMemory: comexScopedMemoryEnabled(), comexChatCommands: comexChatCommandsEnabled(), taskContinuity: taskContinuityEnabled(), comexModelGuide: comexModelGuideEnabled(), comexSpanishLocale: comexWorkspaceEnabled() && comexSpanishLocaleEnabled(), comexContinuity: comexContinuityEnabled(), comexGitWorkspace: comexGitWorkspaceEnabled(), openworkPromotions: openworkPromotionsEnabled(), conversationNavigator: conversationNavigatorEnabled(), agentActivityMap: agentActivityMapEnabled(), agentEcosystem: agentEcosystemEnabled(), webNotifications: webNotificationsEnabled(), commandCenter: commandCenterEnabled() }));
+  addRoute(routes, "GET", "/comex/features", "client", async () => jsonResponse({ enabled: comexWorkspaceEnabled(), comexArtifacts: comexArtifactsEnabled(), comexScopedMemory: comexScopedMemoryEnabled(), comexChatCommands: comexChatCommandsEnabled(), taskContinuity: taskContinuityEnabled(), comexModelGuide: comexModelGuideEnabled(), comexSpanishLocale: comexWorkspaceEnabled() && comexSpanishLocaleEnabled(), comexContinuity: comexContinuityEnabled(), comexGitWorkspace: comexGitWorkspaceEnabled(), openworkPromotions: openworkPromotionsEnabled(), conversationNavigator: conversationNavigatorEnabled(), agentActivityMap: agentActivityMapEnabled(), agentEcosystem: agentEcosystemEnabled(), taskIsolationReview: specialistApplicationsEnabled() && taskIsolationReviewEnabled() }));
 
   addRoute(routes, "GET", "/health", "none", async () => healthResponse());
 

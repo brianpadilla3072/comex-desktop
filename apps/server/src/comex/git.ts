@@ -157,6 +157,16 @@ export async function listGitWorktrees(root: string) {
   });
 }
 
+/** Remove a task-review worktree whose changes the person already accepted or discarded
+ *  (docs/features/task-isolation-review). Only a listed, unlocked worktree other than the
+ *  project itself; the caller owns the path. */
+export async function removeReviewedGitWorktree(root: string, path: string) {
+  const listed = await listGitWorktrees(root);
+  const entry = listed.find(w => w.path === path);
+  if (!entry || entry.locked || await realpath(root) === await realpath(path)) throw new ApiError(409, "worktree_unavailable", "El trabajo aislado no se puede retirar.");
+  await git(root, ["worktree", "remove", "--force", "--", path]);
+}
+
 /** Only remove a clean, unlocked worktree whose commit is retained by the source. */
 export async function removeGitWorktree(root: string, path: string, expectedHead: string) {
   const listed = await listGitWorktrees(root);

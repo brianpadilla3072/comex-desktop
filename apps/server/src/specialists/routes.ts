@@ -4,7 +4,7 @@ import { lstat, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistAppZipBundleEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistAppZipBundleEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, displayText, specialistDirectory, specialistStore } from "./store.js";
@@ -29,6 +29,7 @@ import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, read
 import { artifactMetaSchema, artifactTypeSchema, createArtifactFromOutput, listArtifacts, readArtifact, revertArtifact, writeArtifact } from "./artifacts.js";
 import { ensureChunks, listSources, readCitation, registerLocalSource } from "./sources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
+import { readIsolation } from "./isolation/service.js";
 import type { ServerConfig } from "../types.js";
 import type { SpecialistApplication } from "./store.js";
 
@@ -73,7 +74,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, portabilityEnabled: specialistAppPortabilityEnabled(), zipBundleEnabled: specialistAppPortabilityEnabled() && specialistAppZipBundleEnabled(), libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, portabilityEnabled: specialistAppPortabilityEnabled(), zipBundleEnabled: specialistAppPortabilityEnabled() && specialistAppZipBundleEnabled(), libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)), taskIsolationReviewEnabled: taskIsolationReviewEnabled() })) };
   };
   // `writable`: whether this caller may create or change applications (host routes). The web app
   // only holds a collaborator token, so it must not offer creation it cannot complete.
@@ -368,7 +369,13 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const app = store.application(ctx.params.id);
     if (!(await listTasks(config, app.id)).some(task => task.id === ctx.params.taskId)) throw new ApiError(404, "task_not_found", "Esa tarea ya no está.");
-    return jsonResponse({ runs: await listRuns(config, app.id, ctx.params.taskId) });
+    // Runs that worked in an isolated copy say whether their changes still wait for review.
+    const runs = await Promise.all((await listRuns(config, app.id, ctx.params.taskId)).map(async run => {
+      if (!run.isolationId) return { ...run, review: null };
+      const record = await readIsolation(config, app.id, run.isolationId).catch(() => null);
+      return { ...run, review: record?.status === "active" ? "pending" : "reviewed" };
+    }));
+    return jsonResponse({ runs });
   });
   addRoute(routes, "POST", "/specialist-applications/:id/tasks", "host", async ctx => {
     requireTasks(true);
