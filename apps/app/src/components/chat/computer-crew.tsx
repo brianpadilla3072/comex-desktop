@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { replaceEqualDeep } from "@tanstack/react-query"
 import type { ComputerCrewMember } from "@openwork/types/desktop-ipc"
 
 import { desktopBridge } from "@/app/lib/desktop"
@@ -22,11 +23,12 @@ const STATES: Record<ComputerCrewMember["state"], string> = {
 export function useComputerCrew(sessionId: string, enabled: boolean): ComputerCrewMember[] {
   const [members, setMembers] = useState<ComputerCrewMember[]>([])
   useEffect(() => {
-    if (!enabled) { setMembers([]); return }
+    if (!enabled) { setMembers(previous => previous.length ? [] : previous); return }
     let current = true
     const read = () => {
       if (document.visibilityState !== "visible") return
-      void desktopBridge.computerCrew(sessionId, true).then(next => { if (current) setMembers(next) }, () => {})
+      // The same crew keeps its array, so the chat around it does not re-render on every poll.
+      void desktopBridge.computerCrew(sessionId, true).then(next => { if (current) setMembers(previous => replaceEqualDeep(previous, next)) }, () => {})
     }
     read()
     const timer = window.setInterval(read, POLL_MS)

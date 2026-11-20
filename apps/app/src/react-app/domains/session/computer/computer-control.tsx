@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { replaceEqualDeep } from "@tanstack/react-query"
 import type { ComputerSnapshot } from "@openwork/types/desktop-ipc"
 
 import { desktopBridge } from "@/app/lib/desktop"
@@ -32,7 +33,8 @@ export function ComputerControl({ sessionId }: { sessionId: string }) {
     const current = generation.current
     try {
       const next = await desktopBridge.computerSnapshot(sessionId)
-      if (current === generation.current) setSnapshot(next)
+      // An unchanged snapshot keeps its object: the poll must not re-render the chat every 1.5 s.
+      if (current === generation.current) setSnapshot(previous => replaceEqualDeep(previous, next))
     } catch { /* The next read tries again. */ }
     finally { reading.current = false }
   }

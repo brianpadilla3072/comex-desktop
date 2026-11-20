@@ -123,3 +123,27 @@ test("a read-only connection never opens the first-application form by itself", 
   expect(document.querySelector("#specialist-name")).toBe(null);
   expect(document.body.textContent).not.toContain("Crea tu primera aplicación");
 });
+// The catalog refetches every 15 s. An unchanged answer must keep the same client and context,
+// or everything under the provider re-renders while chats only wait (renderer CPU).
+test("an unchanged catalog refetch keeps the client and does not re-render consumers", async () => {
+  server = { enabled: true, user: { id: "local", displayName: "Usuario de prueba" }, activeApplicationId: "app_fixture",
+    applications: [{ id: "app_fixture", name: "Taller", specialty: "Diseño", personality: "Clara", template: "custom", agentCount: 0, skillCount: 0, createdAt: 1, workspaceIds: ["ws_legacy"] }] };
+  let renders = 0;
+  const clients = new Set<unknown>();
+  function CountingProbe() {
+    const specialist = useSpecialistApplications();
+    renders += 1;
+    if (specialist?.client) clients.add(specialist.client);
+    return <output>{specialist?.active?.name ?? ""}</output>;
+  }
+  await act(async () => root.render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/workspace/ws_legacy/session"]}><SpecialistApplicationsProvider><CountingProbe /></SpecialistApplicationsProvider></MemoryRouter></QueryClientProvider>));
+  await flush();
+  expect(host.querySelector("output")?.textContent).toBe("Taller");
+  const before = renders;
+  for (let index = 0; index < 3; index += 1) {
+    await act(async () => { await cache.refetchQueries({ queryKey: ["specialist-applications"] }); });
+    await flush();
+  }
+  expect(clients.size).toBe(1);
+  expect(renders).toBe(before);
+});

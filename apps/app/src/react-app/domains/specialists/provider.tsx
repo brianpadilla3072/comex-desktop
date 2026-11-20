@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
-import { createContext, use, useEffect, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
 import { BookText, ChevronDown, Download, FolderPlus, Plus, Settings2, Trash2, Upload } from "lucide-react";
@@ -55,12 +55,19 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("specialists.onboarding-dismissed") === "1"; } catch { return false; } });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One client per connection. A new client on every 15 s refetch made the query data new each
+  // time, so the whole app under this provider re-rendered even when nothing had changed.
+  const clientCache = useRef<{ key: string; client: OpenworkServerClient } | null>(null);
   const query = useQuery({
     queryKey: ["specialist-applications"],
     queryFn: async () => {
       const connection = await resolveOpenworkConnection();
       if (!connection.normalizedBaseUrl || !connection.resolvedToken) throw new Error("No hay conexión local.");
-      const client = createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken, hostToken: connection.resolvedHostToken });
+      const key = JSON.stringify([connection.normalizedBaseUrl, connection.resolvedToken, connection.resolvedHostToken ?? null]);
+      if (clientCache.current?.key !== key) {
+        clientCache.current = { key, client: createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken, hostToken: connection.resolvedHostToken }) };
+      }
+      const client = clientCache.current.client;
       return { client, catalog: await client.getSpecialistApplications() };
     },
     retry: false, staleTime: 10_000, refetchInterval: 15_000,
