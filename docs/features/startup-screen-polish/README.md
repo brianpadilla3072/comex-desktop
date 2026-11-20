@@ -12,8 +12,9 @@ to load, so a broken start looked like a slow one with no way out but waiting.
 
 - Text in the person's language without React, for the four strings the screen needs:
   the saved choice (`openwork.language`), else the suggested default (`openwork.language.default`,
-  set by Comex), else the browser language. Spanish and English have strings; other languages
-  show English. Spanish uses tú.
+  set by Comex), else English, the same fallback the app uses once it mounts (a browser-language
+  fallback would show Spanish here and English right after). Spanish and English have strings;
+  other languages show English. Spanish uses tú.
 - The Reload hint appears after 12 seconds (`data-reveal-after-ms` on `#startup-screen`).
 - It appears at once, with "OpenWork could not load. Reload to try again.", when a module script
   fails to load (capture-phase `error` on window, because a script load error does not bubble)

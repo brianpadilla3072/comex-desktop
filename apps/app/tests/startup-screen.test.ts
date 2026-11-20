@@ -81,9 +81,9 @@ test("the Comex default hint applies when nothing was chosen", () => {
   expect(text("startup-recovery-message")).toBe("OpenWork está tardando más de lo normal en iniciar.");
 });
 
-test("the browser language applies last, and unknown languages fall back to English", () => {
+test("without a saved language or Comex hint it uses English like the app, whatever the browser says", () => {
   boot({ language: "es-MX" });
-  expect(text("startup-status")).toBe("Iniciando OpenWork");
+  expect(text("startup-status")).toBe("Starting OpenWork");
   document.body.innerHTML = "";
   boot({ language: "de-DE" });
   expect(text("startup-status")).toBe("Starting OpenWork");
