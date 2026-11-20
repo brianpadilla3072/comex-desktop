@@ -1227,6 +1227,28 @@ export function readDenBootstrapConfig(): DenBootstrapConfig {
   return desktopBootstrapConfig;
 }
 
+/**
+ * Upper bound for one read of the shell's bootstrap over IPC. Startup awaits
+ * this read before the first screen mounts, and an IPC invoke has no deadline
+ * of its own: a main process that never answers (busy on a first run, a
+ * handler stuck on disk) used to leave the renderer on "Starting OpenWork"
+ * until a manual reload. A read that misses the deadline counts as a failed
+ * attempt, so boot falls through to the in-memory placeholder and heals in
+ * the background as it already does when the bridge is down.
+ */
+export const SHELL_BOOTSTRAP_READ_TIMEOUT_MS = 2_500;
+
+function readShellBootstrapWithDeadline(): ReturnType<typeof getDesktopBootstrapConfigFromShell> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`Shell bootstrap read timed out after ${SHELL_BOOTSTRAP_READ_TIMEOUT_MS}ms.`)),
+      SHELL_BOOTSTRAP_READ_TIMEOUT_MS,
+    );
+  });
+  return Promise.race([getDesktopBootstrapConfigFromShell(), deadline]).finally(() => clearTimeout(timeoutId));
+}
+
 export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig> {
   const generation = ++desktopBootstrapGeneration;
 
@@ -1266,7 +1288,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
   const SHELL_BOOTSTRAP_RETRY_DELAY_MS = 350;
   for (let attempt = 1; attempt <= SHELL_BOOTSTRAP_ATTEMPTS; attempt += 1) {
     try {
-      const bootstrap = await getDesktopBootstrapConfigFromShell();
+      const bootstrap = await readShellBootstrapWithDeadline();
       const resolved = await resolveBootBootstrapConfig(bootstrap);
       if (generation !== desktopBootstrapGeneration) return readDenBootstrapConfig();
       applyDesktopBootstrapConfig(resolved);
@@ -1307,7 +1329,7 @@ export async function initializeDenBootstrapConfig(): Promise<DenBootstrapConfig
       await new Promise((resolve) => setTimeout(resolve, 2_000));
       if (generation !== desktopBootstrapGeneration) return;
       try {
-        const bootstrap = await getDesktopBootstrapConfigFromShell();
+        const bootstrap = await readShellBootstrapWithDeadline();
         const resolved = await resolveBootBootstrapConfig(bootstrap);
         if (generation !== desktopBootstrapGeneration) return;
         applyDesktopBootstrapConfig(resolved);
