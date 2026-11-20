@@ -1294,7 +1294,9 @@ export async function startServer(
   configureProjectSessions(inProcessEngineReads);
   registerResultsInboxRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
   // Design studio (designStudio): /designs* (docs/features/design-studio).
-  registerDesignRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
+  // Export routes (export-routes.ts) take `designRoutes.loadDesign`.
+  const designRoutes = registerDesignRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
+  void designRoutes;
 
   let server: ServeResult;
   try {

@@ -43,7 +43,7 @@ after(async () => {
 
 test("every app page opened in the browser serves the app, never an API answer", async () => {
   const paths = appPagePaths();
-  assert.ok(paths.includes("/command-center") && paths.includes("/inbox") && paths.includes("/projects") && paths.includes("/pair"), paths.join(", "));
+  assert.ok(paths.includes("/command-center") && paths.includes("/inbox") && paths.includes("/projects") && paths.includes("/design") && paths.includes("/design/x_workspaceId/x_designId") && paths.includes("/pair"), paths.join(", "));
   const collisions: string[] = [];
   for (const path of paths) {
     const response = await fetch(`http://127.0.0.1:${server.port}${path}`, { headers: { "sec-fetch-site": "none", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document", accept: "text/html" } });

@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import { z } from "zod";
-import { DESIGN_LIMITS, designIdSchema, designKindSchema, pageIdSchema, type DesignSummary } from "@openwork/types/designs";
+import { DESIGN_LIMITS, designIdSchema, designKindSchema, pageIdSchema, type DesignManifest, type DesignSummary } from "@openwork/types/designs";
 import { designStudioEnabled, specialistApplicationsEnabled } from "../comex/features.js";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
@@ -9,8 +9,8 @@ import type { ServerConfig, WorkspaceInfo } from "../types.js";
 import { DESIGN_CONTENT_SECURITY_POLICY, compareSummaries, contentTypeFor, fileByteLimit, checkDesignPath, summaryOf } from "./core.js";
 import { designHtmlArchive } from "./html-archive.js";
 import {
-  addPage, bindDesignChat, createDesign, deleteDesign, deleteDesignPage, designChats, listDesigns, readDesignFile,
-  readManifest, reorderDesignPages, updateManifest, writeDesignFile,
+  addPage, bindDesignChat, createDesign, deleteDesign, deleteDesignPage, designChats, designDir, designRevision, listDesigns, readDesignFile,
+  readManifest, reorderDesignPages, updateDesignPage, updateManifest, writeDesignFile,
 } from "./store.js";
 
 /**
@@ -27,6 +27,7 @@ const createInputSchema = z.object({ workspaceId: z.string().min(1).max(200), ki
 const patchInputSchema = z.object({ title: titleSchema.optional(), systemId: designIdSchema.nullable().optional() }).strict();
 const pageInputSchema = z.object({ title: z.string().trim().max(DESIGN_LIMITS.titleChars).optional(), afterPageId: pageIdSchema.optional(), html: z.string().optional() }).strict();
 const orderInputSchema = z.object({ pageIds: z.array(pageIdSchema).max(DESIGN_LIMITS.pages) }).strict();
+const pagePatchSchema = z.object({ title: z.string().trim().max(DESIGN_LIMITS.titleChars).optional(), notes: z.string().max(10_000).nullable().optional() }).strict();
 const chatInputSchema = z.object({ sessionId: z.string().min(1).max(200).regex(/^[A-Za-z0-9_-]+$/) }).strict();
 
 /** Read a raw request body, refusing it as soon as it passes `limit` bytes. */
@@ -80,6 +81,19 @@ export function registerDesignRoutes(options: {
     return { workspaceId: ctx.params.workspaceId, designId: id.data };
   };
 
+  /**
+   * A design and where it lives, for other design routes (export): flag checked, project
+   * resolved like here, manifest validated. 404 `design_not_found` / `project_not_found`.
+   */
+  async function resolveDesign(workspaceId: string, designId: string): Promise<{ projectRoot: string; dir: string; design: DesignManifest }> {
+    requireDesigns();
+    if (!designIdSchema.safeParse(designId).success) throw new ApiError(404, "design_not_found", "Ese diseño no existe.");
+    const project = await resolveProject(workspaceId);
+    const design = await readManifest(project.rootPath, designId);
+    return { projectRoot: project.rootPath, dir: await designDir(project.rootPath, designId), design };
+  }
+  const loadDesign = async (workspaceId: string, designId: string): Promise<DesignManifest> => (await resolveDesign(workspaceId, designId)).design;
+
   async function parseBody<T>(schema: z.ZodType<T>, ctx: RequestContext, code: string, message: string): Promise<T> {
     const parsed = schema.safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(422, code, message);
@@ -116,7 +130,11 @@ export function registerDesignRoutes(options: {
     requireDesigns();
     const { workspaceId, designId } = designParams(ctx);
     const project = await resolveProject(workspaceId);
-    return jsonResponse({ design: await readManifest(project.rootPath, designId), writable: writableFor(ctx, config) });
+    const design = await readManifest(project.rootPath, designId);
+    // `revision` moves whenever a page or asset changed on disk, so the open page picks up the
+    // agent's edits; a new thumbnail or title does not move it.
+    const revision = await designRevision(await designDir(project.rootPath, designId));
+    return jsonResponse({ design, writable: writableFor(ctx, config), revision });
   });
 
   addRoute(routes, "PATCH", "/designs/:workspaceId/:designId", "host", async ctx => {
@@ -198,6 +216,14 @@ export function registerDesignRoutes(options: {
     return jsonResponse({ design: await deleteDesignPage(project.rootPath, designId, ctx.params.pageId) });
   });
 
+  addRoute(routes, "PATCH", "/designs/:workspaceId/:designId/pages/:pageId", "host", async ctx => {
+    requireDesigns(true);
+    const { workspaceId, designId } = designParams(ctx);
+    const project = await resolveProject(workspaceId);
+    const patch = await parseBody(pagePatchSchema, ctx, "invalid_design_page", "Revisa el título y las notas de la página.");
+    return jsonResponse({ design: await updateDesignPage(project.rootPath, designId, ctx.params.pageId, patch) });
+  });
+
   addRoute(routes, "PUT", "/designs/:workspaceId/:designId/thumbnail", "host", async ctx => {
     requireDesigns(true);
     const { workspaceId, designId } = designParams(ctx);
@@ -239,4 +265,7 @@ export function registerDesignRoutes(options: {
     await bindDesignChat(project.rootPath, designId, input.sessionId);
     return jsonResponse({ sessions: await designChats(project.rootPath, designId) });
   });
+
+  // For the export routes (export-routes.ts): `registerDesignExportRoutes({ routes, loadDesign })`.
+  return { loadDesign, resolveDesign };
 }

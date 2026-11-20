@@ -1,7 +1,7 @@
 {
   "contract": "openwork.designs",
   "version": 1,
-  "routes": "GET|POST /designs, GET|PATCH|DELETE /designs/:workspaceId/:designId, GET|PUT /designs/:workspaceId/:designId/files?path=, POST /designs/:workspaceId/:designId/pages, PUT /designs/:workspaceId/:designId/pages/order, DELETE /designs/:workspaceId/:designId/pages/:pageId, PUT /designs/:workspaceId/:designId/thumbnail, GET /designs/:workspaceId/:designId/export?format=html, GET|POST /designs/:workspaceId/:designId/chats",
+  "routes": "GET|POST /designs, GET|PATCH|DELETE /designs/:workspaceId/:designId, GET|PUT /designs/:workspaceId/:designId/files?path=, POST /designs/:workspaceId/:designId/pages, PUT /designs/:workspaceId/:designId/pages/order, PATCH|DELETE /designs/:workspaceId/:designId/pages/:pageId, PUT /designs/:workspaceId/:designId/thumbnail, GET /designs/:workspaceId/:designId/export?format=html, GET|POST /designs/:workspaceId/:designId/chats",
   "contentSecurityPolicy": "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:",
   "ids": [
     { "title": "Plan de lanzamiento", "taken": [], "id": "plan-de-lanzamiento" },

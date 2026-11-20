@@ -12,7 +12,7 @@ import { designStudioEnabled } from "../src/comex/features.js";
 import { applicationInput, specialistStore } from "../src/specialists/store.js";
 import { registerDesignRoutes } from "../src/designs/routes.js";
 import { DESIGN_CONTENT_SECURITY_POLICY, checkDesignPath, contentTypeFor, designIdFor, insertPage, nextPageId, reorderPages } from "../src/designs/core.js";
-import { configureDesignSystemContext, designAgentInstructions } from "../src/designs/guidance.js";
+import { designAgentInstructions } from "../src/designs/guidance.js";
 import { matchRoute, type RequestContext, type Route } from "../src/routes/registry.js";
 import type { ServerConfig, WorkspaceInfo } from "../src/types.js";
 
@@ -110,7 +110,6 @@ before(async () => {
 });
 after(async () => {
   for (const [name, value] of savedFlags) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
-  configureDesignSystemContext(null);
   harness.store.close();
   await rm(harness.root, { recursive: true, force: true });
 });
@@ -128,6 +127,7 @@ test("reads are client routes and writes are host routes", () => {
   assert.ok(route("POST", `${base}/pages`, "host"));
   assert.ok(route("PUT", `${base}/pages/order`, "host"));
   assert.ok(route("DELETE", `${base}/pages/p-1`, "host"));
+  assert.ok(route("PATCH", `${base}/pages/p-1`, "host"));
   assert.ok(route("PUT", `${base}/thumbnail`, "host"));
   assert.ok(route("GET", `${base}/export`, "client"));
   assert.ok(route("GET", `${base}/chats`, "client"));
@@ -163,7 +163,12 @@ test("create every kind from its template, list and read", async () => {
   assert.deepEqual(only.designs.map(entry => entry.id), ["ideas"]);
 
   const one = await call("GET", `/designs/ws_first/${deck.id}`);
-  assert.equal(z.object({ writable: z.boolean() }).parse(one.json).writable, true);
+  const detail = z.object({ writable: z.boolean(), revision: z.number() }).parse(one.json);
+  assert.equal(detail.writable, true);
+  await new Promise(done => setTimeout(done, 20));
+  await writeFile(join(folder, "pages", "p-1.html"), "<!doctype html><p>Editado por el agente</p>");
+  const after = z.object({ revision: z.number() }).parse((await call("GET", `/designs/ws_first/${deck.id}`)).json);
+  assert.ok(after.revision > detail.revision, "a file edited on disk moves the revision");
   assert.equal(designOf(one.json).title, "Plan de lanzamiento");
 
   assert.equal(code((await call("POST", "/designs", { body: { workspaceId: "ws_plain", kind: "slides", title: "X" } })).json), "project_not_found");
@@ -209,7 +214,16 @@ test("files: read with type and strict policy, write with caps, schema checks an
     assert.equal(code((await call("PUT", `${base}/files?path=${encodeURIComponent(bad)}`, { raw: "x" })).json), "design_path_invalid", bad);
     assert.equal(code((await call("GET", `${base}/files?path=${encodeURIComponent(bad)}`)).json), "design_path_invalid", bad);
   }
-  assert.equal(code((await call("PUT", `${base}/files?path=design.json`, { raw: "{}" })).json), "design_manifest_reserved");
+  // design.json as a file: only a valid manifest of this same design (notes, order), never another id or kind.
+  assert.equal(code((await call("PUT", `${base}/files?path=design.json`, { raw: "{}" })).json), "design_manifest_invalid");
+  const current = designOf((await call("GET", base)).json);
+  const withNotes = { ...current, createdAt: 1, pages: current.pages.map(entry => ({ ...entry, notes: "Saludar y presentar la agenda." })) };
+  const saved = designOf((await call("PUT", `${base}/files?path=design.json`, { raw: JSON.stringify(withNotes) })).json);
+  assert.equal(saved.pages[0]?.notes, "Saludar y presentar la agenda.");
+  assert.equal(saved.createdAt, current.createdAt);
+  assert.ok(saved.updatedAt > current.updatedAt);
+  assert.equal(code((await call("PUT", `${base}/files?path=design.json`, { raw: JSON.stringify({ ...current, kind: "board" }) })).json), "design_manifest_mismatch");
+  assert.equal(code((await call("PUT", `${base}/files?path=design.json`, { raw: JSON.stringify({ ...current, id: "otro" }) })).json), "design_manifest_mismatch");
   assert.equal(code((await call("GET", `${base}/files?path=assets/nada.png`)).json), "design_file_not_found");
   const tooBig = new Uint8Array(DESIGN_LIMITS.pageBytes + 1);
   assert.equal(code((await call("PUT", `${base}/files?path=pages/p-9.html`, { raw: tooBig })).json), "design_file_too_large");
@@ -256,6 +270,13 @@ test("pages: add after, reorder, delete with its file, keep at least one", async
   assert.deepEqual(ordered.pages.map(entry => entry.id), ["p-2", "p-1", "p-3"]);
   assert.equal(code((await call("PUT", `${base}/pages/order`, { body: { pageIds: ["p-2", "p-1"] } })).json), "design_pages_mismatch");
 
+  const renamed = designOf((await call("PATCH", `${base}/pages/p-2`, { body: { title: "Agenda del día", notes: "Tres temas." } })).json);
+  assert.deepEqual(renamed.pages.find(entry => entry.id === "p-2"), { id: "p-2", title: "Agenda del día", file: "pages/p-2.html", width: 1920, height: 1080, notes: "Tres temas." });
+  const cleared = designOf((await call("PATCH", `${base}/pages/p-2`, { body: { notes: null } })).json);
+  assert.equal(cleared.pages.find(entry => entry.id === "p-2")?.notes, undefined);
+  assert.equal(code((await call("PATCH", `${base}/pages/p-9`, { body: { title: "X" } })).json), "design_page_not_found");
+  assert.equal(code((await call("PATCH", `${base}/pages/p-2`, { body: { file: "../x" } })).json), "invalid_design_page");
+
   const removed = designOf((await call("DELETE", `${base}/pages/p-3`)).json);
   assert.deepEqual(removed.pages.map(entry => entry.id), ["p-2", "p-1"]);
   assert.equal(existsSync(join(first, "proyecto", "diseno", "plan-de-lanzamiento", "pages", "p-3.html")), false);
@@ -271,7 +292,11 @@ test("thumbnail must be a PNG and is recorded in the manifest", async () => {
   const { call, raw } = harness;
   const base = "/designs/ws_first/plan-de-lanzamiento";
   assert.equal(code((await call("PUT", `${base}/thumbnail`, { raw: "not a png" })).json), "design_thumbnail_not_png");
+  const revision = async () => z.object({ revision: z.number() }).parse((await call("GET", base)).json).revision;
+  const before = await revision();
+  await new Promise(done => setTimeout(done, 20));
   const saved = designOf((await call("PUT", `${base}/thumbnail`, { raw: PNG })).json);
+  assert.equal(await revision(), before, "a new preview never asks the open page to render again");
   assert.equal(saved.thumbnail, "thumbnail.png");
   const image = await raw("GET", `${base}/files?path=thumbnail.png`);
   assert.equal(image.headers.get("content-type"), "image/png");
@@ -310,10 +335,14 @@ test("chats bound to a design receive its guidance, with the design system when 
   assert.match(text, /1920×1080/);
   assert.match(text, /nada de red/);
   assert.match(text, /proyecto\/diseno\/marca\/tokens\.json/);
-  configureDesignSystemContext(async (_root, systemId) => `Marca de prueba: ${systemId}.`);
-  assert.match((await designAgentInstructions(first, "ses_design")) ?? "", /Marca de prueba: marca\./);
   const listed = await call("GET", `${base}/chats`, { actor: "client" });
   assert.deepEqual(z.object({ sessions: z.array(z.string()) }).parse(listed.json).sessions, ["ses_design"]);
+  // A board chat learns how to keep board.json valid and where illustrations go.
+  await call("POST", "/designs/ws_second/ideas/chats", { body: { sessionId: "ses_board" } });
+  const board = await designAgentInstructions(harness.second, "ses_board");
+  assert.match(board ?? "", /board\.json completo y válido/);
+  assert.match(board ?? "", /assets\/<nombre>\.svg/);
+  assert.match(board ?? "", /4000×3000/);
 });
 
 test("delete removes the folder and its chat bindings", async () => {

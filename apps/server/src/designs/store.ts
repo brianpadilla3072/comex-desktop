@@ -206,6 +206,24 @@ export async function designFiles(dir: string, prefix = ""): Promise<string[]> {
   return files;
 }
 
+/**
+ * Changes whenever the content of a design changes on disk (the agent edits files directly): the
+ * newest modification time of its files and subfolders, links not followed. `design.json` and
+ * `thumbnail.png` (and so the top folder itself, where they are replaced) do not count: a new
+ * preview or a renamed title never asks the open page to render again.
+ */
+export async function designRevision(dir: string, top = true): Promise<number> {
+  let newest = top ? 0 : Math.floor((await lstatOrNull(dir))?.mtimeMs ?? 0);
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (top && (entry.name === MANIFEST_FILE || entry.name === "thumbnail.png")) continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) newest = Math.max(newest, await designRevision(path, false));
+    else if (entry.isFile()) newest = Math.max(newest, Math.floor((await lstatOrNull(path))?.mtimeMs ?? 0));
+  }
+  return newest;
+}
+
 /** Validate the JSON files with a schema of their own before they land. */
 function validateKnownJson(role: string, bytes: Uint8Array) {
   if (role !== "board" && role !== "tokens") return;
@@ -216,8 +234,8 @@ function validateKnownJson(role: string, bytes: Uint8Array) {
 
 export async function writeDesignFile(projectRoot: string, designId: string, input: string, bytes: Uint8Array, now = Date.now()): Promise<DesignManifest> {
   const file = await designFilePath(projectRoot, designId, input);
-  if (file.role === "manifest") throw new ApiError(409, "design_manifest_reserved", "El manifiesto se cambia con las acciones del diseño, no como archivo.");
   if (bytes.byteLength > fileByteLimit(file.role)) throw new ApiError(413, "design_file_too_large", "El archivo supera el tamaño permitido.");
+  if (file.role === "manifest") return replaceManifest(file.dir, designId, bytes, now);
   if (file.role === "thumbnail" && !isPng(bytes)) throw new ApiError(415, "design_thumbnail_not_png", "La miniatura debe ser una imagen PNG.");
   validateKnownJson(file.role, bytes);
   return withFileLock(manifestLock(file.dir), async () => {
@@ -232,6 +250,23 @@ export async function writeDesignFile(projectRoot: string, designId: string, inp
     const current = await readManifestAt(file.dir, designId);
     const next = designManifestSchema.parse({ ...current, updatedAt: bumpedTime(current.updatedAt, now), ...(file.role === "thumbnail" ? { thumbnail: file.relativePath } : {}) });
     await writeManifestAt(file.dir, next);
+    return next;
+  });
+}
+
+/**
+ * `design.json` written as a file (an editor saving page notes or order): it must be a valid
+ * manifest of this same design (`id` and `kind` unchanged). `createdAt` is kept and `updatedAt`
+ * moves forward, whatever the body says.
+ */
+async function replaceManifest(dir: string, designId: string, bytes: Uint8Array, now: number): Promise<DesignManifest> {
+  const parsed = designManifestSchema.safeParse(parseJson(new TextDecoder().decode(bytes)));
+  if (!parsed.success) throw new ApiError(422, "design_manifest_invalid", "El archivo design.json no tiene el formato de un diseño.");
+  return withFileLock(manifestLock(dir), async () => {
+    const current = await readManifestAt(dir, designId);
+    if (parsed.data.id !== current.id || parsed.data.kind !== current.kind) throw new ApiError(422, "design_manifest_mismatch", "El manifiesto pertenece a otro diseño o cambia su tipo.");
+    const next = designManifestSchema.parse({ ...parsed.data, createdAt: current.createdAt, updatedAt: bumpedTime(current.updatedAt, now) });
+    await writeManifestAt(dir, next);
     return next;
   });
 }
@@ -264,6 +299,24 @@ export async function reorderDesignPages(projectRoot: string, designId: string, 
     const pages = reorderPages(current.pages, pageIds);
     if (!pages) throw new ApiError(422, "design_pages_mismatch", "El nuevo orden debe incluir cada página una vez.");
     return { ...current, pages };
+  }, now);
+}
+
+/** Rename a page or change its notes (speaker notes, screen description). */
+export async function updateDesignPage(projectRoot: string, designId: string, pageId: string, patch: { title?: string; notes?: string | null }, now = Date.now()) {
+  if (!pageIdSchema.safeParse(pageId).success) throw new ApiError(404, "design_page_not_found", "Esa página no existe.");
+  return updateManifest(projectRoot, designId, current => {
+    if (!current.pages.some(page => page.id === pageId)) throw new ApiError(404, "design_page_not_found", "Esa página no existe.");
+    return {
+      ...current,
+      pages: current.pages.map(page => {
+        if (page.id !== pageId) return page;
+        const next: DesignPage = { ...page, ...(patch.title !== undefined ? { title: patch.title } : {}) };
+        if (patch.notes === null || patch.notes === "") delete next.notes;
+        else if (patch.notes !== undefined) next.notes = patch.notes;
+        return next;
+      }),
+    };
   }, now);
 }
 
