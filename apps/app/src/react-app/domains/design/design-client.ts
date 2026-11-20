@@ -6,7 +6,7 @@ import { t } from "@/i18n";
 export type DesignClient = Pick<OpenworkServerClient,
   | "baseUrl" | "listDesigns" | "createDesign" | "getDesign" | "updateDesign" | "deleteDesign" | "readDesignFile"
   | "writeDesignFile" | "addDesignPage" | "updateDesignPage" | "reorderDesignPages" | "deleteDesignPage" | "putDesignThumbnail" | "exportDesignHtml"
-  | "listDesignChats" | "bindDesignChat">;
+  | "listDesignChats" | "bindDesignChat" | "exportDesignPptx">;
 
 /**
  * The client the design page and gallery work with. `DesignFrame` and the editors read it from

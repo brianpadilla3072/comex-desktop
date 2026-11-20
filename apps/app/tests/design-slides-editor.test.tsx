@@ -52,7 +52,8 @@ function fakeClient(): SlidesClient {
       pages.splice(index, 0, added);
       design = { ...design, pages };
       files[added.file] = input.html ?? "";
-      return { design };
+      // Like the real client: the updated manifest itself, not `{ design }`.
+      return design;
     },
     reorderDesignPages: async (_ws, _id, pageIds) => { calls.push(["reorder", pageIds]); return { ok: true }; },
     deleteDesignPage: async (_ws, _id, pageId) => { calls.push(["delete", pageId]); design = { ...design, pages: design.pages.filter(item => item.id !== pageId) }; return { ok: true }; },

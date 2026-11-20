@@ -14,7 +14,7 @@ import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 
 import { DesignChatPanel, designAskMessage, type DesignChatHost } from "./design-chat-panel";
 import { DesignClientContext, designErrorText, designQueryKeys, type DesignClient } from "./design-client";
-import { useDesignThumbnailRefresh } from "./design-thumbnail";
+import { registerDesktopThumbnailCapturer, useDesignThumbnailRefresh } from "./design-thumbnail";
 import { DESIGN_EDITORS, type DesignEditorProps } from "./editors";
 import { useDesignConnection } from "./use-designs";
 
@@ -94,6 +94,8 @@ export function DesignPagePanel({ client, workspaceId, designId, chat, exportSlo
     void queryClient.invalidateQueries({ queryKey: designQueryKeys.list(client.baseUrl) });
   }, [queryClient, client.baseUrl, workspaceId, designId]);
 
+  // Desktop: gallery previews come from the same offscreen renderer as the PDF/PNG export.
+  useEffect(() => registerDesktopThumbnailCapturer(client), [client]);
   useDesignThumbnailRefresh({ client, workspaceId, design, revision, writable, onSaved: refresh });
 
   const reportSession = chat?.onSessionChange;

@@ -1,7 +1,12 @@
+/** @jsxImportSource react */
 import type { ComponentType } from "react";
 import type { DesignKind } from "@/app/lib/designs";
 
-import { PlaceholderEditor } from "./placeholder-editor";
+import { DesignFrame } from "../design-frame";
+import { BoardEditor } from "./board-editor";
+import { MockupEditor } from "./mockup-editor";
+import { SlidesEditor } from "./slides-editor";
+import { SystemEditor } from "./system-editor";
 import type { DesignEditorProps } from "./types";
 
 export type { DesignEditorProps } from "./types";
@@ -12,10 +17,11 @@ export type { DesignEditorProps } from "./types";
  *   slides → ./slides-editor, mockup → ./mockup-editor, system → ./system-editor, board → ./board-editor.
  */
 export const DESIGN_EDITORS: Record<DesignKind, ComponentType<DesignEditorProps>> = {
-  slides: PlaceholderEditor,
-  mockup: PlaceholderEditor,
-  system: PlaceholderEditor,
-  board: PlaceholderEditor,
+  slides: SlidesEditor,
+  mockup: MockupEditor,
+  // The system editor takes the viewer as a prop (it does not import design-frame itself).
+  system: props => <SystemEditor {...props} frame={DesignFrame} />,
+  board: BoardEditor,
 };
 
 export function designEditorFor(kind: DesignKind): ComponentType<DesignEditorProps> {

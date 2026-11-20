@@ -2768,6 +2768,19 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       const result = await requestBinary(baseUrl, `${designApiPath(workspaceId, designId)}/export?format=html`, { token, hostToken, timeoutMs: timeouts.binary });
       return new Blob([result.data], { type: result.contentType ?? "application/zip" });
     },
+    /** `POST /designs/:ws/:id/export` with the slides as PNG (base64) → the `.pptx` bytes, built on the server. */
+    exportDesignPptx: async (workspaceId: string, designId: string, input: { format: "pptx"; slides: Array<{ pageId: string; png: string }> }): Promise<Blob> => {
+      const url = `${baseUrl}${designApiPath(workspaceId, designId)}/export`;
+      const response = await fetchWithTimeout(resolveFetch(url), url, { method: "POST", headers: { ...buildAuthHeaders(token, hostToken), "Content-Type": "application/json" }, body: JSON.stringify(input) }, 5 * 60_000);
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(response.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : response.statusText);
+      }
+      return new Blob([await response.arrayBuffer()], { type: response.headers.get("content-type") ?? "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    },
     /** Chat sessions bound to the design, newest first: their prompts carry the design guidance. */
     listDesignChats: async (workspaceId: string, designId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken })).sessions,
     bindDesignChat: async (workspaceId: string, designId: string, sessionId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken, method: "POST", body: { sessionId } })).sessions,

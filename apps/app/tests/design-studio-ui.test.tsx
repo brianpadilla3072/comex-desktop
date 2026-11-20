@@ -16,6 +16,9 @@ const { OpenworkServerError } = await import("../src/app/lib/openwork-server");
 const { DESIGN_KINDS } = await import("../src/app/lib/designs");
 const { DesignGalleryPanel } = await import("../src/react-app/domains/design/design-gallery");
 const { DesignPagePanel } = await import("../src/react-app/domains/design/design-page");
+const { PlaceholderEditor } = await import("../src/react-app/domains/design/editors/placeholder-editor");
+// The registry now holds the real editors; this test covers the page shell with the simple one.
+const placeholderEditors = { slides: PlaceholderEditor, mockup: PlaceholderEditor, system: PlaceholderEditor, board: PlaceholderEditor };
 const { DesignFrame } = await import("../src/react-app/domains/design/design-frame");
 const { buildFrameDocument, DESIGN_FRAME_CSP, fitScale } = await import("../src/react-app/domains/design/design-frame-model");
 const { visibleDesigns, designProjectOptions } = await import("../src/react-app/domains/design/design-gallery-model");
@@ -278,7 +281,7 @@ test("design page: header, rename, HTML export, chat toggle and the placeholder 
   const originalCreate = URL.createObjectURL;
   URL.createObjectURL = (blob: Blob) => { created.push(blob); return `blob:test/${created.length}`; };
   try {
-    await render(<DesignPagePanel client={fakeClient()} workspaceId="ws_1" designId="plan" chat={fakeChat()} onBack={() => record("back")} />);
+    await render(<DesignPagePanel client={fakeClient()} workspaceId="ws_1" designId="plan" chat={fakeChat()} onBack={() => record("back")} editors={placeholderEditors} />);
     await waitFor("[data-design-page='plan']");
     expect(find("[data-design-title]").textContent).toBe("Plan de lanzamiento");
     await waitFor("[data-design-placeholder-editor]");

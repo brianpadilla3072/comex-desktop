@@ -21,9 +21,8 @@ import {
   slideTemplateHtml, stepZoom, ZOOM_STEPS, type SlideElementKind, type SlidesClient, type SlideTemplate, type SlideZoom,
 } from "./slides-model";
 import { SlidesPresenter } from "./slides-present";
-// TODO(orchestrator): enable after merging C (comment/edit); the files live in domains/design/.
-// import { useDesignPicker } from "../design-picker";
-// import { DesignCommentBar } from "../design-comment-bar";
+import { useDesignPicker } from "../design-picker";
+import { DesignCommentBar } from "../design-comment-bar";
 
 export type SlidesEditorProps = {
   workspaceId: string;
@@ -174,8 +173,8 @@ export function SlidesEditor(props: SlidesEditorProps) {
   }, []);
 
   const changed = useCallback(() => { setRevision(value => value + 1); onChanged(); }, [onChanged]);
-  // TODO(orchestrator): enable with C. `changed` bumps the frames' reloadKey after an edit.
-  // const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAgent, onChanged: changed });
+  // Comentar / Editar on the main slide; `changed` bumps the frames' reloadKey after an edit.
+  const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAgent, onChanged: changed });
 
   const addSlide = (template: SlideTemplate) => run("add", async () => {
     const html = slideTemplateHtml(template, {
@@ -187,7 +186,7 @@ export function SlidesEditor(props: SlidesEditorProps) {
     });
     const before = designRef.current.pages;
     const result = await client.addDesignPage(workspaceId, design.id, { title: t(`design_ui.slides.template.${template}`), afterPageId: selected?.id, html });
-    const added = addedPageId(before, result.design.pages);
+    const added = addedPageId(before, result.pages);
     if (added) setSelectedId(added);
     changed();
   }, t("design_ui.slides.error.add"));
@@ -203,7 +202,7 @@ export function SlidesEditor(props: SlidesEditorProps) {
     const html = await (await client.readDesignFile(workspaceId, design.id, page.file)).text();
     const before = designRef.current.pages;
     const result = await client.addDesignPage(workspaceId, design.id, { title: t("design_ui.slides.copy_title", { title: page.title }), afterPageId: page.id, html });
-    const added = addedPageId(before, result.design.pages);
+    const added = addedPageId(before, result.pages);
     if (added && page.notes) {
       const manifest = await (await client.readDesignFile(workspaceId, design.id, "design.json")).text();
       await client.writeDesignFile(workspaceId, design.id, "design.json", manifestWithNotes(manifest, added, page.notes));
@@ -365,7 +364,7 @@ export function SlidesEditor(props: SlidesEditorProps) {
             <DropdownMenuItem onClick={() => insertKind("line")}>{t("design_ui.slides.shape.line")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* Comentar / Editar (C). TODO(orchestrator): <DesignCommentBar picker={picker} /> */}
+        <DesignCommentBar picker={picker} />
         <div className="mx-1 h-5 w-px bg-border" aria-hidden />
         <Button variant="ghost" size="icon-sm" aria-label={t("design_ui.slides.zoom.out")} onClick={() => setZoom(stepZoom(scale, -1))}><ZoomOut aria-hidden /></Button>
         <DropdownMenu>
@@ -488,7 +487,7 @@ export function SlidesEditor(props: SlidesEditorProps) {
                     scale={scale}
                     interactive
                     reloadKey={revision}
-                    /* TODO(orchestrator): onFrameReady={picker.bindFrame(selected)} (main slide only, never thumbnails). */
+                    onFrameReady={picker.bindFrame(selected)}
                   />
                 </div>
               </div>

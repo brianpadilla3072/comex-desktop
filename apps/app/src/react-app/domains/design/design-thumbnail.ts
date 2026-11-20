@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { DesignManifest, DesignPage } from "@/app/lib/designs";
 import type { DesignClient } from "./design-client";
+import { desktopRenderer } from "./editors/slides-export";
+import { selfContainedPageHtml } from "./editors/slides-inline";
 
 /**
  * Gallery previews. A page is HTML in a sandboxed frame, and the browser cannot photograph a
@@ -42,4 +44,25 @@ export function useDesignThumbnailRefresh(input: { client: Pick<DesignClient, "p
     }, SETTLE_MS);
     return () => clearTimeout(timer);
   }, [key, design, first, writable, client, workspaceId]);
+}
+
+/**
+ * In the desktop app, register the offscreen renderer (the one the PDF/PNG export uses) as the
+ * thumbnail capturer for this client. No-op on the web. Returns the unregister function.
+ */
+export function registerDesktopThumbnailCapturer(client: Pick<DesignClient, "readDesignFile">): () => void {
+  const render = desktopRenderer();
+  if (!render) return () => undefined;
+  const capturerForClient: DesignThumbnailCapturer = async ({ workspaceId, designId, page }) => {
+    const read = (path: string) => client.readDesignFile(workspaceId, designId, path);
+    const html = await selfContainedPageHtml(await (await read(page.file)).text(), page.file, read);
+    const result = await render({ format: "png", pages: [{ html, width: page.width, height: page.height }] });
+    const bytes = result.ok ? result.files[0] : undefined;
+    if (!bytes) return null;
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    return new Blob([copy.buffer], { type: "image/png" });
+  };
+  setDesignThumbnailCapturer(capturerForClient);
+  return () => { if (capturer === capturerForClient) setDesignThumbnailCapturer(null); };
 }

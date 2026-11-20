@@ -19,9 +19,8 @@ import { MockupPresent } from "./mockup-present";
 import { MockupScreens } from "./mockup-screens";
 import { mockupTemplateHtml, type MockupTemplateId } from "./mockup-templates";
 import type { MockupEditorProps } from "./mockup-types";
-// TODO(orchestrator, after merging C): enable the comment/edit bar (three marked spots in this file).
-// import { useDesignPicker } from "../design-picker";
-// import { DesignCommentBar } from "../design-comment-bar";
+import { useDesignPicker } from "../design-picker";
+import { DesignCommentBar } from "../design-comment-bar";
 
 export type { MockupEditorClient, MockupEditorProps } from "./mockup-types";
 
@@ -55,9 +54,7 @@ export function MockupEditor(props: MockupEditorProps) {
     setFrameVersion(value => value + 1);
     props.onChanged();
   };
-  // TODO(orchestrator, after merging C): replace the next line with
-  // const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAgent: props.onAskAgent, onChanged: onFilesChanged });
-  void onFilesChanged;
+  const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAgent: props.onAskAgent, onChanged: onFilesChanged });
   const frameReloadKey = `${props.reloadKey ?? design.updatedAt}:${frameVersion}`;
 
   const pages = design.pages;
@@ -236,7 +233,7 @@ export function MockupEditor(props: MockupEditorProps) {
           </div>
           <div className="ms-auto flex items-center gap-2">
             {notice ? <span role="alert" className="text-xs text-destructive">{notice}</span> : null}
-            {/* TODO(orchestrator, after merging C): {page ? <DesignCommentBar picker={picker} /> : null} */}
+            {page ? <DesignCommentBar picker={picker} /> : null}
             <Button type="button" variant="outline" size="sm" disabled={!pages.length} onClick={() => setPresenting(true)}>
               <Presentation />
               {t("design_ui.mockup.present")}
@@ -259,7 +256,7 @@ export function MockupEditor(props: MockupEditorProps) {
                   scale={scale}
                   interactive
                   reloadKey={frameReloadKey}
-                  // TODO(orchestrator, after merging C): onFrameReady={picker.bindFrame(page)}
+                  onFrameReady={picker.bindFrame(page)}
                 />
               </div>
             </div>

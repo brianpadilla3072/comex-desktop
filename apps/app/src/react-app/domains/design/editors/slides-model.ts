@@ -10,7 +10,8 @@ import { DESIGN_LIMITS, DESIGN_PAGE_SIZES, designManifestSchema, type DesignMani
 export type SlidesClient = {
   readDesignFile(workspaceId: string, designId: string, path: string): Promise<Blob>;
   writeDesignFile(workspaceId: string, designId: string, path: string, body: Blob | string): Promise<unknown>;
-  addDesignPage(workspaceId: string, designId: string, input: { title?: string; afterPageId?: string; html?: string }): Promise<{ design: DesignManifest }>;
+  /** The server client returns the updated manifest itself. */
+  addDesignPage(workspaceId: string, designId: string, input: { title?: string; afterPageId?: string; html?: string }): Promise<DesignManifest>;
   reorderDesignPages(workspaceId: string, designId: string, pageIds: string[]): Promise<unknown>;
   deleteDesignPage(workspaceId: string, designId: string, pageId: string): Promise<unknown>;
 };

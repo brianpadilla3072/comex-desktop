@@ -79,7 +79,10 @@ export function renamePage(design: DesignManifest, pageId: string, title: string
 }
 
 /** `{ design }` from a server reply, when it carries a valid manifest. */
+/** Reads a reply that is either the manifest itself (the server client unwraps it) or `{ design }`. */
 export function designFromReply(reply: unknown): DesignManifest | null {
+  const direct = designManifestSchema.safeParse(reply);
+  if (direct.success) return direct.data;
   if (typeof reply !== "object" || reply === null || !("design" in reply)) return null;
   const parsed = designManifestSchema.safeParse(reply.design);
   return parsed.success ? parsed.data : null;

@@ -1,4 +1,5 @@
 import { generalProjectInstructions } from "./comex/general-instructions.js";
+import { registerDesignExportRoutes } from "./designs/export-routes.js";
 import { DEVICE_LABEL_PREFIX } from "./device-pairing.js";
 import { registerScopedMemoryRoutes } from "./comex/scoped-memory-routes.js";
 import { prepareScopedMemory } from "./comex/scoped-memory.js";
@@ -1296,7 +1297,7 @@ export async function startServer(
   // Design studio (designStudio): /designs* (docs/features/design-studio).
   // Export routes (export-routes.ts) take `designRoutes.loadDesign`.
   const designRoutes = registerDesignRoutes({ routes, config, readJsonBody, jsonResponse, ensureWritable });
-  void designRoutes;
+  registerDesignExportRoutes({ routes, loadDesign: designRoutes.loadDesign });
 
   let server: ServeResult;
   try {
