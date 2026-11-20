@@ -1,9 +1,17 @@
+import { t } from "@/i18n";
+
+// `titleKey` is a locale key: read the title through `advancedSectionTitle` so it follows the language.
 export const ADVANCED_SETTINGS_SECTIONS = [
-  { id: "organization-server", title: "Organization server", keywords: ["den", "control plane", "server url", "reset server"] },
-  { id: "runtime", title: "Runtime", keywords: ["opencode engine", "openwork server", "connection status"] },
-  { id: "agent-access", title: "Agent access diagnostics", keywords: ["cloud mcp", "health", "tools", "connections"] },
-  { id: "config-sources", title: "OpenCode config sources", keywords: ["runtime db", "injected config", "project config", "global config"] },
-  { id: "experimental-engine", title: "Experimental engine", keywords: ["engine v2", "chat engine", "preview"] },
-  { id: "workspace-run-mode", title: "Workspace run mode", keywords: ["approvals", "permissions", "keep going", "feature flag"] },
-  { id: "developer", title: "Developer", keywords: ["developer mode", "debug", "deep link"] },
+  { id: "organization-server", titleKey: "settings.organization_server_title", keywords: ["den", "control plane", "server url", "reset server"] },
+  { id: "runtime", titleKey: "settings.runtime_title", keywords: ["opencode engine", "openwork server", "connection status"] },
+  { id: "agent-access", titleKey: "secondary_ui.advanced.agent_access_title", keywords: ["cloud mcp", "health", "tools", "connections"] },
+  { id: "config-sources", titleKey: "secondary_ui.advanced.config_sources_title", keywords: ["runtime db", "injected config", "project config", "global config"] },
+  { id: "experimental-engine", titleKey: "secondary_ui.advanced.experimental_engine", keywords: ["engine v2", "chat engine", "preview"] },
+  { id: "workspace-run-mode", titleKey: "settings_ui.run_mode_title", keywords: ["approvals", "permissions", "keep going", "feature flag"] },
+  { id: "developer", titleKey: "settings.developer", keywords: ["developer mode", "debug", "deep link"] },
 ];
+
+/** The section's title in the current language. */
+export function advancedSectionTitle(section: { titleKey: string }): string {
+  return t(section.titleKey);
+}

@@ -10,7 +10,7 @@ import {
   getWorkspaceSettingsTabs,
 } from "@/react-app/domains/settings/shell/settings-page";
 
-import { ADVANCED_SETTINGS_SECTIONS } from "@/react-app/domains/settings/advanced-sections";
+import { ADVANCED_SETTINGS_SECTIONS, advancedSectionTitle } from "@/react-app/domains/settings/advanced-sections";
 
 import { t } from "@/i18n";
 
@@ -87,7 +87,7 @@ export function buildCommandPaletteSettingsItems(input: {
   const advancedItems: PaletteItem[] = tabs.includes("advanced")
     ? ADVANCED_SETTINGS_SECTIONS.filter((section) => section.id !== "experimental-engine" || isDesktopRuntime()).map((section) => ({
         id: `settings:advanced/${section.id}`,
-        title: section.title,
+        title: advancedSectionTitle(section),
         keywords: section.keywords,
         breadcrumb: t("secondary_ui.palette.breadcrumb_advanced"),
         group: "settings",

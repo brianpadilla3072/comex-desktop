@@ -259,24 +259,24 @@ function ExecutionDetails(props: { execution: OpencodeExecutionSnapshot }) {
     <div className="rounded-xl border border-blue-6/30 bg-blue-3/20 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-11">OpenCode execution</div>
-          <div className="text-[11px] text-dls-secondary">Command, working directory, and OpenWork-injected environment.</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-11">{t("secondary_ui.debug.execution_title")}</div>
+          <div className="text-[11px] text-dls-secondary">{t("secondary_ui.debug.execution_desc")}</div>
         </div>
         <div className="shrink-0 rounded-full border border-blue-7/30 bg-blue-7/10 px-2 py-1 text-[10px] font-medium text-blue-11">
-          redacted
+          {t("secondary_ui.debug.redacted")}
         </div>
       </div>
       <div className="space-y-3">
         <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">Command</div>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">{t("secondary_ui.debug.command")}</div>
           <pre className={miniPreClass}>{formatExecutionCommand(props.execution)}</pre>
         </div>
         <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">Working directory</div>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">{t("secondary_ui.debug.working_directory")}</div>
           <pre className={miniPreClass}>{props.execution.cwd}</pre>
         </div>
         <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">Injected environment</div>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-dls-secondary">{t("secondary_ui.debug.injected_environment")}</div>
           <div className="max-h-64 overflow-auto rounded-lg border border-dls-border bg-dls-sidebar/30">
             {props.execution.env.length > 0 ? props.execution.env.map((entry) => (
               <div key={entry.name} className="grid gap-2 border-b border-dls-border/50 p-2 last:border-b-0 md:grid-cols-[180px_minmax(0,1fr)]">
@@ -284,7 +284,7 @@ function ExecutionDetails(props: { execution: OpencodeExecutionSnapshot }) {
                 <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-dls-secondary">{entry.value}</pre>
               </div>
             )) : (
-              <div className="p-2 text-[11px] text-dls-secondary">No injected environment captured.</div>
+              <div className="p-2 text-[11px] text-dls-secondary">{t("secondary_ui.debug.no_injected_environment")}</div>
             )}
           </div>
         </div>
@@ -500,8 +500,8 @@ export function DebugView(props: DebugViewProps) {
         </details>
         <div className={subCardClass}>
           <div>
-            <div className="text-sm font-semibold tracking-[-0.1px] text-dls-text">Bootstrap config</div>
-            <div className="text-[12px] text-dls-secondary">Desktop bootstrap paths, parsed config, and normalized values.</div>
+            <div className="text-sm font-semibold tracking-[-0.1px] text-dls-text">{t("secondary_ui.debug.bootstrap_title")}</div>
+            <div className="text-[12px] text-dls-secondary">{t("secondary_ui.debug.bootstrap_desc")}</div>
           </div>
           <pre className={monoPreClass}>{props.bootstrapConfigDebugJson}</pre>
         </div>
@@ -597,9 +597,9 @@ export function DebugView(props: DebugViewProps) {
       {props.agentAccess ? (
         <div className={cardClass}>
           <div className={sectionHeaderClass}>
-            <div className={sectionTitleClass}>Agent access</div>
+            <div className={sectionTitleClass}>{t("secondary_ui.debug.agent_access_title")}</div>
             <div className={sectionDescClass}>
-              Test and repair OpenWork Cloud MCP access for this workspace.
+              {t("secondary_ui.debug.agent_access_desc")}
             </div>
           </div>
           <AgentAccessCard
@@ -1117,13 +1117,13 @@ export function DebugView(props: DebugViewProps) {
         <div className={cardClass}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className={sectionTitleClass}>Electron alpha channel</div>
+              <div className={sectionTitleClass}>{t("secondary_ui.debug.alpha_channel_title")}</div>
               <div className={sectionDescClass}>
-                Debug-only controls for migrated Electron users. Stable updates remain the default in Settings → Updates.
+                {t("secondary_ui.debug.alpha_channel_desc")}
               </div>
             </div>
             <div className="rounded-full border border-dls-border bg-dls-sidebar/50 px-2.5 py-1 text-[11px] font-medium text-dls-secondary">
-              {props.electronAlphaUpdaterChannel === "alpha" ? "Alpha" : "Stable"}
+              {props.electronAlphaUpdaterChannel === "alpha" ? t("secondary_ui.debug.channel_alpha") : t("secondary_ui.debug.channel_stable")}
             </div>
           </div>
 
@@ -1134,7 +1134,7 @@ export function DebugView(props: DebugViewProps) {
               onClick={() => void props.onSetElectronAlphaUpdaterChannel("alpha")}
               disabled={props.electronAlphaUpdaterBusy}
             >
-              Use alpha feed
+              {t("secondary_ui.debug.use_alpha_feed")}
             </Button>
             <Button
               variant={props.electronAlphaUpdaterChannel === "stable" ? "secondary" : "outline"}
@@ -1142,7 +1142,7 @@ export function DebugView(props: DebugViewProps) {
               onClick={() => void props.onSetElectronAlphaUpdaterChannel("stable")}
               disabled={props.electronAlphaUpdaterBusy}
             >
-              Return to stable
+              {t("secondary_ui.debug.return_to_stable")}
             </Button>
             <Button
               variant="outline"
@@ -1150,12 +1150,12 @@ export function DebugView(props: DebugViewProps) {
               onClick={() => void props.onCheckElectronAlphaUpdates()}
               disabled={props.electronAlphaUpdaterBusy}
             >
-              {props.electronAlphaUpdaterBusy ? "Checking…" : "Check selected feed"}
+              {props.electronAlphaUpdaterBusy ? t("secondary_ui.debug.checking") : t("secondary_ui.debug.check_selected_feed")}
             </Button>
           </div>
 
           <div className="text-[11px] text-dls-secondary">
-            Alpha feed: <span className="font-mono">alpha-macos-latest/latest-mac.yml</span>. Stable feed:{" "}
+            {t("secondary_ui.debug.alpha_feed")} <span className="font-mono">alpha-macos-latest/latest-mac.yml</span>. {t("secondary_ui.debug.stable_feed")}{" "}
             <span className="font-mono">releases/latest/download/latest-mac.yml</span>.
           </div>
 

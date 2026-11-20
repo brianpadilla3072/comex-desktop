@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import { currentLocale, setLocale } from "../src/i18n";
 import { agentViewportLabel } from "../src/react-app/domains/session/panel/agent-viewport";
+import { ADVANCED_SETTINGS_SECTIONS, advancedSectionTitle } from "../src/react-app/domains/settings/advanced-sections";
 import { rankPaletteItems } from "../src/react-app/shell/command-palette-search";
 
 // Agent page sizes kept the English labels of @openwork/browser-tabs ("Desktop", "Phone")
@@ -15,6 +16,19 @@ test("agent page sizes follow the language while their keys stay the same", () =
     setLocale(previous);
   }
   expect(agentViewportLabel("phone")).toBe("Phone");
+});
+
+// Settings › Advanced section titles ("Agent access diagnostics") were English constants, also shown in the palette.
+test("advanced settings sections are titled in the current language", () => {
+  const previous = currentLocale();
+  setLocale("es");
+  try {
+    const titles = ADVANCED_SETTINGS_SECTIONS.map(advancedSectionTitle);
+    expect(titles).toContain("Servidor de la organización");
+    expect(titles.some((title) => /Agent access|config sources|Experimental engine|Developer/.test(title))).toBe(false);
+  } finally {
+    setLocale(previous);
+  }
 });
 
 // The command palette's group headings ("Recent", "Actions") were English constants.
