@@ -1,22 +1,20 @@
 /** @jsxImportSource react */
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { act } from "react";
-import { createRoot } from "react-dom/client";
-import { renderToStaticMarkup } from "react-dom/server";
 
-import { OpenworkServerError, type OpenworkPendingApproval } from "../src/app/lib/openwork-server";
-import {
-  answerWebApproval,
-  loadWebApprovals,
-  WebApprovalsPanel,
-  WebApprovalsResponder,
-  type WebApprovalsClient,
-} from "../src/react-app/domains/connections/web-approvals";
-import { isDesktopRuntime } from "../src/app/utils";
-
+// The DOM must exist before React loads: bun shares modules between test files, and a
+// react-dom first loaded without a DOM breaks every later render in the same run.
 const ownedDom = typeof window === "undefined";
 if (ownedDom) GlobalRegistrator.register({ url: "http://localhost/" });
+const { act } = await import("react");
+const { createRoot } = await import("react-dom/client");
+const { renderToStaticMarkup } = await import("react-dom/server");
+const { OpenworkServerError } = await import("../src/app/lib/openwork-server");
+import type { OpenworkPendingApproval } from "../src/app/lib/openwork-server";
+const { answerWebApproval, loadWebApprovals, WebApprovalsPanel, WebApprovalsResponder } = await import("../src/react-app/domains/connections/web-approvals");
+import type { WebApprovalsClient } from "../src/react-app/domains/connections/web-approvals";
+const { isDesktopRuntime } = await import("../src/app/utils");
+
 const previousAct = Reflect.get(globalThis, "IS_REACT_ACT_ENVIRONMENT");
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 const cleanups: (() => void)[] = [];
