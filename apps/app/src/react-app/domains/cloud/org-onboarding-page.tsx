@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { t } from "@/i18n";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
@@ -221,7 +222,7 @@ function usePreparedBootstrap() {
   return useMemo<PreparedBootstrapSummary | null>(() => {
     if (!bootstrap.prepared?.skillTitle) return null;
     return {
-      orgName: bootstrap.prepared.orgName || "Your workspace",
+      orgName: bootstrap.prepared.orgName || t("secondary_ui.cloud.onboarding.your_workspace"),
       skillTitle: bootstrap.prepared.skillTitle,
       claimLinks: bootstrap.claimLinks ?? [],
     };
@@ -242,7 +243,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
     // accept that as well as a bare code, like the main sign-in page does.
     const parsed = parseManualAuthInput(signInCode);
     if (!parsed || signInBusy) {
-      if (!parsed) setSignInError("Paste a valid one-time sign-in code.");
+      if (!parsed) setSignInError(t("secondary_ui.cloud.onboarding.invalid_code"));
       return;
     }
 
@@ -274,7 +275,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
             className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
           >
             <CheckCircle2 className="size-3.5" />
-            Setup complete — OpenWork is ready
+            {t("secondary_ui.cloud.onboarding.setup_ready")}
           </div>
           <PageTitle>{prepared.orgName}</PageTitle>
         </PageHeader>
@@ -285,7 +286,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
               data-openwork-prepared-skill="true"
               className="flex min-h-10 items-center justify-between gap-3 border-y border-dls-border py-2 text-sm"
             >
-              <span className="text-muted-foreground">First skill ready</span>
+              <span className="text-muted-foreground">{t("secondary_ui.cloud.onboarding.first_skill_ready")}</span>
               <span className="flex min-w-0 items-center gap-1.5 font-medium text-foreground">
                 <Check className="size-4 shrink-0 text-green-11" />
                 <span className="truncate">{prepared.skillTitle}</span>
@@ -302,7 +303,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                 onClick={() => platform.openLink(ownerClaim.url)}
                 className="w-full sm:w-auto"
               >
-                Claim workspace and continue
+                {t("secondary_ui.cloud.onboarding.claim_continue")}
                 <ArrowUpRightIcon data-icon="inline-end" />
               </Button>
 
@@ -314,16 +315,16 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                   setSignInError(null);
                 }}
               >
-                {showSignInCode ? "Hide sign-in code" : "Paste sign-in code"}
+                {showSignInCode ? t("den.hide_signin_code") : t("den.paste_signin_code")}
               </Button>
 
               {showSignInCode ? (
                 <div className="grid gap-3 rounded-2xl border border-dls-border bg-dls-surface p-4">
                   <Input
-                    aria-label="One-time sign-in code"
+                    aria-label={t("secondary_ui.cloud.onboarding.code_aria")}
                     value={signInCode}
                     onChange={(event) => setSignInCode(event.currentTarget.value)}
-                    placeholder="Paste the code from your browser"
+                    placeholder={t("secondary_ui.cloud.onboarding.code_placeholder")}
                     disabled={signInBusy}
                   />
                   <Button
@@ -331,7 +332,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
                     onClick={() => void submitSignInCode()}
                     disabled={signInBusy || !signInCode.trim()}
                   >
-                    {signInBusy ? "Signing in..." : "Sign in to this workspace"}
+                    {signInBusy ? t("secondary_ui.cloud.onboarding.signing_in") : t("secondary_ui.cloud.onboarding.sign_in_workspace")}
                   </Button>
                 </div>
               ) : null}
@@ -353,7 +354,7 @@ function PreparedWorkspacePage({ prepared }: { prepared: PreparedBootstrapSummar
             className="mx-auto"
             onClick={() => navigate("/signin")}
           >
-            Sign in with an existing account
+            {t("secondary_ui.cloud.onboarding.existing_account")}
           </Button>
         </PageFooter>
       </PageContainer>
@@ -501,17 +502,17 @@ export function OrgOnboardingPage() {
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Your organization</PageTitle>
+            <PageTitle>{t("ai_providers.your_organization_title")}</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading organizations...</PageLoadingDescription>
+              <PageLoadingDescription>{t("secondary_ui.cloud.onboarding.loading_orgs")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
           {cancelSwitch ? (
             <PageFooter>
-              <Button type="button" variant="ghost" onClick={cancelSwitch}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={cancelSwitch}>{t("common.cancel")}</Button>
             </PageFooter>
           ) : null}
         </PageContainer>
@@ -526,18 +527,18 @@ export function OrgOnboardingPage() {
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Choose your organization</PageTitle>
+            <PageTitle>{t("secondary_ui.cloud.onboarding.choose_org")}</PageTitle>
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error ? error.message : "Unable to load organizations."}
+                {error instanceof Error ? error.message : t("secondary_ui.cloud.onboarding.load_orgs_failed")}
               </AlertDescription>
             </Alert>
           </PageHeader>
           <PageFooter>
-            <Button type="button" onClick={() => void refetch()}>Retry</Button>
+            <Button type="button" onClick={() => void refetch()}>{t("common.retry")}</Button>
             {cancelSwitch ? (
-              <Button type="button" variant="ghost" onClick={cancelSwitch}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={cancelSwitch}>{t("common.cancel")}</Button>
             ) : null}
           </PageFooter>
         </PageContainer>
@@ -552,12 +553,12 @@ export function OrgOnboardingPage() {
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Your organization</PageTitle>
+            <PageTitle>{t("ai_providers.your_organization_title")}</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading organizations...</PageLoadingDescription>
+              <PageLoadingDescription>{t("secondary_ui.cloud.onboarding.loading_orgs")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -706,19 +707,19 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
 
       let updateReady = false;
       let warning = desktopConfig.brandIconUrl && !iconResult.ok
-        ? "The workspace app icon could not be prepared."
+        ? t("secondary_ui.cloud.onboarding.icon_failed")
         : null;
       try {
         updateReady = await stageOnboardingUpdate(desktopConfig);
       } catch (error) {
-        warning ??= error instanceof Error ? error.message : "The application update could not be prepared.";
+        warning ??= error instanceof Error ? error.message : t("secondary_ui.cloud.onboarding.update_failed");
       }
       setBrandingRestart({ fingerprint, updateReady, warning });
     } catch (error) {
       setBrandingRestart({
         fingerprint: workspaceBrandingFingerprint(orgId, {}),
         updateReady: false,
-        warning: error instanceof Error ? error.message : "Workspace branding could not be prepared.",
+        warning: error instanceof Error ? error.message : t("secondary_ui.cloud.onboarding.branding_failed"),
       });
     } finally {
       setPreparingBranding(false);
@@ -765,15 +766,15 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Preparing workspace identity</PageTitle>
+            <PageTitle>{t("secondary_ui.cloud.onboarding.preparing_identity")}</PageTitle>
             <PageDescription>
-              Applying {orgName || "your workspace"}&apos;s branding and checking for an application update.
+              {t("secondary_ui.cloud.onboarding.applying_branding", { name: orgName || t("secondary_ui.cloud.onboarding.your_workspace_lower") })}
             </PageDescription>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Preparing workspace...</PageLoadingDescription>
+              <PageLoadingDescription>{t("secondary_ui.cloud.onboarding.preparing_workspace")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -788,39 +789,39 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>Workspace identity is ready</PageTitle>
+            <PageTitle>{t("secondary_ui.cloud.onboarding.identity_ready")}</PageTitle>
             <PageDescription>
-              Restart OpenWork once to finish applying {orgName || "your workspace"}&apos;s name and app icon everywhere.
+              {t("secondary_ui.cloud.onboarding.restart_to_apply", { name: orgName || t("secondary_ui.cloud.onboarding.your_workspace_lower") })}
             </PageDescription>
             {brandingRestart.updateReady ? (
               <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11">
                 <CheckCircle2 className="size-3.5" />
-                Application update downloaded
+                {t("secondary_ui.cloud.onboarding.update_downloaded")}
               </div>
             ) : null}
             {brandingRestart.warning ? (
               <Alert>
                 <CircleAlert />
                 <AlertDescription>
-                  {brandingRestart.warning} You can still continue to the workspace.
+                  {brandingRestart.warning} {t("secondary_ui.cloud.onboarding.can_continue")}
                 </AlertDescription>
               </Alert>
             ) : null}
           </PageHeader>
           <PageContent>
             <details className="mx-auto w-full max-w-md rounded-xl border border-dls-border bg-dls-surface px-4 py-3 text-sm">
-              <summary className="cursor-pointer font-medium">Why restart?</summary>
+              <summary className="cursor-pointer font-medium">{t("secondary_ui.cloud.onboarding.why_restart")}</summary>
               <p className="mt-2 text-muted-foreground">
-                Restarting refreshes the workspace name and icon across your operating system and installs the prepared application update.
+                {t("secondary_ui.cloud.onboarding.why_restart_body")}
               </p>
             </details>
           </PageContent>
           <PageFooter>
             <Button type="button" variant="outline" onClick={continueWithoutRestart}>
-              Continue without restarting
+              {t("secondary_ui.cloud.onboarding.continue_no_restart")}
             </Button>
             <Button type="button" size="lg" onClick={() => void restartWithBranding()}>
-              Restart OpenWork
+              {t("secondary_ui.cloud.onboarding.restart_openwork")}
               <ArrowRight data-icon="inline-end" />
             </Button>
           </PageFooter>
@@ -836,12 +837,12 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
         <PageTitlebarRegion />
         <PageContainer>
           <PageHeader>
-            <PageTitle>{orgName || "Your organization"}</PageTitle>
+            <PageTitle>{orgName || t("ai_providers.your_organization_title")}</PageTitle>
           </PageHeader>
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading available resources...</PageLoadingDescription>
+              <PageLoadingDescription>{t("secondary_ui.cloud.onboarding.loading_resources")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -863,11 +864,11 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
               className="mx-auto flex w-fit items-center gap-2 rounded-full border border-green-6/30 bg-green-2/30 px-3 py-1 text-xs font-semibold text-green-11"
             >
               <CheckCircle2 className="size-3.5" />
-              Setup complete — OpenWork prepared this workspace
+              {t("secondary_ui.cloud.onboarding.setup_prepared")}
             </div>
           ) : null}
           <PageTitle>
-            {orgName || "Your organization"}
+            {orgName || t("ai_providers.your_organization_title")}
           </PageTitle>
           {loading ? (
             null
@@ -878,7 +879,7 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
             </Alert>
           ) : hasResources ? (
             <PageDescription>
-              You have access to the following resources.
+              {t("secondary_ui.cloud.onboarding.has_resources")}
             </PageDescription>
           ) : null}
         </PageHeader>
@@ -887,16 +888,16 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>Loading available resources...</PageLoadingDescription>
+              <PageLoadingDescription>{t("secondary_ui.cloud.onboarding.loading_resources")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         ) : error && !hasResources ? null : !hasResources ? (
           <PageContent>
             <Empty className="h-fit flex-none">
               <EmptyHeader>
-                <EmptyTitle>No resources have been configured for this organization yet.</EmptyTitle>
+                <EmptyTitle>{t("secondary_ui.cloud.onboarding.no_resources")}</EmptyTitle>
                 <EmptyDescription>
-                  Add AI providers or marketplaces from the OpenWork Cloud dashboard.
+                  {t("secondary_ui.cloud.onboarding.no_resources_hint")}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -904,7 +905,7 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
                   variant="outline"
                   onClick={() => platform.openLink(resolveDenBaseUrls(settings.baseUrl).baseUrl)}
                 >
-                  Open OpenWork Cloud
+                  {t("secondary_ui.cloud.onboarding.open_cloud")}
                   <ArrowUpRightIcon data-icon="inline-end" />
                 </Button>
               </EmptyContent>
@@ -922,7 +923,7 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
                     <Section
                       icon={<CloudIcon className="size-5 text-foreground/60" />}
                       title="OpenWork Models"
-                      description="Managed models available through your organization."
+                      description={t("secondary_ui.cloud.onboarding.openwork_models_desc")}
                     >
                       {openworkProviders.map((provider) => (
                         <ProviderAccessCard key={provider.id} provider={provider} />
@@ -934,8 +935,8 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
                     <Section
                       icon={<CloudIcon className="size-5 text-foreground/60" />}
                       title="AI Gateway"
-                      description="AI providers you have access to through your organization."
-                      count={`${gatewayProviders.length} AI provider${gatewayProviders.length === 1 ? "" : "s"}`}
+                      description={t("secondary_ui.cloud.onboarding.gateway_desc")}
+                      count={t("secondary_ui.cloud.onboarding.ai_providers", { count: gatewayProviders.length })}
                     >
                       {gatewayProviders.map((provider) => (
                         <ProviderAccessCard key={provider.id} provider={provider} />
@@ -946,9 +947,9 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
                   {legacyProviders.length > 0 ? (
                     <Section
                       icon={<CloudIcon className="size-5 text-foreground/60" />}
-                      title="AI Providers"
-                      description="Models you can use in your workspace."
-                      count={`${totalModels} model${totalModels === 1 ? "" : "s"}`}
+                      title={t("settings.card.ai.title")}
+                      description={t("secondary_ui.cloud.onboarding.ai_providers_desc")}
+                      count={t("secondary_ui.cloud.onboarding.models", { count: totalModels })}
                     >
                       {legacyProviders.map((provider) => (
                         <ProviderCard
@@ -965,9 +966,9 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
                   {marketplaces.length > 0 ? (
                     <Section
                       icon={<Square3Stack3DIcon className="size-5 text-foreground/60" />}
-                      title="Collections"
-                      description="App stores with extensions and plugins for your workspace."
-                      count={`${marketplaces.length} marketplace${marketplaces.length === 1 ? "" : "s"}`}
+                      title={t("settings.tab_cloud_marketplaces")}
+                      description={t("secondary_ui.cloud.onboarding.collections_desc")}
+                      count={t("secondary_ui.cloud.onboarding.marketplaces", { count: marketplaces.length })}
                     >
                       {marketplaces.map((mp) => (
                         <MarketplaceCard key={mp.id} marketplace={mp} />
@@ -982,7 +983,7 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
             {selectedDefault ? (
               <div className="rounded-xl border border-green-6/30 bg-green-2/30 px-4 py-3 text-center text-sm text-green-11">
                 <Check size={14} className="mr-1 inline" />
-                {selectedDefault.label} will be set as your default model.
+                {t("secondary_ui.cloud.onboarding.default_model_set", { name: selectedDefault.label })}
               </div>
             ) : null}
           </PageContent>
@@ -992,7 +993,7 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
           {/* Footer hint */}
           {!loading && !error && hasResources ? (
             <p className="text-center text-xs text-muted-foreground text-balance leading-relaxed tracking-wide">
-              Available providers appear in AI Providers; some may require sign-in. Collections are available from Cloud settings.
+              {t("secondary_ui.cloud.onboarding.footer_hint")}
             </p>
           ) : null}
           <Button
@@ -1003,10 +1004,10 @@ export function ResourceSelectionPage({ autoContinue = false, previousOrgId = ""
             disabled={loading || preparingBranding}
           >
             {preparingBranding
-              ? "Preparing workspace..."
+              ? t("secondary_ui.cloud.onboarding.preparing_workspace")
               : hasResources
-                ? "Continue to workspace"
-                : "Continue"}
+                ? t("secondary_ui.cloud.onboarding.continue_workspace")
+                : t("extensions.add_picker_continue")}
             <ArrowRight data-icon="inline-end" />
           </Button>
         </PageFooter>
@@ -1047,7 +1048,7 @@ function MarketplaceCard({ marketplace }: MarketplaceCardProps) {
         ) : null}
       </div>
         <span className="shrink-0 text-xs text-muted-foreground">
-        {marketplace.pluginCount} plugin{marketplace.pluginCount === 1 ? "" : "s"}
+        {t("secondary_ui.cloud.onboarding.plugins", { count: marketplace.pluginCount })}
       </span>
     </div>
   );
@@ -1141,8 +1142,8 @@ function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCa
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
             {provider.models.length === 1
-              ? "1 model"
-              : `${provider.models.length} models`}
+              ? t("secondary_ui.cloud.onboarding.models", { count: 1 })
+              : t("secondary_ui.cloud.onboarding.models", { count: provider.models.length })}
           </div>
         </div>
         {firstModel ? (
@@ -1156,7 +1157,7 @@ function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCa
             )}
             onClick={handleUseAsDefault}
           >
-            {isSelected ? "Default" : "Use as default"}
+            {isSelected ? t("settings.default_label") : t("secondary_ui.cloud.onboarding.use_as_default")}
           </button>
         ) : (
           <Check size={16} className="shrink-0 text-green-11" />
@@ -1209,17 +1210,17 @@ function OrganizationSelectionPage({
       <PageTitlebarRegion />
       <PageContainer>
         <PageHeader>
-          <PageTitle>Choose your organization</PageTitle>
+          <PageTitle>{t("secondary_ui.cloud.onboarding.choose_org")}</PageTitle>
           {error ? (
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error ? error.message : "Unable to select organization."}
+                {error instanceof Error ? error.message : t("secondary_ui.cloud.onboarding.select_org_failed")}
               </AlertDescription>
             </Alert>
           ) : (
             <PageDescription>
-              Select the organization whose cloud resources should be connected to this workspace.
+              {t("secondary_ui.cloud.onboarding.select_org_desc")}
             </PageDescription>
           )}
         </PageHeader>
@@ -1240,7 +1241,7 @@ function OrganizationSelectionPage({
             onClick={() => mutate(selected)}
             disabled={isPending}
           >
-            {isPending ? "Connecting..." : "Continue with organization"}
+            {isPending ? t("workspace_list.connecting") : t("secondary_ui.cloud.onboarding.continue_org")}
             <ArrowRight data-icon="inline-end" />
           </Button>
           {onCancel ? (
@@ -1250,7 +1251,7 @@ function OrganizationSelectionPage({
               disabled={isPending}
               onClick={onCancel}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
           ) : null}
         </PageFooter>
@@ -1273,8 +1274,8 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
     <div className="flex flex-col gap-3">
       {orgs.length > 10 ? (
         <Input
-          aria-label="Search organizations"
-          placeholder="Search organizations..."
+          aria-label={t("secondary_ui.cloud.onboarding.search_orgs")}
+          placeholder={t("secondary_ui.cloud.onboarding.search_orgs_placeholder")}
           value={query}
           onChange={(event) => updateQuery(event.target.value)}
         />
@@ -1286,7 +1287,7 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
           const nextOrg = orgs.find((org) => org.id === nextOrgId);
           if (nextOrg) onValueChange(nextOrg);
         }}
-        aria-label="Organizations"
+        aria-label={t("secondary_ui.cloud.onboarding.orgs")}
       >
         {visible.map((org) => {
           const fieldId = `organization-${org.id}`;
@@ -1322,17 +1323,17 @@ export function OrganizationList({ orgs, value, onValueChange }: OrganizationLis
 
       {filtered.length === 0 && query.trim() ? (
         <div className="text-sm text-muted-foreground">
-          No organizations match your search.
+          {t("secondary_ui.cloud.onboarding.no_match")}
         </div>
       ) : null}
 
       {hasMore ? (
         <div className="flex flex-col items-start gap-2">
           <Button type="button" variant="outline" size="sm" onClick={showMore}>
-            Show more
+            {t("text_activity.show_more")}
           </Button>
           <div className="text-xs text-muted-foreground">
-            Showing {visible.length} of {filtered.length} organizations
+            {t("secondary_ui.cloud.onboarding.showing", { visible: visible.length, total: filtered.length })}
           </div>
         </div>
       ) : null}

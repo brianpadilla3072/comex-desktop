@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "@/i18n";
 import { useNavigate } from "react-router";
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { Check, Lock, X } from "lucide-react";
@@ -34,7 +35,7 @@ export function ActivationCard(props: { onOpenExtensions: () => void }) {
     else props.onOpenExtensions();
   };
 
-  const label = model.presentation === "next" && model.next ? `Get set up, next: ${model.next}` : `Get set up, ${model.done} of ${model.total}`;
+  const label = model.presentation === "next" && model.next ? t("secondary_ui.cloud.activation.label_next", { next: model.next }) : t("secondary_ui.cloud.activation.label_progress", { done: model.done, total: model.total });
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -48,29 +49,29 @@ export function ActivationCard(props: { onOpenExtensions: () => void }) {
         {model.presentation === "full" ? (
           <>
             <span className="flex items-center gap-2 text-[13px] font-medium leading-4">
-              <span className="flex-1 truncate">Get set up</span>
-              <span className="text-xs font-normal tabular-nums text-muted-foreground">{model.done} of {model.total}</span>
+              <span className="flex-1 truncate">{t("secondary_ui.cloud.activation.get_set_up")}</span>
+              <span className="text-xs font-normal tabular-nums text-muted-foreground">{t("secondary_ui.cloud.activation.progress", { done: model.done, total: model.total })}</span>
             </span>
-            <ProgressPrimitive.Root value={model.done} max={model.total} aria-label="Setup progress">
+            <ProgressPrimitive.Root value={model.done} max={model.total} aria-label={t("secondary_ui.cloud.activation.progress_aria")}>
               <ProgressTrack className="h-1 bg-sidebar-border">
                 <ProgressIndicator className="rounded-full" />
               </ProgressTrack>
             </ProgressPrimitive.Root>
-            {model.next ? <span className="truncate text-xs leading-4 text-muted-foreground">Next: {model.next}</span> : null}
+            {model.next ? <span className="truncate text-xs leading-4 text-muted-foreground">{t("secondary_ui.cloud.activation.next", { next: model.next })}</span> : null}
           </>
         ) : (
-          <span className="truncate text-xs leading-4 text-muted-foreground">Next: {model.next}</span>
+          <span className="truncate text-xs leading-4 text-muted-foreground">{t("secondary_ui.cloud.activation.next", { next: model.next ?? "" })}</span>
         )}
       </PopoverTrigger>
       <PopoverContent side="right" align="end" sideOffset={8} collisionPadding={12} className="w-80 gap-0 rounded-2xl p-1.5" data-testid="activation-popover">
         <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
-          <PopoverTitle className="flex-1 text-sm font-semibold">Get set up</PopoverTitle>
-          <span className="text-xs tabular-nums text-muted-foreground">{model.done} of {model.total}</span>
+          <PopoverTitle className="flex-1 text-sm font-semibold">{t("secondary_ui.cloud.activation.get_set_up")}</PopoverTitle>
+          <span className="text-xs tabular-nums text-muted-foreground">{t("secondary_ui.cloud.activation.progress", { done: model.done, total: model.total })}</span>
           {!model.dismissed ? (
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Hide checklist"
+              aria-label={t("secondary_ui.cloud.activation.hide")}
               onClick={() => { setOpen(false); void reportActivationEvent("dismiss"); }}
             >
               <X className="size-4" />
@@ -94,11 +95,11 @@ function ActivationStepRow({ row, onAction }: { row: ActivationRow; onAction: (a
       className="flex min-h-11 items-center gap-2.5 border-t border-border px-2 py-1.5 first:border-t-0"
     >
       {row.state === "done" ? (
-        <span className="grid size-4 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label="Done"><Check className="size-3" strokeWidth={2.5} /></span>
+        <span className="grid size-4 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={t("mcp.auth.done")}><Check className="size-3" strokeWidth={2.5} /></span>
       ) : row.state === "locked" ? (
-        <Lock className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-label="Locked" />
+        <Lock className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-label={t("secondary_ui.cloud.activation.locked")} />
       ) : (
-        <span className="size-4 shrink-0 rounded-full border-[1.5px] border-muted-foreground/60" aria-label="Not done" />
+        <span className="size-4 shrink-0 rounded-full border-[1.5px] border-muted-foreground/60" aria-label={t("secondary_ui.cloud.activation.not_done")} />
       )}
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-[13px] leading-[18px]", row.state === "done" ? "text-muted-foreground" : "font-medium text-foreground")}>{row.title}</p>

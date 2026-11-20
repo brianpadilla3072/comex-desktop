@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { t } from "@/i18n";
 import { GATEWAY_USAGE_LIMIT_ERROR_CODE, hasGatewayUsageLimitHttpMarker, gatewayUsageTimeframeSchema, type GatewayUsageBucket, type GatewayUsageStatus } from "@openwork/types/den/gateway-usage-limits";
 
 export const gatewayUsageQueryPrefix = ["gateway-own-usage"];
@@ -158,8 +159,19 @@ export function formatGatewayMoney(microUsd: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(microUsd / 1_000_000);
 }
 
-export const gatewayPeriodLabels: Record<GatewayUsageBucket["timeframe"], string> = { day: "Today", week: "This week", month: "This month" };
-export const gatewayPeriodPossessives: Record<GatewayUsageBucket["timeframe"], string> = { day: "today’s", week: "this week’s", month: "this month’s" };
+type GatewayTimeframe = GatewayUsageBucket["timeframe"];
+/** "Today", "This week", "This month", in the app's language. */
+export function gatewayPeriodLabel(timeframe: GatewayTimeframe): string {
+  return timeframe === "day" ? t("secondary_ui.cloud.gateway.period_day") : timeframe === "week" ? t("secondary_ui.cloud.gateway.period_week") : t("secondary_ui.cloud.gateway.period_month");
+}
+/** The period inside a sentence: "today", "this week", "this month". */
+export function gatewayPeriodInSentence(timeframe: GatewayTimeframe): string {
+  return timeframe === "day" ? t("secondary_ui.cloud.gateway.period_lower_day") : timeframe === "week" ? t("secondary_ui.cloud.gateway.period_lower_week") : t("secondary_ui.cloud.gateway.period_lower_month");
+}
+/** "today’s", "this week’s", "this month’s" (Spanish: "de hoy", …). */
+export function gatewayPeriodPossessive(timeframe: GatewayTimeframe): string {
+  return timeframe === "day" ? t("secondary_ui.cloud.gateway.period_possessive_day") : timeframe === "week" ? t("secondary_ui.cloud.gateway.period_possessive_week") : t("secondary_ui.cloud.gateway.period_possessive_month");
+}
 
 /** What an approved increase adds; mirrors the Den approval (a quarter of the base, rounded up). */
 export function gatewayIncreaseMicroUsd(bucket: Pick<GatewayUsageBucket, "baseAllowanceMicroUsd">): number {
@@ -176,11 +188,11 @@ export function formatGatewayReset(resetAt: string, now: number): string {
   const ms = Date.parse(resetAt) - now;
   if (ms < 60 * 60_000) {
     const minutes = Math.max(1, Math.round(ms / 60_000));
-    return `Resets in ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+    return t("secondary_ui.cloud.gateway.resets_minutes", { count: minutes });
   }
   if (ms < 24 * 60 * 60_000) {
     const hours = Math.round(ms / (60 * 60_000));
-    return `Resets in ${hours} ${hours === 1 ? "hour" : "hours"}`;
+    return t("secondary_ui.cloud.gateway.resets_hours", { count: hours });
   }
-  return `Resets ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(resetAt))}`;
+  return t("secondary_ui.cloud.gateway.resets_on", { date: new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(resetAt)) });
 }

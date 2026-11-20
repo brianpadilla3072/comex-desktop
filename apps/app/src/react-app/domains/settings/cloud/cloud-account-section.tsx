@@ -111,7 +111,7 @@ export function CloudAccountSection({
       ) : orgsBusy ? (
         <div className="flex items-center gap-2 text-sm text-dls-secondary">
           <Loader2 size={14} className="animate-spin" />
-          Loading organizations...
+          {t("secondary_ui.cloud.onboarding.loading_orgs")}
         </div>
       ) : null}
 
@@ -137,12 +137,12 @@ function ConnectedOrg({ org, onSwitchOrganization, disabled }: {
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-dls-text">{org.name}</div>
         <div className="text-xs text-dls-secondary">
-          {formatDenOrgRoleLabel(org.role)} &middot; Connected
+          {formatDenOrgRoleLabel(org.role)} &middot; {t("connect.diagnostics_sync_status_connected")}
         </div>
       </div>
       {onSwitchOrganization ? (
         <Button variant="outline" size="sm" onClick={onSwitchOrganization} disabled={disabled}>
-          Switch organization
+          {t("secondary_ui.cloud.account.switch_org")}
         </Button>
       ) : (
         <Check size={16} className="shrink-0 text-green-11" />
@@ -175,7 +175,7 @@ function OrgPicker({
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-sm text-dls-secondary">
         <Loader2 size={20} className="animate-spin" />
-        Loading your organizations...
+        {t("secondary_ui.cloud.account.loading_your_orgs")}
       </div>
     );
   }
@@ -183,13 +183,13 @@ function OrgPicker({
   if (orgs.length === 0) {
     return (
       <div className="rounded-xl border border-dls-border bg-dls-surface px-4 py-6 text-center text-sm text-dls-secondary">
-        No organizations found.{" "}
+        {t("secondary_ui.cloud.account.no_orgs")}{" "}
         <button
           type="button"
           className="font-medium text-dls-text underline underline-offset-2"
           onClick={() => void onRefresh()}
         >
-          Refresh
+          {t("common.refresh")}
         </button>
       </div>
     );
@@ -198,15 +198,15 @@ function OrgPicker({
   return (
     <div className="flex flex-col gap-3">
       <div className="text-sm font-medium text-dls-text">
-        Select an organization
+        {t("secondary_ui.cloud.account.select_org")}
       </div>
       <div className="text-xs text-dls-secondary">
-        Choose the organization to use with this workspace.
+        {t("secondary_ui.cloud.account.choose_org")}
       </div>
       {orgs.length > 10 ? (
         <Input
-          aria-label="Search organizations"
-          placeholder="Search organizations..."
+          aria-label={t("secondary_ui.cloud.onboarding.search_orgs")}
+          placeholder={t("secondary_ui.cloud.onboarding.search_orgs_placeholder")}
           value={query}
           className="h-auto rounded-xl border-dls-border bg-dls-surface px-4 py-2.5 text-sm text-dls-text shadow-none placeholder:text-dls-secondary focus-visible:border-dls-text/30 focus-visible:ring-0 dark:bg-dls-surface"
           onChange={(event) => updateQuery(event.target.value)}
@@ -235,7 +235,7 @@ function OrgPicker({
       </div>
       {filtered.length === 0 && query.trim() ? (
         <div className="text-sm text-dls-secondary">
-          No organizations match your search.
+          {t("secondary_ui.cloud.onboarding.no_match")}
         </div>
       ) : null}
       {hasMore ? (
@@ -247,10 +247,10 @@ function OrgPicker({
             className="rounded-xl border-dls-border text-dls-text hover:bg-dls-hover"
             onClick={showMore}
           >
-            Show more
+            {t("text_activity.show_more")}
           </Button>
           <div className="text-xs text-dls-secondary">
-            Showing {visible.length} of {filtered.length} organizations
+            {t("secondary_ui.cloud.onboarding.showing", { visible: visible.length, total: filtered.length })}
           </div>
         </div>
       ) : null}

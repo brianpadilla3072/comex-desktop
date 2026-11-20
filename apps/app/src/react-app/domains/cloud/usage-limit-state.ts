@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { t } from "@/i18n";
 import {
   INFERENCE_WINDOW_TYPES,
   OPENWORK_MODELS_ALLOWANCE_ERROR_CODE,
@@ -78,21 +79,22 @@ export function usageLimitResetPhrase(resetAt: string | null | undefined, now = 
   const at = resetAt ? Date.parse(resetAt) : NaN;
   if (!Number.isFinite(at) || at <= now) return null;
   const minutes = Math.ceil((at - now) / 60_000);
-  if (minutes < 60) return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (minutes < 60) return t("secondary_ui.cloud.usage_limit.in_minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  return `on ${new Date(at).toLocaleDateString(undefined, { weekday: "long" })}`;
+  if (hours < 24) return t("secondary_ui.cloud.usage_limit.in_hours", { count: hours });
+  return t("secondary_ui.cloud.usage_limit.on_day", { day: new Date(at).toLocaleDateString(undefined, { weekday: "long" }) });
 }
 
+/** Locale keys of each allowance window's name. */
 const windowNames: Record<InferenceWindowType, string> = {
-  five_hour: "5-hour allowance", weekly: "Weekly allowance", monthly: "Monthly allowance",
+  five_hour: "secondary_ui.cloud.usage_limit.window_five_hour", weekly: "secondary_ui.cloud.usage_limit.window_weekly", monthly: "secondary_ui.cloud.usage_limit.window_monthly",
 };
 
 export function openWorkModelsLimitCopy(limit: OpenWorkModelsLimit, workspaceName: string | null, now = Date.now()) {
   const back = usageLimitResetPhrase(limit.resetAt, now);
   return {
-    title: `${workspaceName?.trim() || "Your workspace"} used its OpenWork Models allowance`,
-    reset: back ? `${limit.windowType ? windowNames[limit.windowType] : "Allowance"} resets ${back}` : null,
+    title: t("secondary_ui.cloud.usage_limit.used_allowance", { workspace: workspaceName?.trim() || t("secondary_ui.cloud.usage_limit.your_workspace") }),
+    reset: back ? t("secondary_ui.cloud.usage_limit.resets", { window: limit.windowType ? t(windowNames[limit.windowType]) : t("secondary_ui.cloud.usage_limit.allowance"), when: back }) : null,
   };
 }
 
@@ -117,7 +119,8 @@ export type UsageLimitViewer = {
   planUpgrade?: boolean;
 };
 
-const useAnotherModel: UsageLimitAction = { id: "use_another_model", label: "Use another model", emphasis: "tertiary" };
+/** The quiet way to keep working; built per call so its label follows the app's language. */
+const anotherModel = (): UsageLimitAction => ({ id: "use_another_model", label: t("secondary_ui.cloud.usage_limit.use_another_model"), emphasis: "tertiary" });
 
 /**
  * One primary action for the person's role, always a paid path for someone who can buy, and always a way to keep
@@ -127,22 +130,22 @@ export function usageLimitActions(kind: UsageLimitKind, viewer: UsageLimitViewer
   if (kind === "free_auto") {
     if (!viewer.signedIn) {
       return [
-        { id: "sign_in", label: "Sign in for more free use", emphasis: "primary" },
-        ...(viewer.modelsOffered ? [{ id: "get_models", label: "Get OpenWork Models", emphasis: "secondary" } satisfies UsageLimitAction] : []),
-        useAnotherModel,
+        { id: "sign_in", label: t("secondary_ui.cloud.usage_limit.sign_in_more"), emphasis: "primary" },
+        ...(viewer.modelsOffered ? [{ id: "get_models", label: t("secondary_ui.cloud.usage_limit.get_models"), emphasis: "secondary" } satisfies UsageLimitAction] : []),
+        anotherModel(),
       ];
     }
-    if (!viewer.modelsOffered) return [{ ...useAnotherModel, emphasis: "primary" }];
+    if (!viewer.modelsOffered) return [{ ...anotherModel(), emphasis: "primary" }];
     return viewer.canBuy
-      ? [{ id: "get_models", label: "Get OpenWork Models", emphasis: "primary" }, useAnotherModel]
-      : [{ id: "ask_admin", label: "Ask an admin for OpenWork Models", emphasis: "primary", lockedReason: "Only owners and admins can get OpenWork Models" }, useAnotherModel];
+      ? [{ id: "get_models", label: t("secondary_ui.cloud.usage_limit.get_models"), emphasis: "primary" }, anotherModel()]
+      : [{ id: "ask_admin", label: t("secondary_ui.cloud.usage_limit.ask_admin_models"), emphasis: "primary", lockedReason: t("secondary_ui.cloud.usage_limit.only_admins_models") }, anotherModel()];
   }
   if (!viewer.canBuy) {
-    return [{ id: "ask_admin", label: "Ask an admin for more", emphasis: "primary", lockedReason: "Owners and admins can add a team provider or upgrade the plan" }, useAnotherModel];
+    return [{ id: "ask_admin", label: t("secondary_ui.cloud.usage_limit.ask_admin_more"), emphasis: "primary", lockedReason: t("secondary_ui.cloud.usage_limit.admins_can_add") }, anotherModel()];
   }
   return [
-    { id: "add_team_provider", label: "Add a team provider", emphasis: "primary" },
-    ...(viewer.planUpgrade ? [{ id: "upgrade_plan", label: "Upgrade plan", emphasis: "secondary" } satisfies UsageLimitAction] : []),
-    useAnotherModel,
+    { id: "add_team_provider", label: t("secondary_ui.cloud.usage_limit.add_team_provider"), emphasis: "primary" },
+    ...(viewer.planUpgrade ? [{ id: "upgrade_plan", label: t("secondary_ui.cloud.usage_limit.upgrade_plan"), emphasis: "secondary" } satisfies UsageLimitAction] : []),
+    anotherModel(),
   ];
 }

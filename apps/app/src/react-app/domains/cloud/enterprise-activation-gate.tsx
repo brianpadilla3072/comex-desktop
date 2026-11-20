@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { t } from "@/i18n";
 
 import {
   buildDenAuthUrl,
@@ -64,14 +65,14 @@ function EnterpriseActivationPage() {
         setPendingConfirmation({ kind: "manual", baseUrl: linkBaseUrl, grant: pastedLink.grant, pasted: serverInput });
         setServerError(null);
         setAuthError(null);
-        setStatusMessage(`Confirm ${linkBaseUrl} before continuing.`);
+        setStatusMessage(t("secondary_ui.cloud.enterprise.confirm_url", { url: linkBaseUrl }));
         return;
       }
     }
 
     const baseUrl = normalizeOrganizationServerInput(serverInput);
     if (!baseUrl) {
-      setServerError("Enter a valid OpenWork server address.");
+      setServerError(t("secondary_ui.cloud.enterprise.invalid_address"));
       return;
     }
 
@@ -79,14 +80,14 @@ function EnterpriseActivationPage() {
     setPendingConfirmation({ kind: "browser", baseUrl });
     setServerError(null);
     setAuthError(null);
-    setStatusMessage(`Confirm ${baseUrl} before continuing.`);
+    setStatusMessage(t("secondary_ui.cloud.enterprise.confirm_url", { url: baseUrl }));
   };
 
   const exchangeConfirmedGrant = async (grant: string, baseUrl: string) => {
     setAuthBusy(true);
     setAuthError(null);
     setServerError(null);
-    setStatusMessage("Finishing OpenWork Enterprise sign-in…");
+    setStatusMessage(t("secondary_ui.cloud.enterprise.finishing"));
     try {
       // The confirmed server, session, and activation stamp commit in one
       // handoff transaction, so activation can never leave the bootstrap and
@@ -94,7 +95,7 @@ function EnterpriseActivationPage() {
       const result = await exchangeHandoffAndSignIn(grant, {
         baseUrl,
         desktopInitiated: true,
-        fallbackErrorMessage: "OpenWork Enterprise did not return a session token.",
+        fallbackErrorMessage: t("secondary_ui.cloud.enterprise.no_token"),
         bootstrap: {
           requireSignin: true,
           enterpriseActivation: {
@@ -111,7 +112,7 @@ function EnterpriseActivationPage() {
     } catch (error) {
       setStatusMessage(null);
       setAuthError(
-        error instanceof Error ? error.message : "Unable to finish OpenWork Enterprise sign-in.",
+        error instanceof Error ? error.message : t("secondary_ui.cloud.enterprise.finish_failed"),
       );
     } finally {
       setAuthBusy(false);
@@ -146,16 +147,16 @@ function EnterpriseActivationPage() {
       setServerInput("");
       if (status === "failed") {
         setStatusMessage(null);
-        setAuthError("We couldn't open your browser. Copy the sign-in link below into your browser, sign in, then paste the sign-in code from that page here.");
+        setAuthError(t("secondary_ui.cloud.enterprise.browser_failed"));
         return;
       }
       setStatusMessage(status === "opening"
-        ? "Your browser is taking a while to open. Sign in when the page appears. If OpenWork doesn't open afterwards, copy the sign-in code from that page and paste it here."
-        : "Finish signing in in your browser. If OpenWork doesn't open afterwards, copy the sign-in code from that page and paste it here.");
+        ? t("secondary_ui.cloud.enterprise.browser_slow")
+        : t("secondary_ui.cloud.enterprise.finish_in_browser"));
     } catch (error) {
       setStatusMessage(null);
       setServerError(
-        error instanceof Error ? error.message : "Unable to save this OpenWork server.",
+        error instanceof Error ? error.message : t("secondary_ui.cloud.enterprise.save_failed"),
       );
     } finally {
       setBrowserBusy(false);
@@ -205,10 +206,10 @@ function EnterpriseActivationPage() {
 
           <div className="mt-10 flex flex-col gap-2.5 sm:mt-14">
             <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.03em] text-foreground sm:text-[38px] sm:leading-[46px]">
-              Link this app to your organization
+              {t("secondary_ui.cloud.enterprise.title")}
             </h1>
             <p className="text-[15px] leading-[23px] text-muted-foreground">
-              Enter your workspace address — the page where you downloaded this app. Sign-in finishes in your browser and returns here.
+              {t("secondary_ui.cloud.enterprise.subtitle")}
             </p>
           </div>
 
@@ -219,7 +220,7 @@ function EnterpriseActivationPage() {
                   className="text-sm font-medium text-foreground"
                   htmlFor="organization-server-input"
                 >
-                  {browserHandoff ? "Sign-in code or workspace address" : "Workspace address"}
+                  {browserHandoff ? t("secondary_ui.cloud.enterprise.code_or_address") : t("secondary_ui.cloud.enterprise.address")}
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
@@ -227,7 +228,7 @@ function EnterpriseActivationPage() {
                     data-testid="organization-server-input"
                     value={serverInput}
                     onChange={(event) => setServerInput(event.currentTarget.value)}
-                    placeholder={browserHandoff ? "Paste the sign-in code from your browser" : "openwork.acme.com"}
+                    placeholder={browserHandoff ? t("secondary_ui.cloud.enterprise.paste_code") : "openwork.acme.com"}
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -240,12 +241,12 @@ function EnterpriseActivationPage() {
                     disabled={browserBusy || authBusy}
                     data-testid="organization-server-continue"
                   >
-                    Continue
+                    {t("extensions.add_picker_continue")}
                   </Button>
                 </div>
                 {browserHandoff ? (
                   <div className="flex flex-wrap items-center gap-2 pt-1 text-xs leading-5 text-muted-foreground">
-                    <span>Browser didn't open?</span>
+                    <span>{t("secondary_ui.cloud.enterprise.browser_didnt_open")}</span>
                     <Button
                       type="button"
                       variant="outline"
@@ -258,7 +259,7 @@ function EnterpriseActivationPage() {
                         );
                       }}
                     >
-                      {linkCopied ? "Link copied" : "Copy sign-in link"}
+                      {linkCopied ? t("secondary_ui.cloud.enterprise.link_copied") : t("den.copy_signin_link")}
                     </Button>
                   </div>
                 ) : null}
@@ -268,7 +269,7 @@ function EnterpriseActivationPage() {
             {pendingConfirmation ? (
               <section className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
                 <p className="text-sm leading-6 text-foreground">
-                  Connect this app to <strong className="break-all font-semibold">{pendingConfirmation.baseUrl}</strong>? This signs you in with that organization and binds OpenWork Enterprise to it.
+                  {t("secondary_ui.cloud.enterprise.connect_prefix")} <strong className="break-all font-semibold">{pendingConfirmation.baseUrl}</strong>{t("secondary_ui.cloud.enterprise.connect_suffix")}
                 </p>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button
@@ -280,7 +281,7 @@ function EnterpriseActivationPage() {
                     }}
                     disabled={browserBusy || authBusy}
                   >
-                    Back
+                    {t("common.back")}
                   </Button>
                   <Button
                     type="button"
@@ -289,8 +290,8 @@ function EnterpriseActivationPage() {
                     data-testid="organization-server-confirm"
                   >
                     {pendingConfirmation.kind === "browser"
-                      ? "Continue in browser"
-                      : "Confirm and finish sign-in"}
+                      ? t("secondary_ui.cloud.enterprise.continue_browser")
+                      : t("secondary_ui.cloud.enterprise.confirm_finish")}
                   </Button>
                 </div>
               </section>

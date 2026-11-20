@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { t } from "@/i18n";
 import { createPortal } from "react-dom";
 import { DashboardConnectionCard } from "./dashboard-connection-card";
 import { appToolResultConnectionToolName, connectionCardFromMcpToolResult } from "@/components/tools/error-attribution";
@@ -139,11 +140,10 @@ function freshnessLabel({ result, cachedAt }: Pick<ReadyTileState, "result" | "c
   const generatedAt = typeof artifact?.generatedAt === "string" ? Date.parse(artifact.generatedAt) : NaN;
   const updatedAt = Number.isFinite(generatedAt) ? generatedAt : cachedAt;
   const ageMinutes = Math.max(0, Math.floor((now - updatedAt) / 60_000));
-  if (ageMinutes < 1) return "Updated just now";
-  if (ageMinutes === 1) return "Updated 1 minute ago";
-  if (ageMinutes < 60) return `Updated ${ageMinutes} minutes ago`;
+  if (ageMinutes < 1) return t("secondary_ui.dashboard.tile.updated_now");
+  if (ageMinutes < 60) return t("secondary_ui.dashboard.tile.updated_minutes", { count: ageMinutes });
   const ageHours = Math.floor(ageMinutes / 60);
-  return ageHours === 1 ? "Updated 1 hour ago" : `Updated ${ageHours} hours ago`;
+  return t("secondary_ui.dashboard.tile.updated_hours", { count: ageHours });
 }
 
 function launchArgumentsSignature(argumentsValue: Record<string, unknown>) {
@@ -381,7 +381,7 @@ function McpAppTileContent({
       const current = stateRef.current;
       // A launch for a different document retires this one; only its replacement may use the new lease.
       if (!document?.active || current.phase !== "ready" || current.lifetime !== document) {
-        throw new Error("This artifact view has closed or changed.");
+        throw new Error(t("secondary_ui.dashboard.tile.view_closed"));
       }
       if (lease) return lease;
       const live = liveTargetOf(current);
@@ -398,7 +398,7 @@ function McpAppTileContent({
         await launched;
         continue;
       }
-      throw new Error("This artifact's workspace is still unavailable. Refresh the tile to reconnect.");
+      throw new Error(t("secondary_ui.dashboard.tile.workspace_unavailable"));
     }
   }, [requestRefresh]);
   useLayoutEffect(() => {
@@ -443,7 +443,7 @@ function McpAppTileContent({
     if (!ownerRemoved && !pendingOwnerRemoved) return;
     retiredNonceRef.current = nonceRef.current;
     attempt?.controller.abort();
-    clearDocument({ phase: "error", message: "This artifact view is unavailable until its workspace reconnects. Use refresh to launch it again." });
+    clearDocument({ phase: "error", message: t("secondary_ui.dashboard.tile.view_unavailable") });
     releaseLaunches();
     updateRefresh("failed");
   }, [launchEndpoints, clearDocument, releaseLaunches, updateRefresh]);
@@ -467,7 +467,7 @@ function McpAppTileContent({
     };
     const isCurrent = () => lifetime.current.active && !attempt.controller.signal.aborted && launchRef.current === attempt && retiredNonceRef.current !== nonce;
     const assertActive = () => {
-      if (!isCurrent()) throw new Error("This artifact launch has closed or changed. Run the tile again.");
+      if (!isCurrent()) throw new Error(t("secondary_ui.dashboard.tile.closed_changed_run"));
     };
     const endpointIsActive = (endpoint: DashboardLaunchEndpoint) => isCurrent()
       && endpointsRef.current.some(current => sameLaunchEndpoint(current, endpoint));
@@ -489,7 +489,7 @@ function McpAppTileContent({
       attempt.admitted = true;
       credentialRevision = readCloudCredentialRevision();
       discardInvalidDocument();
-      if (attempt.candidates.length === 0) throw new Error("No connected workspace is available to launch this artifact.");
+      if (attempt.candidates.length === 0) throw new Error(t("secondary_ui.dashboard.tile.no_workspace"));
       const argumentsSnapshot = snapshotMcpAppArguments(launchArguments);
       const launch = entry.connectionId
         ? { connectionId: entry.connectionId, toolName: entry.toolName, resourceUri: entry.resourceUri, arguments: {} }
@@ -520,7 +520,7 @@ function McpAppTileContent({
               expectedResourceDigest: live.refresh.resourceDigest,
             }, { signal });
             assertActive();
-            if (!current.lifetime.active || current.lifetime.failed) throw new Error("This artifact view has closed or changed. Run the tile again.");
+            if (!current.lifetime.active || current.lifetime.failed) throw new Error(t("secondary_ui.dashboard.tile.view_closed_run"));
             target = { endpoint: current.endpoint, app: live };
             reused = current;
           } catch (cause) {
@@ -552,10 +552,10 @@ function McpAppTileContent({
             target = null;
           }
           assertActive();
-          if (!target) return { phase: "error", message: "This tool no longer advertises an interactive artifact." };
+          if (!target) return { phase: "error", message: t("secondary_ui.dashboard.tile.no_interactive") };
           const { endpoint, app } = target;
           attempt.endpoint = endpoint;
-          if (!app.launchId) throw new OpenworkServerError(422, "missing_launch_context", "This artifact has no live launch context. Update OpenWork and run the tile again.");
+          if (!app.launchId) throw new OpenworkServerError(422, "missing_launch_context", t("secondary_ui.dashboard.tile.no_launch_context"));
           acquiredLaunchId = app.launchId;
           ownedLaunches.current.set(app.launchId, endpoint);
           holdLease({ origin: { ...endpoint, sessionId: null, readOnly: false }, app });
@@ -572,20 +572,20 @@ function McpAppTileContent({
             canRetryCredentials = false;
             approvalWasRequired = true;
             if (!userInitiated || fallbackEndpoint) return { phase: "idle", revokeAutoLaunch: true };
-            if (!endpointIsActive(endpoint)) throw new Error("This artifact launch has closed or changed. Run the tile again.");
+            if (!endpointIsActive(endpoint)) throw new Error(t("secondary_ui.dashboard.tile.closed_changed_run"));
             onAutoLaunchDisabledRef.current?.();
             result = await endpoint.client.callMcpAppTool(endpoint.workspaceId, { ...request, approved: true });
           }
         }
         assertActive();
-        if (!result || !endpointIsActive(target.endpoint)) throw new Error("This artifact launch has closed or changed. Run the tile again.");
+        if (!result || !endpointIsActive(target.endpoint)) throw new Error(t("secondary_ui.dashboard.tile.closed_changed_run"));
         const connection = tileConnectionState(entry, result, launchArguments);
         if (connection) return connection;
         if (result.isError) return {
           phase: "error", preservePrevious: true, message: launchFailureMessage(result.content)
             ?? (entry.launchArguments
-              ? "This artifact could not start with the saved launch input. Remove the tile and add it again with corrected input."
-              : "This artifact could not start without input, which this tile does not provide."),
+              ? t("secondary_ui.dashboard.tile.bad_input")
+              : t("secondary_ui.dashboard.tile.needs_input")),
         };
         // Each launch is marked with its time, so an open App receives every
         // refresh as a new launch result and can reload its data in the background.
@@ -624,7 +624,7 @@ function McpAppTileContent({
       if (next.phase === "ready") {
         if (!next.lifetime.active || !endpointIsActive(next.endpoint)) {
           next.lifetime.active = false;
-          clearDocument({ phase: "error", message: "This artifact view is unavailable until its workspace reconnects. Use refresh to launch it again." });
+          clearDocument({ phase: "error", message: t("secondary_ui.dashboard.tile.view_unavailable") });
           releaseLaunches();
           updateRefresh("failed");
           return;
@@ -680,7 +680,7 @@ function McpAppTileContent({
       // authority, policy or resource problem removes it.
       if (invalidatesTileDocument(cause) || current.phase !== "ready" || !current.lifetime.active || current.lifetime.failed
         || current.argumentsSignature !== argumentsSignature || !appMatchesEntry(current.app, entry)) {
-        clearDocument({ phase: "error", message: cause instanceof Error && cause.message ? cause.message : "The artifact could not be launched." });
+        clearDocument({ phase: "error", message: cause instanceof Error && cause.message ? cause.message : t("secondary_ui.dashboard.tile.launch_failed") });
         releaseLaunches();
       }
       updateRefresh("failed");
@@ -749,20 +749,20 @@ function McpAppTileContent({
     && stateRef.current.phase === "ready" && stateRef.current.lifetime === document
     && stateRef.current.argumentsSignature === argumentsRef.current.signature && appMatchesEntry(stateRef.current.app, entry);
   const badge = (() => {
-    if (state.phase === "ready" && !interactiveEndpoint) return "Saved locally · workspace unavailable";
-    if (state.phase === "ready" && origin?.readOnly && !state.live && refreshState !== "refreshing") return "Saved locally · run required";
-    if (state.phase === "ready" && refreshState === "refreshing") return "Saved locally · refreshing";
-    if (state.phase === "ready" && refreshState === "failed") return "Saved locally · refresh failed";
+    if (state.phase === "ready" && !interactiveEndpoint) return t("secondary_ui.dashboard.tile.badge_ws_unavailable");
+    if (state.phase === "ready" && origin?.readOnly && !state.live && refreshState !== "refreshing") return t("secondary_ui.dashboard.tile.badge_run_required");
+    if (state.phase === "ready" && refreshState === "refreshing") return t("secondary_ui.dashboard.tile.badge_refreshing");
+    if (state.phase === "ready" && refreshState === "failed") return t("secondary_ui.dashboard.tile.badge_refresh_failed");
     if (state.phase === "ready" && entry.organizationAutoLaunch === true) {
-      return `Organization auto-run · ${freshnessLabel(state, freshnessNow)}`;
+      return t("secondary_ui.dashboard.tile.badge_org_auto_fresh", { freshness: freshnessLabel(state, freshnessNow) });
     }
-    if (state.phase === "ready" && entry.requiresApproval === true) return "Saved locally · run on request";
+    if (state.phase === "ready" && entry.requiresApproval === true) return t("secondary_ui.dashboard.tile.badge_on_request");
     if (state.phase === "ready") return freshnessLabel(state, freshnessNow);
-    if (state.phase === "loading") return "Loading";
-    if (state.phase === "error") return "Refresh failed";
-    if (entry.organizationAutoLaunch === true) return "Organization auto-run";
-    if (entry.requiresApproval === true) return "Run on request";
-    if (manualLaunch) return "Run once to enable";
+    if (state.phase === "loading") return t("settings.loading");
+    if (state.phase === "error") return t("secondary_ui.dashboard.tile.refresh_failed");
+    if (entry.organizationAutoLaunch === true) return t("secondary_ui.dashboard.tile.org_auto");
+    if (entry.requiresApproval === true) return t("secondary_ui.dashboard.tile.on_request");
+    if (manualLaunch) return t("secondary_ui.dashboard.tile.run_once");
     return null;
   })();
 
@@ -798,11 +798,11 @@ function McpAppTileContent({
             <Play className="size-6 text-muted-foreground" aria-hidden />
             <p className="max-w-xs text-xs text-muted-foreground">
               {entry.requiresApproval === true
-                ? "This artifact modifies data when it runs, so it only runs when you ask."
-                : "Run once to enable automatic loading and refresh for this tile."}
+                ? t("secondary_ui.dashboard.tile.modifies_data")
+                : t("secondary_ui.dashboard.tile.run_once_hint")}
             </p>
-            <Button variant="outline" size="sm" onClick={run} aria-label={`Run ${entry.title}`}>
-              <Play className="size-4" /> Run
+            <Button variant="outline" size="sm" onClick={run} aria-label={t("secondary_ui.dashboard.tile.run_named", { name: entry.title })}>
+              <Play className="size-4" /> {t("secondary_ui.computer.run")}
             </Button>
           </div>
         ) : null}
@@ -814,7 +814,7 @@ function McpAppTileContent({
         ) : null}
         {state.phase === "closed" ? (
           <p className="pt-3 text-xs text-muted-foreground" role="status">
-            This artifact closed its view. Use refresh to launch it again.
+            {t("secondary_ui.dashboard.tile.closed_view")}
           </p>
         ) : null}
         {state.phase === "ready" && measuredGeometryIdentity === geometryIdentity ? (
@@ -881,15 +881,15 @@ function McpAppTileContent({
             </div>
           : (
             <p className="pt-3 text-xs text-muted-foreground" role="status">
-              This saved artifact view is unavailable until its workspace reconnects.
+              {t("secondary_ui.dashboard.tile.saved_unavailable")}
             </p>
           )
         ) : null}
       </DashboardTileShell>
-      {holdsPlaceholder ? <span className="sr-only" role="status">Loading {entry.title}</span> : null}
+      {holdsPlaceholder ? <span className="sr-only" role="status">{t("secondary_ui.dashboard.tile.loading_named", { name: entry.title })}</span> : null}
       {loadingDocument && !holdsPlaceholder ? (
-        <div className="absolute inset-0 z-10 flex flex-col gap-3 rounded-xl bg-background p-3" role="status" aria-label={`Loading ${entry.title}`} data-dashboard-loading>
-          <span className="text-xs text-muted-foreground">Loading {entry.title}</span>
+        <div className="absolute inset-0 z-10 flex flex-col gap-3 rounded-xl bg-background p-3" role="status" aria-label={t("secondary_ui.dashboard.tile.loading_named", { name: entry.title })} data-dashboard-loading>
+          <span className="text-xs text-muted-foreground">{t("secondary_ui.dashboard.tile.loading_named", { name: entry.title })}</span>
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="min-h-24 w-full flex-1" />
         </div>
@@ -897,13 +897,13 @@ function McpAppTileContent({
       {chromeTarget === undefined && state.phase === "ready" && !loadingDocument && !state.lifetime.failed && refreshState !== "idle" ? (
         <div className="pointer-events-none absolute right-10 top-1 z-10 rounded bg-background/90 px-2 py-1 text-[11px] text-muted-foreground"
           role="status" aria-live="polite" data-dashboard-cache-state={refreshState}>
-          {refreshState === "refreshing" ? "Updating…" : "Refresh failed · showing last good data"}
+          {refreshState === "refreshing" ? t("secondary_ui.dashboard.tile.updating") : t("secondary_ui.dashboard.tile.failed_last_good")}
         </div>
       ) : null}
       {chromeTarget ? createPortal(<>
         {state.phase === "ready" && !loadingDocument && !state.lifetime.failed && refreshState !== "idle" ? (
           <span className="whitespace-nowrap px-1 text-xs text-muted-foreground" role="status" aria-live="polite" data-dashboard-cache-state={refreshState}>
-            {refreshState === "refreshing" ? "Updating…" : "Refresh failed · showing last good data"}
+            {refreshState === "refreshing" ? t("secondary_ui.dashboard.tile.updating") : t("secondary_ui.dashboard.tile.failed_last_good")}
           </span>
         ) : null}
         {renderActions?.({ onRefresh: run, refreshing: refreshState === "refreshing" || loadingDocument })}

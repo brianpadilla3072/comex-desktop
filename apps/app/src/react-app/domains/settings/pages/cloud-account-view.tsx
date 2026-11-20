@@ -180,15 +180,16 @@ function DenSignedOutPanel({
   );
 }
 
+/** Locale keys of each permission's label. */
 const permissionLabels = {
-  allowCustomProviders: "Add AI providers",
-  allowZenModel: "Use the free starter model",
-  allowMultipleWorkspaces: "Create more workspaces",
-  allowControlSettings: "Change app settings",
-  allowManageExtensions: "Add tools, skills & MCP servers",
-  allowBuiltInExtensions: "Use built-in extensions",
-  allowAlphaUpdates: "Try experimental updates",
-  showWelcomePage: "Show welcome page",
+  allowCustomProviders: "secondary_ui.cloud.permissions.allowCustomProviders",
+  allowZenModel: "secondary_ui.cloud.permissions.allowZenModel",
+  allowMultipleWorkspaces: "secondary_ui.cloud.permissions.allowMultipleWorkspaces",
+  allowControlSettings: "secondary_ui.cloud.permissions.allowControlSettings",
+  allowManageExtensions: "secondary_ui.cloud.permissions.allowManageExtensions",
+  allowBuiltInExtensions: "secondary_ui.cloud.permissions.allowBuiltInExtensions",
+  allowAlphaUpdates: "secondary_ui.cloud.permissions.allowAlphaUpdates",
+  showWelcomePage: "secondary_ui.cloud.permissions.showWelcomePage",
 };
 
 function AppPermissionsView() {
@@ -199,9 +200,9 @@ function AppPermissionsView() {
       <SettingsSection>
         <SettingsSectionHeader>
           <SettingsSectionHeaderContent>
-            <SettingsSectionHeaderTitle>Your app permissions</SettingsSectionHeaderTitle>
+            <SettingsSectionHeaderTitle>{t("secondary_ui.cloud.permissions.title")}</SettingsSectionHeaderTitle>
             <SettingsSectionHeaderDescription>
-              These are your current permissions for this organization.
+              {t("secondary_ui.cloud.permissions.description")}
             </SettingsSectionHeaderDescription>
           </SettingsSectionHeaderContent>
         </SettingsSectionHeader>
@@ -212,9 +213,9 @@ function AppPermissionsView() {
               <div key={entry.id} data-testid={`app-permission-${entry.id}`}>
                 <SettingsListItem>
                   <SettingsListItemContent>
-                    <SettingsListItemTitle>{permissionLabels[entry.id]}</SettingsListItemTitle>
+                    <SettingsListItemTitle>{t(permissionLabels[entry.id])}</SettingsListItemTitle>
                   </SettingsListItemContent>
-                  <SettingsStatusBadge label={allowed ? "Allowed" : "Blocked"} tone={allowed ? "ready" : "neutral"} />
+                  <SettingsStatusBadge label={allowed ? t("connect.diagnostics_permission_allowed") : t("context_panel.permission_action_deny")} tone={allowed ? "ready" : "neutral"} />
                 </SettingsListItem>
               </div>
             );
@@ -224,25 +225,24 @@ function AppPermissionsView() {
           <SettingsList>
             <SettingsListItem>
               <SettingsListItemContent>
-                <SettingsListItemTitle>OS commands</SettingsListItemTitle>
+                <SettingsListItemTitle>{t("secondary_ui.cloud.permissions.os_commands")}</SettingsListItemTitle>
               </SettingsListItemContent>
-              <SettingsStatusBadge label={config.execution.commands === "deny" ? "Blocked" : config.execution.blockedCommands.length ? "Some commands restricted" : "Allowed"} tone="neutral" />
+              <SettingsStatusBadge label={config.execution.commands === "deny" ? t("context_panel.permission_action_deny") : config.execution.blockedCommands.length ? t("secondary_ui.cloud.permissions.some_restricted") : t("connect.diagnostics_permission_allowed")} tone="neutral" />
             </SettingsListItem>
             {config.execution.browserOrigins !== undefined ? <SettingsListItem>
               <SettingsListItemContent>
-                <SettingsListItemTitle>Approved websites</SettingsListItemTitle>
-                <SettingsSectionHeaderDescription>{config.execution.browserOrigins.length ? config.execution.browserOrigins.join(", ") : "Browsing is blocked."}</SettingsSectionHeaderDescription>
+                <SettingsListItemTitle>{t("secondary_ui.cloud.permissions.websites")}</SettingsListItemTitle>
+                <SettingsSectionHeaderDescription>{config.execution.browserOrigins.length ? config.execution.browserOrigins.join(", ") : t("secondary_ui.cloud.permissions.browsing_blocked")}</SettingsSectionHeaderDescription>
               </SettingsListItemContent>
             </SettingsListItem> : null}
             {config.execution.blockBrowserUploads ? <SettingsListItem>
-              <SettingsListItemContent><SettingsListItemTitle>Browser uploads and form submissions</SettingsListItemTitle></SettingsListItemContent>
-              <SettingsStatusBadge label="Blocked" tone="neutral" />
+              <SettingsListItemContent><SettingsListItemTitle>{t("secondary_ui.cloud.permissions.uploads")}</SettingsListItemTitle></SettingsListItemContent>
+              <SettingsStatusBadge label={t("context_panel.permission_action_deny")} tone="neutral" />
             </SettingsListItem> : null}
           </SettingsList>
         ) : null}
         <SettingsSectionHeaderDescription>
-          Your administrator manages team permissions in Cloud → Team → Access.
-          Ask them if you need a change, including access to an MCP server or skill.
+          {t("secondary_ui.cloud.permissions.admin_note")}
         </SettingsSectionHeaderDescription>
       </SettingsSection>
     </SettingsStack>
@@ -340,9 +340,9 @@ export function CloudAccountView({ developerMode, session }: CloudAccountViewPro
 
   return (
     <Tabs defaultValue="account" className="w-full max-w-3xl gap-y-6">
-      <TabsList variant="line" aria-label="Account pages">
-        <TabsTrigger value="account">Account</TabsTrigger>
-        <TabsTrigger value="permissions">App permissions</TabsTrigger>
+      <TabsList variant="line" aria-label={t("secondary_ui.cloud.account.pages")}>
+        <TabsTrigger value="account">{t("extensions.detail_fact_account")}</TabsTrigger>
+        <TabsTrigger value="permissions">{t("secondary_ui.cloud.account.tab_permissions")}</TabsTrigger>
       </TabsList>
       <TabsContent value="account">{accountContent}</TabsContent>
       <TabsContent value="permissions"><AppPermissionsView /></TabsContent>

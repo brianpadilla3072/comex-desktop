@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import type { AutomationSchedule } from "@openwork/types/automations"
+import { t } from "@/i18n";
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -8,13 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const WEEKDAYS = [
-  { value: 1, label: "Mon" },
-  { value: 2, label: "Tue" },
-  { value: 3, label: "Wed" },
-  { value: 4, label: "Thu" },
-  { value: 5, label: "Fri" },
-  { value: 6, label: "Sat" },
-  { value: 0, label: "Sun" },
+  { value: 1, labelKey: "secondary_ui.automations.schedule.day_mon" },
+  { value: 2, labelKey: "secondary_ui.automations.schedule.day_tue" },
+  { value: 3, labelKey: "secondary_ui.automations.schedule.day_wed" },
+  { value: 4, labelKey: "secondary_ui.automations.schedule.day_thu" },
+  { value: 5, labelKey: "secondary_ui.automations.schedule.day_fri" },
+  { value: 6, labelKey: "secondary_ui.automations.schedule.day_sat" },
+  { value: 0, labelKey: "secondary_ui.automations.schedule.day_sun" },
 ] as const
 
 function tomorrowAtNine() {
@@ -38,8 +39,8 @@ function timeForSchedule(schedule: AutomationSchedule) {
 
 const MEETING_MINUTES = [0, 5, 10, 15, 30, 60] as const
 const meetingMinutesLabel = (minutes: number, edge: "start" | "end") => minutes === 0
-  ? edge === "start" ? "When it starts" : "When it ends"
-  : `${minutes} min ${edge === "start" ? "before it starts" : "after it ends"}`
+  ? edge === "start" ? t("secondary_ui.automations.schedule.when_starts") : t("secondary_ui.automations.schedule.when_ends")
+  : edge === "start" ? t("secondary_ui.automations.schedule.minutes_before", { minutes }) : t("secondary_ui.automations.schedule.minutes_after", { minutes })
 
 const INTERVAL_HOURS = [1, 2, 3, 4, 6, 8, 12] as const
 const hourLabel = (hour: number) => `${String(hour).padStart(2, "0")}:00`
@@ -120,23 +121,23 @@ export function AutomationScheduleFields(props: {
     <>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor={id("frequency")}>Schedule</Label>
+          <Label htmlFor={id("frequency")}>{t("secondary_ui.automations.schedule.schedule")}</Label>
           <ScheduleSelect
             id={id("frequency")}
             value={schedule.kind}
             items={[
-              { value: "once", label: "Once" },
-              { value: "daily", label: "Daily" },
-              { value: "weekly", label: "Weekly" },
-              ...(intervalOffered ? [{ value: "interval" as const, label: "Every few hours" }] : []),
-              ...(meetingsOffered ? [{ value: "calendar" as const, label: "Around my meetings" }] : []),
+              { value: "once", label: t("secondary_ui.automations.schedule.once") },
+              { value: "daily", label: t("secondary_ui.automations.schedule.daily") },
+              { value: "weekly", label: t("secondary_ui.automations.schedule.weekly") },
+              ...(intervalOffered ? [{ value: "interval" as const, label: t("secondary_ui.automations.schedule.interval") }] : []),
+              ...(meetingsOffered ? [{ value: "calendar" as const, label: t("secondary_ui.automations.schedule.calendar") }] : []),
             ]}
             onChange={changeScheduleKind}
           />
         </div>
         {schedule.kind === "calendar" ? (
           <div className="space-y-2">
-            <Label htmlFor={id("meeting-moment")}>Runs</Label>
+            <Label htmlFor={id("meeting-moment")}>{t("context_panel.permission_action_allow")}</Label>
             <ScheduleSelect
               id={id("meeting-moment")}
               value={`${schedule.edge}:${Math.abs(schedule.offsetMinutes)}`}
@@ -152,18 +153,18 @@ export function AutomationScheduleFields(props: {
           </div>
         ) : schedule.kind === "interval" ? (
           <div className="space-y-2">
-            <Label htmlFor={id("every-hours")}>Every</Label>
+            <Label htmlFor={id("every-hours")}>{t("secondary_ui.automations.schedule.every")}</Label>
             <ScheduleSelect
               id={id("every-hours")}
               value={schedule.everyHours}
               items={[...new Set([...INTERVAL_HOURS, schedule.everyHours])].sort((left, right) => left - right)
-                .map((hours) => ({ value: hours, label: hours === 1 ? "1 hour" : `${hours} hours` }))}
+                .map((hours) => ({ value: hours, label: t("secondary_ui.automations.schedule.hours", { count: hours }) }))}
               onChange={(everyHours) => props.onChange({ ...schedule, everyHours })}
             />
           </div>
         ) : schedule.kind === "once" ? (
           <div className="space-y-2">
-            <Label htmlFor={id("once-at")}>Run at</Label>
+            <Label htmlFor={id("once-at")}>{t("secondary_ui.automations.schedule.run_at")}</Label>
             <Input
               id={id("once-at")}
               type="datetime-local"
@@ -176,7 +177,7 @@ export function AutomationScheduleFields(props: {
           </div>
         ) : (
           <div className="space-y-2">
-            <Label htmlFor={id("time")}>Time</Label>
+            <Label htmlFor={id("time")}>{t("secondary_ui.automations.schedule.time")}</Label>
             <Input
               id={id("time")}
               type="time"
@@ -190,7 +191,7 @@ export function AutomationScheduleFields(props: {
       {schedule.kind === "interval" ? (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor={id("window-start")}>From</Label>
+            <Label htmlFor={id("window-start")}>{t("secondary_ui.automations.schedule.from")}</Label>
             <ScheduleSelect
               id={id("window-start")}
               value={schedule.startHour}
@@ -199,12 +200,12 @@ export function AutomationScheduleFields(props: {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor={id("window-end")}>Until</Label>
+            <Label htmlFor={id("window-end")}>{t("secondary_ui.automations.schedule.until")}</Label>
             <ScheduleSelect
               id={id("window-end")}
               value={schedule.endHour}
               items={Array.from({ length: 24 - schedule.startHour }, (_, index) => schedule.startHour + index + 1)
-                .map((hour) => ({ value: hour, label: hour === 24 ? "End of day" : hourLabel(hour) }))}
+                .map((hour) => ({ value: hour, label: hour === 24 ? t("secondary_ui.automations.schedule.end_of_day") : hourLabel(hour) }))}
               onChange={(endHour) => props.onChange({ ...schedule, endHour })}
             />
           </div>
@@ -219,15 +220,15 @@ export function AutomationScheduleFields(props: {
               checked={schedule.rule.withExternalAttendees}
               onCheckedChange={(checked) => props.onChange({ ...schedule, rule: { ...schedule.rule, withExternalAttendees: checked } })}
             />
-            <Label htmlFor={id("meeting-external")}>Only meetings with people outside my organization</Label>
+            <Label htmlFor={id("meeting-external")}>{t("secondary_ui.automations.schedule.external_only")}</Label>
           </div>
-          <p className="text-xs text-muted-foreground">Uses meetings you accepted on your Google Calendar. Runs in OpenWork Cloud.</p>
+          <p className="text-xs text-muted-foreground">{t("secondary_ui.automations.schedule.calendar_hint")}</p>
         </div>
       ) : null}
 
       {schedule.kind === "weekly" || schedule.kind === "interval" ? (
         <div className="space-y-2">
-          <Label>Days</Label>
+          <Label>{t("secondary_ui.automations.schedule.days")}</Label>
           <div className="flex flex-wrap gap-2">
             {WEEKDAYS.map((day) => (
               <Button
@@ -237,7 +238,7 @@ export function AutomationScheduleFields(props: {
                 variant={schedule.daysOfWeek.includes(day.value) ? "secondary" : "outline"}
                 onClick={() => toggleWeekday(day.value)}
               >
-                {day.label}
+                {t(day.labelKey)}
               </Button>
             ))}
           </div>
@@ -256,7 +257,7 @@ export function AutomationTimezoneField(props: {
   const id = `${props.idPrefix ?? "automation"}-timezone`
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>Timezone</Label>
+      <Label htmlFor={id}>{t("secondary_ui.automations.schedule.timezone")}</Label>
       <Input id={id} value={props.timezone} onChange={(event) => props.onChange(event.currentTarget.value)} />
     </div>
   )

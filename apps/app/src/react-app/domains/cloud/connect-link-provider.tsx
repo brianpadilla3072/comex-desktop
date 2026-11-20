@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { t } from "@/i18n";
 
 import type { ConnectLinkClaims, ConnectLinkTransport, ConnectLinkVerifyErrorCode } from "@openwork/types/connect-link";
 
@@ -67,7 +68,7 @@ export function ConnectLinkProvider({ children }: ConnectLinkProviderProps) {
       setError({ code: result.code, message: result.message });
       setPhase("error");
     }).catch(() => {
-      setError({ code: "invalid_token", message: "Could not verify the connect link." });
+      setError({ code: "invalid_token", message: t("secondary_ui.cloud.connect_link.verify_failed") });
       setPhase("error");
     });
   }, []);
@@ -118,7 +119,7 @@ export function ConnectLinkProvider({ children }: ConnectLinkProviderProps) {
       await refreshDenBootstrapConfigFromShell();
       dismiss();
     }).catch(() => {
-      setError({ code: "invalid_token", message: "Could not apply the connect link." });
+      setError({ code: "invalid_token", message: t("secondary_ui.cloud.connect_link.apply_failed") });
       setPhase("error");
     });
   }, [dismiss]);

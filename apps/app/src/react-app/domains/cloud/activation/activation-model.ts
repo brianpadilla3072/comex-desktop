@@ -1,5 +1,4 @@
 import {
-  ACTIVATION_STEP_TITLES,
   activationChecklistPresentation,
   activationProgress,
   nextActivationStep,
@@ -8,6 +7,7 @@ import {
   type ActivationState,
   type ActivationStepId,
 } from "@openwork/types/den/activation";
+import { t } from "@/i18n";
 
 /**
  * The Desktop "Get set up" card: what it shows for a checklist Den computed, and
@@ -26,13 +26,32 @@ export type ActivationRow = {
   action: { kind: ActivationRowAction; label: string } | null;
 };
 
-const ACTIONS: Partial<Record<ActivationStepId, { kind: ActivationRowAction; label: string }>> = {
-  invite_teammate: { kind: "invite", label: "Invite" },
-  use_skill: { kind: "skill", label: "Try a skill" },
-  own_provider: { kind: "provider", label: "Add key" },
-  gateway_provider: { kind: "gateway", label: "Share" },
-  connector: { kind: "connect", label: "Connect" },
+/** Each step's title in the app's language; Den's `ACTIVATION_STEP_TITLES` holds the same English. */
+const STEP_TITLE_KEYS: Record<ActivationStepId, string> = {
+  first_response: "secondary_ui.cloud.activation.step_first_response",
+  invite_teammate: "secondary_ui.cloud.activation.step_invite_teammate",
+  use_skill: "secondary_ui.cloud.activation.step_use_skill",
+  own_provider: "secondary_ui.cloud.activation.step_own_provider",
+  gateway_provider: "secondary_ui.cloud.activation.step_gateway_provider",
+  connector: "secondary_ui.cloud.activation.step_connector",
 };
+
+function activationStepTitle(id: ActivationStepId): string {
+  return t(STEP_TITLE_KEYS[id]);
+}
+
+const ACTIONS: Partial<Record<ActivationStepId, { kind: ActivationRowAction; labelKey: string }>> = {
+  invite_teammate: { kind: "invite", labelKey: "secondary_ui.cloud.activation.action_invite" },
+  use_skill: { kind: "skill", labelKey: "secondary_ui.cloud.activation.action_skill" },
+  own_provider: { kind: "provider", labelKey: "secondary_ui.cloud.activation.action_provider" },
+  gateway_provider: { kind: "gateway", labelKey: "secondary_ui.cloud.activation.action_gateway" },
+  connector: { kind: "connect", labelKey: "secondary_ui.cloud.activation.action_connect" },
+};
+
+function activationAction(id: ActivationStepId): { kind: ActivationRowAction; label: string } | null {
+  const action = ACTIONS[id];
+  return action ? { kind: action.kind, label: t(action.labelKey) } : null;
+}
 
 export type ActivationCardModel =
   | { presentation: "hidden" }
@@ -47,16 +66,16 @@ export function activationCardModel(state: ActivationState | null | undefined): 
     presentation,
     done: progress.done,
     total: progress.total,
-    next: next ? ACTIVATION_STEP_TITLES[next.id] : null,
+    next: next ? activationStepTitle(next.id) : null,
     dismissed: state.dismissed,
     rows: orderedActivationSteps(state).map((step) => {
       const rowState = step.done ? "done" : step.lockedReason ? "locked" : "open";
       return {
         id: step.id,
-        title: ACTIVATION_STEP_TITLES[step.id],
+        title: activationStepTitle(step.id),
         state: rowState,
         line: step.done ? step.detail ?? null : step.lockedReason ?? null,
-        action: rowState === "open" ? ACTIONS[step.id] ?? null : null,
+        action: rowState === "open" ? activationAction(step.id) : null,
       };
     }),
   };
