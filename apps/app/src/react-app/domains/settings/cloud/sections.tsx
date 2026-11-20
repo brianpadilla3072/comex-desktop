@@ -175,11 +175,11 @@ function MarketplacePluginListItem({
           ))}
         </SettingsListTitle>
         <SettingsListItemDescription>
-          {row.plugin.description || "No description provided."}
+          {row.plugin.description || t("secondary_ui.cloud.no_description_provided")}
         </SettingsListItemDescription>
         {row.imported?.files.length ? (
           <div className="mt-1 truncate text-xs text-muted-foreground">
-            Installed files: {row.imported.files.map((file) => file.path).join(", ")}
+            {t("secondary_ui.cloud.installed_files", { files: row.imported.files.map((file) => file.path).join(", ") })}
           </div>
         ) : null}
       </SettingsListItemContent>

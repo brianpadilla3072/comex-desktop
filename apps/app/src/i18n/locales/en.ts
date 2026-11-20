@@ -4498,4 +4498,7 @@ export default {
   "secondary_ui.cloud.policies.body": "Some features and appearance settings are managed by your administrator.",
   "secondary_ui.cloud.signin.welcome": "Welcome to {name}",
   "secondary_ui.cloud.free.back": "Back {when}",
+  "secondary_ui.cloud.no_description_provided": "No description provided.",
+  "secondary_ui.cloud.installed_files": "Installed files: {files}",
+  "secondary_ui.cloud.message_saved": "Your message is saved",
 } as const;

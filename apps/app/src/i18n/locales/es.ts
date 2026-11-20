@@ -4523,4 +4523,7 @@ export default {
   "secondary_ui.cloud.policies.body": "Algunas funciones y ajustes de apariencia los administra tu administrador.",
   "secondary_ui.cloud.signin.welcome": "Te damos la bienvenida a {name}",
   "secondary_ui.cloud.free.back": "Vuelve {when}",
+  "secondary_ui.cloud.no_description_provided": "Sin descripción.",
+  "secondary_ui.cloud.installed_files": "Archivos instalados: {files}",
+  "secondary_ui.cloud.message_saved": "Tu mensaje está guardado",
 } as const;

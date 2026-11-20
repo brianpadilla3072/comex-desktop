@@ -38,6 +38,26 @@ const SWEPT = [
   "react-app/domains/settings/panels/authorized-folders-panel.tsx", "react-app/domains/workspace/create-workspace-local-panel.tsx",
   "react-app/shell/app-error-boundary.tsx", "react-app/shell/command-palette.tsx", "react-app/shell/loading-overlay.tsx",
   "react-app/shell/workspace-startup-status.tsx",
+  // Less-used screens: cloud/Den after signing in, computer use, MCP connection help, advanced settings.
+  "components/chat/computer-crew.tsx", "components/chat/computer-session-history.tsx", "components/model-select.tsx",
+  "react-app/design-system/extension-detail-modal.tsx", "react-app/domains/apps/built-app-share-button.tsx",
+  "react-app/domains/automations/automation-editor.tsx", "react-app/domains/automations/automation-model-button.tsx",
+  "react-app/domains/automations/automation-schedule-fields.tsx", "react-app/domains/automations/automations-page.tsx",
+  "react-app/domains/cloud/activation/activation-card.tsx", "react-app/domains/cloud/auto-access-ui.tsx",
+  "react-app/domains/cloud/brand-theme.tsx", "react-app/domains/cloud/connect-link-provider.tsx",
+  "react-app/domains/cloud/den-reauth-notice.tsx", "react-app/domains/cloud/den-signin-surface.tsx",
+  "react-app/domains/cloud/enterprise-activation-gate.tsx", "react-app/domains/cloud/gateway-usage-panel.tsx",
+  "react-app/domains/cloud/openwork-web-access-gate.tsx", "react-app/domains/cloud/org-onboarding-page.tsx",
+  "react-app/domains/cloud/sign-in-handoff-notice.tsx", "react-app/domains/connections/member-api-key-dialog.tsx",
+  "react-app/domains/dashboard/artifacts-page.tsx", "react-app/domains/dashboard/built-dashboard-apps.tsx",
+  "react-app/domains/dashboard/dashboard-apps.tsx", "react-app/domains/dashboard/dashboard-tile-shell.tsx",
+  "react-app/domains/dashboard/mcp-app-tile.tsx", "react-app/domains/dashboard/share-dashboard-button.tsx",
+  "react-app/domains/session/computer/cloud-computer-control.tsx", "react-app/domains/session/computer/computer-panel.tsx",
+  "react-app/domains/session/computer/computer-request-panel.tsx", "react-app/domains/settings/cloud/agent-access-card.tsx",
+  "react-app/domains/settings/cloud/cloud-account-section.tsx", "react-app/domains/settings/pages/advanced-view-sections.tsx",
+  "react-app/domains/settings/pages/advanced-view.tsx", "react-app/domains/settings/pages/cloud-account-view.tsx",
+  "react-app/domains/settings/pages/computer-use-view.tsx", "react-app/domains/settings/cloud/sections.tsx",
+  "react-app/domains/cloud/usage-limit-card.tsx",
 ];
 const ATTRIBUTES = new Set(["aria-label", "placeholder", "title", "alt"]);
 const ENGLISH_WORD = /\b(the|a|an|to|of|and|or|your|this|no|not|add|select|open|save|create|delete|remove|close|new|edit|loading|failed|error|connect|choose|search|copy|show|hide|back|next|cancel|retry|yes|is|are|in|for|with|more|name|folder|file|workspace|session|settings|model|run|stop|send|view|sign|enable|disable|set|use)\b/i;
