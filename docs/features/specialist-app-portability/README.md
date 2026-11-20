@@ -23,6 +23,7 @@ An application owns:
 | Scheduled tasks | `specialists/<app>/tasks.json` | yes, imported **paused** |
 | Projects (workspaces) | `specialist_projects` + project folders | yes, see below |
 | Project data folder (`comex/` or `proyecto/`) | inside each project | yes, whole folder |
+| Project work files (documents, spreadsheets, drafts) | inside each project | yes in `.owapp` archives (`specialistAppZipBundle`) |
 | Task run logs, proposals, tool plugins | `specialists/<app>/` | no (machine state) |
 | Provider keys and integration logins | per-provider credential stores | **never** |
 | Engine chat history | OpenCode database | no; session summaries travel instead |
@@ -33,6 +34,14 @@ whole folder means any family that stores its data there travels without
 changes to the exporter.
 
 ## Bundle format
+
+With `specialistAppZipBundle` on (the default), export writes a `.owapp` ZIP
+archive (version 2): `manifest.json` plus real file entries under `library/`,
+`projects/<i>/` and `work/<i>/`, with no base64. It is streamed, size-capped and
+checksum-verified, and it also carries the project's work files. See
+`../specialist-app-zip-bundle/README.md`. Import accepts both versions. The v1
+JSON bundle below is still what export writes with the flag off, and what
+`?format=json` returns.
 
 ```json
 {
@@ -55,8 +64,9 @@ changes to the exporter.
 - Unknown sections are skipped and reported back, so an older app can open a
   newer file. A bundle `version` above the supported one is rejected.
 - Files are `utf8` text or `base64` binary, with relative paths only: no
-  absolute paths, `..`, hidden files or symlinks. Limits: 2,000 files and 50 MB
-  per bundle, 5 MB per file.
+  absolute paths, `..`, hidden files or symlinks. v1 limits: 2,000 files and
+  50 MB per bundle, 5 MB per file. `.owapp` limits: 10,000 files, 200 MB and
+  50 MB per file. Every limit lives in `LIMITS` (`portability/bundle.ts`).
 
 ## Import
 
@@ -66,7 +76,8 @@ changes to the exporter.
 3. Library files go through the same checks as importing a pack folder.
 4. Each project becomes a new folder under the application
    (`specialists/<app>/projects/<uuid>`) and a new workspace; its data folder
-   is restored on top of the fresh project.
+   is restored on top of the fresh project, and the work files of a `.owapp`
+   archive go into the project folder.
 5. Tasks are created paused, so nothing runs before the person reviews it.
 
 If any step fails, the half-imported application is deleted.

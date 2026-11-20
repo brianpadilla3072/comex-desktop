@@ -159,6 +159,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  specialistAppZipBundle: {
+    label: "Export specialist applications as .owapp archives",
+    description: "Export an application as a .owapp ZIP archive that also carries the project's work files, with streamed, size-capped and checksum-verified import. Old JSON bundles still import.",
+    category: "experience",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/specialist-app-zip-bundle/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   comexSpanishLocale: {
     label: "Spanish by default in Comex",
     description: "Show the interface in Spanish when the person has not chosen a language, so it matches the Spanish Comex screens.",

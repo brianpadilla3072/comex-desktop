@@ -4,14 +4,15 @@ import { lstat, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
-import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, specialistAppPortabilityEnabled, specialistAppZipBundleEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistIntegrationsEnabled, specialistLibraryEnabled, specialistPanelAppsEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled, taskDryRunEnabled } from "../comex/features.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { applicationInput, displayText, specialistDirectory, specialistStore } from "./store.js";
 import { builtInComexPack, inspectSpecialistPack, saveSpecialistPack } from "./packs.js";
 import { ensureProjectDataDir } from "./project-data.js";
 import { registerSpecialistToolRoutes, syncLibraryToolPlugin } from "./library-tool-api.js";
-import { deleteApplication, exportApplication, importApplication } from "./portability/index.js";
+import { deleteApplication, exportApplication, exportApplicationArchive, importApplication, importApplicationArchive, scratchFolder } from "./portability/index.js";
+import { archiveResponse, isArchiveUpload, saveRequestBody } from "./portability/http.js";
 import { registerSpecialistMcpRoutes, syncPanelAppMcpEntry } from "./panel-app.js";
 import { listProposals, parsePlanProposalContent, parseTaskProposalContent, rawProposal, removeProposal, restoreProposal, proposalSchema } from "./proposals.js";
 import {
@@ -72,7 +73,7 @@ export function registerSpecialistRoutes(options: {
     const store = await specialistStore(config);
     const value = store.list();
     // Workspaces removed from the host are not advertised as usable projects.
-    return { enabled: true, portabilityEnabled: specialistAppPortabilityEnabled(), libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
+    return { enabled: true, portabilityEnabled: specialistAppPortabilityEnabled(), zipBundleEnabled: specialistAppPortabilityEnabled() && specialistAppZipBundleEnabled(), libraryEnabled: specialistLibraryEnabled(), scheduledTasksEnabled: scheduledTasksEnabled(), taskDryRunEnabled: taskDryRunEnabled(), datasetsEnabled: specialistDatasetsEnabled(), panelsEnabled: specialistPanelsEnabled(), panelAppsEnabled: specialistPanelAppsEnabled(), sourcesEnabled: specialistSourcesEnabled(), sourcesLocalFilesEnabled: sourcesLocalFilesEnabled(), outputsEnabled: studioOutputsEnabled(), integrationsEnabled: specialistIntegrationsEnabled(), ...value, applications: value.applications.map(app => ({ ...app, workspaceIds: app.workspaceIds.filter(id => config.workspaces.some(workspace => workspace.id === id)) })) };
   };
   // `writable`: whether this caller may create or change applications (host routes). The web app
   // only holds a collaborator token, so it must not offer creation it cannot complete.
@@ -135,18 +136,36 @@ export function registerSpecialistRoutes(options: {
   }
   addRoute(routes, "GET", "/specialist-applications/:id/export", "host", async ctx => {
     requirePortability();
-    return jsonResponse(await exportApplication(config, await specialistStore(config), ctx.params.id));
+    const store = await specialistStore(config);
+    // `.owapp` archive (feature: specialistAppZipBundle); `?format=json` keeps the v1 JSON bundle.
+    if (specialistAppZipBundleEnabled() && ctx.url.searchParams.get("format") !== "json") {
+      return archiveResponse(await exportApplicationArchive(config, store, ctx.params.id));
+    }
+    return jsonResponse(await exportApplication(config, store, ctx.params.id));
   });
   addRoute(routes, "POST", "/specialist-applications/import", "host", async ctx => {
     requirePortability(true);
-    const body = await readJsonBody(ctx.request);
-    const userName = typeof body.userName === "string" ? body.userName : undefined;
     const store = await specialistStore(config);
-    const result = await importApplication({
-      config, store, raw: body.bundle, userName,
-      createWorkspace: payload => createWorkspace(ctx, payload),
-      removeWorkspace: workspaceId => removeWorkspace(ctx, workspaceId),
-    });
+    const handlers = {
+      createWorkspace: (payload: Record<string, unknown>) => createWorkspace(ctx, payload),
+      removeWorkspace: (workspaceId: string) => removeWorkspace(ctx, workspaceId),
+    };
+    let result;
+    if (isArchiveUpload(ctx.request)) {
+      // A `.owapp` archive as the raw body, with the person's name (first application only) in the query.
+      if (!specialistAppZipBundleEnabled()) throw new ApiError(415, "application_archive_disabled", "Importar archivos .owapp está desactivado; usa un archivo .json.");
+      const userName = ctx.url.searchParams.get("userName") ?? undefined;
+      const scratch = await scratchFolder(config);
+      try {
+        const file = join(scratch.path, "upload.owapp");
+        await saveRequestBody(ctx.request, file);
+        result = await importApplicationArchive({ config, store, file, userName, ...handlers });
+      } finally { await scratch.cleanup(); }
+    } else {
+      const body = await readJsonBody(ctx.request);
+      const userName = typeof body.userName === "string" ? body.userName : undefined;
+      result = await importApplication({ config, store, raw: body.bundle, userName, ...handlers });
+    }
     store.activate(result.application.id);
     return jsonResponse({ ...result, catalog: await catalog() }, 201);
   });

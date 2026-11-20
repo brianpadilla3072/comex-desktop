@@ -2864,4 +2864,8 @@ export default {
   "command_center.not_started": "The run didn't start: {message}",
   "command_center.unknown_error": "Unknown error.",
   "command_center.list_label": "Work in flight",
+  "specialist_zip.archive_disabled": "Importing .owapp files is turned off. Use a .json file.",
+  "specialist_zip.read_failed": "Could not read the file.",
+  "specialist_zip.invalid_json": "The file is not valid JSON.",
+  "specialist_zip.invalid_file": "The file is not an exported application (.owapp or .json).",
 } as const;

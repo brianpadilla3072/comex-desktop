@@ -111,6 +111,16 @@
               ],
               "description": "Export, import and delete specialist applications: Move an application between computers as a JSON file with its library, context, project memory and session summaries, delete it, and start the first application without Comercio Exterior preselected. Renders DEN_FEATURE_SPECIALIST_APP_PORTABILITY."
             },
+            "specialistAppZipBundle": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Export specialist applications as .owapp archives: Export an application as a .owapp ZIP archive that also carries the project's work files, with streamed, size-capped and checksum-verified import. Old JSON bundles still import. Renders DEN_FEATURE_SPECIALIST_APP_ZIP_BUNDLE."
+            },
             "comexSpanishLocale": {
               "enum": [
                 "",

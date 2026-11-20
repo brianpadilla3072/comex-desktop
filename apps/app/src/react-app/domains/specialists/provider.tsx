@@ -119,7 +119,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   async function exportApplication() {
     if (!active || !query.data || busy) return;
     setBusy(true); setError(null);
-    try { await downloadApplicationBundle(query.data.client, active); toast.success(`Exportaste ${active.name}.`); }
+    try { await downloadApplicationBundle(query.data.client, active, { zip: catalog?.zipBundleEnabled === true }); toast.success(`Exportaste ${active.name}.`); }
     catch (cause) { const message = specialistErrorMessage(cause, "No se pudo exportar la aplicación."); setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
@@ -127,9 +127,11 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
    *  Returns false when the person cancelled the file picker. */
   async function importApplication(userName?: string): Promise<boolean> {
     if (!query.data) return false;
-    const bundle = await pickBundleFile();
-    if (bundle === null) return false;
-    const result = await query.data.client.importSpecialistApplication(bundle, userName);
+    const picked = await pickBundleFile({ archives: catalog?.zipBundleEnabled === true });
+    if (picked === null) return false;
+    const result = picked.kind === "archive"
+      ? await query.data.client.importSpecialistApplicationArchive(picked.file, userName)
+      : await query.data.client.importSpecialistApplication(picked.bundle, userName);
     await query.refetch();
     const notice = importNotice(result);
     if (notice) toast.warning(notice); else toast.success("Aplicación importada.");
@@ -158,7 +160,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     {children}
     {integrationApplication && query.data && catalog?.integrationsEnabled ? <SpecialistIntegrationsDialog app={integrationApplication} client={query.data.client} onClose={() => setIntegrationApplication(null)} onChanged={query.refetch} /> : null}
     {libraryApplication && query.data && (catalog?.libraryEnabled || catalog?.scheduledTasksEnabled || catalog?.datasetsEnabled || catalog?.sourcesEnabled || catalog?.panelsEnabled || catalog?.outputsEnabled) ? <SpecialistLibraryDialog app={libraryApplication} client={query.data.client} library={catalog?.libraryEnabled === true} scheduled={catalog?.scheduledTasksEnabled === true} dryRun={catalog?.taskDryRunEnabled === true} datasets={catalog?.datasetsEnabled === true} sources={catalog?.sourcesEnabled === true} localFiles={catalog?.sourcesLocalFilesEnabled === true} panels={catalog?.panelsEnabled === true} panelApps={catalog?.panelAppsEnabled === true} outputs={catalog?.outputsEnabled === true} readOnly={catalog?.writable === false} onClose={() => setLibraryApplication(null)} onChanged={query.refetch} /> : null}
-    {deletingApplication && query.data && catalog?.portabilityEnabled ? <DeleteApplicationDialog app={deletingApplication} client={query.data.client} onClose={() => setDeletingApplication(null)} onDeleted={afterDelete} /> : null}
+    {deletingApplication && query.data && catalog?.portabilityEnabled ? <DeleteApplicationDialog app={deletingApplication} client={query.data.client} zip={catalog?.zipBundleEnabled === true} onClose={() => setDeletingApplication(null)} onDeleted={afterDelete} /> : null}
     {catalog?.enabled && query.data && form ? <ApplicationForm key={typeof form === "string" ? "create" : form.id} client={query.data.client} catalog={catalog} existing={form === "create" ? null : form} preferredWorkspaceId={workspaceId}
       onClose={closeForm} onSaved={async id => { await query.refetch(); closeForm(); if (id) await openWorkspace(id); }}
       onImport={catalog.portabilityEnabled ? async userName => { const imported = await importApplication(userName); if (imported) { setForm(null); setDismissed(true); } } : undefined} /> : null}

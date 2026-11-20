@@ -57,6 +57,12 @@ export function specialistAppPortabilityEnabled(env: NodeJS.ProcessEnv = process
   return resolveFeature("specialistAppPortability", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+export function specialistAppZipBundleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("specialistAppZipBundle", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 export function comexSpanishLocaleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;

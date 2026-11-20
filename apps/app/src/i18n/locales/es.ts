@@ -1736,4 +1736,8 @@ export default {
   "command_center.not_started": "La ejecución no empezó: {message}",
   "command_center.unknown_error": "Error desconocido.",
   "command_center.list_label": "Trabajo en curso",
+  "specialist_zip.archive_disabled": "Importar archivos .owapp está desactivado. Usa un archivo .json.",
+  "specialist_zip.read_failed": "No se pudo leer el archivo.",
+  "specialist_zip.invalid_json": "El archivo no es un JSON válido.",
+  "specialist_zip.invalid_file": "El archivo no es una aplicación exportada (.owapp o .json).",
 } as const;

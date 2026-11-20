@@ -86,7 +86,8 @@ test("an application moves to another computer with its library, context, paused
     await writeFile(join(project.path, "proyecto", "sesiones", "ses_1.md"), "# Notas\nAvance: tabla de precios.\n");
     await writeFile(join(project.path, "proyecto", "imagen.bin"), Buffer.from([0, 255, 1, 254]));
 
-    const exported = await a.call("GET", `/specialist-applications/${app.id}/export`);
+    // v1 JSON bundle; the .owapp archive is covered by specialist-app-zip-bundle.test.ts.
+    const exported = await a.call("GET", `/specialist-applications/${app.id}/export?format=json`);
     assert.equal(exported.status, 200);
     const bundle = exported.json;
     assert.equal(bundle.format, "openwork.specialist-application");

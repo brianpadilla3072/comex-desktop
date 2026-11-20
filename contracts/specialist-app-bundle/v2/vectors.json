@@ -1,0 +1,175 @@
+{
+ "contract": "openwork.specialist-application",
+ "version": 2,
+ "container": "ZIP archive with the .owapp extension: manifest.json at the root, every other file as a real entry (stored or deflate). No ZIP64, no encryption, no symlinks.",
+ "route": "POST /specialist-applications/import with Content-Type: application/zip, the archive as the raw body and ?userName= for a first application",
+ "layout": {
+  "library/<path>": "library section (agents, skills, scripts)",
+  "projects/<index>/<path>": "data folder of project <index> (proyecto/ or comex/)",
+  "work/<index>/<path>": "work files of project <index>, relative to the project root"
+ },
+ "limits": {
+  "files": 10000,
+  "bytes": 209715200,
+  "fileBytes": 52428800,
+  "uploadBytes": 230686720,
+  "manifestBytes": 8388608,
+  "compressionRatio": 100,
+  "ratioFloorBytes": 1048576
+ },
+ "paths": [
+  { "path": "work/0/informe.pdf", "reason": null },
+  { "path": "projects/0/sesiones/ses_1.md", "reason": null },
+  { "path": "work/0/carpeta con espacios/año 2026.xlsx", "reason": null },
+  { "path": "../escape.txt", "reason": "parent" },
+  { "path": "work/0/../../escape.txt", "reason": "parent" },
+  { "path": "/etc/passwd", "reason": "absolute" },
+  { "path": "C:/Windows/escape.txt", "reason": "drive" },
+  { "path": "c:escape.txt", "reason": "drive" },
+  { "path": "work\\0\\escape.txt", "reason": "backslash" },
+  { "path": "work/0/.git/config", "reason": "invalid" },
+  { "path": "work//doble.txt", "reason": "invalid" },
+  { "path": "work/0/./punto.txt", "reason": "invalid" },
+  { "path": "a/b/c/d/e/f/g/h/i/j/k/l/m.txt", "reason": "invalid" }
+ ],
+ "manifests": [
+  {
+   "name": "minimal valid manifest",
+   "valid": true,
+   "manifest": {
+    "format": "openwork.specialist-application",
+    "version": 2,
+    "exportedAt": "2026-11-20T12:00:00.000Z",
+    "application": { "name": "Contrato", "specialty": "Pruebas de contrato", "personality": "", "template": "custom" },
+    "sections": {},
+    "files": []
+   }
+  },
+  {
+   "name": "manifest with every section and an index entry",
+   "valid": true,
+   "manifest": {
+    "format": "openwork.specialist-application",
+    "version": 2,
+    "application": { "name": "Contrato", "specialty": "Pruebas de contrato", "personality": "Clara.", "template": "comex" },
+    "sections": {
+     "library": {},
+     "context": { "content": "Citar siempre la fuente." },
+     "tasks": { "tasks": [] },
+     "projects": { "projects": [{ "name": "Principal", "dataDir": "proyecto" }] },
+     "workFiles": { "skipped": [{ "project": 0, "path": "video.mp4", "size": 60000000 }] }
+    },
+    "files": [{ "path": "work/0/informe.pdf", "size": 4, "sha256": "315d429b7714cedb6ad04ac31240145257692630457f3c88253c5beceac76027" }]
+   }
+  },
+  {
+   "name": "wrong format",
+   "valid": false,
+   "manifest": { "format": "otra-cosa", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [] }
+  },
+  {
+   "name": "v1 version inside an archive",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 1, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [] }
+  },
+  {
+   "name": "newer version",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 3, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [] }
+  },
+  {
+   "name": "missing file index",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {} }
+  },
+  {
+   "name": "index entry with an unsafe path",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [{ "path": "../escape.txt", "size": 1, "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }] }
+  },
+  {
+   "name": "index entry over the per-file limit",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [{ "path": "work/0/grande.bin", "size": 52428801, "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }] }
+  },
+  {
+   "name": "index entry with a malformed checksum",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "custom" }, "sections": {}, "files": [{ "path": "work/0/a.txt", "size": 1, "sha256": "ABC" }] }
+  },
+  {
+   "name": "unknown template",
+   "valid": false,
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "X", "specialty": "Y", "personality": "", "template": "otra" }, "sections": {}, "files": [] }
+  }
+ ],
+ "archives": [
+  {
+   "name": "project memory, a binary work file and a nested work document",
+   "comment": "manifest.files is omitted here: the runner fills it with the size and sha256 of each entry",
+   "manifest": {
+    "format": "openwork.specialist-application",
+    "version": 2,
+    "application": { "name": "Contrato", "specialty": "Pruebas de contrato", "personality": "", "template": "custom" },
+    "sections": {
+     "context": { "content": "Citar siempre la fuente." },
+     "projects": { "projects": [{ "name": "Principal", "dataDir": "proyecto" }] },
+     "workFiles": { "skipped": [{ "project": 0, "path": "videos/visita.mp4", "size": 60000000 }] }
+    }
+   },
+   "entries": [
+    { "path": "projects/0/estado.md", "utf8": "# Memoria\n" },
+    { "path": "work/0/informe.pdf", "base64": "JVBERi0xLjcKAP8B/g==" },
+    { "path": "work/0/borradores/carta.md", "utf8": "Estimado cliente:\n" }
+   ],
+   "expect": {
+    "status": 201,
+    "projects": 1,
+    "files": { "proyecto/estado.md": "# Memoria\n", "borradores/carta.md": "Estimado cliente:\n" },
+    "binaryFiles": { "informe.pdf": "JVBERi0xLjcKAP8B/g==" },
+    "warningsMention": ["videos/visita.mp4"]
+   }
+  },
+  {
+   "name": "an unknown section is skipped and reported",
+   "manifest": {
+    "format": "openwork.specialist-application",
+    "version": 2,
+    "application": { "name": "Contrato", "specialty": "Pruebas de contrato", "personality": "", "template": "custom" },
+    "sections": { "future-family": { "x": 1 } }
+   },
+   "entries": [],
+   "expect": { "status": 201, "projects": 1, "skippedSections": ["future-family"] }
+  },
+  {
+   "name": "zip-slip entry",
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "Contrato", "specialty": "Pruebas", "personality": "", "template": "custom" }, "sections": {} },
+   "entries": [{ "path": "../escape.txt", "utf8": "x" }],
+   "expect": { "status": 422, "code": "invalid_application_bundle" }
+  },
+  {
+   "name": "symlink entry",
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "Contrato", "specialty": "Pruebas", "personality": "", "template": "custom" }, "sections": {} },
+   "entries": [{ "path": "work/0/enlace", "utf8": "/etc/passwd", "unixMode": 41471 }],
+   "expect": { "status": 422, "code": "invalid_application_bundle" }
+  },
+  {
+   "name": "entry missing from the index",
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "Contrato", "specialty": "Pruebas", "personality": "", "template": "custom" }, "sections": {}, "files": [] },
+   "entries": [{ "path": "work/0/a.txt", "utf8": "x" }],
+   "expect": { "status": 422, "code": "invalid_application_bundle" }
+  },
+  {
+   "name": "checksum mismatch",
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "Contrato", "specialty": "Pruebas", "personality": "", "template": "custom" }, "sections": { "projects": { "projects": [{ "name": "P", "dataDir": "proyecto" }] } }, "files": [{ "path": "projects/0/a.md", "size": 1, "sha256": "0000000000000000000000000000000000000000000000000000000000000000" }] },
+   "entries": [{ "path": "projects/0/a.md", "utf8": "x" }],
+   "expect": { "status": 422, "code": "invalid_application_bundle" }
+  },
+  {
+   "name": "work files for a project the archive does not have",
+   "manifest": { "format": "openwork.specialist-application", "version": 2, "application": { "name": "Contrato", "specialty": "Pruebas", "personality": "", "template": "custom" }, "sections": { "workFiles": {} } },
+   "entries": [{ "path": "work/0/a.txt", "utf8": "x" }],
+   "expect": { "status": 422, "code": "invalid_application_bundle" }
+  }
+ ]
+}

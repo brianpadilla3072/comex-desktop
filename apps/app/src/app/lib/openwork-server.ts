@@ -148,6 +148,8 @@ export interface SpecialistCatalog {
   writable?: boolean;
   /** Export, import and delete applications (feature: specialistAppPortability). */
   portabilityEnabled?: boolean;
+  /** Export as a `.owapp` archive with the project's work files (feature: specialistAppZipBundle). */
+  zipBundleEnabled?: boolean;
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
   taskDryRunEnabled?: boolean;
@@ -1752,7 +1754,7 @@ async function requestAgentContextDiagnosticsJson(
 async function requestUploadRaw(
   baseUrl: string,
   path: string,
-  options: { method?: string; token?: string; hostToken?: string; body?: FormData | File; contentType?: string; timeoutMs?: number } = {},
+  options: { method?: string; token?: string; hostToken?: string; body?: FormData | Blob; contentType?: string; timeoutMs?: number } = {},
 ): Promise<{ ok: boolean; status: number; text: string }>{
   const url = `${baseUrl}${path}`;
   const fetchImpl = resolveFetch(url);
@@ -2637,6 +2639,30 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     /** The application as a portable JSON bundle (see docs/features/specialist-app-portability). */
     exportSpecialistApplication: (id: string) => requestJson<Record<string, unknown>>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/export`, { token, hostToken, timeoutMs: 120_000 }),
     importSpecialistApplication: (bundle: unknown, userName?: string) => requestJson<{ workspaceId: string; skippedSections: string[]; warnings: string[]; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications/import", { token, hostToken, method: "POST", body: { bundle, userName }, timeoutMs: 180_000 }),
+    /** `.owapp` archive (feature: specialistAppZipBundle). A Blob, so the browser can keep it out of the JS heap. */
+    exportSpecialistApplicationArchive: async (id: string): Promise<Blob> => {
+      const url = `${baseUrl}/specialist-applications/${encodeURIComponent(id)}/export`;
+      const response = await fetchWithTimeout(resolveFetch(url), url, { method: "GET", headers: buildAuthHeaders(token, hostToken) }, 10 * 60_000);
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(response.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : response.statusText);
+      }
+      return await response.blob();
+    },
+    importSpecialistApplicationArchive: async (file: Blob, userName?: string) => {
+      const query = userName?.trim() ? `?userName=${encodeURIComponent(userName.trim())}` : "";
+      const result = await requestUploadRaw(baseUrl, `/specialist-applications/import${query}`, { token, hostToken, method: "POST", body: file, contentType: "application/zip", timeoutMs: 10 * 60_000 });
+      let parsed: unknown = null;
+      try { parsed = result.text ? JSON.parse(result.text) : null; } catch { parsed = null; }
+      if (!result.ok) {
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(result.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : "request_failed");
+      }
+      return z.object({ workspaceId: z.string(), skippedSections: z.array(z.string()), warnings: z.array(z.string()) }).parse(parsed);
+    },
     deleteSpecialistApplication: (id: string) => requestJson<{ removedWorkspaceIds: string[]; keptWorkspaceIds: string[]; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
     createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
