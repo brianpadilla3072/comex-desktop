@@ -115,6 +115,8 @@ import {
   type SessionPagePaneRuntime,
 } from "@/react-app/domains/session/chat/session-page";
 import { ActivityPage } from "@/react-app/domains/activity/activity-page";
+import { CommandCenterPage } from "@/react-app/domains/command-center/command-center-page";
+import { useCommandCenterAvailability } from "@/react-app/domains/command-center/use-command-center";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
@@ -435,6 +437,9 @@ export function SessionRoute() {
   const automationsRouteRequested = /^\/automations(?:\/|$)/.test(location.pathname);
   const dashboardRouteRequested = /^\/dashboard(?:\/|$)/.test(location.pathname);
   const activityRouteRequested = location.pathname === "/activity";
+  const commandCenterRouteRequested = location.pathname === "/command-center";
+  const commandCenter = useCommandCenterAvailability();
+  const commandCenterRouteActive = commandCenter.enabled && commandCenterRouteRequested;
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -476,6 +481,10 @@ export function SessionRoute() {
   useEffect(() => {
     if (activityRouteRequested && !shellConfig.notifications) navigate("/", { replace: true });
   }, [activityRouteRequested, navigate, shellConfig.notifications]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (commandCenterRouteRequested && commandCenter.known && !commandCenter.enabled) navigate("/", { replace: true });
+  }, [commandCenter.enabled, commandCenter.known, commandCenterRouteRequested, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -587,7 +596,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: commandCenterRouteRequested && (!commandCenter.known || commandCenter.enabled) ? "command-center" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -4055,7 +4064,7 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
+      primarySlot={commandCenterRouteActive ? <CommandCenterPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
         <RemoteSessionSurface key={remoteThreadKey} threadKey={remoteThreadKey} navigation={remoteHelperNavigation} />
       ) : pendingConversation ? <PendingConversationView conversation={pendingConversation} composer={newTaskComposerContext} /> : appsRouteActive ? (
         <WorkspaceProvider
@@ -4112,6 +4121,8 @@ export function SessionRoute() {
         sidebarHydratedFromCache: Object.values(sessionsByWorkspaceId).some((list) => list.length > 0),
         startupPhase: effectiveLoading ? "nativeInit" : "ready",
         automationsActive: automationsRouteActive,
+        commandCenterActive: commandCenterRouteActive,
+        onOpenCommandCenter: commandCenter.enabled ? () => navigate("/command-center") : undefined,
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
           ? () => {

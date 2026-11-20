@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
-import { Blocks, Clock3, Download, Folder, Home, LayoutGrid, Search, type LucideIcon } from "lucide-react";
+import { Activity, Blocks, Clock3, Download, Folder, Home, LayoutGrid, Search, type LucideIcon } from "lucide-react";
+import { t } from "@/i18n";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDashboard, dashboardLabel = "Resultados", dashboardActive,
-  onAutomations, automationsActive, automationsNeedAttention, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
+  onAutomations, automationsActive, automationsNeedAttention, onCommandCenter, commandCenterActive, onExtensions, extensionsActive, onInstallSkillsTools, referenceLabels = false, onProjects }: {
+  onCommandCenter?: () => void; commandCenterActive?: boolean;
   referenceLabels?: boolean; onProjects?: () => void;
   onNewTask: () => void; newTaskDisabled?: boolean; onSearch?: () => void; onDashboard?: () => void;
   dashboardLabel?: string; dashboardActive?: boolean; onAutomations?: () => void; automationsActive?: boolean;
@@ -13,10 +15,11 @@ export function CompactSidebarNav({ onNewTask, newTaskDisabled, onSearch, onDash
 }) {
   const { setOpen } = useSidebar();
   const entries: { label: string; icon: LucideIcon; action: () => void; active?: boolean; disabled?: boolean; attention?: boolean }[] = [
-    { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive, disabled: newTaskDisabled },
+    { label: referenceLabels ? "Inicio" : "Nueva tarea", icon: Home, action: onNewTask, active: !dashboardActive && !automationsActive && !extensionsActive && !commandCenterActive, disabled: newTaskDisabled },
     ...(onSearch ? [{ label: "Buscar conversaciones", icon: Search, action: onSearch }] : []),
     ...(onDashboard ? [{ label: dashboardLabel, icon: Blocks, action: onDashboard, active: dashboardActive }] : []),
     ...(onAutomations ? [{ label: referenceLabels ? "Tareas programadas" : "Automatizaciones", icon: Clock3, action: onAutomations, active: automationsActive, attention: automationsNeedAttention }] : []),
+    ...(onCommandCenter ? [{ label: t("command_center.nav"), icon: Activity, action: onCommandCenter, active: commandCenterActive }] : []),
     ...(onInstallSkillsTools ? [{ label: "Instalar skills y herramientas", icon: Download, action: onInstallSkillsTools }] : []),
     { label: "Proyectos y conversaciones", icon: Folder, action: onProjects ?? (() => setOpen(true)) },
     { label: referenceLabels ? "Complementos" : "Biblioteca", icon: LayoutGrid, action: onExtensions, active: extensionsActive },

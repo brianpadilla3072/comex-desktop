@@ -17,6 +17,7 @@ import { getQueuedDrainState, subscribeQueuedDrain } from "../surface/queued-dra
 import {
   AlertCircle,
   AlertTriangle,
+  Activity,
   Archive,
   ArchiveRestore,
   Blocks,
@@ -714,6 +715,9 @@ export type AppSidebarProps = {
   automationsActive?: boolean;
   automationsNeedAttention?: boolean;
   onOpenAutomations?: () => void;
+  commandCenterActive?: boolean;
+  /** Opens the command center; absent while the `commandCenter` flag is off. */
+  onOpenCommandCenter?: () => void;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -867,9 +871,10 @@ export function AppSidebar(inputProps: AppSidebarProps) {
         <CompactSidebarNav onNewTask={() => props.onCreateTaskInWorkspace(props.selectedWorkspaceId)} newTaskDisabled={props.newTaskDisabled}
           onSearch={props.onOpenSessionSearch} onDashboard={props.onOpenDashboard} dashboardLabel={props.dashboardLabel} dashboardActive={props.dashboardActive}
           onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
+          onCommandCenter={props.onOpenCommandCenter} commandCenterActive={props.commandCenterActive}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
           onInstallSkillsTools={props.onOpenExtensions}
-          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}
       {!contextualDestination ? <Sidebar
@@ -944,6 +949,14 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                   </span>
                 )}
                 onSelect={props.onOpenAutomations}
+              />
+            ) : null}
+            {!referenceLayout && props.onOpenCommandCenter ? (
+              <SidebarDestination
+                active={props.commandCenterActive === true}
+                icon={Activity}
+                label={t("command_center.nav")}
+                onSelect={props.onOpenCommandCenter}
               />
             ) : null}
             {!referenceLayout ? <SidebarDestination

@@ -216,6 +216,8 @@ export type SessionPageSidebarProps = {
   automationsActive?: boolean;
   automationsNeedAttention?: boolean;
   onOpenAutomations?: () => void;
+  commandCenterActive?: boolean;
+  onOpenCommandCenter?: () => void;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -498,7 +500,7 @@ export function SessionPage(props: SessionPageProps) {
   const referenceLayout = workspaceTabsEnabled && !isMobile;
   const workspaceResourceScope = resourceScope(props.openworkServerClient?.baseUrl, props.selectedWorkspaceId, props.newTaskComposer?.draftScope);
   const resourceWorkspace = useResourceWorkspace(workspaceResourceScope);
-  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.extensionsActive;
+  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.extensionsActive;
   const [resourceAssistantOpen, setResourceAssistantOpen] = useState(false);
   // Split keeps the conversation visible on one side while a tab occupies the
   // other side; the shared tab bar picks which page goes on that side.
@@ -1789,6 +1791,8 @@ export function SessionPage(props: SessionPageProps) {
           automationsActive={props.sidebar.automationsActive}
           automationsNeedAttention={props.sidebar.automationsNeedAttention}
           onOpenAutomations={props.sidebar.onOpenAutomations}
+          commandCenterActive={props.sidebar.commandCenterActive}
+          onOpenCommandCenter={props.sidebar.onOpenCommandCenter}
           dashboardActive={props.sidebar.dashboardActive}
           dashboardLabel={props.sidebar.dashboardLabel}
           onOpenDashboard={props.sidebar.onOpenDashboard}
