@@ -62,6 +62,7 @@ import { markComposerAutoSend } from "@/react-app/domains/session/surface/compos
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useDenAuth } from "../../cloud/den-auth-provider";
+import { panelSessionForFileLink } from "./workbench-panel-session";
 import { WorkbenchPanelGroup, PRIMARY_PANEL_ID, SECONDARY_PANEL_ID } from "./workbench-panel-group";
 import ProviderAuthModal, { type ProviderAuthModalProps } from "../../connections/provider-auth/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
@@ -979,15 +980,26 @@ export function SessionPage(props: SessionPageProps) {
         resources.record(workspaceResourceScope, { kind: "artifact", title: fileTarget.name, value: fileTarget.value, fileScope: fileTarget.fileScope ?? "workspace", ownerSessionId: sessionId });
         return;
       }
-      if (!sessionId) return;
-      openTab(sessionId, {
+      // In a split view the panel on screen is the main chat's, so a file from
+      // the split chat goes there instead of a panel nobody sees.
+      const tabSessionId = panelSessionForFileLink({
+        sourceSessionId: sessionId ?? null,
+        panelSessionId: sidePanelSessionKey,
+        primarySessionId: props.selectedSessionId ?? null,
+        primaryWorkspaceId: props.selectedWorkspaceId,
+        split: splitSession,
+        // This fork has no side-chat panel: the split chat never owns the panel.
+        splitTakesPanel: false,
+      });
+      if (!tabSessionId) return;
+      openTab(tabSessionId, {
         id: fileTarget.id,
         type: "artifact",
         label: fileTarget.name,
         preview: fileTarget.preview,
         target: fileTarget,
       });
-      setCurrentSidePanel("panel");
+      openOwnerSidePanel(tabSessionId);
     };
 
     // One decision for every chat file reference: see planFileOpen.
@@ -1015,7 +1027,7 @@ export function SessionPage(props: SessionPageProps) {
       }
       await openNative(plan.path, plan.action);
     })().catch(reportOpenError);
-  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, setCurrentSidePanel]);
+  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.selectedWorkspaceId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, sidePanelSessionKey, splitSession]);
   const openTarget = useCallback((target: OpenTarget, options?: OpenTargetOptions, sourceSessionId?: string) => {
     openTargetForRuntime({
       client: props.openworkServerClient,
