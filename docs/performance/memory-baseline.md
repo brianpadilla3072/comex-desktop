@@ -189,8 +189,7 @@ about 300 bytes of props diff.
 3. **Renderer CPU in dev is high**: 60–90% of a thread with 10 chats. React's
    development profiling builds a props diff on every render, so much of this
    disappears in production. Still, with 10 stalled tasks and no turns, the renderer
-   sat at 20–40% CPU. Worth a profile of what re-renders while tasks only show a
-   working state, such as timers that tick every second in each running chat.
+   sat at 20–40% CPU. Profiled and partly fixed: see "Renderer CPU while waiting" below.
 4. **Command center and results inbox** use TanStack Query intervals (15–60 s,
    `refetchInterval`), so the polls do not stack. Opening them with 10 tasks running
    changed neither memory nor CPU.
@@ -202,3 +201,125 @@ about 300 bytes of props diff.
 6. **Re-measure** with `scripts/dev-agent/perf-sample.mjs` (see the dev-agent toolkit
    skill) after engine or renderer changes, and keep the watchdog on
    (`--stop-below-mb 3072`).
+
+## Renderer CPU while waiting
+
+Measured 2026-11-20 with the same setup (`devtool up electron --session cpu`, Fault Lab
+`stall` only, sampler with the 3 GB watchdog, which never fired; lowest `MemAvailable`
+was 3.3 GB). The open chat was one of the stalled chats, in a Comercio Exterior
+workspace, so it showed the "En proceso desde hace …" header. The sidebar listed the 10
+running chats.
+
+### Method
+
+- **CPU**: `perf-sample.mjs`, every 2 s, about 3 minutes per phase.
+- **Profile**: CDP `Profiler.start/stop` for 20 s (1 ms sampling).
+- **Renders**: a wrapper around React's DevTools hook (`onCommitFiberRoot`) counted the
+  components that rendered in each commit, and the topmost one (the update's root).
+- **Timers and requests**: `setTimeout`/`setInterval`/`requestAnimationFrame`/`fetch`
+  were wrapped and counted by caller stack.
+- **A/B on the same chats**: 10 new stalled chats, then the fixed code (3 min), then the
+  four source files reverted and the renderer reloaded (3 min), then the fixes back and
+  reloaded again (3 min). The stalled requests time out after 5 minutes and the engine
+  retries them at once, so the chats stayed running throughout.
+
+### What runs while 10 chats only wait (before the fixes)
+
+In 30 s the renderer committed **76 React renders** (516 `Button` renders), with nothing
+new arriving. The roots of those updates:
+
+| Update root | Commits / 30 s | Cause |
+|---|---:|---|
+| `MessageList` | 30 | The run's elapsed-time counter lived in `MessageList` state and ticked every second. Each tick re-rendered the whole transcript: `ProgressiveMessageList`, the virtualizer, every visible group and the provider wrappers. |
+| `MessageGroup` (the last group) | 20 | `useComputerCrew` polls the desktop every 1.5 s and stored a new `[]` each time, so the memoized group re-rendered. |
+| `ComputerControl` | 20 | The same 1.5 s poll for the computer snapshot stored a new, equal object each time. |
+| `SpecialistApplicationsProvider` → `SessionRoute` | 2 | The catalog query refetches every 15 s and built a new server client on every fetch. The query data was never equal, so the whole app below the provider re-rendered (about 130 buttons per commit). |
+
+CPU profile, 20 s: 1.91 s of JS busy. React render work (sync flushes plus scheduler
+tasks) took **0.78 s**. `jsxDEV` alone took 0.42 s of self time. Native work (`(program)`:
+style, layout, paint) took 0.8 s.
+
+Other activity, all smaller:
+
+- The workspace status poll: `GET …/opencode2/api/session/active`, 77 requests in 20 s
+  (every 250 ms). One request covers all sessions. It costs about 0.15–0.2 s of renderer
+  JS per 20 s.
+- The per-chat permission and form reads: 14 each per 20 s.
+- The dev logger's 500 ms flush.
+- A `MutationObserver` in the conversation navigator that measured once per counter tick.
+
+### Fixes (identical behavior, no flag)
+
+1. **The counter ticks in its own line** (`components/chat/message-list.tsx`).
+   - `LiveExecutionRunHeader` and `LiveLoadingMessage` own the 1 s interval.
+   - `MessageList` keeps the anchor (run start and last value) in a ref, so switching
+     lines, a remount or a degraded connection behave as before.
+   - The "no new activity" revalidation used to be re-checked on every tick. It now
+     wakes once at the silence deadline (`useRerenderAt`).
+   - Test: `apps/app/tests/message-list-run-clock.test.tsx`. On the old code the
+     transcript rendered 5 extra times in 5 s and 64 extra times over a minute of silence;
+     both cases fail there.
+2. **Computer polls keep equal answers** (`components/chat/computer-crew.tsx`,
+   `domains/session/computer/computer-control.tsx`). They now use `replaceEqualDeep`, so
+   an unchanged answer keeps its reference and React bails out.
+   - Test: `apps/app/tests/computer-poll-renders.test.tsx`. On the old code there were 4
+     extra commits in 4 polls; it fails there.
+3. **One specialist client per connection** (`domains/specialists/provider.tsx`). The
+   client is reused while the base URL and tokens stay the same, so an unchanged catalog
+   leaves the query data, and every consumer, untouched.
+   - Test: the last case in `apps/app/tests/specialist-applications.test.tsx`. On the old
+     code the first fetch and 3 refetches built 4 different clients; it fails there.
+
+### Before and after (same 10 chats)
+
+| | Before | After |
+|---|---:|---:|
+| React commits / 30 s | 76 | 34 (30 are the one-line counter) |
+| `Button` renders / 30 s | 516 | 190 |
+| JS busy / 20 s (profile) | 1.91 s | 1.62 s |
+| React render work / 20 s | 0.78 s | 0.18 s |
+| `jsxDEV` self time / 20 s | 0.42 s | 0.10 s |
+| Renderer CPU, mean % of a thread (sampler, ~3 min) | 17.9 | 14.9 |
+| GPU process CPU, mean % | 28.1 | 24.8 |
+| Electron main + server CPU, mean % | 10.5 | 10.6 |
+| OpenCode v2 CPU, mean % | 5.6 | 6.3 |
+
+Baseline with no chats: the renderer averages 3.2%, the GPU process 0.1% and the main
+process 2%.
+
+React work dropped by about three quarters. The sampled renderer CPU dropped only about 3
+points, which is close to the noise between runs: another 3-minute run with the fixes read
+19.1%, and the first round read 18.6% before a reload and 13.8–14.6% after one. **Most of
+the renderer CPU while waiting is not React.**
+
+### What is left, and why
+
+- **Spinner animations (largest remaining cost, not changed).**
+  - Each running sidebar row shows the `ow-dot-matrix` spinner: 7–9 dots, each with its
+    own infinite CSS `opacity` animation. That is 54 running animations with 10 chats.
+  - Any running animation makes Chromium produce frames at display rate. That costs
+    renderer compositor time and most of the GPU process time (10–30%, from 0.1% idle).
+  - Turning only these animations off (an injected `animation: none`) took the renderer
+    from 13.8% to 8.4% on the same chats.
+  - Changing it is a visible behavior change and needs a flag. Options: one animated
+    element per spinner, a lower-rate animation, or pausing spinners while the window is
+    hidden or unfocused. Recommended as a follow-up.
+- **The 250 ms status poll (upstream design, not changed).**
+  - `session-sync.ts` polls `/session/active` every 250 ms while any session is live. It
+    matches OpenCode's own run client (#4262), because a transport can lose a terminal
+    status edge.
+  - In the renderer it is cheap (one request for all chats, under 1% of a thread).
+  - It is the likely reason the main process stays at about 10% (idle: 2%) and engine v2
+    at about 6% while chats wait: about 4 requests per second go through the embedded
+    server proxy.
+  - Slowing it while the event stream is healthy, or while the window is hidden, changes
+    how fast missed completions are noticed. It needs an upstream-aware design, so it
+    is left as a recommendation.
+  - Each poll also rewrites the activity record (`runStatusAt` moves). No component
+    re-rendered from it in these probes, so it was left as is.
+- **Native rendering (`(program)`, about 1 s per 20 s).** Style, layout and paint for
+  the counter text and the animations. The conversation navigator's `MutationObserver`
+  re-measures on every counter tick (about 15 ms per 20 s). Small, left as is.
+- **Dev-only costs.** `jsxDEV` and React's development performance tracks go away in a
+  packaged build. The dev logger's fetch wrapper (`debug-logger.ts`, 500 ms flush)
+  costs little. Both were left as they are.
