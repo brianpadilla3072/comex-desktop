@@ -6971,6 +6971,12 @@ async function requireApproval(
 ): Promise<void> {
   const actor = ctx.actor ?? { type: "remote" };
   const result = await ctx.approvals.requestApproval({ ...input, actor });
+  if (!result.allowed && result.reason === "no_responder") {
+    throw new ApiError(403, "approval_unavailable", "No device with owner access has OpenWork open to approve this change. Open OpenWork with owner access (the host or a paired device) and try again, or start the server with --approval auto.", {
+      requestId: result.id,
+      reason: result.reason,
+    });
+  }
   if (!result.allowed) {
     throw new ApiError(403, "write_denied", "Write request denied", {
       requestId: result.id,

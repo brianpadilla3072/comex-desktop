@@ -874,6 +874,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: false,
   },
+  webApprovals: {
+    label: "Approvals in the web app",
+    description: "openwork-server web keeps manual approvals: the web app shows pending changes to people with owner access (the host or a paired device) to approve or deny, and changes that nobody can approve are rejected at once with a clear message. Off, the web server approves every gated change automatically.",
+    category: "administration",
+    added: "2026-11-20",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/web-approvals/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
 })
 
 export type FeatureKey = keyof typeof FEATURES

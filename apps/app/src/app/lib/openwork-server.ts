@@ -470,6 +470,20 @@ function parseCloudProviderSyncStatus(value: unknown): OpenworkCloudProviderSync
 
 export type OpenworkServerStatus = "connected" | "disconnected" | "limited";
 
+/** A gated write the server holds until someone with owner access answers it. */
+const pendingApprovalSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  action: z.string(),
+  summary: z.string(),
+  paths: z.array(z.string()),
+  createdAt: z.number(),
+  actor: z.object({ type: z.string().optional(), clientId: z.string().optional(), scope: z.string().optional() }).optional(),
+});
+const pendingApprovalsSchema = z.object({ items: z.array(pendingApprovalSchema) });
+const approvalReplySchema = z.object({ ok: z.boolean(), allowed: z.boolean() });
+export type OpenworkPendingApproval = z.infer<typeof pendingApprovalSchema>;
+
 export type OpenworkServerDiagnostics = {
   ok: boolean;
   version: string;
@@ -2684,6 +2698,9 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     saveScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, text: string, id?: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "POST", body: { expectedRevision, text, ...(id ? { id } : {}) } }),
     deleteScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, id: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "DELETE", body: { expectedRevision, id } }),
 
+    // Gated server writes waiting for someone with owner access (host token or a paired device).
+    listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
+    respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
     getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
 
     /** Agent ecosystem board: need bus, cross-project index and deliverables. */

@@ -1506,4 +1506,12 @@ export default {
   "pairing.revoke_confirm": "¿Revocar el acceso de {name}?",
   "pairing.hint": "Vincular este dispositivo",
   "pairing.revoked_notice": "Se revocó el acceso de este dispositivo. Vuelve a vincularlo para seguir con acceso completo.",
+  "web_approvals.title": "¿Aprobar este cambio?",
+  "web_approvals.action": "Acción: {action}",
+  "web_approvals.approve": "Aprobar",
+  "web_approvals.deny": "Denegar",
+  "web_approvals.respond_failed": "No se pudo enviar tu respuesta. Vuelve a intentarlo.",
+  "web_approvals.read_only_title": "Esta conexión no puede aprobar cambios",
+  "web_approvals.read_only_body": "Los cambios que necesitan aprobación solo avanzan si un dispositivo con acceso de propietario tiene OpenWork abierto para aprobarlos. Vincula este dispositivo para aprobarlos aquí.",
+  "web_approvals.dismiss": "Cerrar",
 } as const;

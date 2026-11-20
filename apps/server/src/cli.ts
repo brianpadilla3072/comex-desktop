@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parseCliArgs, printHelp, resolveServerConfig } from "./config.js";
+import { applyWebApprovalDefault, parseCliArgs, printHelp, resolveServerConfig } from "./config.js";
 import {
   buildEngineAuthProbeHeader,
   registerEngineInstance,
@@ -76,8 +76,8 @@ if (args.web) {
     const pluginDir = await resolveBundledPluginDir(packageRoot);
     if (pluginDir) process.env.OPENWORK_EXTENSIONS_PLUGIN_DIR = pluginDir;
   }
-  // The web UI has no approvals responder, so manual mode would time out every gated write.
-  args.approvalMode ??= process.env.OPENWORK_APPROVAL_MODE === "manual" ? "manual" : "auto";
+  // The web app answers approvals (webApprovals); without it, gated writes are auto-approved.
+  applyWebApprovalDefault(args, process.env);
   if (args.workspaces.length === 0 && !process.env.OPENWORK_WORKSPACES) args.workspaces.push(process.cwd());
   // Stable tokens across restarts: CLI flag, then env, then a file in the data dir.
   const tokenProvided = Boolean(args.token || process.env.OPENWORK_TOKEN);

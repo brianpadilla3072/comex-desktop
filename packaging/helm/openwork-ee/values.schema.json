@@ -761,6 +761,16 @@
               ],
               "description": "Agent ecosystem board: Coordinate several agents across projects with a shared need board (atomic claim), a cross-project index and a deliverables board. External actions still use the native permission system. Renders DEN_FEATURE_AGENT_ECOSYSTEM."
             },
+            "webApprovals": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Approvals in the web app: openwork-server web keeps manual approvals: the web app shows pending changes to people with owner access (the host or a paired device) to approve or deny, and changes that nobody can approve are rejected at once with a clear message. Off, the web server approves every gated change automatically. Renders DEN_FEATURE_WEB_APPROVALS."
+            },
             "gatewayDashboard": {
               "enum": [
                 "",

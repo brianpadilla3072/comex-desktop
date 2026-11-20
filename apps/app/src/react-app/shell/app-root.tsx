@@ -34,6 +34,7 @@ import {
 import { ForcedSigninPage } from "../domains/cloud/forced-signin-page";
 import { EnterpriseActivationGate } from "../domains/cloud/enterprise-activation-gate";
 import { OpenWorkWebAccessGate } from "../domains/cloud/openwork-web-access-gate";
+import { WebApprovalsResponder } from "../domains/connections/web-approvals";
 import { OrgOnboardingPage } from "../domains/cloud/org-onboarding-page";
 import { ChatDeepLinkListener } from "./chat-deep-link-listener";
 import { NewProvidersListener } from "./new-providers-listener";
@@ -483,6 +484,8 @@ export function AppRoot() {
                   {/* Settings unmounts the chat; computer use stays connected on every route. */}
                   {isElectronRuntime() ? <ComputerBridge /> : null}
                   {isElectronRuntime() ? <AgentQuestionsBridge /> : null}
+                  {/* The desktop server approves automatically; the web app answers its own server's approvals. */}
+                  {!isDesktopRuntime() && import.meta.env.MODE !== "test" ? <WebApprovalsResponder /> : null}
                   <Routes>
               <Route
                 path="/signin"

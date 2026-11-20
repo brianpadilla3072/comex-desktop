@@ -56,6 +56,8 @@ export function registerOperationRoutes(options: RegisterOperationRoutesOptions)
   });
 
   addRoute(routes, "GET", "/approvals", "host", async (ctx) => {
+    // Only owner access reaches this route, so polling it marks a live responder.
+    ctx.approvals.noteResponder();
     return jsonResponse({ items: ctx.approvals.list() });
   });
 

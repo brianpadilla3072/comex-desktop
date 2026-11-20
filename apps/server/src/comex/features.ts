@@ -153,3 +153,10 @@ export function remoteDevicePairingEnabled(env: NodeJS.ProcessEnv = process.env)
   if (context.problems.some(problem => problem.fatal)) return false;
   return resolveFeature("remoteDevicePairing", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
+
+/** `openwork-server web` keeps manual approvals because the web app answers them. */
+export function webApprovalsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("webApprovals", { ...context, rollouts: {}, overrides: {} }).enabled;
+}

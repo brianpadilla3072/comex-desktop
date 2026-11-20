@@ -3,6 +3,7 @@ import { openworkServerConfigPath } from "@openwork/paths";
 import type { ApprovalMode, ApprovalConfig, ServerConfig, WorkspaceConfig, LogFormat } from "./types.js";
 import { buildWorkspaceInfos, hasExternalOpencode } from "./workspaces.js";
 import { parseList, readJsonFile, shortId } from "./utils.js";
+import { webApprovalsEnabled } from "./comex/features.js";
 
 export interface CliArgs {
   configPath?: string;
@@ -55,6 +56,21 @@ interface FileConfig {
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_TIMEOUT_MS = 30000;
+/** Web approvals: a person reads the change on their screen, so give them time. */
+const WEB_APPROVAL_TIMEOUT_MS = 120_000;
+/** Web approvals: the app polls every few seconds; past this nobody is answering. */
+export const WEB_APPROVAL_RESPONDER_WINDOW_MS = 15_000;
+
+/**
+ * `openwork-server web` without the `webApprovals` feature has no responder,
+ * so it approves gated writes automatically unless manual mode is asked for.
+ * With the feature on, nothing is forced here and manual stays the default.
+ * `--approval` and OPENWORK_APPROVAL_MODE keep working either way.
+ */
+export function applyWebApprovalDefault(args: CliArgs, env: NodeJS.ProcessEnv = process.env): void {
+  if (!args.web || webApprovalsEnabled(env)) return;
+  args.approvalMode ??= env.OPENWORK_APPROVAL_MODE === "manual" ? "manual" : "auto";
+}
 const DEFAULT_LOG_FORMAT: LogFormat = "pretty";
 const DEFAULT_LOG_REQUESTS = true;
 
@@ -205,8 +221,10 @@ export function printHelp(): void {
     "Commands:",
     "  web                      Serve the OpenWork web UI + API on one origin with a",
     "                           managed OpenCode engine (downloaded on first run).",
-    "                           Defaults: --host 127.0.0.1, --approval auto, workspace = cwd,",
-    "                           answering only loopback, IP and --host names.",
+    "                           Defaults: --host 127.0.0.1, workspace = cwd, answering only",
+    "                           loopback, IP and --host names. Approvals stay manual and",
+    "                           the web app answers them (owner access); --approval auto",
+    "                           approves every change instead.",
     "    --open                 Open the browser once listening",
     "    --no-bootstrap-token   Require pasting the client token instead of auto sign-in",
     "",
@@ -307,15 +325,20 @@ export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
     fileConfig.approval?.mode ??
     "manual";
 
+  // The web app answers approvals itself, so web mode waits only while it is open.
+  const webResponder = cli.web === true && approvalMode !== "auto" && webApprovalsEnabled(process.env);
+  const defaultTimeoutMs = webResponder ? WEB_APPROVAL_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+
   const approvalTimeoutMs =
     cli.approvalTimeoutMs ??
     (process.env.OPENWORK_APPROVAL_TIMEOUT_MS ? Number(process.env.OPENWORK_APPROVAL_TIMEOUT_MS) : undefined) ??
     fileConfig.approval?.timeoutMs ??
-    DEFAULT_TIMEOUT_MS;
+    defaultTimeoutMs;
 
   const approval: ApprovalConfig = {
     mode: approvalMode === "auto" ? "auto" : "manual",
-    timeoutMs: Number.isNaN(approvalTimeoutMs) ? DEFAULT_TIMEOUT_MS : approvalTimeoutMs,
+    timeoutMs: Number.isNaN(approvalTimeoutMs) ? defaultTimeoutMs : approvalTimeoutMs,
+    ...(webResponder ? { responderWindowMs: WEB_APPROVAL_RESPONDER_WINDOW_MS } : {}),
   };
 
   const envCorsOrigins = process.env.OPENWORK_CORS_ORIGINS;

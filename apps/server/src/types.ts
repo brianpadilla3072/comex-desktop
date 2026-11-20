@@ -67,6 +67,11 @@ export interface OpencodeConfigFile {
 export interface ApprovalConfig {
   mode: ApprovalMode;
   timeoutMs: number;
+  /**
+   * Manual mode only: how recently a client with owner access must have polled
+   * `GET /approvals` for a gated write to wait for an answer. Unset waits always.
+   */
+  responderWindowMs?: number;
 }
 
 export type LocalManagedMcpVaultKeyProvider = () => Promise<Uint8Array>;

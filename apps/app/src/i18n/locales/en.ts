@@ -2683,4 +2683,12 @@ export default {
   "pairing.revoke_confirm": "Revoke access for {name}?",
   "pairing.hint": "Pair this device",
   "pairing.revoked_notice": "This device's access was revoked. Pair it again to keep working with full access.",
+  "web_approvals.title": "Approve this change?",
+  "web_approvals.action": "Action: {action}",
+  "web_approvals.approve": "Approve",
+  "web_approvals.deny": "Deny",
+  "web_approvals.respond_failed": "Couldn't send your answer. Try again.",
+  "web_approvals.read_only_title": "This connection can't approve changes",
+  "web_approvals.read_only_body": "Changes that need approval go through only while a device with owner access has OpenWork open to approve them. Pair this device to approve changes here.",
+  "web_approvals.dismiss": "Dismiss",
 } as const;
