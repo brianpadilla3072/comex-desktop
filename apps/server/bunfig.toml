@@ -9,5 +9,9 @@
 # holding a write transaction: under Bun the driver is `bun:sqlite` and the contention scenario
 # cannot be reproduced. Run it with:
 #   pnpm --filter openwork-server test:runtime-db
+#
+# `test/setup/isolate-home.mjs` points HOME, XDG_* and OPENWORK_ENV_STORE at a per-run temp dir
+# so no test can write into the real ~/.config/openwork (see the file header).
 [test]
+preload = ["./test/setup/isolate-home.mjs"]
 pathIgnorePatterns = ["test/browser-approval-transport.test.ts", "test/runtime-db-concurrency.test.ts"]
