@@ -62,7 +62,8 @@ import { markComposerAutoSend } from "@/react-app/domains/session/surface/compos
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useDenAuth } from "../../cloud/den-auth-provider";
-import { panelSessionForFileLink } from "./workbench-panel-session";
+import { sessionPagePanelSessionFor } from "./workbench-panel-session";
+import { PanelSessionProvider } from "@/react-app/kernel/panel-session-context";
 import { WorkbenchPanelGroup, PRIMARY_PANEL_ID, SECONDARY_PANEL_ID } from "./workbench-panel-group";
 import ProviderAuthModal, { type ProviderAuthModalProps } from "../../connections/provider-auth/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
@@ -897,6 +898,16 @@ export function SessionPage(props: SessionPageProps) {
     return target.value;
   }, []);
   const createBrowserTab = useCreateTab();
+  // Items opened from a chat (files, app previews) go to the panel on screen.
+  const panelSessionForItemFrom = useMemo(() => sessionPagePanelSessionFor({
+    selectedSessionId: props.selectedSessionId ?? null,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    split: splitSession,
+  }), [props.selectedSessionId, props.selectedWorkspaceId, splitSession]);
+  const panelSessionForChat = useCallback(
+    (chatSessionId: string) => panelSessionForItemFrom(chatSessionId) ?? chatSessionId,
+    [panelSessionForItemFrom],
+  );
   const openTargetForRuntime = useCallback((runtime: {
     client: OpenworkServerClient | null;
     runtimeWorkspaceId: string | null;
@@ -982,15 +993,7 @@ export function SessionPage(props: SessionPageProps) {
       }
       // In a split view the panel on screen is the main chat's, so a file from
       // the split chat goes there instead of a panel nobody sees.
-      const tabSessionId = panelSessionForFileLink({
-        sourceSessionId: sessionId ?? null,
-        panelSessionId: sidePanelSessionKey,
-        primarySessionId: props.selectedSessionId ?? null,
-        primaryWorkspaceId: props.selectedWorkspaceId,
-        split: splitSession,
-        // This fork has no side-chat panel: the split chat never owns the panel.
-        splitTakesPanel: false,
-      });
+      const tabSessionId = panelSessionForItemFrom(sessionId ?? null);
       if (!tabSessionId) return;
       openTab(tabSessionId, {
         id: fileTarget.id,
@@ -1027,7 +1030,7 @@ export function SessionPage(props: SessionPageProps) {
       }
       await openNative(plan.path, plan.action);
     })().catch(reportOpenError);
-  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.selectedWorkspaceId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, sidePanelSessionKey, splitSession]);
+  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.selectedWorkspaceId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, panelSessionForItemFrom]);
   const openTarget = useCallback((target: OpenTarget, options?: OpenTargetOptions, sourceSessionId?: string) => {
     openTargetForRuntime({
       client: props.openworkServerClient,
@@ -1743,6 +1746,7 @@ export function SessionPage(props: SessionPageProps) {
       isReferenceCurrent={props.isSessionReferenceCurrent}
       onOpenReference={handleOpenSessionReference}
     >
+    <PanelSessionProvider value={panelSessionForChat}>
     <div data-chat-viewport className="flex h-full min-h-0 flex-col bg-[radial-gradient(circle_at_top,rgba(74,111,255,0.12),transparent_42%),var(--app-bg,#0b1020)] text-dls-text max-lg:fixed max-lg:inset-x-0 max-lg:top-[var(--chat-viewport-top,0px)] max-lg:h-[var(--chat-viewport-height,100dvh)] max-lg:overflow-hidden max-lg:pt-[env(safe-area-inset-top)] mac:bg-transparent">
       {referenceLayout ? <WorkspaceNavigationBar
         canGoBack={canGoBackInConversationHistory} canGoForward={canGoForwardInConversationHistory} onHistory={navigateConversationHistory}
@@ -2573,6 +2577,7 @@ export function SessionPage(props: SessionPageProps) {
 
       {/* Cloud provider notifications are now handled globally by CloudProvidersToast in app-root.tsx */}
     </div>
+    </PanelSessionProvider>
     </SessionReferenceProvider>
   );
 }

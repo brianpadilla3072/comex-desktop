@@ -4,6 +4,7 @@ import type { DynamicToolUIPart, UIMessage } from "ai";
 import { PanelRightOpen } from "lucide-react";
 import { useMessageList } from "@/components/chat/message-list-provider";
 import { Button } from "@/components/ui/button";
+import { usePanelSessionFor } from "@/react-app/kernel/panel-session-context";
 import { usePanelTabStore } from "../session/panel/panel-tab-store";
 import { useUiStateStore } from "@/react-app/shell/ui-state-store";
 import { appCreationRuns, appRead } from "./app-creation-progress";
@@ -18,6 +19,7 @@ const LatestBuiltAppPartsContext = createContext<DynamicToolUIPart[]>([]);
 
 export function BuiltAppChatPreview({ part, compact = false }: { part: DynamicToolUIPart; compact?: boolean }) {
   const { sessionId, mcpAppOrigin } = useMessageList();
+  const panelSessionId = usePanelSessionFor(sessionId);
   const latestParts = useContext(LatestBuiltAppPartsContext);
   const app = builtAppSummary(part);
   if (!app) return null;
@@ -39,7 +41,7 @@ export function BuiltAppChatPreview({ part, compact = false }: { part: DynamicTo
           const currentApp = builtAppSummary(currentPart) ?? app;
           usePanelTabStore
             .getState()
-            .openTab(sessionId, {
+            .openTab(panelSessionId, {
               type: "mcp-app",
               id: `mcp-app:${app.appId}`,
               appId: app.appId,
@@ -47,7 +49,7 @@ export function BuiltAppChatPreview({ part, compact = false }: { part: DynamicTo
               part: currentPart,
               origin: mcpAppOrigin,
             });
-          useUiStateStore.getState().setSidePanelState(sessionId, "panel");
+          useUiStateStore.getState().setSidePanelState(panelSessionId, "panel");
         }}
       >
         <PanelRightOpen className={compact ? "size-3.5" : "size-4"} />
@@ -79,6 +81,7 @@ export function BuiltAppPreviewSync({
   children?: ReactNode;
 }) {
   const { sessionId, mcpAppOrigin, readOnly } = useMessageList();
+  const panelSessionId = usePanelSessionFor(sessionId);
   const seen = useRef<Set<string> | null>(null);
   const pending = useRef(new Set<string>());
   const latestParts = useMemo(() => latestBuiltAppParts(messages), [messages]);
@@ -98,9 +101,9 @@ export function BuiltAppPreviewSync({
       }
     }
     const state = usePanelTabStore.getState();
-    const session = state.sessions[sessionId];
+    const session = state.sessions[panelSessionId];
     if (session?.tabs.some(tab => tab.type === "mcp-app" && Boolean(tab.updating) !== updating.has(tab.appId))) {
-      usePanelTabStore.setState({ sessions: { ...state.sessions, [sessionId]: { ...session, tabs: session.tabs.map(tab => tab.type === "mcp-app" ? { ...tab, updating: updating.has(tab.appId) } : tab) } } });
+      usePanelTabStore.setState({ sessions: { ...state.sessions, [panelSessionId]: { ...session, tabs: session.tabs.map(tab => tab.type === "mcp-app" ? { ...tab, updating: updating.has(tab.appId) } : tab) } } });
     }
     for (const message of messages)
       for (const part of message.parts) {
@@ -130,7 +133,7 @@ export function BuiltAppPreviewSync({
       const id = `mcp-app:${app.appId}`;
       const tab = usePanelTabStore
         .getState()
-        .sessions[sessionId]?.tabs.find((tab) => tab.id === id);
+        .sessions[panelSessionId]?.tabs.find((tab) => tab.id === id);
       const buildKey = `${sessionId}:${part.toolCallId}:${app.revisionId}`;
       const fresh =
         !autoOpened.has(buildKey) &&
@@ -142,10 +145,10 @@ export function BuiltAppPreviewSync({
       if (tab || (fresh && !readOnly)) {
         // Updating the same tab keeps the panel in place; closing it stays respected.
         const activeTabId =
-          usePanelTabStore.getState().sessions[sessionId]?.activeTabId ?? null;
+          usePanelTabStore.getState().sessions[panelSessionId]?.activeTabId ?? null;
         usePanelTabStore
           .getState()
-          .openTab(sessionId, {
+          .openTab(panelSessionId, {
             type: "mcp-app",
             id,
             appId: app.appId,
@@ -155,14 +158,14 @@ export function BuiltAppPreviewSync({
             origin: mcpAppOrigin,
           });
         if (!fresh)
-          usePanelTabStore.getState().selectTab(sessionId, activeTabId);
+          usePanelTabStore.getState().selectTab(panelSessionId, activeTabId);
         if (fresh && !readOnly) {
           autoOpened.add(buildKey);
-          useUiStateStore.getState().setSidePanelState(sessionId, "panel");
+          useUiStateStore.getState().setSidePanelState(panelSessionId, "panel");
         }
       }
     }
-  }, [messages, mcpAppOrigin, readOnly, sessionId, active]);
+  }, [messages, mcpAppOrigin, readOnly, sessionId, panelSessionId, active]);
   return <LatestBuiltAppPartsContext.Provider value={latestParts}>
     <BuiltAppCatalogSync messages={messages} />
     {children}
