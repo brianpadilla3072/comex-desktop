@@ -52,6 +52,20 @@ automatizaciones. Se copia el modelo de trabajo, no las funciones de Git.
 - El verificador de Rust ocultaba infracciones cuando un string contenía `/*`; se reescribió con
   un escáner de una pasada y aparecieron 3 `JSON.parse` sin validar en `server.ts` (corregidos).
 
+- 2026-11-20, segunda ronda en paralelo (10 agentes, integrados en `dev` con rebase y pruebas):
+  aprobaciones en la web (`webApprovals`), explorador de carpetas (`webFolderBrowser`),
+  notificaciones (`webNotifications`), centro de control (`commandCenter`, `/command-center`,
+  API en `/command-center/snapshot`), exportación `.owapp` con archivos de trabajo
+  (`specialistAppZipBundle`), aislamiento por tarea con revisión (`taskIsolationReview`, apagado
+  por defecto), bandeja de resultados (`resultsInbox`, `/inbox`), toda la app en español (test de
+  cobertura), guardas de calidad (HOME aislado en todos los tests del servidor, recorrido
+  completo) y Rust de 135 a 24 congeladas. Suites: app 2188, server 857, `test:comex` en verde.
+  Probado en vivo por un proxy tipo Tailscale con clics reales: vincular, crear app, exportar e
+  importar `.owapp`, crear workspace eligiendo carpeta, aprobar un cambio, centro y bandeja.
+- Lección: probar la web siempre con clics reales (no `element.click()`) y con la build
+  `build:selfhost`; así aparecieron la capa de arranque que tapaba `/pair` y la colisión entre la
+  página `/command-center` y la ruta de la API (ahora hay un test que lo impide).
+
 ## Próximos pasos
 1. Traducciones: faltan unas 1.170 claves en español (extensions 393, connect 263 y otras).
 2. Investigar un timeout intermitente de `GET …/opencode2/api/session` justo después de importar
@@ -62,11 +76,14 @@ automatizaciones. Se copia el modelo de trabajo, no las funciones de Git.
    sumar vectores de contrato (horarios de tareas, rutas de biblioteca, formato del store).
 5. Portabilidad: exportar también archivos de trabajo del proyecto, no solo la carpeta de datos, y
    avisar cuando una fuente local apunta a un archivo que no viaja.
-6. Fase 2 (web igual al escritorio): explorador de carpetas del servidor para crear workspaces,
-   aprobaciones en la web (hoy se aprueban solas), notificaciones, pantalla de bienvenida y
-   Proveedores de IA todavía en inglés, revisar en el celular.
-7. Fases 3 a 5 de la hoja de ruta (centro de mando, aislamiento y revisión, bandeja).
-8. w1-3 ("Cannot update a component while rendering") quedó muy reducido (suscripciones a la
+6. Probar con el motor real `taskIsolationReview` (mover la sesión a la copia) antes de activarlo.
+7. Textos que quedan: "Select folder" y "Want more analytics?" en el diálogo de crear workspace,
+   la descripción de las aprobaciones viene del servidor en inglés ("Patch workspace config"), y
+   los textos escritos a mano de Comex usan voseo ("Creá tu primera aplicación") mientras `es.ts`
+   usa tuteo: unificar.
+8. El botón "Centro de control" no responde durante los primeros segundos tras arrancar (espera
+   el flag); quedan 24 ocurrencias congeladas de Rust (17 en `specialists/`).
+9. w1-3 ("Cannot update a component while rendering") quedó muy reducido (suscripciones a la
    caché de consultas); vigilar si reaparece al borrar una aplicación.
-9. orch-2 (inicio que se queda en "Starting OpenWork" con un perfil nuevo bajo carga) sin
-   investigar.
+10. orch-2: se acotó una espera sin límite al arrancar; falta la pantalla estática de `index.html`
+   ("Starting OpenWork" en inglés, recarga recién a los 45 s), que necesita un flag.
