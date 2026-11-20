@@ -4341,7 +4341,12 @@ export function SessionRoute() {
           />
         ) : cloudWorkspaceMainContentTakeover
       }
-      mainContentTitle={extensionsMainOpen ? t("settings.tab_extensions") : cloudWorkspaceMainContentTakeover ? "Cloud workspace" : undefined}
+      // Full-page screens name themselves; without a title the bar fell back to "Nueva sesión · …".
+      mainContentTitle={extensionsMainOpen ? t("settings.tab_extensions") : cloudWorkspaceMainContentTakeover ? "Cloud workspace"
+        : projectsRouteActive || projectRouteActive ? t("projects_ui.title")
+        : commandCenterRouteActive ? t("command_center.title")
+        : resultsInboxRouteActive ? t("results_inbox.title")
+        : undefined}
       mainContentHeaderActionsRef={extensionsMainOpen ? setLibraryHeaderActionsTarget
         : cloudWorkspaceMainContentTakeover ? undefined
         : dashboardRouteActive ? setDashboardHeaderActionsTarget

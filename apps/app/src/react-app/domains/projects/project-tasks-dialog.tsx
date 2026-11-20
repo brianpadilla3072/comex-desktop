@@ -18,6 +18,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+/** The default pressed fill is nearly the dialog's own colour in the dark theme, so the chosen
+ *  mode/frequency/day could not be told apart (seen live). Fill the pressed item clearly. */
+const PRESSED = "aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
@@ -260,7 +264,7 @@ function TaskFormView({ client, workspaceId, applicationId, list, task, onCancel
 
   const described = (field: string, error?: string) => error ? { "aria-invalid": true, "aria-describedby": `${id}-${field}-error` } : {};
 
-  return <form data-task-form noValidate className="grid min-h-0 gap-4 overflow-y-auto" onSubmit={event => { event.preventDefault(); void submit(); }}>
+  return <form data-task-form noValidate className="grid min-h-0 gap-4 overflow-y-auto overflow-x-hidden [&>*]:min-w-0" onSubmit={event => { event.preventDefault(); void submit(); }}>
     {task || list.tasks.length ? <Button type="button" size="sm" variant="ghost" className="justify-self-start" onClick={onCancel}><ArrowLeft className="size-4" />{t("projects_ui.page.tasks.back")}</Button> : null}
     <Field id={`${id}-name`} label={t("projects_ui.page.tasks.name")} error={errors.name}>
       <Input id={`${id}-name`} data-task-name autoFocus value={form.name} maxLength={120} placeholder={t("projects_ui.page.tasks.name_placeholder")}
@@ -276,8 +280,8 @@ function TaskFormView({ client, workspaceId, applicationId, list, task, onCancel
         <span id={`${id}-mode`} className="text-sm font-medium">{t("projects_ui.page.tasks.permission_mode")}</span>
         <ToggleGroup aria-labelledby={`${id}-mode`} data-task-mode-select variant="outline" value={[form.permissionMode]}
           onValueChange={value => { if (value[0] === "auto" || value[0] === "manual") update({ permissionMode: value[0] }); }}>
-          <ToggleGroupItem value="auto" data-task-mode-option="auto">{t("projects_ui.page.tasks.mode_auto")}</ToggleGroupItem>
-          <ToggleGroupItem value="manual" data-task-mode-option="manual">{t("projects_ui.page.tasks.mode_manual")}</ToggleGroupItem>
+          <ToggleGroupItem value="auto" data-task-mode-option="auto" className={PRESSED}>{t("projects_ui.page.tasks.mode_auto")}</ToggleGroupItem>
+          <ToggleGroupItem value="manual" data-task-mode-option="manual" className={PRESSED}>{t("projects_ui.page.tasks.mode_manual")}</ToggleGroupItem>
         </ToggleGroup>
       </div>
       <div className="grid min-w-0 gap-1.5">
@@ -317,12 +321,12 @@ function TaskFormView({ client, workspaceId, applicationId, list, task, onCancel
       <legend className="mb-1 text-sm font-medium">{t("projects_ui.page.tasks.trigger")} <span className="font-normal text-muted-foreground">{t("projects_ui.page.tasks.trigger_schedule")}</span></legend>
       <ToggleGroup aria-label={t("projects_ui.page.tasks.frequency")} data-task-frequency variant="outline" spacing={1} className="flex-wrap" value={[form.frequency]}
         onValueChange={value => { const next = TASK_FREQUENCIES.find(item => item === value[0]); if (next) update({ frequency: next }); }}>
-        {TASK_FREQUENCIES.map(frequency => <ToggleGroupItem key={frequency} value={frequency} data-task-frequency-option={frequency}>{t(FREQUENCY_LABEL[frequency])}</ToggleGroupItem>)}
+        {TASK_FREQUENCIES.map(frequency => <ToggleGroupItem key={frequency} value={frequency} data-task-frequency-option={frequency} className={PRESSED}>{t(FREQUENCY_LABEL[frequency])}</ToggleGroupItem>)}
       </ToggleGroup>
       {form.frequency === "weekly" ? <div className="grid gap-1.5">
         <ToggleGroup aria-label={t("projects_ui.page.tasks.weekdays")} data-task-weekdays multiple variant="outline" spacing={1} className="flex-wrap" value={form.days.map(String)}
           onValueChange={value => update({ days: WEEKDAYS.filter(day => value.includes(String(day))) })}>
-          {WEEKDAYS.map(day => <ToggleGroupItem key={day} value={String(day)} data-task-weekday={day} size="sm">{weekdayLabel(day)}</ToggleGroupItem>)}
+          {WEEKDAYS.map(day => <ToggleGroupItem key={day} value={String(day)} data-task-weekday={day} size="sm" className={PRESSED}>{weekdayLabel(day)}</ToggleGroupItem>)}
         </ToggleGroup>
         <FieldError id={`${id}-days-error`} error={errors.days} />
       </div> : null}
@@ -368,7 +372,8 @@ function TaskFormView({ client, workspaceId, applicationId, list, task, onCancel
     </Collapsible>
 
     {error ? <p role="alert" data-task-form-error className="text-sm text-destructive">{error}</p> : null}
-    <DialogFooter>
+    {/* Inside the scrolling form: no negative edge margins, which made the form scroll sideways and cut "Crear". */}
+    <DialogFooter className="mx-0 mb-0 rounded-none bg-transparent px-0 pb-0">
       <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>{t("projects_ui.page.cancel")}</Button>
       <Button type="submit" data-task-submit disabled={saving}>{saving ? t("projects_ui.page.saving") : task ? t("projects_ui.page.save") : t("projects_ui.page.create")}</Button>
     </DialogFooter>
