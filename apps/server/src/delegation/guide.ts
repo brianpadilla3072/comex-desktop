@@ -81,6 +81,10 @@ The person approves the registration.
     what it does not need; use ask_person when you are unsure or it touches anything outside.
   - pendingInput.type question: answer with delegate_reply text, or decision done if it already
     finished and only waits at a prompt.
+  - pendingInput.reason risky_command or outside_folder marks something sensitive (network,
+    privileges, publishing, files outside the task folder). Usually the person decides these;
+    when the person chose to let you decide, they reach you instead: allow them only if the
+    task clearly needs it (e.g. downloading a dependency the task asked for), otherwise reject.
   Never approve everything blindly, and never answer for the person what only they can know
   (accounts, money, credentials, product decisions): ask them.
 - After the agent finishes a turn (ACP or terminal), the session stays open: send follow-ups with

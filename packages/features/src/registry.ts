@@ -205,7 +205,7 @@ export const FEATURES = defineFeatures({
   },
   externalDelegates: {
     label: "Delegate tasks to external agent CLIs",
-    description: "The agent can learn how to use another agent's command-line tool (or any CLI), test it, save a recipe after you approve it, and hand tasks to it in an isolated copy of the project. It answers that agent's questions and routine permission requests itself, sends risky ones to you, and can drive interactive terminal programs. Everything runs on this computer.",
+    description: "The agent can learn how to use another agent's command-line tool (or any CLI), test it, save a recipe after you approve it, and hand tasks to it in an isolated copy of the project. It answers that agent's questions and routine permission requests itself and sends risky ones to you, or decides everything itself if you choose; it can also drive interactive terminal programs. Everything runs on this computer.",
     category: "workbot",
     added: "2026-11-20",
     since: "2026-11",

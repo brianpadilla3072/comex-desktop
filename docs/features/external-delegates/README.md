@@ -42,6 +42,10 @@ maneja el agente que delegó (OpenCode), y lo riesgoso te llega a vos.
   - La sesión queda abierta 30 minutos para seguimientos, que van con `delegate_reply` `text`.
   - Se retoma con `sessionId` (`session/load`) cuando el agente lo soporta.
   - `acpMode` elige el modo de sesión.
+- **Pedidos en paralelo:** si el agente pide varios permisos a la vez (herramientas en paralelo),
+  quedan en cola. `pendingInput` muestra el primero y `queuedPermissions` cuántos esperan detrás.
+  Ninguno se pierde.
+- **Retomar con `sessionId`:** sigue trabajando en el mismo worktree, con los cambios que ya hizo.
 - **Política (`permissions`), por tipo de herramienta ACP:**
   - `allow` responde que sí sin preguntar. Por defecto: read, search, think, edit, move.
   - `agent` lo decide el agente que delegó. Por defecto: execute, delete, switch_mode, other.
@@ -58,6 +62,21 @@ maneja el agente que delegó (OpenCode), y lo riesgoso te llega a vos.
   respuesta se escribe en stdin.
 - **Comandos como texto:** `delegate_probe` y `term_open` aceptan `"devin --help"` además del
   array. Si el texto tiene comillas o símbolos de shell, se rechaza y se pide el array.
+
+## Quién decide (menos preguntas)
+
+El modo se guarda en el archivo de recetas (`settings.decider`). Las herramientas del agente no
+pueden cambiarlo.
+
+| Modo | Qué te pregunta |
+| --- | --- |
+| `person` (por defecto) | Una sola vez por programa: "¿dejar que el agente aprenda a usar y use X?". Queda recordado entre reinicios (`approvedPrograms`) y cubre también el registro. Además, cada permiso riesgoso. |
+| `orchestrator` | Nada. El agente que delega decide todo, incluidos los permisos riesgosos: le llegan como `needs_input` con `reason` `risky_command` u `outside_folder` y puede usar `ask_person` si cree que debés saberlo. |
+
+Para cambiarlo:
+- `PUT /delegates/settings` `{ "decider": "orchestrator" }`, con el token del host (dueño).
+- Como bloqueo del operador: `OPENWORK_DELEGATES_DECIDER=orchestrator|person`, que tiene prioridad
+  sobre lo guardado.
 
 ## Cómo está hecho
 

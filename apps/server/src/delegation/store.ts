@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { DELEGATE_STORE_VERSION, delegateStore, type DelegateStore, type StoredDelegate } from "./schema.js";
+import { DELEGATE_STORE_VERSION, delegateStore, type DelegateSettings, type DelegateStore, type StoredDelegate } from "./schema.js";
 
 /**
  * Registered delegate recipes, one JSON file per OpenWork installation:
@@ -14,7 +14,7 @@ export function delegateStorePath(runtimeDir: string): string {
   return join(runtimeDir, "delegates", "recipes.json");
 }
 
-const emptyStore = (): DelegateStore => ({ version: DELEGATE_STORE_VERSION, agents: {} });
+const emptyStore = (): DelegateStore => ({ version: DELEGATE_STORE_VERSION, agents: {}, settings: { decider: "person" }, approvedPrograms: {} });
 
 export async function readDelegateStore(path: string): Promise<DelegateStore> {
   let text: string;
@@ -62,4 +62,12 @@ export function removeDelegate(path: string, name: string): Promise<DelegateStor
     delete agents[name];
     return { ...current, agents };
   });
+}
+
+export function rememberApprovedProgram(path: string, executable: string, at: number): Promise<DelegateStore> {
+  return updateDelegateStore(path, (current) => ({ ...current, approvedPrograms: { ...current.approvedPrograms, [executable]: { approvedAt: at } } }));
+}
+
+export function writeDelegateSettings(path: string, settings: DelegateSettings): Promise<DelegateStore> {
+  return updateDelegateStore(path, (current) => ({ ...current, settings }));
 }

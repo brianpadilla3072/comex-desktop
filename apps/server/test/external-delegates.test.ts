@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import * as core from "../src/delegation/core.js";
-import { acpUpdateEffect } from "../src/delegation/acp.js";
+import { acpUpdateEffect, mergeToolCall } from "../src/delegation/acp.js";
 import { DelegationError, delegateRecipe, permissionPolicy } from "../src/delegation/schema.js";
 import { DelegationService, type DelegationApprovals } from "../src/delegation/service.js";
 import { delegatesMcpToken, delegationToolNames, handleDelegatesMcp } from "../src/delegation/mcp.js";
@@ -33,6 +33,7 @@ const vectors = z.object({
   normalizeCommand: z.array(z.object({ input: z.union([z.string(), z.array(z.string())]), expect: z.array(z.string()).optional(), expectCode: z.string().optional() })),
   jsonLines: z.object({ chunks: z.array(z.string()), expect: z.array(z.array(z.unknown())) }),
   acpUpdateEffect: z.array(z.object({ update: z.unknown(), expect: z.unknown() })),
+  mergeToolCall: z.array(z.object({ name: z.string(), known: z.record(z.string(), z.unknown()).nullable(), next: z.unknown(), expect: z.record(z.string(), z.unknown()), expectDecision: z.string().optional() })),
 }).parse(JSON.parse(await readFile(vectorsPath, "utf8")));
 
 test("contract: recipe validation", () => {
@@ -78,6 +79,11 @@ test("contract: ACP permission routing, options, command strings, framing and up
   const decoder = new core.JsonLineDecoder();
   assert.deepEqual(vectors.jsonLines.chunks.map((chunk) => decoder.push(chunk)), vectors.jsonLines.expect);
   for (const vector of vectors.acpUpdateEffect) assert.deepEqual(acpUpdateEffect(vector.update), vector.expect);
+  for (const vector of vectors.mergeToolCall) {
+    const merged = mergeToolCall(vector.known ?? undefined, vector.next);
+    assert.deepEqual(merged, vector.expect, vector.name);
+    if (vector.expectDecision) assert.equal(core.classifyPermission(core.permissionRequestView(merged), permissionPolicy.parse({}), "/work/task", "linux").decision, vector.expectDecision, vector.name);
+  }
 });
 
 // ── Service against fake CLIs ─────────────────────────────────────────────
@@ -121,18 +127,29 @@ const allowed = (response) => response?.outcome?.outcome === "selected" && respo
 async function handle(message) {
   if (message.method === undefined && waiting.has(message.id)) { waiting.get(message.id)(message.result); waiting.delete(message.id); return; }
   const { id, method, params } = message;
-  if (method === "initialize") return send({ id, result: { protocolVersion: 1, agentCapabilities: { loadSession: false } } });
+  if (method === "initialize") return send({ id, result: { protocolVersion: 1, agentCapabilities: { loadSession: true } } });
   if (method === "session/new") { cwd = params.cwd; return send({ id, result: { sessionId: "fake-session" } }); }
+  if (method === "session/load") { cwd = params.cwd; return send({ id, result: null }); }
   if (method === "session/set_mode") return send({ id, result: null });
   if (method === "session/prompt") {
     const text = params.prompt.map((part) => part.text).join("");
     const sessionId = params.sessionId;
     if (text.startsWith("again")) { say(sessionId, "follow-up: " + text); return send({ id, result: { stopReason: "end_turn" } }); }
+    if (text.startsWith("parallel")) {
+      const [first, second] = await Promise.all([
+        ask(sessionId, { toolCallId: "p1", title: "Run tests", kind: "execute", rawInput: { command: "python3 -m unittest" } }),
+        ask(sessionId, { toolCallId: "p2", title: "Lint", kind: "execute", rawInput: { command: "make lint" } }),
+      ]);
+      say(sessionId, "both: " + (allowed(first) ? "allowed" : "rejected") + " " + (allowed(second) ? "allowed" : "rejected"));
+      return send({ id, result: { stopReason: "end_turn" } });
+    }
     say(sessionId, "Working on: " + text + "\\n");
     send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", toolCallId: "t1", title: "Edit note.txt", kind: "edit", status: "pending" } } });
     if (allowed(await ask(sessionId, { toolCallId: "t1", title: "Edit note.txt", kind: "edit", locations: [{ path: join(cwd, "note.txt") }] }))) writeFileSync(join(cwd, "note.txt"), "note\\n");
     if (text.includes("network")) {
-      const ok = allowed(await ask(sessionId, { toolCallId: "t2", title: "Download", kind: "execute", rawInput: { command: "curl https://example.com" } }));
+      // Like Devin: the details come in tool_call, the permission request carries only the id.
+      send({ method: "session/update", params: { sessionId, update: { sessionUpdate: "tool_call", toolCallId: "t2", title: "Ran curl", kind: "execute", status: "pending", rawInput: { command: "curl https://example.com" } } } });
+      const ok = allowed(await ask(sessionId, { toolCallId: "t2" }));
       say(sessionId, ok ? "network used" : "network blocked");
     } else {
       const ok = allowed(await ask(sessionId, { toolCallId: "t3", title: "Run tests", kind: "execute", rawInput: { command: "python3 -m pytest -q" } }));
@@ -190,7 +207,7 @@ async function fixture(): Promise<Fixture> {
   return { root, runtimeDir, project, plainDir, agent, interactive, acp, confirmTty, stdinQuestion };
 }
 
-function service(f: Fixture, allow: boolean | ((action: string) => boolean) = true, env: Record<string, string | undefined> = process.env) {
+function service(f: Fixture, allow: boolean | ((action: string) => boolean) = true, env: Record<string, string | undefined> = process.env, extra: Partial<ConstructorParameters<typeof DelegationService>[0]> = {}) {
   const asked: string[] = [];
   const approvals: DelegationApprovals = { async confirm(input) { asked.push(`${input.action}:${input.title}`); return { allowed: typeof allow === "function" ? allow(input.action) : allow }; } };
   const svc = new DelegationService({
@@ -198,6 +215,7 @@ function service(f: Fixture, allow: boolean | ((action: string) => boolean) = tr
     workspacePath: (id) => (id === "ws-git" ? f.project : id === "ws-plain" ? f.plainDir : null),
     approvals,
     env,
+    ...extra,
   });
   return { svc, asked };
 }
@@ -516,4 +534,119 @@ test("without a native dialog, automatic approvals never allow a risky permissio
   assert.equal((await approvals.confirm({ workspaceId: "w", action: "register", title: "t", detail: "d" })).allowed, true);
   const native = delegationApprovals({ workspaces: [], delegationApproval: async () => true } as unknown as Parameters<typeof delegationApprovals>[0], auto);
   assert.equal((await native.confirm({ workspaceId: "w", action: "permission", title: "t", detail: "d" })).allowed, true);
+});
+
+test("a program is approved once and remembered across restarts; registering it asks nothing more", async () => {
+  const f = await fixture();
+  const first = service(f);
+  try {
+    await first.svc.probe("ws-plain", { command: [node, "--version"] });
+    assert.equal(first.asked.length, 1);
+  } finally {
+    first.svc.close();
+  }
+  const second = service(f);
+  try {
+    await second.svc.probe("ws-plain", { command: [node, "--version"] });
+    await second.svc.register("ws-plain", { name: "fake", kind: "cli", command: [node, f.agent, "-p", "{prompt}"], isolation: "workspace" });
+    assert.deepEqual(second.asked, [], "the remembered approval covers discovery and registration");
+  } finally {
+    second.svc.close();
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("with the orchestrator deciding, nobody is asked and risky requests reach the agent with their reason", async () => {
+  const f = await fixture();
+  const { svc, asked } = service(f, false, process.env, { deciderOverride: "orchestrator" });
+  try {
+    await svc.probe("ws-plain", { command: [node, "--version"] });
+    await svc.register("ws-plain", { name: "acp-agent", kind: "acp", command: [node, f.acp], isolation: "workspace" });
+    const started = await svc.start("ws-plain", { agent: "acp-agent", prompt: "use the network" });
+    const waiting = await svc.result(started.taskId, 20);
+    assert.equal(waiting.state, "needs_input");
+    assert.equal(waiting.pendingInput?.type === "permission" ? waiting.pendingInput.reason : null, "risky_command");
+    assert.match(waiting.hint ?? "", /sensitive/);
+    await svc.reply(started.taskId, { decision: "reject" });
+    const done = await svc.result(started.taskId, 20);
+    assert.match("answer" in done ? done.answer : "", /network blocked/);
+    assert.deepEqual(asked, [], "no dialog at all");
+    assert.deepEqual(await svc.settings(), { decider: "orchestrator", overriddenBy: "environment" });
+  } finally {
+    svc.close();
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("the stored decider is changed only through settings, and the environment lock is parsed strictly", async () => {
+  const f = await fixture();
+  const { svc, asked } = service(f, false);
+  try {
+    assert.deepEqual(await svc.settings(), { decider: "person", overriddenBy: null });
+    await svc.updateSettings({ decider: "orchestrator" });
+    await svc.probe("ws-plain", { command: [node, "--version"] });
+    assert.deepEqual(asked, []);
+    const { deciderFromEnvironment } = await import("../src/delegation/runtime.js");
+    assert.equal(deciderFromEnvironment({ OPENWORK_DELEGATES_DECIDER: "orchestrator" }), "orchestrator");
+    assert.equal(deciderFromEnvironment({ OPENWORK_DELEGATES_DECIDER: "everyone" }), undefined);
+    assert.equal(deciderFromEnvironment({}), undefined);
+  } finally {
+    svc.close();
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("ACP: parallel permission requests are queued and each one is answered", async () => {
+  const f = await fixture();
+  const { svc } = service(f);
+  try {
+    await svc.register("ws-plain", { name: "acp-agent", kind: "acp", command: [node, f.acp], isolation: "workspace" });
+    const started = await svc.start("ws-plain", { agent: "acp-agent", prompt: "parallel work" });
+    let state = await svc.result(started.taskId, 20);
+    for (let attempt = 0; attempt < 10 && state.queuedPermissions === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      state = svc.status("ws-plain", started.taskId).tasks[0] ?? state;
+    }
+    assert.equal(state.state, "needs_input");
+    assert.equal(state.queuedPermissions, 1);
+    assert.equal(state.pendingInput?.type === "permission" ? state.pendingInput.command : null, "python3 -m unittest");
+    const second = await svc.reply(started.taskId, { decision: "allow" });
+    assert.equal(second.state, "needs_input", "the queued request shows next");
+    assert.equal(second.pendingInput?.type === "permission" ? second.pendingInput.command : null, "make lint");
+    await svc.reply(started.taskId, { decision: "reject" });
+    const done = await svc.result(started.taskId, 20);
+    assert.equal(done.state, "succeeded");
+    assert.equal("answer" in done ? done.answer : "", "both: allowed rejected");
+  } finally {
+    svc.close();
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("ACP: resuming a session keeps working in the same worktree", async () => {
+  const f = await fixture();
+  const { svc } = service(f);
+  try {
+    await svc.register("ws-git", { name: "acp-agent", kind: "acp", command: [node, f.acp] });
+    const first = await svc.start("ws-git", { agent: "acp-agent", prompt: "fix" });
+    await svc.result(first.taskId, 20);
+    await svc.reply(first.taskId, { decision: "allow" });
+    const done = await svc.result(first.taskId, 20);
+    assert.ok(done.worktreePath && existsSync(join(done.worktreePath, "note.txt")));
+    await assert.rejects(svc.start("ws-git", { agent: "acp-agent", prompt: "again", sessionId: "fake-session" }), (error: unknown) => error instanceof DelegationError && error.code === "delegate_not_waiting");
+    svc.cancel(first.taskId);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const resumed = await svc.start("ws-git", { agent: "acp-agent", prompt: "again later", sessionId: "fake-session" });
+    assert.equal(resumed.worktreePath, done.worktreePath, "same isolated copy");
+    const answer = await svc.result(resumed.taskId, 20);
+    assert.equal("answer" in answer ? answer.answer : "", "follow-up: again later");
+    assert.ok(existsSync(join(done.worktreePath, "note.txt")), "earlier changes are still there");
+    await svc.discard(first.taskId);
+    assert.ok(existsSync(done.worktreePath), "discarding the earlier task leaves the copy the resumed task owns");
+    await svc.discard(resumed.taskId);
+    assert.equal(existsSync(done.worktreePath), false);
+  } finally {
+    svc.close();
+    await rm(f.root, { recursive: true, force: true });
+  }
 });

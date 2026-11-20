@@ -1364,5 +1364,67 @@
         "type": "none"
       }
     }
+  ],
+  "mergeToolCall": [
+    {
+      "name": "a permission request with only the id gets the earlier details",
+      "known": {
+        "toolCallId": "t2",
+        "title": "Ran curl",
+        "kind": "execute",
+        "status": "pending",
+        "rawInput": {
+          "command": "curl https://example.com"
+        }
+      },
+      "next": {
+        "toolCallId": "t2"
+      },
+      "expect": {
+        "toolCallId": "t2",
+        "title": "Ran curl",
+        "kind": "execute",
+        "status": "pending",
+        "rawInput": {
+          "command": "curl https://example.com"
+        }
+      },
+      "expectDecision": "person"
+    },
+    {
+      "name": "later fields win, empty strings and nulls do not erase",
+      "known": {
+        "toolCallId": "t1",
+        "title": "Edit",
+        "kind": "edit",
+        "status": "pending"
+      },
+      "next": {
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "t1",
+        "title": "",
+        "status": "completed",
+        "locations": null
+      },
+      "expect": {
+        "toolCallId": "t1",
+        "title": "Edit",
+        "kind": "edit",
+        "status": "completed"
+      }
+    },
+    {
+      "name": "nothing known",
+      "known": null,
+      "next": {
+        "toolCallId": "t9",
+        "kind": "read"
+      },
+      "expect": {
+        "toolCallId": "t9",
+        "kind": "read"
+      },
+      "expectDecision": "allow"
+    }
   ]
 }

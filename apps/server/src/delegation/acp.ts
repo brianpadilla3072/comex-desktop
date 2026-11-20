@@ -132,8 +132,30 @@ function contentText(content: unknown): string {
   return "";
 }
 
+/** The toolCallId of a tool_call / tool_call_update notification or of a permission request's toolCall. */
+export function toolCallIdOf(value: unknown): string | null {
+  const id = record(value)?.toolCallId;
+  return typeof id === "string" && id ? id : null;
+}
+
+/**
+ * ACP sends a tool call's details once (`tool_call`) and later only what changed
+ * (`tool_call_update`, and the toolCall inside `session/request_permission`, which
+ * may hold just the id). Merge them so decisions see the title, kind, command and paths.
+ */
+export function mergeToolCall(known: Record<string, unknown> | undefined, next: unknown): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(known ?? {}) };
+  for (const [key, value] of Object.entries(record(next) ?? {})) {
+    if (value === undefined || value === null) continue;
+    if (key === "sessionUpdate") continue;
+    if (typeof value === "string" && value === "" && typeof merged[key] === "string") continue;
+    merged[key] = value;
+  }
+  return merged;
+}
+
 /** What one `session/update` changes in a task's view: answer text, thoughts or an activity line. */
-export function acpUpdateEffect(update: unknown): AcpUpdateEffect {
+export function acpUpdateEffect(update: unknown, known?: Record<string, unknown>): AcpUpdateEffect {
   const value = record(update);
   if (!value) return { type: "none" };
   switch (value.sessionUpdate) {
@@ -152,7 +174,8 @@ export function acpUpdateEffect(update: unknown): AcpUpdateEffect {
     }
     case "tool_call_update": {
       if (typeof value.status !== "string" || !["completed", "failed"].includes(value.status)) return { type: "none" };
-      const title = typeof value.title === "string" ? value.title : typeof value.toolCallId === "string" ? value.toolCallId : "tool";
+      const knownTitle = known && typeof known.title === "string" && known.title ? known.title : null;
+      const title = typeof value.title === "string" && value.title ? value.title : knownTitle ?? (typeof value.toolCallId === "string" ? value.toolCallId : "tool");
       return { type: "activity", line: `${title} (${value.status})` };
     }
     case "plan": {

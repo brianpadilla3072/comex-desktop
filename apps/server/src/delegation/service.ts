@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -19,19 +20,21 @@ import {
   type PermissionOption,
   type Platform,
 } from "./core.js";
-import { ACP_PROTOCOL_VERSION, AcpConnection, acpUpdateEffect, loadSessionSupported, sessionIdOf, stopReasonOf } from "./acp.js";
+import { ACP_PROTOCOL_VERSION, AcpConnection, acpUpdateEffect, loadSessionSupported, mergeToolCall, sessionIdOf, stopReasonOf, toolCallIdOf } from "./acp.js";
 import { resolveExecutable, runToCompletion, spawnPipe, spawnTerminal, type DelegateProcess, type PtyFactory } from "./process.js";
 import {
   DelegationError,
   delegateRecipe,
   permissionPolicy,
+  type DelegateDecider,
   type DelegateRecipe,
+  type DelegateSettings,
   type KeyName,
   type ReplyDecision,
   type StoredDelegate,
   type TaskState,
 } from "./schema.js";
-import { delegateStorePath, putDelegate, readDelegateStore, removeDelegate } from "./store.js";
+import { delegateStorePath, putDelegate, readDelegateStore, rememberApprovedProgram, removeDelegate, writeDelegateSettings } from "./store.js";
 
 /**
  * Runs external agent CLIs for OpenCode. One service per running OpenWork
@@ -58,6 +61,8 @@ export type DelegationServiceOptions = {
   now?: () => number;
   /** How long a finished ACP session or terminal task stays open for follow-ups. */
   keepAliveMs?: number;
+  /** Operator override of the stored decider (OPENWORK_DELEGATES_DECIDER). */
+  deciderOverride?: DelegateDecider;
 };
 
 const MAX_LIVE_TASKS = 8;
@@ -73,6 +78,8 @@ type Worktree = { path: string; branch: string; repoRoot: string };
 export type PendingInput =
   | { type: "permission"; title: string; kind: string; command: string | null; paths: string[]; options: PermissionOption[]; reason: string }
   | { type: "question"; text: string };
+
+type PermissionPending = Extract<PendingInput, { type: "permission" }>;
 
 type FinishedBy = "exit" | "done_text" | "turn_end" | "reply_done" | "timeout" | "cancel" | "error";
 
@@ -95,6 +102,8 @@ type Task = {
   /** ACP: the agent's message text for the current turn. */
   answer: string;
   activity: string[];
+  /** ACP tool calls seen in session/update, by toolCallId (bounded), to complete permission requests. */
+  toolCalls: Map<string, Record<string, unknown>>;
   turns: number;
   sessionId: string | null;
   terminalId: string | null;
@@ -103,7 +112,11 @@ type Task = {
   stdinOpen: boolean;
   lastOutputAt: number;
   pendingInput: PendingInput | null;
-  answerPermission: ((decision: "allow" | "allow_always" | "reject") => void) | null;
+  /**
+   * Permission requests waiting for the managing agent, oldest first. Agents may ask several
+   * at once (parallel tool calls); each is answered in order, none is ever dropped.
+   */
+  permissions: Array<{ input: PermissionPending; answer: (decision: "allow" | "allow_always" | "reject") => void }>;
   error: string | null;
   timer: ReturnType<typeof setTimeout> | null;
   keepAliveTimer: ReturnType<typeof setTimeout> | null;
@@ -153,6 +166,22 @@ export class DelegationService {
   private readonly terminals = new Map<string, Terminal>();
   /** Executables the person allowed the agent to run for discovery during this server's lifetime. */
   private readonly approvedExecutables = new Set<string>();
+  /** The decider for this request; refreshed from the store on every decision. */
+  private async decider(): Promise<DelegateDecider> {
+    if (this.options.deciderOverride) return this.options.deciderOverride;
+    return (await readDelegateStore(this.storePath)).settings.decider;
+  }
+
+  /** Read by the host route; agents cannot reach these. */
+  async settings(): Promise<DelegateSettings & { overriddenBy: "environment" | null }> {
+    const stored = (await readDelegateStore(this.storePath)).settings;
+    return this.options.deciderOverride ? { decider: this.options.deciderOverride, overriddenBy: "environment" } : { ...stored, overriddenBy: null };
+  }
+
+  async updateSettings(settings: DelegateSettings): Promise<DelegateSettings & { overriddenBy: "environment" | null }> {
+    await writeDelegateSettings(this.storePath, settings);
+    return this.settings();
+  }
   private readonly platform: Platform;
   private readonly env: Record<string, string | undefined>;
   private readonly now: () => number;
@@ -193,10 +222,24 @@ export class DelegationService {
     }
   }
 
-  private async approveExecutable(workspaceId: string, executable: string, argv: string[]): Promise<void> {
+  /**
+   * One question per program, remembered across restarts: may agents learn and use it?
+   * With the orchestrator deciding, nobody is asked.
+   */
+  private async approveExecutable(workspaceId: string, executable: string, argv: string[], action: "run" | "register" = "run", extra = ""): Promise<void> {
     if (this.approvedExecutables.has(executable)) return;
-    await this.approve(workspaceId, "run", `Let the agent run ${argv[0] ?? executable}?`, `The agent wants to run this program to learn how it works or to use it in a terminal. Later commands of the same program in this session will not ask again.\n\nProgram: ${executable}\nFirst command: ${argv.join(" ").slice(0, 300)}`);
+    if (await this.decider() === "orchestrator") {
+      this.approvedExecutables.add(executable);
+      return;
+    }
+    const store = await readDelegateStore(this.storePath);
+    if (store.approvedPrograms[executable]) {
+      this.approvedExecutables.add(executable);
+      return;
+    }
+    await this.approve(workspaceId, action, `Let the agent learn and use ${argv[0] ?? executable}?`, `The agent can run this program to learn how it works and then hand it tasks. OpenWork remembers this and will not ask again for this program.\n\nProgram: ${executable}\nFirst command: ${argv.join(" ").slice(0, 300)}${extra}`);
     this.approvedExecutables.add(executable);
+    await rememberApprovedProgram(this.storePath, executable, this.now());
   }
 
   private async scratchDir(): Promise<string> {
@@ -244,8 +287,7 @@ export class DelegationService {
     const executable = await resolveExecutable(recipe.command[0] ?? "", this.env, this.platform);
     const permissions = recipe.kind === "acp" ? permissionPolicy.parse(recipe.permissions ?? {}) : null;
     const policyText = permissions ? `\nPermissions it asks for: automatic for ${permissions.allow.join(", ") || "nothing"}; the agent decides ${permissions.agent.join(", ") || "nothing"}; you decide ${permissions.person.join(", ") || "nothing"} and anything risky or outside the project.` : "";
-    await this.approve(workspaceId, "register", `Let the agent hand tasks to "${recipe.name}"?`, `From now on the agent can run this program with tasks it writes, without asking again.\n\nCommand: ${[executable, ...recipe.command.slice(1)].join(" ").slice(0, 400)}\nWorks: ${recipe.isolation === "worktree" ? "in an isolated git copy of the project" : "directly in the project folder"}${policyText}${recipe.notes.length ? `\nNotes: ${recipe.notes.join(" · ").slice(0, 400)}` : ""}`);
-    this.approvedExecutables.add(executable);
+    await this.approveExecutable(workspaceId, executable, recipe.command, "register", `\nWorks: ${recipe.isolation === "worktree" ? "in an isolated git copy of the project" : "directly in the project folder"}${policyText}`);
     const version = recipe.versionCommand ? await this.readVersion(recipe.versionCommand) : null;
     const entry: StoredDelegate = { recipe, executable, version, registeredAt: this.now() };
     await putDelegate(this.storePath, entry);
@@ -349,7 +391,16 @@ export class DelegationService {
     let worktree: Worktree | null = null;
     let cwd = workspaceDir;
     let dirty = false;
-    if (isolation === "worktree") {
+    const earlier = input.sessionId
+      ? [...this.tasks.values()].find((task) => task.sessionId === input.sessionId && task.workspaceId === workspaceId && task.agent === recipe.name && task.worktree)
+      : undefined;
+    if (earlier?.alive) throw new DelegationError("delegate_not_waiting", `Task ${earlier.id} still holds this session. Send the follow-up with delegate_reply, or cancel it first.`);
+    if (isolation === "worktree" && earlier?.worktree && existsSync(earlier.worktree.path)) {
+      // Continuing a session keeps working in the same isolated copy, with the changes made so far.
+      worktree = earlier.worktree;
+      earlier.worktree = null;
+      cwd = earlier.cwd;
+    } else if (isolation === "worktree") {
       const created = await this.createWorktree(workspaceDir, taskId);
       worktree = created.worktree;
       cwd = created.cwd;
@@ -388,6 +439,7 @@ export class DelegationService {
       stderr: "",
       answer: "",
       activity: [],
+      toolCalls: new Map(),
       turns: 0,
       sessionId: input.sessionId ?? null,
       terminalId: terminal?.id ?? null,
@@ -396,7 +448,7 @@ export class DelegationService {
       stdinOpen: recipe.kind === "cli" && recipe.keepStdinOpen,
       lastOutputAt: this.now(),
       pendingInput: null,
-      answerPermission: null,
+      permissions: [],
       error: null,
       timer: null,
       keepAliveTimer: null,
@@ -407,7 +459,7 @@ export class DelegationService {
       task.alive = false;
       task.exitCode = exit.code;
       if (task.keepAliveTimer) clearTimeout(task.keepAliveTimer);
-      if (task.answerPermission) task.answerPermission("reject");
+      this.rejectPermissions(task);
       if (task.state === "running" || task.state === "needs_input") {
         const failed = exit.code !== 0 || (task.acp !== null && task.turns > 0);
         if (task.acp && !task.error && failed) task.error = tail(stripAnsi(task.acp.stderr).trim(), 1500) || "The agent stopped unexpectedly.";
@@ -461,9 +513,19 @@ export class DelegationService {
   }
 
   private setRunning(task: Task): void {
+    const next = task.permissions[0];
+    if (next) {
+      // Another permission request is still waiting: show it instead of resuming.
+      task.pendingInput = next.input;
+      task.state = "needs_input";
+      return;
+    }
     task.pendingInput = null;
-    task.answerPermission = null;
     task.state = "running";
+  }
+
+  private rejectPermissions(task: Task): void {
+    for (const entry of task.permissions.splice(0)) entry.answer("reject");
   }
 
   private addActivity(task: Task, line: string): void {
@@ -477,7 +539,7 @@ export class DelegationService {
     task.finishedBy = by;
     task.endedAt = this.now();
     task.pendingInput = null;
-    task.answerPermission = null;
+    this.rejectPermissions(task);
     if (task.timer) clearTimeout(task.timer);
     task.timer = null;
     if (task.recipe.output === "jsonl") {
@@ -546,13 +608,24 @@ export class DelegationService {
 
   private onAcpUpdate(task: Task, update: unknown): void {
     task.lastOutputAt = this.now();
-    const effect = acpUpdateEffect(update);
+    const toolCallId = toolCallIdOf(update);
+    const known = toolCallId ? task.toolCalls.get(toolCallId) : undefined;
+    if (toolCallId) {
+      task.toolCalls.set(toolCallId, mergeToolCall(known, update));
+      if (task.toolCalls.size > 500) {
+        const oldest = task.toolCalls.keys().next().value;
+        if (oldest !== undefined) task.toolCalls.delete(oldest);
+      }
+    }
+    const effect = acpUpdateEffect(update, known);
     if (effect.type === "message") task.answer = tail(task.answer + effect.text, LOG_CHARS);
     else if (effect.type === "activity") this.addActivity(task, effect.line);
   }
 
   private async onAcpPermission(task: Task, params: unknown): Promise<unknown> {
-    const toolCall = typeof params === "object" && params !== null ? Reflect.get(params, "toolCall") : undefined;
+    const requested: unknown = typeof params === "object" && params !== null ? Reflect.get(params, "toolCall") : undefined;
+    const requestedId = toolCallIdOf(requested);
+    const toolCall = mergeToolCall(requestedId ? task.toolCalls.get(requestedId) : undefined, requested);
     const view = permissionRequestView(toolCall);
     const options = permissionOptions(params);
     const policy = permissionPolicy.parse(task.recipe.permissions ?? {});
@@ -570,18 +643,37 @@ export class DelegationService {
       this.addActivity(task, `rejected by policy: ${label}`);
       return selected("reject");
     }
+    if (decision === "person" && await this.decider() === "orchestrator") {
+      // The person chose to let the orchestrating agent decide; it still sees why this is sensitive.
+      return this.waitForAgentDecision(task, view, options, reason, selected, label);
+    }
     if (decision === "person") {
       const allowed = await this.askPerson(task, view.title, view.command, view.paths, reason);
       this.addActivity(task, `${allowed ? "allowed" : "rejected"} by the person: ${label}`);
       return selected(allowed ? "allow" : "reject");
     }
+    return this.waitForAgentDecision(task, view, options, reason, selected, label);
+  }
+
+  private waitForAgentDecision(
+    task: Task,
+    view: ReturnType<typeof permissionRequestView>,
+    options: PermissionOption[],
+    reason: string,
+    selected: (choice: "allow" | "allow_always" | "reject") => unknown,
+    label: string,
+  ): Promise<unknown> {
     return new Promise((resolve) => {
-      task.answerPermission = (choice) => {
-        task.answerPermission = null;
-        this.addActivity(task, `${choice === "reject" ? "rejected" : "allowed"} by the agent: ${label}`);
-        resolve(selected(choice));
-      };
-      this.needInput(task, { type: "permission", title: view.title, kind: view.kind, command: view.command, paths: view.paths, options, reason });
+      const input: PermissionPending = { type: "permission", title: view.title, kind: view.kind, command: view.command, paths: view.paths, options, reason };
+      task.permissions.push({
+        input,
+        answer: (choice) => {
+          this.addActivity(task, `${choice === "reject" ? "rejected" : "allowed"} by the agent: ${label}`);
+          resolve(selected(choice));
+        },
+      });
+      if (task.permissions.length === 1) this.needInput(task, input);
+      else this.addActivity(task, `another permission request is queued: ${label}`);
     });
   }
 
@@ -644,17 +736,19 @@ export class DelegationService {
 
   async reply(taskId: string, input: { decision?: ReplyDecision; text?: string; keys?: KeyName[] }) {
     const task = this.task(taskId);
-    if (task.pendingInput?.type === "permission") {
-      const answer = task.answerPermission;
-      if (!answer) throw new DelegationError("delegate_not_waiting", "This permission request was already answered.");
+    const entry = task.permissions[0];
+    if (entry) {
       const decision = input.decision;
       if (!decision || decision === "done") throw new DelegationError("delegate_not_waiting", "The agent is waiting for a permission decision: reply with decision allow, allow_always, reject or ask_person.");
-      const pending = task.pendingInput;
+      const pending = entry.input;
       let choice: "allow" | "allow_always" | "reject";
       if (decision === "ask_person") choice = (await this.askPerson(task, pending.title, pending.command, pending.paths, "policy_person")) ? "allow" : "reject";
       else choice = decision;
+      // The request may have been settled while the person decided (task cancelled or ended).
+      if (task.permissions[0] !== entry) return this.describe(task);
+      task.permissions.shift();
+      entry.answer(choice);
       if (task.state === "needs_input") this.setRunning(task);
-      answer(choice);
       return this.describe(task);
     }
     if (input.decision === "done") {
@@ -742,13 +836,16 @@ export class DelegationService {
       terminalId: task.terminalId,
       sessionId: task.sessionId,
       pendingInput: task.pendingInput,
+      queuedPermissions: Math.max(0, task.permissions.length - 1),
       canReply: task.pendingInput !== null || (task.alive && task.state === "succeeded" && (task.acp !== null || task.terminalId !== null)),
       quietSeconds: task.state === "running" ? quietSeconds : null,
       activity: task.activity.slice(-15),
       error: task.error,
       outputPreview: tail(this.output(task).trim(), PREVIEW_CHARS),
       hint: task.pendingInput?.type === "permission"
-        ? `${task.agent} asks permission. Decide with delegate_reply (allow, allow_always, reject), or ask_person when unsure or risky.`
+        ? task.pendingInput.reason === "outside_folder" || task.pendingInput.reason === "risky_command"
+          ? `${task.agent} asks for something sensitive (${task.pendingInput.reason === "outside_folder" ? "files outside the task folder" : "network, privileges or publishing"}). You decide: allow only if the task you gave clearly needs it, otherwise reject; use ask_person if the person should know.`
+          : `${task.agent} asks permission. Decide with delegate_reply (allow, allow_always, reject), or ask_person when unsure.`
         : task.pendingInput?.type === "question"
           ? `${task.agent} seems to wait for an answer. Reply with delegate_reply text, or decision done if it already finished.`
           : task.state === "running" && !task.stdinOpen && !task.acp && !task.terminalId && quietSeconds >= task.recipe.idleSeconds
@@ -799,7 +896,7 @@ export class DelegationService {
   cancel(taskId: string) {
     const task = this.task(taskId);
     if (task.acp && task.sessionId && task.alive) task.acp.notify("session/cancel", { sessionId: task.sessionId });
-    if (task.answerPermission) task.answerPermission("reject");
+    this.rejectPermissions(task);
     if (task.state === "running" || task.state === "needs_input" || task.state === "starting") this.finish(task, "cancelled", "cancel");
     if (task.alive) task.process.kill();
     if (task.terminalId) this.closeTerminal(task.terminalId);

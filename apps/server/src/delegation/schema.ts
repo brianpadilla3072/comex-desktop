@@ -108,9 +108,29 @@ export const storedDelegate = z.object({
 }).strict();
 export type StoredDelegate = z.infer<typeof storedDelegate>;
 
+/**
+ * Who answers decisions about external agents.
+ * person: the person confirms each new program once (remembered) and every risky permission request.
+ * orchestrator: the OpenCode agent that delegates decides everything; it may still ask the person.
+ * Only the person changes this (host route or OPENWORK_DELEGATES_DECIDER), never an agent tool.
+ */
+export const DELEGATE_DECIDERS = ["person", "orchestrator"] as const;
+export type DelegateDecider = (typeof DELEGATE_DECIDERS)[number];
+
+export const delegateSettings = z.object({
+  decider: z.enum(DELEGATE_DECIDERS).default("person"),
+}).strict();
+export type DelegateSettings = z.infer<typeof delegateSettings>;
+
+/** A program the person allowed agents to learn and use, remembered across restarts. */
+export const approvedProgram = z.object({ approvedAt: z.number().int().nonnegative() }).strict();
+
 export const delegateStore = z.object({
   version: z.literal(DELEGATE_STORE_VERSION),
   agents: z.record(delegateName, storedDelegate),
+  settings: delegateSettings.default({ decider: "person" }),
+  /** Keyed by the resolved absolute executable path. */
+  approvedPrograms: z.record(z.string(), approvedProgram).default({}),
 }).strict();
 export type DelegateStore = z.infer<typeof delegateStore>;
 
