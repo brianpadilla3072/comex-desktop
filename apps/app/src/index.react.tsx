@@ -12,6 +12,7 @@ import { bootstrapTheme } from "./app/theme";
 import { isDesktopRuntime } from "./app/utils";
 import { initLocale } from "./i18n";
 import { getReactQueryClient } from "./react-app/infra/query-client";
+import { startReactDevMeasureTrim } from "./react-app/infra/react-dev-measure-trim";
 import {
   createDefaultPlatform,
   PlatformProvider,
@@ -26,6 +27,9 @@ import "./app/index.css";
 import "./styles/comex-shell.css";
 
 const root = document.getElementById("root");
+
+// Development builds only: React logs every render to the User Timing buffer.
+if (import.meta.env.DEV) startReactDevMeasureTrim();
 
 if (!root) {
   throw new Error("Root element not found");
