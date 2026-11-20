@@ -121,7 +121,7 @@ import { useComputerEndTurn } from "../computer/computer-store";
 import { TerminalDock } from "../terminal/terminal-dock";
 import { useActivePanelTab, usePanelTabStore, useSessionPanelState } from "../panel/panel-tab-store";
 import { useComexArtifactsFeature } from "../comex/use-comex-feature";
-import type { SidebarProjects } from "../../projects/projects-sidebar";
+import type { SidebarDesign, SidebarProjects } from "../../projects/projects-sidebar";
 import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
@@ -227,6 +227,8 @@ export type SessionPageSidebarProps = {
   onOpenResultsInbox?: () => void;
   /** Projects experience (`projectsExperience`): Proyectos entry and "Fijados". */
   projects?: SidebarProjects;
+  /** Design studio (`designStudio`): the "Diseño" entry. */
+  design?: SidebarDesign;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -427,6 +429,38 @@ function SplitSessionSurface({ metadataCallbacks, ...props }: SessionSurfaceProp
   </>;
 }
 
+/**
+ * One conversation outside the workbench (the chat beside a design): the same surface as the
+ * side pane, fed by a pane runtime the route resolved for the session.
+ */
+export function EmbeddedSessionSurface({ runtime, sessionId, title, metadataCallbacks }: {
+  runtime: SessionPagePaneRuntime;
+  sessionId: string;
+  title?: string;
+  metadataCallbacks?: SessionMetadataCallbacks;
+}) {
+  if (runtime.status !== "ready") {
+    return <div role="status" data-embedded-session-unavailable className="flex min-h-0 flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">{runtime.message}</div>;
+  }
+  return <div className="min-h-0 flex-1" data-embedded-session={sessionId}>
+    <SplitSessionSurface
+      {...runtime.surface}
+      metadataCallbacks={metadataCallbacks}
+      client={runtime.client}
+      environmentClient={runtime.environmentClient}
+      workspaceId={runtime.runtimeWorkspaceId}
+      workspaceRoot={runtime.workspaceRoot}
+      sandboxBackend={runtime.sandboxBackend}
+      sessionId={sessionId}
+      isControlTarget
+      chatPane="secondary"
+      opencodeBaseUrl={runtime.opencodeBaseUrl}
+      openworkToken={runtime.openworkToken}
+      sessionTitle={title}
+    />
+  </div>;
+}
+
 function UnavailableWorkbenchPane(props: {
   workspaceTitle: string;
   message: string;
@@ -509,7 +543,7 @@ export function SessionPage(props: SessionPageProps) {
   const referenceLayout = workspaceTabsEnabled && !isMobile;
   const workspaceResourceScope = resourceScope(props.openworkServerClient?.baseUrl, props.selectedWorkspaceId, props.newTaskComposer?.draftScope);
   const resourceWorkspace = useResourceWorkspace(workspaceResourceScope);
-  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.sidebar.resultsInboxActive && !props.sidebar.projects?.active && !props.extensionsActive;
+  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.sidebar.resultsInboxActive && !props.sidebar.projects?.active && !props.sidebar.design?.active && !props.extensionsActive;
   const [resourceAssistantOpen, setResourceAssistantOpen] = useState(false);
   // Split keeps the conversation visible on one side while a tab occupies the
   // other side; the shared tab bar picks which page goes on that side.
@@ -1820,6 +1854,7 @@ export function SessionPage(props: SessionPageProps) {
           resultsInboxUnread={props.sidebar.resultsInboxUnread}
           onOpenResultsInbox={props.sidebar.onOpenResultsInbox}
           projects={props.sidebar.projects}
+          design={props.sidebar.design}
           dashboardActive={props.sidebar.dashboardActive}
           dashboardLabel={props.sidebar.dashboardLabel}
           onOpenDashboard={props.sidebar.onOpenDashboard}

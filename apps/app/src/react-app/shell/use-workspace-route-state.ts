@@ -95,7 +95,7 @@ export type UseWorkspaceRouteStateInput = {
   /** A local first-send owner must survive workspace preparation until it has a real session. */
   preservePendingConversationRoute?: boolean;
   developerMode: boolean;
-  workspaceRoute?: "session" | "automations" | "dashboard" | "apps" | "activity" | "command-center" | "results-inbox" | "projects" | "project";
+  workspaceRoute?: "session" | "automations" | "dashboard" | "apps" | "activity" | "command-center" | "results-inbox" | "projects" | "project" | "design" | "design-page";
   /** Invoked when the openwork-server settings-changed event fires (the route bumps its settings version). */
   onServerSettingsChanged: () => void;
   /** Receives the local openwork-server host info discovered during refresh. */
@@ -196,6 +196,17 @@ export function useWorkspaceRouteState(input: UseWorkspaceRouteStateInput) {
       // `/projects/:workspaceId` names its workspace; the page itself says when the project is gone.
       if (/^\/projects\/[^/]+\/?$/.test(location.pathname)) return;
       navigate(`/projects/${encodeURIComponent(workspaceId)}`, options);
+      return;
+    }
+    if (workspaceRoute === "design-page") {
+      // `/design/:workspaceId/:designId` names its project; the page itself says when the design is gone.
+      if (/^\/design\/[^/]+\/[^/]+\/?$/.test(location.pathname)) return;
+      navigate("/design", options);
+      return;
+    }
+    if (workspaceRoute === "design") {
+      if (location.pathname === "/design") return;
+      navigate("/design", options);
       return;
     }
     if (workspaceRoute === "command-center") {

@@ -3,7 +3,7 @@ import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/reac
 import { CompanionRecentsBridge } from "../../desktop-companion/companion-recents-bridge";
 import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
 import { CompactSidebarNav } from "./compact-sidebar-nav";
-import { PinnedProjectsGroup, sidebarDestinationOrder, type SidebarDestinationId, type SidebarProjects } from "../../projects/projects-sidebar";
+import { PinnedProjectsGroup, sidebarDestinationOrder, type SidebarDesign, type SidebarDestinationId, type SidebarProjects } from "../../projects/projects-sidebar";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
@@ -26,6 +26,7 @@ import {
   CheckCheck,
   Folder,
   FolderClosed,
+  Palette,
   Clock3,
   ChevronRight,
   Columns2,
@@ -733,6 +734,8 @@ export type AppSidebarProps = {
   onOpenDashboard?: () => void;
   /** Projects experience: the Proyectos entry and the "Fijados" group; absent while `projectsExperience` is off. */
   projects?: SidebarProjects;
+  /** Design studio: the "Diseño" entry; absent while `designStudio` is off. */
+  design?: SidebarDesign;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   /** Back/forward across recently viewed conversations, rendered at the top of the sidebar. */
@@ -880,6 +883,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
   const availableDestinations = new Set<SidebarDestinationId>(["extensions"]);
   if (props.projects) availableDestinations.add("projects");
   if (props.projects && props.onOpenSessionSearch) availableDestinations.add("search");
+  if (props.design) availableDestinations.add("design");
   if (props.onOpenDashboard) availableDestinations.add("artifacts");
   if (props.onOpenAutomations) availableDestinations.add("scheduled");
   if (props.onOpenCommandCenter) availableDestinations.add("command-center");
@@ -890,6 +894,9 @@ export function AppSidebar(inputProps: AppSidebarProps) {
     ) : null,
     projects: props.projects ? (
       <SidebarDestination active={props.projects.active} icon={FolderClosed} label={t("projects_ui.nav_projects")} onSelect={props.projects.onOpen} />
+    ) : null,
+    design: props.design ? (
+      <SidebarDestination active={props.design.active} icon={Palette} label={t("design_ui.studio.nav")} onSelect={props.design.onOpen} />
     ) : null,
     artifacts: props.onOpenDashboard ? (
       <SidebarDestination
@@ -963,7 +970,8 @@ export function AppSidebar(inputProps: AppSidebarProps) {
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
           onInstallSkillsTools={props.onOpenExtensions}
           onProjectsPage={props.projects?.onOpen} projectsPageActive={props.projects?.active}
-          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive || props.projects?.active) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+          onDesign={props.design?.onOpen} designActive={props.design?.active}
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive || props.projects?.active || props.design?.active) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}
       {!contextualDestination ? <Sidebar

@@ -3,6 +3,7 @@ import type { TaskState, GoalInput } from "@openwork/types/task-continuity";
 import type { PermissionProfileInput, PermissionModesSnapshot } from "@openwork/types/permission-modes";
 import type { GuideObservation, GuideSnapshot } from "@openwork/types/model-guide";
 import { z } from "zod";
+import { designChatsSchema, designDeleteResponseSchema, designDetailSchema, designListSchema, designResponseSchema, designWriteResponseSchema, type DesignCreateInput, type DesignPageInput, type DesignPagePatchInput, type DesignPatchInput } from "./designs";
 import { projectContextChangeSchema, projectContextListingSchema, projectDetailSchema, projectInstructionsSchema, projectListSchema, projectMemorySchema, projectPatchResponseSchema, projectTaskInputSchema, projectTaskListSchema, projectTaskSavedSchema, type ProjectPatchInput, type ProjectTaskInput } from "./projects";
 import type { McpStatusMap } from "../types";
 import type { ConnectionActionIntent } from "@openwork/types/connection-action-app";
@@ -1778,6 +1779,24 @@ async function requestUploadRaw(
   return { ok: response.ok, status: response.status, text };
 }
 
+const designApiPath = (workspaceId: string, designId: string) => `/designs/${encodeURIComponent(workspaceId)}/${encodeURIComponent(designId)}`;
+
+/** A raw-body request (PUT of a file) whose answer is JSON; failures become `OpenworkServerError`. */
+async function requestRawJson(
+  baseUrl: string,
+  path: string,
+  options: { method: string; token?: string; hostToken?: string; body: Blob; timeoutMs?: number },
+): Promise<unknown> {
+  const result = await requestUploadRaw(baseUrl, path, { ...options, contentType: options.body.type || "application/octet-stream" });
+  let parsed: unknown = null;
+  try { parsed = result.text.trim() ? JSON.parse(result.text) : null; } catch { parsed = null; }
+  if (!result.ok) {
+    const failure = z.object({ code: z.string().optional(), message: z.string().optional(), details: z.unknown().optional() }).safeParse(parsed);
+    throw new OpenworkServerError(result.status, failure.success && failure.data.code ? failure.data.code : "request_failed", failure.success && failure.data.message ? failure.data.message : "Request failed", failure.success ? failure.data.details : undefined);
+  }
+  return parsed;
+}
+
 async function requestBinary(
   baseUrl: string,
   path: string,
@@ -2722,6 +2741,36 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     /** Creates a task that runs in this project (through the application's task route). Send `permissionMode` explicitly: without it the task is "manual". */
     createProjectTask: async (applicationId: string, workspaceId: string, input: ProjectTaskInput) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks`, { token, hostToken, method: "POST", body: { ...projectTaskInputSchema.parse(input), workspaceId }, timeoutMs: 60_000 })),
     updateProjectTask: async (applicationId: string, taskId: string, patch: Partial<ProjectTaskInput>) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: projectTaskInputSchema.partial().parse(patch), timeoutMs: 60_000 })),
+    // Design studio (feature designStudio; docs/features/design-studio). Reads work with the
+    // collaborator token; writes need owner access (host token or paired device).
+    listDesigns: async (workspaceId?: string) => designListSchema.parse(await requestJson<unknown>(baseUrl, `/designs${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 })),
+    createDesign: async (input: DesignCreateInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, "/designs", { token, hostToken, method: "POST", body: input, timeoutMs: 60_000 })).design,
+    getDesign: async (workspaceId: string, designId: string) => designDetailSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken })),
+    updateDesign: async (workspaceId: string, designId: string, patch: DesignPatchInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken, method: "PATCH", body: patch })).design,
+    deleteDesign: async (workspaceId: string, designId: string) => { designDeleteResponseSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken, method: "DELETE", timeoutMs: 60_000 })); },
+    /** One file of the design folder (`pages/p-1.html`, `assets/logo.svg`…), typed by its extension. */
+    readDesignFile: async (workspaceId: string, designId: string, path: string) => {
+      const result = await requestBinary(baseUrl, `${designApiPath(workspaceId, designId)}/files?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: timeouts.binary });
+      return new Blob([result.data], { type: result.contentType ?? "application/octet-stream" });
+    },
+    writeDesignFile: async (workspaceId: string, designId: string, path: string, body: Blob | string) => {
+      const blob = typeof body === "string" ? new Blob([body], { type: "text/plain;charset=utf-8" }) : body;
+      return designWriteResponseSchema.parse(await requestRawJson(baseUrl, `${designApiPath(workspaceId, designId)}/files?path=${encodeURIComponent(path)}`, { token, hostToken, method: "PUT", body: blob, timeoutMs: Math.max(timeouts.binary, (blob.size / UPLOAD_MIN_BYTES_PER_SECOND) * 1000) })).design;
+    },
+    addDesignPage: async (workspaceId: string, designId: string, input: DesignPageInput = {}) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages`, { token, hostToken, method: "POST", body: input })).design,
+    reorderDesignPages: async (workspaceId: string, designId: string, pageIds: string[]) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/order`, { token, hostToken, method: "PUT", body: { pageIds } })).design,
+    /** Rename a page or change its notes (`notes: null` removes them). */
+    updateDesignPage: async (workspaceId: string, designId: string, pageId: string, patch: DesignPagePatchInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/${encodeURIComponent(pageId)}`, { token, hostToken, method: "PATCH", body: patch })).design,
+    deleteDesignPage: async (workspaceId: string, designId: string, pageId: string) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/${encodeURIComponent(pageId)}`, { token, hostToken, method: "DELETE" })).design,
+    putDesignThumbnail: async (workspaceId: string, designId: string, png: Blob) => designWriteResponseSchema.parse(await requestRawJson(baseUrl, `${designApiPath(workspaceId, designId)}/thumbnail`, { token, hostToken, method: "PUT", body: png, timeoutMs: timeouts.binary })).design,
+    /** The design folder as a zip with an index (opens offline in any browser). */
+    exportDesignHtml: async (workspaceId: string, designId: string) => {
+      const result = await requestBinary(baseUrl, `${designApiPath(workspaceId, designId)}/export?format=html`, { token, hostToken, timeoutMs: timeouts.binary });
+      return new Blob([result.data], { type: result.contentType ?? "application/zip" });
+    },
+    /** Chat sessions bound to the design, newest first: their prompts carry the design guidance. */
+    listDesignChats: async (workspaceId: string, designId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken })).sessions,
+    bindDesignChat: async (workspaceId: string, designId: string, sessionId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken, method: "POST", body: { sessionId } })).sessions,
     dryRunSpecialistTask: (id: string, taskId: string) => requestJson<{ started: boolean; sessionId: string | null; workspaceId: string | null; detail: string | null; note: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/dry-run`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
     getSpecialistDatasets: (id: string, workspaceId?: string) => requestJson<{ datasets: SpecialistDataset[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),

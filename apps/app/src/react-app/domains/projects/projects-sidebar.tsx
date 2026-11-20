@@ -17,12 +17,15 @@ export type SidebarProjects = {
   onOpenProject: (workspaceId: string) => void;
 };
 
-export type SidebarDestinationId = "search" | "projects" | "artifacts" | "scheduled" | "extensions" | "command-center" | "inbox";
+/** The design studio entry ("Diseño"); absent while `designStudio` is off. */
+export type SidebarDesign = { active: boolean; onOpen: () => void };
+
+export type SidebarDestinationId = "search" | "projects" | "design" | "artifacts" | "scheduled" | "extensions" | "command-center" | "inbox";
 
 /** Today's order of the destinations under "New session" (no Projects entry). */
-const LEGACY_ORDER: SidebarDestinationId[] = ["artifacts", "scheduled", "command-center", "inbox", "extensions"];
-/** With the Projects experience: Crear, Buscar, Proyectos, Artefactos, Programadas, Complementos, then the rest. */
-const PROJECTS_ORDER: SidebarDestinationId[] = ["search", "projects", "artifacts", "scheduled", "extensions", "command-center", "inbox"];
+const LEGACY_ORDER: SidebarDestinationId[] = ["design", "artifacts", "scheduled", "command-center", "inbox", "extensions"];
+/** With the Projects experience: Crear, Buscar, Proyectos, Diseño, Artefactos, Programadas, Complementos, then the rest. */
+const PROJECTS_ORDER: SidebarDestinationId[] = ["search", "projects", "design", "artifacts", "scheduled", "extensions", "command-center", "inbox"];
 
 /** The destinations to show, in order; `available` leaves out the ones this window cannot open. */
 export function sidebarDestinationOrder(projectsOn: boolean, available: ReadonlySet<SidebarDestinationId>): SidebarDestinationId[] {

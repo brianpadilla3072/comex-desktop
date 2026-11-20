@@ -110,6 +110,7 @@ import { reloadEngineWithDesktopFallback } from "@/react-app/shell/engine-reload
 import { useLocal } from "@/react-app/kernel/local-provider";
 import { usePlatform } from "@/react-app/kernel/platform";
 import {
+  EmbeddedSessionSurface,
   SessionPage,
   type OpenSessionTab,
   type SessionPagePaneRuntime,
@@ -126,6 +127,12 @@ import { useResultsInboxAvailability, useResultsInboxUnread } from "@/react-app/
 import { ProjectsPage } from "@/react-app/domains/projects/projects-list-page";
 import { PROJECTS_ROUTE, isProjectsPath, pinnedProjects, projectIdFromPath, projectPageRoute } from "@/react-app/domains/projects/projects-list-model";
 import { useProjectsAvailability, useSidebarProjects } from "@/react-app/domains/projects/use-projects-list";
+import { DESIGN_ROUTE, designRouteFromPath, isDesignPath } from "@/app/lib/designs";
+import { DesignGalleryPage } from "@/react-app/domains/design/design-gallery";
+import { DesignPage } from "@/react-app/domains/design/design-page";
+import type { DesignChatHost } from "@/react-app/domains/design/design-chat-panel";
+import { DesignChatStarter } from "@/react-app/domains/design/design-chat-starter";
+import { useDesignStudioAvailability } from "@/react-app/domains/design/use-designs";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
@@ -459,6 +466,14 @@ export function SessionRoute() {
   const sidebarProjectList = useSidebarProjects(projects.enabled);
   const projectRouteWorkspace = projectRouteWorkspaceId(location.pathname);
   const projectRouteActive = flaggedDestinationReachable(projects) && projectRouteWorkspace !== null;
+  // Design studio (designStudio): `/design` (gallery) and `/design/:workspaceId/:designId`.
+  const designStudio = useDesignStudioAvailability();
+  const designGalleryRequested = location.pathname === DESIGN_ROUTE;
+  const designRoute = designRouteFromPath(location.pathname);
+  const designGalleryActive = flaggedDestinationReachable(designStudio) && designGalleryRequested;
+  const designPageActive = flaggedDestinationReachable(designStudio) && designRoute !== null;
+  // The chat beside an open design: its session borrows the route's session surface.
+  const [designChatSessionId, setDesignChatSessionId] = useState<string | null>(null);
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -516,6 +531,10 @@ export function SessionRoute() {
     // Leave only once the server said the flag is off; a slow read never redirects.
     if (projectRouteWorkspace !== null && projects.known && !projects.enabled) navigate("/", { replace: true });
   }, [projects.enabled, projects.known, projectRouteWorkspace, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if ((designGalleryRequested || designRoute !== null) && designStudio.known && !designStudio.enabled) navigate("/", { replace: true });
+  }, [designStudio.enabled, designStudio.known, designGalleryRequested, designRoute, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -627,7 +646,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: projectRouteActive ? "project" : commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: designPageActive ? "design-page" : designGalleryActive ? "design" : projectRouteActive ? "project" : commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -1733,8 +1752,10 @@ export function SessionRoute() {
     navigateToWorkspaceSession(selectedWorkspaceId, remoteSessionRouteId(threadKey));
   }, [navigateToWorkspaceSession, selectedWorkspaceId]);
 
+  // A design page has no session in its URL; its side chat lends the surface its session.
+  const surfaceSessionId = selectedSessionId ?? (designPageActive ? designChatSessionId : null);
   const surfaceProps = useMemo(() => {
-    if (!client || !selectedWorkspaceId || !selectedSessionId || !opencodeBaseUrl || !token || !opencodeClient) {
+    if (!client || !selectedWorkspaceId || !surfaceSessionId || !opencodeBaseUrl || !token || !opencodeClient) {
       return null;
     }
 
@@ -1747,7 +1768,7 @@ export function SessionRoute() {
     let sessionOwnedByOtherWorkspace = false;
     for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspaceId)) {
       if (workspaceId === selectedWorkspaceId) continue;
-      if ((sessions ?? []).some((session) => session?.id === selectedSessionId)) {
+      if ((sessions ?? []).some((session) => session?.id === surfaceSessionId)) {
         sessionOwnedByOtherWorkspace = true;
         break;
       }
@@ -1808,7 +1829,7 @@ export function SessionRoute() {
       // Library detail ids hold ":" and "/", so they travel as one encoded segment.
       onOpenLibraryDetail: (detailId: string) => handleOpenExtensions(encodeURIComponent(detailId)),
       onSendDraft: async (draft: ComposerDraft, sessionId: string, onPrepared?: (text?: string) => void, agent?: string | null): Promise<CloudMcpSubmissionResult> => {
-        const targetSessionId = sessionId.trim() || selectedSessionId;
+        const targetSessionId = sessionId.trim() || surfaceSessionId;
         if (!targetSessionId) return { outcome: "cancelled", reason: "context_changed" };
         const generation = getQueuedSendGeneration(targetSessionId);
         const assertCurrent = () => {
@@ -2113,6 +2134,7 @@ export function SessionRoute() {
     newTaskAgent,
     setNewTaskAgent,
     selectedSessionId,
+    surfaceSessionId,
     sessionDraftScope,
     selectedModelUnavailable,
     selectedWorkspace,
@@ -3979,6 +4001,41 @@ export function SessionRoute() {
     }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
   };
 
+  // The chat beside an open design (`/design/:workspaceId/:designId`): a regular session of the
+  // design's project, created and fed like any other, shown with the side pane's surface. The
+  // design page binds it to the design so the server adds the design guidance to its prompts.
+  const designChatWorkspaceId = designPageActive && designRoute && selectedWorkspace?.id === designRoute.workspaceId ? designRoute.workspaceId : null;
+  const designChatHost: DesignChatHost | null = designChatWorkspaceId ? {
+    renderSession: (sessionId) => <EmbeddedSessionSurface runtime={resolvePaneRuntime({ workspaceId: designChatWorkspaceId, sessionId })} sessionId={sessionId} />,
+    onSessionChange: setDesignChatSessionId,
+    startChat: async (prompt) => {
+      const workspaceId = designChatWorkspaceId;
+      const agent = newTaskAgent;
+      const pending = beginPendingConversation({ scope: sessionDraftScope, destination: { workspaceId },
+        submitted: { draft: prompt, attachments: [], mentions: {}, pasteParts: [], revertMessageId: null } });
+      const workspace = workspaces.find((item) => item.id === workspaceId);
+      await createPendingConversation(pending.id, async () => {
+        const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
+        if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
+        const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
+        if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
+        return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
+      }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
+      const entry = usePendingConversationStore.getState().conversations[pending.id];
+      if (!entry?.sessionId) throw entry?.error instanceof Error ? entry.error : new Error("The chat could not be started. Try again.");
+      return entry.sessionId;
+    },
+    sendMessage: async (sessionId, text) => {
+      const runtime = resolvePaneRuntime({ workspaceId: designChatWorkspaceId, sessionId });
+      if (runtime.status !== "ready") throw new Error(runtime.message);
+      await runtime.surface.onSendDraft({ mode: "prompt", parts: [{ type: "text", text }], attachments: [], text }, sessionId);
+    },
+    renderStarter: newTaskComposerContext ? (start, busy) => (
+      <DesignChatStarter key={`${designChatWorkspaceId}:${designRoute?.designId ?? ""}`} workspaceId={designChatWorkspaceId}
+        designId={designRoute?.designId ?? ""} context={newTaskComposerContext} busy={busy} onStart={start} />
+    ) : undefined,
+  } : null;
+
   return (
     <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
     <WorkspaceProvider
@@ -4130,7 +4187,12 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={projectRouteActive && projectRouteWorkspace !== null ? (
+      primarySlot={designPageActive && designRoute !== null ? (
+        <DesignPage key={`${designRoute.workspaceId}/${designRoute.designId}`} workspaceId={designRoute.workspaceId} designId={designRoute.designId}
+          chat={designChatHost} onBack={() => navigate(DESIGN_ROUTE)} />
+      ) : designGalleryActive ? (
+        <DesignGalleryPage currentWorkspaceId={selectedWorkspaceId || null} />
+      ) : projectRouteActive && projectRouteWorkspace !== null ? (
         <ProjectPage
           key={projectRouteWorkspace}
           workspaceId={projectRouteWorkspace}
@@ -4216,6 +4278,10 @@ export function SessionRoute() {
           pinned: sidebarProjectList ? pinnedProjects(sidebarProjectList.projects) : [],
           onOpen: () => navigate(PROJECTS_ROUTE),
           onOpenProject: (workspaceId) => navigate(projectPageRoute(workspaceId)),
+        } : undefined,
+        design: flaggedDestinationReachable(designStudio) ? {
+          active: isDesignPath(location.pathname),
+          onOpen: () => navigate(DESIGN_ROUTE),
         } : undefined,
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
@@ -4343,6 +4409,7 @@ export function SessionRoute() {
       }
       // Full-page screens name themselves; without a title the bar fell back to "Nueva sesión · …".
       mainContentTitle={extensionsMainOpen ? t("settings.tab_extensions") : cloudWorkspaceMainContentTakeover ? "Cloud workspace"
+        : designGalleryActive || designPageActive ? t("design_ui.studio.title")
         : projectsRouteActive || projectRouteActive ? t("projects_ui.title")
         : commandCenterRouteActive ? t("command_center.title")
         : resultsInboxRouteActive ? t("results_inbox.title")
