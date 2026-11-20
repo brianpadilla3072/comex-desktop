@@ -22,7 +22,7 @@ command center reads every application and workspace at once.
 
 `apps/server/src/command-center.ts`:
 
-- `GET /command-center` (`host` auth: the desktop's host token or a paired device's owner
+- `GET /command-center/snapshot` (not `/command-center`, which is the app page: in the web app both share one origin) (`host` auth: the desktop's host token or a paired device's owner
   token, see `remote-device-pairing`). Returns a zod-validated snapshot:
   `{ enabled, generatedAt, engine, complete, items, problems, counts }`.
   - **Chats**: for every local workspace it asks the engine that chat runs on (v2 when engine v2
@@ -53,7 +53,7 @@ command center reads every application and workspace at once.
 
 - `command-center-model.ts`: client copy of the contract (zod), status to section/tone/label
   mapping, the actions each row offers, and elapsed-time formatting.
-- `use-command-center.ts`: TanStack Query on `/command-center`, polled every 4 s while the page
+- `use-command-center.ts`: TanStack Query on `/command-center/snapshot`, polled every 4 s while the page
   is open and on window focus. It does not keep a second copy of session state: it subscribes to
   the existing `useSessionActivityStore` (fed by the event stream) and re-reads the aggregate as
   soon as any session status or waiting request changes, so synced workspaces update at once and

@@ -220,7 +220,7 @@ test("routes are owner-only, honour the flag, and stop goes to the engine chat r
   });
   try {
     const call = routeHarness(asConfig(config), deps);
-    const listed = await call("GET", "/command-center");
+    const listed = await call("GET", "/command-center/snapshot");
     assert.equal(listed.auth, "host");
     assert.equal(listed.status, 200);
     assert.equal(commandCenterSnapshotSchema.safeParse(listed.body).success, true);
@@ -235,7 +235,7 @@ test("routes are owner-only, honour the flag, and stop goes to the engine chat r
 
     process.env.DEN_FEATURE_COMMAND_CENTER = "false";
     try {
-      const off = await call("GET", "/command-center");
+      const off = await call("GET", "/command-center/snapshot");
       assert.equal(off.status, 404);
       assert.deepEqual(off.body, { code: "command_center_disabled" });
     } finally { delete process.env.DEN_FEATURE_COMMAND_CENTER; }

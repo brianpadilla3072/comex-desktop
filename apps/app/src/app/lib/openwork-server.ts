@@ -2731,7 +2731,7 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
     getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
     /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
-    getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center", { token, hostToken, timeoutMs: 30_000 }),
+    getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center/snapshot", { token, hostToken, timeoutMs: 30_000 }),
     stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),
     /** Owner access: finished scheduled runs (results inbox). Validate with `resultsInboxSnapshotSchema`. */
     getResultsInbox: () => requestJson<unknown>(baseUrl, "/results-inbox", { token, hostToken, timeoutMs: 30_000 }),

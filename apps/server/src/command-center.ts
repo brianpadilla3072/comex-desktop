@@ -410,7 +410,9 @@ export function registerCommandCenterRoutes(options: {
   const { routes, config, deps, jsonResponse, ensureWritable } = options;
   // Owner access only (the host, or a paired device): the list names every
   // workspace and conversation on this machine.
-  addRoute(routes, "GET", "/command-center", "host", async () => {
+  // Not "/command-center": that is the app page, and in the web app a GET of the same path
+  // would answer with this JSON instead of the page (same origin).
+  addRoute(routes, "GET", "/command-center/snapshot", "host", async () => {
     requireEnabled();
     const response = jsonResponse(await describeCommandCenter(config, deps));
     response.headers.set("Cache-Control", "no-store");
