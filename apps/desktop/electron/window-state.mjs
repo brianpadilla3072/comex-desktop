@@ -3,6 +3,7 @@
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 export const WINDOW_STATE_FILENAME = "window-state.json";
 const WINDOW_STATE_VERSION = 1;
@@ -17,30 +18,25 @@ const MIN_VISIBLE_HEIGHT = 40;
  * @typedef {{ bounds: Rect, maximized: boolean }} WindowState
  */
 
-/** @param {unknown} value @returns {value is number} */
-function finite(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
+// Saved bounds: finite numbers (z.number() refuses NaN and Infinity), rounded to whole pixels.
+const rectSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+}).transform(({ x, y, width, height }) => ({ x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) }));
 
-/** @param {unknown} value @returns {Rect | null} */
-function parseRect(value) {
-  if (!value || typeof value !== "object") return null;
-  const x = Reflect.get(value, "x");
-  const y = Reflect.get(value, "y");
-  const width = Reflect.get(value, "width");
-  const height = Reflect.get(value, "height");
-  if (!finite(x) || !finite(y) || !finite(width) || !finite(height)) return null;
-  if (width <= 0 || height <= 0) return null;
-  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
-}
+/** `window-state.json`. Only `maximized: true` counts as maximized. */
+const windowStateSchema = z.object({
+  version: z.literal(WINDOW_STATE_VERSION),
+  bounds: rectSchema,
+  maximized: z.unknown().optional(),
+}).transform(({ bounds, maximized }) => ({ bounds, maximized: maximized === true }));
 
 /** @param {unknown} value @returns {WindowState | null} */
 export function parseWindowState(value) {
-  if (!value || typeof value !== "object") return null;
-  if (Reflect.get(value, "version") !== WINDOW_STATE_VERSION) return null;
-  const bounds = parseRect(Reflect.get(value, "bounds"));
-  if (!bounds) return null;
-  return { bounds, maximized: Reflect.get(value, "maximized") === true };
+  const parsed = windowStateSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** @param {Rect} a @param {Rect} b */
@@ -98,7 +94,8 @@ export function createWindowStateStore({ directory, screen, log = () => {} }) {
   /** @returns {WindowState | null} */
   function read() {
     try {
-      return parseWindowState(JSON.parse(readFileSync(filePath, "utf8")));
+      const parsed = windowStateSchema.safeParse(JSON.parse(readFileSync(filePath, "utf8")));
+      return parsed.success ? parsed.data : null;
     } catch {
       return null;
     }

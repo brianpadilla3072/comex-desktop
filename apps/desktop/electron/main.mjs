@@ -111,6 +111,25 @@ import { createKeepAwake } from "./keep-awake.mjs";
 import { attachFloatingViewWindow, floatingViewWindowOptions } from "./floating-view-window.mjs";
 import { createStartupLog, startupPhase, withStartupPhase } from "./startup-log.mjs";
 import { createWindowStateStore } from "./window-state.mjs";
+import { z } from "zod";
+
+// `computer-targets.json`: the person's saved app-to-computer choices (SavedChoices).
+const savedComputerChoicesSchema = z.object({
+  targets: z.record(z.string(), z.unknown()).catch({}).transform((targets) => {
+    /** @type {Record<string, string>} */
+    const kept = {};
+    for (const [app, computer] of Object.entries(targets)) if (typeof computer === "string") kept[app] = computer;
+    return kept;
+  }),
+  computer: z.string().optional().catch(undefined),
+});
+// The cached brand icon's sidecar; only the URL it was fetched from is read back.
+const brandIconSidecarSchema = z.object({ sourceUrl: z.string().optional().catch(undefined) });
+// `openwork-ui-control.json` as returned to the renderer (UiControlBridgeInfo).
+const uiControlBridgeInfoSchema = z.object({
+  baseUrl: z.string().optional().catch(undefined),
+  token: z.string().optional().catch(undefined),
+});
 
 // Startup milestones (epoch ms) for the renderer's one-per-launch startup
 // report to Den. The OS process creation time includes module loading; the
@@ -301,10 +320,11 @@ const computerControl = createComputerControl({
   standing: {
     read: async () => {
       try {
-        const saved = JSON.parse(await readFile(computerTargetsPath(), "utf8"));
+        const saved = savedComputerChoicesSchema.safeParse(JSON.parse(await readFile(computerTargetsPath(), "utf8")));
+        if (!saved.success) return { targets: {} };
         return {
-          targets: saved?.targets && typeof saved.targets === "object" ? saved.targets : {},
-          ...(typeof saved?.computer === "string" ? { computer: saved.computer } : {}),
+          targets: saved.data.targets,
+          ...(saved.data.computer !== undefined ? { computer: saved.data.computer } : {}),
         };
       } catch { return { targets: {} }; }
     },
@@ -952,8 +972,8 @@ function showDesktopNotification(input) {
 
 async function readBrandIconSidecar() {
   try {
-    const parsed = JSON.parse(await readFile(brandIconSidecarPath(), "utf8"));
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = brandIconSidecarSchema.safeParse(JSON.parse(await readFile(brandIconSidecarPath(), "utf8")));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -961,10 +981,8 @@ async function readBrandIconSidecar() {
 
 function readBrandIconSidecarSourceUrlSync() {
   try {
-    const parsed = JSON.parse(readFileSync(brandIconSidecarPath(), "utf8"));
-    return parsed && typeof parsed === "object" && typeof parsed.sourceUrl === "string"
-      ? parsed.sourceUrl
-      : null;
+    const parsed = brandIconSidecarSchema.safeParse(JSON.parse(readFileSync(brandIconSidecarPath(), "utf8")));
+    return parsed.success ? parsed.data.sourceUrl ?? null : null;
   } catch {
     return null;
   }
@@ -2155,7 +2173,8 @@ const desktopCommandHandlers = {
   "getUiControlBridgeInfo": async (event, ...args) => {
       try {
         const raw = await readFile(path.join(app.getPath("userData"), "openwork-ui-control.json"), "utf8");
-        return JSON.parse(raw);
+        const info = uiControlBridgeInfoSchema.safeParse(JSON.parse(raw));
+        return info.success ? info.data : null;
       } catch {
         return null;
       }

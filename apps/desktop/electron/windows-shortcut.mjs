@@ -2,7 +2,11 @@ import { execFile } from "node:child_process";
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { z } from "zod";
 import { withStartupPhase } from "./startup-log.mjs";
+
+// The marker written after a successful shortcut update; `signature` is compared as is.
+const shortcutMarkerSchema = z.looseObject({ shortcutPath: z.string() });
 
 export const WINDOWS_SHORTCUT_TIMEOUT_MS = 15000;
 
@@ -40,8 +44,8 @@ export function repairWindowsShortcutTarget(shortcutPath, details, {
 export async function readWindowsShortcutMarker(markerPath) {
   const text = (await readFile(markerPath, "utf8").catch(() => "")).trim();
   try {
-    const value = JSON.parse(text);
-    if (typeof value?.shortcutPath === "string") return value;
+    const value = shortcutMarkerSchema.safeParse(JSON.parse(text));
+    if (value.success) return value.data;
   } catch {
     // Older versions stored only the shortcut path. Upgrade after validation.
   }

@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
+
+// `openwork-sentry.json` written at build time. Both fields are normalized below.
+const buildConfigSchema = z.object({
+  dsn: z.unknown().optional(),
+  tracesSampleRate: z.unknown().optional(),
+});
 
 let sentry = null;
 let initialized = false;
@@ -102,9 +109,9 @@ export function resolveOpenworkSentryRelease({ appVersion, environmentRelease = 
 
 function parseBuildConfig(path) {
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8"));
-    const dsn = normalizeIdentifier(parsed?.dsn);
-    const tracesSampleRate = Number(parsed?.tracesSampleRate);
+    const parsed = buildConfigSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+    const dsn = normalizeIdentifier(parsed.dsn);
+    const tracesSampleRate = Number(parsed.tracesSampleRate);
     return {
       dsn,
       tracesSampleRate: Number.isFinite(tracesSampleRate) && tracesSampleRate >= 0 && tracesSampleRate <= 1

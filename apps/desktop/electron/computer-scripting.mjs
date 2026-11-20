@@ -9,10 +9,17 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { connect } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
+import { z } from "zod";
 
 const run = promisify(execFile);
 const OUTPUT_LIMIT = 64 * 1024;
 const BLENDER_ID = "org.blenderfoundation.blender";
+/** One reply line from openwork_blender.py: a ScriptResult (see computer-control.mjs). */
+const blenderReplySchema = z.looseObject({
+  ok: z.boolean().optional(),
+  mayHaveActed: z.boolean().optional(),
+  error: z.looseObject({ code: z.string(), message: z.string() }).optional(),
+});
 const AUTOMATION_DENIED = "macOS has not allowed OpenWork to control this app. Allow OpenWork for it under System Settings › Privacy & Security › Automation, then try again.";
 // macOS quits apps such as TextEdit once they have no windows but keeps listing them as open, and
 // AppleScript then answers -600 instead of starting the app.
@@ -118,7 +125,7 @@ export function createComputerScripting({ stateDir, bridgeScript, platform = pro
         if (reply.length > 4 * OUTPUT_LIMIT) { finish(null, new Error("Blender's reply was too large.")); return; }
         const end = reply.indexOf("\n");
         if (end === -1) return;
-        try { finish(JSON.parse(reply.slice(0, end))); } catch { finish(null, new Error("Blender's reply was unreadable.")); }
+        try { finish(blenderReplySchema.parse(JSON.parse(reply.slice(0, end)))); } catch { finish(null, new Error("Blender's reply was unreadable.")); }
       });
       socket.on("error", (error) => finish(null, connected ? error : Object.assign(new Error("No Blender bridge is listening."), { code: "unreachable" })));
       socket.on("close", () => finish(null, connected ? new Error("Blender closed the connection without a reply.") : Object.assign(new Error("No Blender bridge is listening."), { code: "unreachable" })));

@@ -1,6 +1,7 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 
 /** @type {import("@openwork/types/desktop-companion").CompanionPreferences} */
 const DEFAULTS = Object.freeze({ mascot: "sprout", image: "", motion: true, openOnHover: false, autoClose: 15, alerts: true });
@@ -8,12 +9,19 @@ const record = value => value !== null && typeof value === "object" && !Array.is
 const text = (value, max = 4000) => typeof value === "string" && value.length <= max;
 const short = (value, max) => typeof value === "string" ? value.slice(0, max) : "";
 
+/** `companion.json` and the renderer's preference updates. A bad field falls back to its default. */
+const companionPreferencesSchema = z.object({
+  mascot: z.enum(["sprout", "ember", "image"]).catch("sprout"),
+  image: z.string().max(700_000).regex(/^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$/).catch(""),
+  motion: z.unknown().optional().transform((value) => value !== false),
+  openOnHover: z.unknown().optional().transform((value) => value === true),
+  autoClose: z.union([z.literal(5), z.literal(15), z.literal(30)]).catch(15),
+  alerts: z.unknown().optional().transform((value) => value !== false),
+}).transform(({ mascot, image, motion, openOnHover, autoClose, alerts }) => ({ mascot, image, motion, openOnHover, autoClose, alerts }));
+
 export function companionPreferences(value) {
-  if (!record(value)) return { ...DEFAULTS };
-  const image = text(value.image, 700_000) && /^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$/.test(value.image) ? value.image : "";
-  return { mascot: ["sprout", "ember", "image"].includes(value.mascot) ? value.mascot : "sprout", image,
-    motion: value.motion !== false, openOnHover: value.openOnHover === true,
-    autoClose: [5, 15, 30].includes(value.autoClose) ? value.autoClose : 15, alerts: value.alerts !== false };
+  const parsed = companionPreferencesSchema.safeParse(value);
+  return parsed.success ? parsed.data : { ...DEFAULTS };
 }
 
 /** Treat even our renderer's data as input. Never forward raw SDK objects or credentials. */
@@ -262,7 +270,10 @@ export function createDesktopCompanion({ enabled, app, BrowserWindow, Tray, Menu
     },
     async start() {
       if (!enabled || win) return;
-      try { preferences = companionPreferences(JSON.parse(await readFile(path.join(directory, "companion.json"), "utf8"))); } catch { /* fresh installation */ }
+      try {
+        const stored = companionPreferencesSchema.safeParse(JSON.parse(await readFile(path.join(directory, "companion.json"), "utf8")));
+        preferences = stored.success ? stored.data : { ...DEFAULTS };
+      } catch { /* fresh installation */ }
       win = new BrowserWindow({ ...companionBounds(screen.getPrimaryDisplay(), false), show: false, frame: false, transparent: true,
         ...(process.platform === "linux" ? { type: "dock" } : {}),
         resizable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,

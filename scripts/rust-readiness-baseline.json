@@ -39,78 +39,15 @@
     "R2-unvalidated-json-parse": 1
   },
   "apps/desktop/electron/automation-runner.mjs": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/desktop/electron/browser-upload-permissions.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/computer-local.mjs": {
-    "R2-unvalidated-json-parse": 2
-  },
-  "apps/desktop/electron/computer-scripting.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/connect-link.mjs": {
-    "R2-unvalidated-json-parse": 3
-  },
-  "apps/desktop/electron/desktop-companion.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/linux-desktop-integration.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/main.mjs": {
-    "R2-unvalidated-json-parse": 4
-  },
-  "apps/desktop/electron/migration.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/native-dictation.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/nuke-worker.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/nuke.mjs": {
     "R2-unvalidated-json-parse": 1
   },
   "apps/desktop/electron/preload.mjs": {
     "R2-unvalidated-json-parse": 1
   },
-  "apps/desktop/electron/recovery.mjs": {
-    "R2-unvalidated-json-parse": 3
-  },
-  "apps/desktop/electron/runtime.mjs": {
-    "R2-unvalidated-json-parse": 3
-  },
-  "apps/desktop/electron/sentry.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/session-pins.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
   "apps/desktop/electron/session-runner-journal.mjs": {
     "R2-unvalidated-json-parse": 1
   },
-  "apps/desktop/electron/ui-control-server.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/updater.mjs": {
-    "R2-unvalidated-json-parse": 4
-  },
   "apps/desktop/electron/webmcp-host.mjs": {
     "R2-unvalidated-json-parse": 2
-  },
-  "apps/desktop/electron/window-state.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/windows-shortcut.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/workspace-archive.mjs": {
-    "R2-unvalidated-json-parse": 1
-  },
-  "apps/desktop/electron/workspace-store.mjs": {
-    "R2-unvalidated-json-parse": 8
   }
 }

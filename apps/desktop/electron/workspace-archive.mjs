@@ -1,6 +1,14 @@
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import zlib from "node:zlib";
+import { z } from "zod";
+
+// A restored `openwork.json`: any object. Every key is written back; `workspace` is read with guards.
+const openworkConfigSchema = z.record(z.string(), z.unknown());
+const workspaceIdentitySchema = z.object({
+  name: z.string().optional().catch(undefined),
+  preset: z.string().optional().catch(undefined),
+}).catch({});
 
 const ZIP_LOCAL_FILE_HEADER = 0x04034b50;
 const ZIP_CENTRAL_DIRECTORY_HEADER = 0x02014b50;
@@ -333,13 +341,14 @@ export async function importWorkspaceConfig({ archivePath, targetDir, name }) {
   if (await pathExists(openworkPath)) {
     const raw = await readFile(openworkPath, "utf8");
     try {
-      const config = JSON.parse(raw);
+      const config = openworkConfigSchema.parse(JSON.parse(raw));
       config.authorizedRoots = [targetDir];
-      if (!workspaceName && typeof config.workspace?.name === "string" && config.workspace.name.trim()) {
-        workspaceName = config.workspace.name.trim();
+      const workspace = workspaceIdentitySchema.parse(config.workspace);
+      if (!workspaceName && workspace.name?.trim()) {
+        workspaceName = workspace.name.trim();
       }
-      if (typeof config.workspace?.preset === "string" && config.workspace.preset.trim()) {
-        preset = config.workspace.preset.trim();
+      if (workspace.preset?.trim()) {
+        preset = workspace.preset.trim();
       }
       await writeFile(openworkPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
     } catch {

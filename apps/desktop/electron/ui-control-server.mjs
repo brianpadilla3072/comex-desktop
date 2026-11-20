@@ -7,6 +7,10 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
+
+// Every POST route takes a JSON object; its handler validates the fields it reads.
+const requestBodySchema = z.record(z.string(), z.unknown());
 
 export function createUiControlServer({
   app,
@@ -49,11 +53,15 @@ export function createUiControlServer({
           resolve({});
           return;
         }
+        let body;
         try {
-          resolve(JSON.parse(raw));
+          body = requestBodySchema.safeParse(JSON.parse(raw));
         } catch {
           reject(new Error("Request body must be JSON"));
+          return;
         }
+        if (body.success) resolve(body.data);
+        else reject(new Error("Request body must be a JSON object"));
       });
       request.on("error", reject);
     });

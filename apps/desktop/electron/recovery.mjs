@@ -1,10 +1,29 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
 const RECOVERY_STATE_FILENAME = "app-recovery.v1.json";
 const RECOVERY_CACHE_DIRECTORY = "app-recovery-cache";
 const STABLE_VERSION = /^\d+\.\d+\.\d+$/;
+
+const optionalText = z.string().optional().catch(undefined);
+// `app-recovery.v1.json`: the healthy versions recorded for this distribution.
+const recoveryStateSchema = z.object({
+  distribution: optionalText,
+  currentVersion: optionalText,
+  previousVersion: optionalText,
+});
+// `metadata.json` next to a cached recovery installer. Each field is compared before use.
+const recoveryCacheMetadataSchema = z.object({
+  version: optionalText,
+  platform: optionalText,
+  arch: optionalText,
+  distribution: optionalText,
+  url: optionalText,
+  sha512: optionalText,
+  fileName: optionalText,
+});
 
 function stableVersion(value) {
   if (typeof value !== "string") return null;
@@ -30,8 +49,9 @@ function statePath(app) {
 
 export async function readRecoveryState(app, distribution) {
   try {
-    const parsed = JSON.parse(await readFile(statePath(app), "utf8"));
-    if (parsed?.distribution !== distribution) return { currentVersion: null, previousVersion: null };
+    const state = recoveryStateSchema.safeParse(JSON.parse(await readFile(statePath(app), "utf8")));
+    if (!state.success || state.data.distribution !== distribution) return { currentVersion: null, previousVersion: null };
+    const parsed = state.data;
     return {
       currentVersion: stableVersion(parsed.currentVersion),
       previousVersion: stableVersion(parsed.previousVersion),
@@ -239,7 +259,7 @@ export async function verifyCachedRecoveryArtifact(filePath, artifact) {
   try {
     if (!validRecoveryArtifactIdentity(artifact)) return false;
     const bytes = await readFile(filePath);
-    const metadata = JSON.parse(await readFile(path.join(path.dirname(filePath), "metadata.json"), "utf8"));
+    const metadata = recoveryCacheMetadataSchema.parse(JSON.parse(await readFile(path.join(path.dirname(filePath), "metadata.json"), "utf8")));
     const checksum = createHash("sha512").update(bytes).digest("base64");
     return metadata.version === artifact.version
       && metadata.platform === artifact.platform
@@ -262,14 +282,14 @@ export async function readCachedRecoveryArtifact(app, expected) {
   ];
   for (const directory of directories) {
     try {
-      const metadata = JSON.parse(await readFile(path.join(directory, "metadata.json"), "utf8"));
+      const metadata = recoveryCacheMetadataSchema.parse(JSON.parse(await readFile(path.join(directory, "metadata.json"), "utf8")));
       const artifact = {
         version: stableVersion(metadata.version),
-        platform: typeof metadata.platform === "string" ? metadata.platform : null,
-        arch: typeof metadata.arch === "string" ? metadata.arch : null,
-        distribution: typeof metadata.distribution === "string" ? metadata.distribution : null,
-        url: typeof metadata.url === "string" ? metadata.url : null,
-        sha512: typeof metadata.sha512 === "string" ? metadata.sha512 : null,
+        platform: metadata.platform ?? null,
+        arch: metadata.arch ?? null,
+        distribution: metadata.distribution ?? null,
+        url: metadata.url ?? null,
+        sha512: metadata.sha512 ?? null,
       };
       if (
         !artifact.version
@@ -280,7 +300,7 @@ export async function readCachedRecoveryArtifact(app, expected) {
         || artifact.distribution !== expected.distribution
         || !validRecoveryArtifactIdentity(artifact)
       ) continue;
-      const fileName = typeof metadata.fileName === "string" ? metadata.fileName : "";
+      const fileName = metadata.fileName ?? "";
       if (!fileName || fileName !== path.basename(fileName)) continue;
       const filePath = path.join(directory, fileName);
       if (!(await verifyCachedRecoveryArtifact(filePath, artifact))) continue;

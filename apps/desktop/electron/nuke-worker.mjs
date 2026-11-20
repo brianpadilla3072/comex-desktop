@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
 import { runPendingNukeCleanup } from "./nuke.mjs";
 
@@ -127,8 +128,10 @@ function launchApp(payload, deps) {
 }
 
 export async function runNukeCleanupWorker(payloadPath, deps = {}) {
-  const raw = JSON.parse(await readFile(payloadPath, "utf8"));
-  const payload = validateNukeWorkerPayload(raw);
+  // An object; validateNukeWorkerPayload then checks every field it uses.
+  const raw = z.record(z.string(), z.unknown()).safeParse(JSON.parse(await readFile(payloadPath, "utf8")));
+  if (!raw.success) throw new Error("Invalid nuke worker payload.");
+  const payload = validateNukeWorkerPayload(raw.data);
   await waitForParentExit(payload.parentPid, payload.parentWaitDeadlineAt, deps);
   let cleanup = null;
   try {

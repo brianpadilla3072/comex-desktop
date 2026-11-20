@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import {
   cacheVerifiedRecoveryArtifact,
   compatibleRecoveryReleases,
@@ -37,7 +38,7 @@ export function resolveAppVersion(app) {
   // In dev, read from package.json.
   try {
     const pkgPath = path.resolve(__updater_dirname, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    const pkg = packageVersionSchema.parse(JSON.parse(readFileSync(pkgPath, "utf8")));
     _cachedAppVersion = pkg.version || electronVersion;
   } catch {
     _cachedAppVersion = electronVersion;
@@ -47,6 +48,29 @@ export function resolveAppVersion(app) {
 const ELECTRON_UPDATER_FEEDS = Object.freeze({
   stable: "https://github.com/brianpadilla3072/comex-desktop/releases/latest/download",
   alpha: "https://github.com/brianpadilla3072/comex-desktop/releases/download/alpha-macos-latest",
+});
+
+// Dev builds read their version from package.json.
+const packageVersionSchema = z.object({ version: z.unknown().optional() });
+// The update channel the person chose (`channel` is normalized below).
+const updaterChannelFileSchema = z.object({ channel: z.unknown().optional() });
+// Eval-only recovery fixtures from the environment. Entries that do not match are skipped.
+const evalListSchema = z.array(z.unknown()).catch([]);
+const evalStableVersion = z.string().refine((version) => stableVersion(version) !== null);
+const evalRecoveryReleaseSchema = z.object({
+  version: evalStableVersion,
+  channel: z.literal("stable"),
+  artifact: z.looseObject({
+    platform: z.unknown().optional(),
+    arch: z.unknown().optional(),
+    distribution: z.unknown().optional(),
+    url: z.string(),
+  }),
+});
+const evalRecoveryCandidateSchema = z.object({
+  verified: z.literal(true),
+  version: evalStableVersion,
+  artifactUrl: z.string(),
 });
 
 function normalizeElectronUpdaterChannel(value, manifestChannel = "latest") {
@@ -62,8 +86,8 @@ function electronUpdaterChannelPath(app) {
 async function readElectronUpdaterChannel(app, manifestChannel = "latest") {
   try {
     const raw = await readFile(electronUpdaterChannelPath(app), "utf8");
-    const parsed = JSON.parse(raw);
-    return normalizeElectronUpdaterChannel(parsed?.channel, manifestChannel);
+    const parsed = updaterChannelFileSchema.safeParse(JSON.parse(raw));
+    return normalizeElectronUpdaterChannel(parsed.success ? parsed.data.channel : undefined, manifestChannel);
   } catch {
     return "stable";
   }
@@ -530,15 +554,16 @@ export function registerUpdaterIpc({
         const targetPlatform = target[0];
         const targetArch = target[1];
         const targetDistribution = target.slice(2).join("-");
-        const raw = JSON.parse(env.OPENWORK_EVAL_RECOVERY_RELEASES);
-        const stable = Array.isArray(raw) ? raw.filter((release) =>
-          stableVersion(release?.version)
-          && release?.channel === "stable"
-          && release?.artifact?.platform === targetPlatform
-          && release?.artifact?.arch === targetArch
-          && release?.artifact?.distribution === targetDistribution
-          && typeof release?.artifact?.url === "string",
-        ) : [];
+        const raw = evalListSchema.parse(JSON.parse(env.OPENWORK_EVAL_RECOVERY_RELEASES));
+        const stable = raw.flatMap((entry) => {
+          const release = evalRecoveryReleaseSchema.safeParse(entry);
+          return release.success
+            && release.data.artifact.platform === targetPlatform
+            && release.data.artifact.arch === targetArch
+            && release.data.artifact.distribution === targetDistribution
+            ? [release.data]
+            : [];
+        });
         return stable.map((release, index) => ({
           id: release.version,
           version: release.version,
@@ -553,19 +578,18 @@ export function registerUpdaterIpc({
     }
     if (typeof env.OPENWORK_EVAL_RECOVERY_CANDIDATES === "string") {
       try {
-        const raw = JSON.parse(env.OPENWORK_EVAL_RECOVERY_CANDIDATES);
-        return Array.isArray(raw) ? raw.filter((candidate) =>
-          candidate?.verified === true
-          && stableVersion(candidate?.version)
-          && typeof candidate?.artifactUrl === "string",
-        ).map((candidate) => ({
+        const raw = evalListSchema.parse(JSON.parse(env.OPENWORK_EVAL_RECOVERY_CANDIDATES));
+        return raw.flatMap((entry) => {
+          const candidate = evalRecoveryCandidateSchema.safeParse(entry);
+          return candidate.success ? [candidate.data] : [];
+        }).map((candidate) => ({
           id: candidate.version,
           version: candidate.version,
           marking: "previous",
           artifact: { platform, arch, distribution, url: candidate.artifactUrl },
           cachedFilePath: null,
           eval: true,
-        })) : [];
+        }));
       } catch {
         return [];
       }

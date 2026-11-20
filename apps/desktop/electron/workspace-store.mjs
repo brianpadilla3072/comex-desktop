@@ -13,7 +13,36 @@ import {
   openworkServerConfigPath as resolveOpenworkServerConfigPath,
 } from "@openwork/paths";
 
+import { z } from "zod";
+
 import { exportWorkspaceConfig, importWorkspaceConfig } from "./workspace-archive.mjs";
+
+// Stored JSON objects (workspace state, server config and token store). Their
+// fields are narrowed where they are read; a file that is not an object is treated as missing.
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+// `.openwork/openwork.json` (WorkspaceOpenworkConfig in desktop-ipc.ts). Unknown keys are kept;
+// a known field with the wrong type is dropped, and non-string roots are skipped.
+const workspaceOpenworkConfigSchema = z.looseObject({
+  version: z.number().catch(1),
+  workspace: z.looseObject({
+    name: z.string().nullable().optional().catch(undefined),
+    createdAt: z.number().nullable().optional().catch(undefined),
+    preset: z.string().nullable().optional().catch(undefined),
+  }).nullable().optional().catch(undefined),
+  authorizedRoots: z.array(z.unknown()).catch([]).transform((roots) => roots.filter((root) => typeof root === "string")),
+  reload: z.looseObject({
+    auto: z.boolean().optional().catch(undefined),
+    resume: z.boolean().optional().catch(undefined),
+  }).nullable().optional().catch(undefined),
+}).transform(({ version, authorizedRoots, ...rest }) => ({ ...rest, version, authorizedRoots }));
+// A desktop bootstrap file needs a base URL; normalizeDesktopBootstrapConfig checks the rest.
+const desktopBootstrapFileSchema = z.looseObject({ baseUrl: z.string() });
+
+function parseDesktopBootstrapFile(raw) {
+  const parsed = desktopBootstrapFileSchema.safeParse(JSON.parse(raw));
+  if (!parsed.success) throw new Error("baseUrl is required");
+  return parsed.data;
+}
 
 const EMPTY_WORKSPACE_LIST = Object.freeze({
   selectedId: "",
@@ -35,7 +64,7 @@ async function pathExists(targetPath) {
   }
 }
 
-function parseFirstJsonObject(raw) {
+function parseFirstJsonObject(raw, schema) {
   let inString = false;
   let escaped = false;
   let depth = 0;
@@ -67,7 +96,8 @@ function parseFirstJsonObject(raw) {
       depth -= 1;
       if (depth === 0 && start >= 0) {
         try {
-          return { ok: true, value: JSON.parse(raw.slice(start, index + 1)) };
+          const recovered = schema.safeParse(JSON.parse(raw.slice(start, index + 1)));
+          return recovered.success ? { ok: true, value: recovered.data } : { ok: false, value: null };
         } catch {
           return { ok: false, value: null };
         }
@@ -79,21 +109,24 @@ function parseFirstJsonObject(raw) {
 }
 
 async function writeJsonFileAtomic(outputPath, value) {
-  const content = `${JSON.stringify(value, null, 2)}\n`;
-  JSON.parse(content);
+  const serialized = JSON.stringify(value, null, 2);
+  if (serialized === undefined) throw new TypeError(`Refusing to write a value that is not JSON to ${outputPath}`);
+  const content = `${serialized}\n`;
   await mkdir(path.dirname(outputPath), { recursive: true });
   const tempPath = `${outputPath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   await writeFile(tempPath, content, "utf8");
   await rename(tempPath, outputPath);
 }
 
-async function readJsonFile(targetPath, fallback) {
+/** Reads a JSON file through `schema`; a missing, unreadable or invalid file is `fallback`. */
+async function readJsonFile(targetPath, schema, fallback) {
   try {
     const raw = await readFile(targetPath, "utf8");
+    let parsed;
     try {
-      return JSON.parse(raw);
+      parsed = schema.safeParse(JSON.parse(raw));
     } catch (error) {
-      const recovered = parseFirstJsonObject(raw);
+      const recovered = parseFirstJsonObject(raw, schema);
       if (recovered.ok) {
         console.warn(`[json] recovered ${targetPath} from trailing invalid data`, error);
         await writeJsonFileAtomic(targetPath, recovered.value);
@@ -101,6 +134,7 @@ async function readJsonFile(targetPath, fallback) {
       }
       throw error;
     }
+    return parsed.success ? parsed.data : fallback;
   } catch {
     return fallback;
   }
@@ -326,7 +360,7 @@ export function createWorkspaceStore({
 
     try {
       const raw = await readFile(candidatePath, "utf8");
-      const parsed = JSON.parse(raw);
+      const parsed = parseDesktopBootstrapFile(raw);
       return {
         ok: true,
         path: candidatePath,
@@ -364,7 +398,7 @@ export function createWorkspaceStore({
 
     try {
       const raw = readFileSync(candidatePath, "utf8");
-      const parsed = JSON.parse(raw);
+      const parsed = parseDesktopBootstrapFile(raw);
       return {
         ok: true,
         path: candidatePath,
@@ -476,7 +510,7 @@ export function createWorkspaceStore({
 
     try {
       result.raw = await readFile(configPath, "utf8");
-      result.parsed = JSON.parse(result.raw);
+      result.parsed = parseDesktopBootstrapFile(result.raw);
       result.normalized = normalizeDesktopBootstrapConfig(result.parsed);
     } catch (error) {
       result.error = error instanceof Error ? error.message : String(error);
@@ -556,7 +590,7 @@ export function createWorkspaceStore({
   }
 
   async function recoverWorkspacesFromTokenStore() {
-    const store = await readJsonFile(openworkServerTokenStorePath(), null);
+    const store = await readJsonFile(openworkServerTokenStorePath(), jsonObjectSchema, null);
     if (!isRecord(store) || !isRecord(store.workspaces)) return [];
 
     const candidates = [];
@@ -592,7 +626,7 @@ export function createWorkspaceStore({
     const workspaceKey = normalizeWorkspacePathKey(workspacePath);
     if (!workspaceKey) return;
 
-    const store = await readJsonFile(openworkServerTokenStorePath(), null);
+    const store = await readJsonFile(openworkServerTokenStorePath(), jsonObjectSchema, null);
     if (!isRecord(store) || !isRecord(store.workspaces)) return;
 
     const workspaces = { ...store.workspaces };
@@ -608,7 +642,7 @@ export function createWorkspaceStore({
   }
 
   async function recoverWorkspacesFromServerConfig() {
-    const config = await readJsonFile(openworkServerConfigPath(), null);
+    const config = await readJsonFile(openworkServerConfigPath(), jsonObjectSchema, null);
     if (!isRecord(config) || !Array.isArray(config.workspaces)) return [];
 
     const seen = new Set();
@@ -683,12 +717,12 @@ export function createWorkspaceStore({
       const legacyPath = path.join(workspacePath, ".opencode", "openwork.json");
       if (await pathExists(legacyPath)) {
         const legacyRaw = await readFile(legacyPath, "utf8");
-        return JSON.parse(legacyRaw);
+        return workspaceOpenworkConfigSchema.parse(JSON.parse(legacyRaw));
       }
       return defaultWorkspaceOpenworkConfig(workspacePath);
     }
     const raw = await readFile(openworkPath, "utf8");
-    return JSON.parse(raw);
+    return workspaceOpenworkConfigSchema.parse(JSON.parse(raw));
   }
 
   async function writeWorkspaceOpenworkConfig(workspacePath, config) {
@@ -719,7 +753,7 @@ export function createWorkspaceStore({
 
   async function readWorkspaceState() {
     const workspaceStateExists = existsSync(workspaceStatePath());
-    const state = await readJsonFile(workspaceStatePath(), EMPTY_WORKSPACE_LIST);
+    const state = await readJsonFile(workspaceStatePath(), jsonObjectSchema, EMPTY_WORKSPACE_LIST);
     let selectedId =
       typeof state?.selectedId === "string"
         ? state.selectedId
