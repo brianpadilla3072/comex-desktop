@@ -149,3 +149,52 @@ project; when `systemId` is null, the project's only design system if there is e
 none. A design of kind `system` never follows another one. Symlinked design folders or token files
 and files over 2 MB are ignored. The app mirrors the rule in `system-model.ts`
 (`designSystemChoices`, `followedSystem`, `systemIdPatch`) for the design page's system selector.
+## Comment and edit on the design (Comentar / Editar)
+
+Code: `apps/app/src/react-app/domains/design/design-picker*.ts` and `design-comment-*.tsx`.
+Tests: `apps/app/tests/design-picker-selector.test.ts`, `design-picker-edit.test.ts`,
+`design-comment-flow.test.tsx`.
+
+- **Ver / Comentar / Editar** (`DesignCommentBar`). In Comentar, hovering an element of the page
+  outlines it and clicking it opens a box anchored to it ("¿Qué quieres cambiar aquí?"). "Enviar"
+  sends it to the design's chat through `onAskAgent(text, context)`; "Añadir a la lista" queues it,
+  and every queued comment goes out as one numbered message. `esc` closes the box, a second `esc`
+  leaves Comentar.
+- **Context for the agent** (`design-picker-context.ts`, English because the model reads it): design
+  title, kind and folder, then per comment the page title, id and file, a unique CSS selector (unique
+  id, then stable data attributes such as `data-id`, then an `nth-of-type` chain from `body`), the
+  tag, the visible text (collapsed, capped at 280 characters) and the box in page CSS px. No image
+  crop: a sandboxed page cannot be rasterized cheaply from the app.
+- **Editar**: double-click a text-only element, type, `⏎` or leaving the element saves, `esc`
+  restores it. The save reads the page file with `readDesignFile`, splices the escaped text into the
+  source (every other byte unchanged, checked by re-parsing; full re-serialization only if the check
+  fails) and writes it with `writeDesignFile`. The live frame document is never serialized, so the
+  picker's outline styles and `contenteditable` never reach disk. Text only: typed or pasted markup
+  is stored as characters; paste and drop insert plain text. Undo (button or `Ctrl/⌘+Z` in Editar)
+  writes the previous file back, and refuses if the file changed since the edit (the agent may have
+  rewritten it). Elements with child elements are not editable in place: the bar suggests Comentar.
+  Read-only designs keep Editar visible and locked.
+- **Frame transports** (`design-picker-transport.ts`), picked from the iframe's `sandbox`:
+  - `same-origin` (recommended): `sandbox="allow-same-origin"` without `allow-scripts`. The page
+    runs no script; the app attaches the picker to `iframe.contentDocument` and re-attaches on every
+    `load`. Nothing is injected into the page.
+  - `post-message`: `sandbox="allow-scripts"` without `allow-same-origin`. The frame must run
+    `DESIGN_PICKER_SCRIPT` (`withDesignPickerScript(html)` adds it before `</body>`), and a page CSP
+    must allow it with the hash from `designPickerScriptHash()`. Messages carry
+    `channel: "openwork-design-picker"`; the app accepts only messages whose `source` is that frame
+    and that pass the zod schema.
+  - Never both `allow-scripts` and `allow-same-origin`: the page could lift its own sandbox.
+  The picker runtime (`design-picker-runtime.ts`) is one self-contained function used by both: the
+  script is that function's source, so it must keep no imports and no outer references.
+
+Editors mount it like this:
+
+```tsx
+const picker = useDesignPicker({ workspaceId, design, client, writable, onAskAgent, onChanged });
+<DesignCommentBar picker={picker} />
+<DesignFrame workspaceId={workspaceId} designId={design.id} page={page} interactive
+  onFrameReady={picker.bindFrame(page)} reloadKey={reloadKey} />
+```
+
+`bindFrame(page)` is stable per page id, so several frames (screens of a mockup) can be bound at
+once. `onChanged` must make the frame reload from disk after a save or an undo.
