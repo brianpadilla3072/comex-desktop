@@ -87,3 +87,44 @@ automatizaciones. Se copia el modelo de trabajo, no las funciones de Git.
    caché de consultas); vigilar si reaparece al borrar una aplicación.
 10. orch-2: se acotó una espera sin límite al arrancar; falta la pantalla estática de `index.html`
    ("Starting OpenWork" en inglés, recarga recién a los 45 s), que necesita un flag.
+
+## 2026-11-20 — Fix: chat lateral de Diseño colapsado y sistema de diseño que no se actualiza
+- Reporte (con captura, workspace juveconfe): en `/design/:ws/:id` el chat de al lado se veía mal
+  (composer arriba, píldoras "Ir al inicio / Ir a lo más reciente" flotando sobre el header) y el
+  contenido del editor de sistema no reflejaba los edits del agente.
+- Causa 1: el `<aside>` de `design-chat-panel.tsx` no tenía `flex-1`; con altura auto, el scroller
+  absoluto de `SessionSurface` colapsa a 0. Fix: `flex-1` en el aside.
+- Causa 2: `SystemEditor` keyeaba la query de tokens solo por `design.updatedAt` (que no cambia
+  cuando el agente escribe archivos en disco) e ignoraba la prop `revision` que la página poll cada
+  3 s. Fix: `revision` en la query key + `reloadKey={revision}` en los previews de componentes
+  (`system-sections.tsx`, tipo `SystemDesignFrame`).
+- Tests de regresión nuevos en `design-studio-ui.test.tsx` (panel estira) y
+  `design-system-editor.test.tsx` (bump de revision recarga tokens y previews). 75 tests de design
+  en verde + `pnpm typecheck` limpio. Sin commit (regla del repo: solo a pedido).
+- Verificación visual headless intentada con `pnpm world up dev-app-web`: bloqueada por conflicto
+  de motores en este checkout (el `opencode` del PATH es v2 y el engine gestionado del world es v1;
+  la DB aislada `tmp/dev-headless-opencode.db` quedó con esquema v2). El dev app del usuario
+  (vite :35771 + electron dev) toma el fix por HMR; queda confirmar visualmente ahí.
+- Recursos: world dev-app-web detenido (puertos 5178/8778 libres), scratch
+  `/tmp/opencode/design-chat-fix/` borrado; la DB del world quedó restaurada al estado previo.
+
+## 2026-11-20 — Comandos de Design en `/` + skill/agente de sistema de marca
+- Agregados comandos de app en `apps/app/src/react-app/domains/session/commands/catalog.ts`:
+  `design` ("Diseño") y `marca` ("Sistema de marca"), con `group: "Design"`, detrás del flag
+  `designStudio`. Iconos en `icons.ts` (Palette, Gem).
+- `use-chat-commands.tsx`: handlers `design` (dispatch `openwork-open-design`) y `marca`
+  (inserta `/diseno-marca `). `session-route.tsx` escucha el evento y navega a `/design`
+  (gateado por `designStudio`).
+- Menú `/` agrupa por `group` (renderiza encabezado "Design" en `composer.tsx`); `SlashCommandOption.group?`.
+- Comandos de motor nuevos: `diseno-pagina`, `diseno-cambiar`, `diseno-doc` (además de
+  `diseno-marca` existente) en `.opencode/commands/`.
+- Skill `diseno-sistema-marca`, agente `disenador-de-sistemas-de-marca` y comando
+  `/diseno-marca` en `.opencode/` (prompt de contexto incluido).
+- Tests: `chat-commands.test.ts` actualizado a 13 comandos (5 pass). `pnpm typecheck` limpio.
+- El fallo combinado en `composer-caret-refocus` es pre-existente (flaky de orden), no por mis cambios.
+- Nuevo: editor de sistema ahora es documento continuo (todas las secciones apiladas en un scroll, nav con scrollspy por IntersectionObserver, click scrollea a la sección). `system-editor.tsx`. Tests de design en verde (20 + 33).
+- F2/F5: nuevo `apps/server/src/designs/system-generators.ts` (tokensCss, tokensMd, componentMd, indexDts, bundleCss, systemManifest) y `designHtmlArchive` ahora incluye tokens.css, api/tokens.md, api/components/*.md, components/index.d.ts, components/bundle.css y manifest.json en el zip de sistemas. Test `gen-pack.test.ts` verde.
+- Migración de consumidores a v2 completada con OpenCode (free, hy4-flash-free, --auto), supervisada y verificada. `DesignTokens`/`designTokensSchema` ahora v2; system-model, system-editor, system-sections, system-token-dialog, system-files, system-overview, system-context, templates migrados. typecheck (app+server) limpio, tests verdes, build:web OK. Práctica validada: usar CLI como cerebro/ejecutor y reparar lo que se rompa.
+- Análisis de por qué Devin rompió/cortó: (1) cuenta out_of_quota (billing error) → no pudo crear blueprint ni hacer trabajo real; (2) el modo `-p` (print) rechaza tool calls que requieren confirmación → aunque tuviera cuota, no editaba archivos. Solución: usar Claude Code (`claude -p --dangerously-skip-permissions`) que sí edita en print mode, o arreglar la cuota de Devin. Práctica: si un CLI falla, lo arreglamos/cambiamos de herramienta, no asumimos que está bien.
+- Recordatorio de práctica: esta app puede usar herramientas de CLI como Devin. Si algo funciona mal, lo arreglamos nosotros; esto es probar de manera real. Cuando usamos un CLI, lo que vemos roto lo arreglamos.
+- Nuevo: skill `herramientas-cli`, agente `operador-cli` y comando `/cli` en `.opencode/` para usar CLIs (Devin, Claude Code, Codex) con supervisión y reparación. Incluye el prompt de contexto con la práctica acordada.

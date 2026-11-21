@@ -389,6 +389,18 @@ test("design page: read-only shows the lock with the pairing hint and no chat in
   expect(find("[data-design-page-error]").textContent).toContain(t("design_ui.studio.error_not_found"));
 });
 
+test("design page: the chat panel stretches to the column's height so the session surface keeps its own", async () => {
+  state.chats = ["ses_old"];
+  await render(<DesignPagePanel client={fakeClient()} workspaceId="ws_1" designId="plan" chat={fakeChat()} onBack={() => undefined} editors={placeholderEditors} />);
+  const aside = await waitFor("[data-design-chat]");
+  // The embedded session's scroller is absolute: with an auto-height panel it collapses to zero,
+  // leaving the composer at the top and the scroll overlays floating over the design header.
+  expect(aside.className).toContain("flex-1");
+  expect(aside.className).toContain("min-h-0");
+  await waitFor("[data-test-session='ses_old']");
+  expect(aside.querySelector("[data-test-session='ses_old']")).toBeTruthy();
+});
+
 test("design page without a chat host says the chat is unavailable", async () => {
   await render(<DesignPagePanel client={fakeClient()} workspaceId="ws_1" designId="plan" chat={null} onBack={() => undefined} />);
   await waitFor("[data-design-chat-unavailable]");

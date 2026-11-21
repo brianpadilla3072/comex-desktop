@@ -16,6 +16,7 @@ import {
   tokenFieldMultiline,
   tokenFieldRequired,
   tokenFormFrom,
+  sectionTokens,
   type AnyToken,
   type TokenErrors,
   type TokenForm,
@@ -34,7 +35,7 @@ export function SystemTokenDialog({ kind, index, tokens, saving, error, onCancel
   onSave: (token: AnyToken) => Promise<boolean>;
 }) {
   const baseId = useId();
-  const list: readonly AnyToken[] = tokens[kind];
+  const list: readonly AnyToken[] = sectionTokens(tokens, kind);
   const [form, setForm] = useState<TokenForm>(() => tokenFormFrom(kind, index === null ? null : list[index] ?? null));
   const [errors, setErrors] = useState<TokenErrors>({});
 

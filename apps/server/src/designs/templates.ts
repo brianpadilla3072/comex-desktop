@@ -62,7 +62,10 @@ export function firstPageHtml(kind: DesignKind, title: string): string {
   }
   if (kind === "system") {
     const tokens = systemTokens();
-    const swatches = tokens.colors.map(color => `<li><span class="swatch" style="background:${escapeHtml(color.value)}"></span><strong>${escapeHtml(color.name)}</strong><code>${escapeHtml(color.value)}</code></li>`).join("\n    ");
+    const swatches = tokens.color.tokens.map(color => {
+      const value = typeof color.value === "string" ? color.value : Object.values(color.value)[0] ?? "";
+      return `<li><span class="swatch" style="background:${escapeHtml(value)}"></span><strong>${escapeHtml(color.name)}</strong><code>${escapeHtml(value)}</code></li>`;
+    }).join("\n    ");
     return documentShell(title, width, height, `  main { padding: 72px; display: grid; gap: 40px; }
   h1 { margin: 0; font-size: 48px; }
   p { margin: 0; font-size: 18px; color: #4b5563; max-width: 760px; }
@@ -84,24 +87,33 @@ export function firstPageHtml(kind: DesignKind, title: string): string {
 
 export function systemTokens(): DesignTokens {
   return {
-    format: "openwork.design-tokens", version: 1,
+    format: "openwork.design-tokens", version: 2,
+    name: "Sistema inicial",
+    meta: { paths: {}, components: {} },
     overview: "Sistema de diseño inicial: colores, tipografía y espaciado de base. Ajústalo a tu marca.",
     content: "Tono claro y directo. Frases cortas, tuteo, sin jerga innecesaria.",
-    colors: [
-      { name: "Primario", value: "#1E3A8A", role: "primary" },
-      { name: "Acento", value: "#0EA5E9", role: "accent" },
-      { name: "Texto", value: "#111827", role: "foreground" },
-      { name: "Fondo", value: "#FFFFFF", role: "background" },
-    ],
-    typography: [
-      { name: "Título", family: "system-ui, sans-serif", size: "48px", weight: 700, lineHeight: "1.1", sample: "Título principal" },
-      { name: "Cuerpo", family: "system-ui, sans-serif", size: "16px", weight: 400, lineHeight: "1.5", sample: "Texto de párrafo" },
-    ],
-    spacing: [{ name: "S", value: "8px" }, { name: "M", value: "16px" }, { name: "L", value: "32px" }],
-    radii: [{ name: "Base", value: "8px" }],
-    shadows: [{ name: "Suave", value: "0 1px 3px rgba(0,0,0,0.12)" }],
-    gradients: [],
-    layout: [{ name: "Ancho máximo", value: "1200px" }],
+    color: {
+      themes: [{ id: "light", name: "Claro" }, { id: "dark", name: "Oscuro" }],
+      tokens: [
+        { name: "Primario", value: { light: "#1E3A8A", dark: "#1E3A8A" }, usage: "primary" },
+        { name: "Acento", value: { light: "#0EA5E9", dark: "#0EA5E9" }, usage: "accent" },
+        { name: "Texto", value: { light: "#111827", dark: "#111827" }, usage: "foreground" },
+        { name: "Fondo", value: { light: "#FFFFFF", dark: "#FFFFFF" }, usage: "background" },
+      ],
+    },
+    type: {
+      fonts: [],
+      families: { "system-ui": "system-ui, sans-serif" },
+      groups: [{ name: "system-ui, sans-serif", family: "system-ui", styles: [
+        { name: "Título", fontSize: "48px", fontWeight: 700, lineHeight: "1.1", sample: "Título principal" },
+        { name: "Cuerpo", fontSize: "16px", fontWeight: 400, lineHeight: "1.5", sample: "Texto de párrafo" },
+      ] }],
+    },
+    spacing: { tokens: [{ name: "S", value: "8px" }, { name: "M", value: "16px" }, { name: "L", value: "32px" }] },
+    radius: { tokens: [{ name: "Base", value: "8px" }] },
+    shadow: { tokens: [{ name: "Suave", value: "0 1px 3px rgba(0,0,0,0.12)" }] },
+    gradient: { tokens: [] },
+    layout: { tokens: [{ name: "Ancho máximo", value: "1200px" }] },
     components: [],
     assets: [],
   };

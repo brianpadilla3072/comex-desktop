@@ -37,7 +37,10 @@ export function DesignChatPanel({ host, sessionId, busy, error, writable, onStar
   onNewChat: () => void;
   onClose: () => void;
 }) {
-  return <aside data-design-chat aria-label={t("design_ui.studio.chat_label")} className="flex min-h-0 min-w-0 flex-col border-border bg-background max-md:border-t md:border-l">
+  // flex-1: the panel must fill the column's height. With auto height the embedded session
+  // surface collapses (its scroller is absolute), leaving the composer at the top and the
+  // scroll overlays floating over the design header.
+  return <aside data-design-chat aria-label={t("design_ui.studio.chat_label")} className="flex min-h-0 min-w-0 flex-1 flex-col border-border bg-background max-md:border-t md:border-l">
     <header className="flex h-10 shrink-0 items-center justify-between gap-2 px-3">
       <h2 className="text-sm font-medium">{t("design_ui.studio.chat_title")}</h2>
       <span className="flex items-center gap-1">

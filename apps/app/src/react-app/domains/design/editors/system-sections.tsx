@@ -15,6 +15,7 @@ import {
   isCssColor,
   isCssLength,
   isSafeCssValue,
+  sectionTokens,
   type SystemSection,
   type TokenKind,
 } from "./system-model";
@@ -105,6 +106,7 @@ type SectionProps = {
   query: string;
   writable: boolean;
   frame?: SystemDesignFrame;
+  reloadKey?: number;
   onAdd: () => void;
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
@@ -113,7 +115,7 @@ type SectionProps = {
 
 export function SystemTokenSection(props: SectionProps) {
   const { kind, tokens, query, writable, onAdd, onAsk } = props;
-  const shell = (shown: number, body: ReactNode) => <SectionShell section={kind} total={tokens[kind].length} shown={shown} query={query} writable={writable} onAdd={onAdd} onAsk={onAsk}>{body}</SectionShell>;
+  const shell = (shown: number, body: ReactNode) => <SectionShell section={kind} total={sectionTokens(tokens, kind).length} shown={shown} query={query} writable={writable} onAdd={onAdd} onAsk={onAsk}>{body}</SectionShell>;
   switch (kind) {
     case "colors": {
       const items = filterTokens(tokens, "colors", query);
@@ -225,7 +227,7 @@ export function SystemTokenSection(props: SectionProps) {
           const page = componentPage(props.design, token, index);
           return <li key={`${token.name}-${index}`} data-system-component={token.name} className="grid gap-2">
             <div className="aspect-[16/10] overflow-hidden rounded-xl border border-border bg-muted/30">
-              {Frame ? <Frame workspaceId={props.workspaceId} designId={props.design.id} page={page} scale={0.2} interactive={false} className="h-full w-full" />
+              {Frame ? <Frame workspaceId={props.workspaceId} designId={props.design.id} page={page} scale={0.2} interactive={false} reloadKey={props.reloadKey} className="h-full w-full" />
                 : <span className="flex h-full items-center justify-center p-3"><Meta>{token.file}</Meta></span>}
             </div>
             <span className="flex min-w-0 items-start justify-between gap-1">

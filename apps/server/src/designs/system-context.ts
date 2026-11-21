@@ -7,6 +7,7 @@ import {
   designTokensSchema,
   type DesignTokens,
 } from "@openwork/types/designs";
+import { systemAssets, systemColors, systemComponents, systemMeasures, systemTypes } from "./system-views.js";
 
 /**
  * Brand context for the agent (feature `designStudio`, docs/features/design-studio).
@@ -62,7 +63,7 @@ function tokenSections(tokens: DesignTokens): Section[] {
   return [
     {
       label: "Colores",
-      items: tokens.colors.map(color => {
+      items: systemColors(tokens).map(color => {
         const role = color.role ? ` (${oneLine(color.role, 80)})` : "";
         const group = color.group ? ` [${oneLine(color.group, 40)}]` : "";
         return `${pair(color.name, color.value)}${role}${group}`;
@@ -70,21 +71,21 @@ function tokenSections(tokens: DesignTokens): Section[] {
     },
     {
       label: "Tipografía",
-      items: tokens.typography.map(type => {
+      items: systemTypes(tokens).map(type => {
         const lineHeight = type.lineHeight ? `/${oneLine(type.lineHeight, 32)}` : "";
         return `${oneLine(type.name, 80)}: ${oneLine(type.family, 120)} ${oneLine(type.size, 32)}${lineHeight} peso ${oneLine(String(type.weight), 16)}`;
       }),
     },
-    { label: "Espaciado", items: tokens.spacing.map(item => pair(item.name, item.value)) },
-    { label: "Radios", items: tokens.radii.map(item => pair(item.name, item.value)) },
-    { label: "Sombras", items: tokens.shadows.map(item => pair(item.name, item.value)) },
-    { label: "Degradados", items: tokens.gradients.map(item => pair(item.name, item.value)) },
-    { label: "Layout", items: tokens.layout.map(item => `${pair(item.name, item.value)}${item.note ? ` (${oneLine(item.note, 160)})` : ""}`) },
+    { label: "Espaciado", items: systemMeasures(tokens.spacing).map(item => pair(item.name, item.value)) },
+    { label: "Radios", items: systemMeasures(tokens.radius).map(item => pair(item.name, item.value)) },
+    { label: "Sombras", items: systemMeasures(tokens.shadow).map(item => pair(item.name, item.value)) },
+    { label: "Degradados", items: systemMeasures(tokens.gradient).map(item => pair(item.name, item.value)) },
+    { label: "Layout", items: systemMeasures(tokens.layout).map(item => `${pair(item.name, item.value)}${item.note ? ` (${oneLine(item.note, 160)})` : ""}`) },
     {
       label: "Componentes",
-      items: tokens.components.map(item => `${oneLine(item.name, 80)} (${item.file})${item.description ? `: ${oneLine(item.description, 160)}` : ""}`),
+      items: systemComponents(tokens).map(item => `${oneLine(item.name, 80)} (${item.file ?? ""})${item.description ? `: ${oneLine(item.description, 160)}` : ""}`),
     },
-    { label: "Recursos", items: tokens.assets.map(item => `${oneLine(item.name, 80)} (${item.file})`) },
+    { label: "Recursos", items: systemAssets(tokens).map(item => `${oneLine(item.name, 80)} (${item.file})`) },
   ];
 }
 

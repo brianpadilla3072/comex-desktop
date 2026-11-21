@@ -474,6 +474,15 @@ export function SessionRoute() {
   const designPageActive = flaggedDestinationReachable(designStudio) && designRoute !== null;
   // The chat beside an open design: its session borrows the route's session surface.
   const [designChatSessionId, setDesignChatSessionId] = useState<string | null>(null);
+  // `/design` slash command → open the Design studio (gated by the designStudio flag).
+  useEffect(() => {
+    const handler = () => {
+      if (!flaggedDestinationReachable(designStudio)) return;
+      navigate(DESIGN_ROUTE);
+    };
+    window.addEventListener("openwork-open-design", handler);
+    return () => window.removeEventListener("openwork-open-design", handler);
+  }, [designStudio, navigate]);
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,

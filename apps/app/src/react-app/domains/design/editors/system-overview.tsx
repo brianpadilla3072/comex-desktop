@@ -101,7 +101,7 @@ export function SystemOverviewSection({ design, tokens, writable, saving, onSave
   onAskAgent: (text: string, context?: string) => void;
 }) {
   return <section aria-labelledby="system-overview-title" className="grid max-w-3xl gap-6">
-    <h2 id="system-overview-title" className="text-base font-semibold tracking-tight">{design.title}</h2>
+    <h2 id="system-overview-title" className="text-base font-semibold tracking-tight">{t("design_ui.system.section.overview")}</h2>
     {tokensAreEmpty(tokens) ? <BuildFromSource design={design} onAskAgent={onAskAgent} /> : null}
     <ProseBlock field="overview" value={tokens.overview} writable={writable} saving={saving} onSave={text => onSave({ overview: text })} />
     <ProseBlock field="content" value={tokens.content} writable={writable} saving={saving} onSave={text => onSave({ content: text })} />

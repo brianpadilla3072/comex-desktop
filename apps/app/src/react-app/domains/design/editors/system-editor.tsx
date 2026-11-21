@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, Search } from "lucide-react";
+import { Copy, Download, Gem, Lock, Monitor, Moon, Search, Share2, Sun } from "lucide-react";
+import { getInitialThemeMode, setThemeMode, subscribeToTheme, type ThemeMode } from "@/app/theme";
 
 import type { DesignManifest, DesignPage, DesignTokens } from "@openwork/types/designs";
 import { OpenworkServerError } from "@/app/lib/openwork-server";
@@ -17,9 +18,9 @@ import {
   TOKENS_FILE,
   designFiles,
   filterTokens,
-  isTokenKind,
   parseTokensText,
   sectionCounts,
+  sectionTokens,
   serializeTokens,
   updateTokens,
   type AnyToken,
@@ -45,6 +46,7 @@ export type SystemDesignFrame = ComponentType<{
   scale?: number;
   interactive?: boolean;
   className?: string;
+  reloadKey?: string | number;
 }>;
 
 export type SystemEditorProps = {
@@ -57,6 +59,8 @@ export type SystemEditorProps = {
   onAskAgent: (text: string, context?: string) => void;
   /** The sandboxed viewer used for component previews (`DesignFrame`). Without it, previews show their file. */
   frame?: SystemDesignFrame;
+  /** Changes whenever the design's files changed on disk (the agent edits them directly). */
+  revision?: number;
 };
 
 type Loaded = { text: string; tokens: DesignTokens | null; problem: "invalid_json" | "invalid_tokens" | null };
@@ -84,9 +88,11 @@ function errorText(cause: unknown, fallback: string): string {
 type Editing = { kind: TokenKind; index: number | null } | null;
 
 /** Editor of a design system (kind "system"): browses and edits `tokens.json`. */
-export function SystemEditor({ workspaceId, design, writable, client, onChanged, chatOpen, onAskAgent, frame }: SystemEditorProps) {
+export function SystemEditor({ workspaceId, design, writable, client, onChanged, chatOpen, onAskAgent, frame, revision }: SystemEditorProps) {
   const queryClient = useQueryClient();
-  const queryKey = [...systemTokensQueryKey(workspaceId, design.id), design.updatedAt];
+  // `revision` moves when the agent edits files on disk; without it the tokens would only
+  // refetch on manifest changes and the editor would keep showing stale content.
+  const queryKey = [...systemTokensQueryKey(workspaceId, design.id), design.updatedAt, revision];
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<Loaded> => {
@@ -96,9 +102,12 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
     },
     retry: false,
   });
-  const [section, setSection] = useState<SystemSection>("overview");
+  const [activeSection, setActiveSection] = useState<SystemSection>("overview");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Editing>(null);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getInitialThemeMode());
+  useEffect(() => subscribeToTheme(() => setThemeModeState(getInitialThemeMode())), []);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -109,6 +118,31 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
 
   const ask = (text: string, context?: string) => onAskAgent(text, context ?? `${TOKENS_FILE}`);
   const askSection = (target: SystemSection) => ask(t(`design_ui.system.ask.${target}`, { title: design.title }), `${TOKENS_FILE}#${target}`);
+
+  // Scrollspy: highlight the section currently in view.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root || !tokens) return;
+    const sections = [...root.querySelectorAll<HTMLElement>("[data-system-section-block]")];
+    if (!sections.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter(entry => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length) {
+        const id = visible[0].target.getAttribute("data-system-section-block");
+        if (id) setActiveSection(id as SystemSection);
+      }
+    }, { root, rootMargin: "0px 0px -70% 0px", threshold: 0 });
+    sections.forEach(section => observer.observe(section));
+    return () => observer.disconnect();
+  }, [tokens, search]);
+
+  const scrollToSection = (target: SystemSection) => {
+    const root = scrollRef.current;
+    const element = root?.querySelector<HTMLElement>(`[data-system-section-block='${target}']`);
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveSection(target);
+  };
 
   /** Writes new tokens, refusing when the file changed since it was read (the agent may be editing it). */
   const save = async (next: DesignTokens): Promise<boolean> => {
@@ -137,7 +171,7 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
 
   const remove = async (kind: TokenKind, index: number) => {
     if (!tokens) return;
-    const token = tokens[kind][index];
+    const token = sectionTokens(tokens, kind)[index];
     if (!token) return;
     const confirmed = await confirmDialog({
       title: t("design_ui.system.delete_title", { name: token.name }),
@@ -171,9 +205,9 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
       <ul className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
         {SYSTEM_SECTIONS.map(item => {
           const count = counts?.[item];
-          const active = item === section;
+          const active = item === activeSection;
           return <li key={item} className="shrink-0">
-            <button type="button" data-system-nav-item={item} aria-current={active ? "page" : undefined} onClick={() => setSection(item)}
+            <button type="button" data-system-nav-item={item} aria-current={active ? "page" : undefined} onClick={() => scrollToSection(item)}
               className={cn("flex h-8 w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
                 active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 search && count === 0 && "opacity-50")}>
@@ -188,8 +222,41 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
       </p> : null}
     </nav>
 
-    <main data-system-section={section} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
-      {saveError ? <div role="alert" data-system-save-error className="mb-4 flex flex-wrap items-center gap-2 text-sm text-destructive">
+    <main ref={scrollRef} data-system-section={activeSection} className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
+      <div className="sticky top-0 z-20 border-b border-border bg-background">
+        <div className="mx-auto flex h-11 w-full max-w-[68ch] items-center gap-2 px-6">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-foreground">{design.title}</h1>
+          {saving ? <span className="text-xs text-muted-foreground">{t("design_ui.system.saving")}</span> : null}
+          <div role="toolbar" aria-label={t("design_ui.system.toolbar_label")} className="flex items-center gap-1">
+            <Button size="icon-sm" variant="ghost" aria-label={t("design_ui.system.copy_tokens")} title={t("design_ui.system.copy_tokens")}
+              onClick={() => { try { void navigator.clipboard.writeText(serializeTokens(tokens ?? ({} as DesignTokens))); } catch { /* ignore */ } }}>
+              <Copy className="size-4" aria-hidden />
+            </Button>
+            <Button size="icon-sm" variant="ghost" aria-label={t("design_ui.system.download")} title={t("design_ui.system.download")}
+              onClick={() => { for (const file of files) void (async () => {
+                try {
+                  const blob = await client.readDesignFile(workspaceId, design.id, file.path);
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url; link.download = file.path.split("/").pop() ?? file.path; link.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 1000);
+                } catch { /* ignore */ }
+              })(); }}>
+              <Download className="size-4" aria-hidden />
+            </Button>
+            <Button size="icon-sm" variant="ghost" aria-label={t("design_ui.system.share")} title={t("design_ui.system.share")}
+              onClick={() => { if (navigator.share) void navigator.share({ title: design.title }); }}>
+              <Share2 className="size-4" aria-hidden />
+            </Button>
+            <div className="ml-1 flex items-center gap-0.5 rounded-md border border-border/60 bg-muted/30 p-0.5">
+              <Button size="icon-sm" variant={themeMode === "light" ? "secondary" : "ghost"} aria-label={t("design_ui.system.theme_light")} title={t("design_ui.system.theme_light")} className="h-7 w-7 p-0" onClick={() => setThemeMode("light")}><Sun className="size-4" aria-hidden /></Button>
+              <Button size="icon-sm" variant={themeMode === "dark" ? "secondary" : "ghost"} aria-label={t("design_ui.system.theme_dark")} title={t("design_ui.system.theme_dark")} className="h-7 w-7 p-0" onClick={() => setThemeMode("dark")}><Moon className="size-4" aria-hidden /></Button>
+              <Button size="icon-sm" variant={themeMode === "system" ? "secondary" : "ghost"} aria-label={t("design_ui.system.theme_system")} title={t("design_ui.system.theme_system")} className="h-7 w-7 p-0" onClick={() => setThemeMode("system")}><Monitor className="size-4" aria-hidden /></Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {saveError ? <div role="alert" data-system-save-error className="mx-auto mt-4 flex w-full max-w-[68ch] flex-wrap items-center gap-2 px-6 text-sm text-destructive">
         <span>{saveError}</span>
         <Button size="xs" variant="outline" onClick={reload}>{t("design_ui.system.reload")}</Button>
       </div> : null}
@@ -208,18 +275,71 @@ export function SystemEditor({ workspaceId, design, writable, client, onChanged,
             <Button size="sm" variant="outline" onClick={reload}>{t("design_ui.system.reload")}</Button>
           </div>
         </div>
-        : section === "overview" ? <SystemOverviewSection design={design} tokens={tokens} writable={writable} saving={saving}
-          onSave={patch => save({ ...tokens, ...patch })} onAskAgent={ask} />
-        : section === "files" ? <SystemFilesSection client={client} workspaceId={workspaceId} design={design} files={files} query={search} />
-        : section === "assets" ? <SystemAssetsSection client={client} workspaceId={workspaceId} designId={design.id}
-          items={filterTokens(tokens, "assets", search)} total={tokens.assets.length} query={search} writable={writable}
-          onAdd={() => setEditing({ kind: "assets", index: null })} onEdit={index => setEditing({ kind: "assets", index })}
-          onDelete={index => void remove("assets", index)} onAsk={() => askSection("assets")} />
-        : isTokenKind(section) ? <SystemTokenSection kind={section} tokens={tokens} design={design} workspaceId={workspaceId} query={search}
-          writable={writable} frame={frame}
-          onAdd={() => setEditing({ kind: section, index: null })} onEdit={index => setEditing({ kind: section, index })}
-          onDelete={index => void remove(section, index)} onAsk={() => askSection(section)} />
-        : null}
+        : <div className="mx-auto w-full max-w-[68ch] px-6 py-8">
+          <div className="grid gap-10">
+          <section data-system-section-block="overview" className="scroll-mt-12">
+            <SystemOverviewSection design={design} tokens={tokens} writable={writable} saving={saving}
+              onSave={patch => save({ ...tokens, ...patch })} onAskAgent={ask} />
+          </section>
+          <section data-system-section-block="colors" className="scroll-mt-12">
+            <SystemTokenSection kind="colors" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "colors", index: null })} onEdit={index => setEditing({ kind: "colors", index })}
+              onDelete={index => void remove("colors", index)} onAsk={() => askSection("colors")} />
+          </section>
+          <section data-system-section-block="typography" className="scroll-mt-12">
+            <SystemTokenSection kind="typography" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "typography", index: null })} onEdit={index => setEditing({ kind: "typography", index })}
+              onDelete={index => void remove("typography", index)} onAsk={() => askSection("typography")} />
+          </section>
+          <section data-system-section-block="spacing" className="scroll-mt-12">
+            <SystemTokenSection kind="spacing" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "spacing", index: null })} onEdit={index => setEditing({ kind: "spacing", index })}
+              onDelete={index => void remove("spacing", index)} onAsk={() => askSection("spacing")} />
+          </section>
+          <section data-system-section-block="radii" className="scroll-mt-12">
+            <SystemTokenSection kind="radii" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "radii", index: null })} onEdit={index => setEditing({ kind: "radii", index })}
+              onDelete={index => void remove("radii", index)} onAsk={() => askSection("radii")} />
+          </section>
+          <section data-system-section-block="shadows" className="scroll-mt-12">
+            <SystemTokenSection kind="shadows" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "shadows", index: null })} onEdit={index => setEditing({ kind: "shadows", index })}
+              onDelete={index => void remove("shadows", index)} onAsk={() => askSection("shadows")} />
+          </section>
+          <section data-system-section-block="gradients" className="scroll-mt-12">
+            <SystemTokenSection kind="gradients" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "gradients", index: null })} onEdit={index => setEditing({ kind: "gradients", index })}
+              onDelete={index => void remove("gradients", index)} onAsk={() => askSection("gradients")} />
+          </section>
+          <section data-system-section-block="layout" className="scroll-mt-12">
+            <SystemTokenSection kind="layout" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "layout", index: null })} onEdit={index => setEditing({ kind: "layout", index })}
+              onDelete={index => void remove("layout", index)} onAsk={() => askSection("layout")} />
+          </section>
+          <section data-system-section-block="components" className="scroll-mt-12">
+            <SystemTokenSection kind="components" tokens={tokens} design={design} workspaceId={workspaceId} query={search}
+              writable={writable} frame={frame} reloadKey={revision}
+              onAdd={() => setEditing({ kind: "components", index: null })} onEdit={index => setEditing({ kind: "components", index })}
+              onDelete={index => void remove("components", index)} onAsk={() => askSection("components")} />
+          </section>
+          <section data-system-section-block="assets" className="scroll-mt-12">
+            <SystemAssetsSection client={client} workspaceId={workspaceId} designId={design.id}
+              items={filterTokens(tokens, "assets", search)} total={sectionTokens(tokens, "assets").length} query={search} writable={writable}
+              onAdd={() => setEditing({ kind: "assets", index: null })} onEdit={index => setEditing({ kind: "assets", index })}
+              onDelete={index => void remove("assets", index)} onAsk={() => askSection("assets")} />
+          </section>
+          <section data-system-section-block="files" className="scroll-mt-12">
+            <SystemFilesSection client={client} workspaceId={workspaceId} design={design} files={files} query={search} />
+          </section>
+        </div>
+        </div>}
     </main>
 
     {editing && tokens ? <SystemTokenDialog kind={editing.kind} index={editing.index} tokens={tokens} saving={saving} error={saveError}

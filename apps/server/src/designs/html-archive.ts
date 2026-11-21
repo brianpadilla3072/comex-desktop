@@ -4,6 +4,8 @@ import { zipSync, type Zippable } from "fflate";
 import { DESIGN_LIMITS, type DesignManifest } from "@openwork/types/designs";
 import { ApiError } from "../errors.js";
 import { designDir, designFiles, readManifest } from "./store.js";
+import { designTokensSchema } from "@openwork/types/designs";
+import { tokensCss, tokensMd, componentMd, indexDts, bundleCss, systemManifest } from "./system-generators.js";
 
 /**
  * "Exportar HTML": the design folder as a zip, under one top folder named after the design, plus
@@ -40,6 +42,35 @@ export async function designHtmlArchive(projectRoot: string, designId: string): 
     total += info.size;
     if (total > DESIGN_LIMITS.designBytes) throw new ApiError(413, "design_capacity_bytes", "El diseño supera el espacio permitido para exportarlo.");
     entries[`${manifest.id}/${file}`] = new Uint8Array(await readFile(join(dir, file)));
+  }
+  // System designs also ship the generated package artefacts (tokens.css, api docs, types, bundle).
+  if (manifest.kind === "system") {
+    let tokens = null as ReturnType<typeof designTokensSchema.safeParse>["data"] | null;
+    try {
+      const raw = JSON.parse(await readFile(join(dir, "tokens.json"), "utf8"));
+      const parsed = designTokensSchema.safeParse(raw);
+      if (parsed.success) tokens = parsed.data;
+    } catch { /* no tokens: skip generated artefacts */ }
+    if (tokens) {
+      const generated: Record<string, string> = {
+        "tokens.css": tokensCss(tokens),
+        "api/tokens.md": tokensMd(tokens),
+        "components/index.d.ts": indexDts(tokens),
+        "components/bundle.css": bundleCss(tokens),
+      };
+      for (const [path, text] of Object.entries(generated)) {
+        const key = `${manifest.id}/${path}`;
+        if (!entries[key]) entries[key] = new TextEncoder().encode(text);
+      }
+      for (const component of tokens.components) {
+        const name = String(component.name ?? "").replace(/[^a-zA-Z0-9_-]/g, "") || "Component";
+        const key = `${manifest.id}/api/components/${name}.md`;
+        if (!entries[key]) entries[key] = new TextEncoder().encode(componentMd(name, component));
+      }
+      const fileList = Object.keys(entries).map(k => k.slice(manifest.id.length + 1));
+      const mkey = `${manifest.id}/manifest.json`;
+      if (!entries[mkey]) entries[mkey] = new TextEncoder().encode(JSON.stringify(systemManifest(manifest, tokens, fileList), null, 2));
+    }
   }
   if (!entries[`${manifest.id}/index.html`]) entries[`${manifest.id}/index.html`] = new TextEncoder().encode(htmlIndex(manifest));
   return { bytes: zipSync(entries, { level: 6 }), fileName: `${manifest.id}.zip` };

@@ -104,14 +104,126 @@ export const designSummarySchema = z.object({
 export type DesignSummary = z.infer<typeof designSummarySchema>;
 
 // ---- Design system (kind "system"): tokens.json ----
+//
+// Version 2 is the full design-system package model (the same shape the Noctyx reference
+// package uses): color themes with per-theme values and a `usage` per token, type families
+// and font files, grouped type styles, measure groups (spacing/radius/shadow/gradient/layout)
+// with a note and per-token usage, rich components and grouped assets, plus a `meta` block
+// with provenance. Version 1 files are still accepted: `designTokensSchema` migrates them
+// to v2 through `migrateDesignTokens`.
 
 const tokenName = z.string().min(1).max(80);
-export const designTokensSchema = z.object({
+const tokenUsage = z.string().max(2_000).optional();
+const themeIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
+/** One value, or one value per theme id ("light", "dark", …). */
+const themedTokenValue = z.union([z.string().max(400), z.record(z.string().max(40), z.string().max(400))]);
+export type ThemedTokenValue = z.infer<typeof themedTokenValue>;
+
+const colorThemeSchema = z.object({ id: themeIdSchema, name: z.string().min(1).max(80) });
+export type DesignColorTheme = z.infer<typeof colorThemeSchema>;
+export const DEFAULT_COLOR_THEMES: DesignColorTheme[] = [
+  { id: "light", name: "Claro" },
+  { id: "dark", name: "Oscuro" },
+];
+
+/** spacing / radius / shadow / gradient / layout: a note plus named tokens. */
+const measureGroupSchema = z.object({
+  note: z.string().max(2_000).optional(),
+  tokens: z.array(z.object({ name: tokenName, value: themedTokenValue, usage: tokenUsage })).default([]),
+});
+export type DesignMeasureGroup = z.infer<typeof measureGroupSchema>;
+export type DesignMeasureToken = DesignMeasureGroup["tokens"][number];
+
+export const designTokensV2Schema = z.object({
   format: z.literal("openwork.design-tokens"),
-  version: z.literal(1),
+  version: z.literal(2),
+  /** Display name of the system (the package `name`). */
+  name: z.string().max(120).optional(),
   /** One paragraph shown in Overview and handed to the agent as brand context. */
   overview: z.string().max(20_000).default(""),
   /** Writing rules for copy (voice, tone, formats). Handed to the agent as context. */
+  content: z.string().max(20_000).default(""),
+  /** Where the system came from (repo, ref, synced date, source paths). */
+  meta: z.object({
+    source: z.string().max(200).optional(),
+    repo: z.string().max(300).optional(),
+    ref: z.string().max(200).optional(),
+    synced: z.string().max(40).optional(),
+    /** Source file globs per area: tokens, fonts, assets, docs. */
+    paths: z.record(z.string().max(80), z.array(z.string().max(300)).max(50)).default({}),
+    /** Component name → source file in the origin repo. */
+    components: z.record(z.string().max(80), z.string().max(300)).default({}),
+  }).prefault({}),
+  color: z.object({
+    themes: z.array(colorThemeSchema).min(1).max(12).default(DEFAULT_COLOR_THEMES.map(theme => ({ ...theme }))),
+    tokens: z.array(z.object({
+      name: tokenName,
+      value: themedTokenValue,
+      usage: tokenUsage,
+      group: z.string().max(80).optional(),
+    })).default([]),
+  }).prefault({}),
+  type: z.object({
+    /** Font files shipped with the system (paths inside the design folder). */
+    fonts: z.array(z.object({
+      family: z.string().min(1).max(200),
+      file: designRelativePathSchema.optional(),
+      weight: z.string().max(32).optional(),
+      style: z.string().max(32).optional(),
+    })).default([]),
+    /** family key → CSS font stack. */
+    families: z.record(z.string().max(80), z.string().max(400)).default({}),
+    groups: z.array(z.object({
+      name: z.string().min(1).max(120),
+      /** Key into `families`. */
+      family: z.string().max(80).optional(),
+      styles: z.array(z.object({
+        name: tokenName,
+        fontSize: z.string().min(1).max(32),
+        lineHeight: z.string().max(32).optional(),
+        fontWeight: z.union([z.number(), z.string().max(16)]).optional(),
+        sample: z.string().max(300).optional(),
+        usage: tokenUsage,
+      })).default([]),
+    })).default([]),
+  }).prefault({}),
+  spacing: measureGroupSchema.prefault({}),
+  radius: measureGroupSchema.prefault({}),
+  shadow: measureGroupSchema.prefault({}),
+  gradient: measureGroupSchema.prefault({}),
+  layout: measureGroupSchema.prefault({}),
+  /** Components: previews are pages/documents of the design (`file`), docs in `readme`/`types`. */
+  components: z.array(z.object({
+    name: tokenName,
+    group: z.string().max(80).optional(),
+    summary: z.string().max(2_000).optional(),
+    file: designRelativePathSchema.optional(),
+    description: z.string().max(2_000).optional(),
+    /** Long-form README of the component (relative path, e.g. "components/Button/README.md"). */
+    readme: designRelativePathSchema.optional(),
+    /** Type declarations of the component (relative path, e.g. "components/index.d.ts"). */
+    types: designRelativePathSchema.optional(),
+  })).default([]),
+  /** Brand assets (logos, icons, illustrations, fonts) inside the design folder. */
+  assets: z.array(z.object({
+    name: tokenName,
+    file: designRelativePathSchema,
+    group: z.string().max(80).optional(),
+  })).default([]),
+});
+export type DesignTokensV2 = z.infer<typeof designTokensV2Schema>;
+export type DesignTokens = DesignTokensV2;
+export type DesignColorToken = DesignTokensV2["color"]["tokens"][number];
+export type DesignTypeGroup = DesignTokensV2["type"]["groups"][number];
+export type DesignTypeStyle = DesignTypeGroup["styles"][number];
+export type DesignComponent = DesignTokens["components"][number];
+export type DesignAsset = DesignTokens["assets"][number];
+
+/** Version 1: the flat token lists the editor originally shipped. Kept for migration only. */
+export const designTokensV1Schema = z.object({
+  format: z.literal("openwork.design-tokens"),
+  version: z.literal(1),
+  overview: z.string().max(20_000).default(""),
   content: z.string().max(20_000).default(""),
   colors: z.array(z.object({ name: tokenName, value: z.string().max(64), role: z.string().max(80).optional(), group: z.string().max(80).optional() })).default([]),
   typography: z.array(z.object({ name: tokenName, family: z.string().max(200), size: z.string().max(32), weight: z.union([z.number(), z.string().max(16)]), lineHeight: z.string().max(32).optional(), sample: z.string().max(200).optional() })).default([]),
@@ -120,12 +232,82 @@ export const designTokensSchema = z.object({
   shadows: z.array(z.object({ name: tokenName, value: z.string().max(400) })).default([]),
   gradients: z.array(z.object({ name: tokenName, value: z.string().max(400) })).default([]),
   layout: z.array(z.object({ name: tokenName, value: z.string().max(200), note: z.string().max(400).optional() })).default([]),
-  /** Component previews: each is a page document of the design (relative path). */
   components: z.array(z.object({ name: tokenName, file: designRelativePathSchema, description: z.string().max(2_000).optional() })).default([]),
-  /** Brand assets (logos, icons, illustrations) inside the design folder. */
   assets: z.array(z.object({ name: tokenName, file: designRelativePathSchema })).default([]),
 });
-export type DesignTokens = z.infer<typeof designTokensSchema>;
+export type DesignTokensV1 = z.infer<typeof designTokensV1Schema>;
+
+const familyKeySlug = (family: string): string =>
+  family.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "familia";
+
+/** v1 → v2: colors become light/dark pairs, typography becomes family groups, measures gain usage. */
+export function migrateDesignTokens(v1: DesignTokensV1): DesignTokensV2 {
+  const families: Record<string, string> = {};
+  const familyKeys = new Map<string, string>();
+  const familyKey = (family: string): string => {
+    const known = familyKeys.get(family);
+    if (known) return known;
+    const base = familyKeySlug(family);
+    let key = base;
+    for (let n = 2; Object.hasOwn(families, key); n += 1) key = `${base}-${n}`;
+    families[key] = family;
+    familyKeys.set(family, key);
+    return key;
+  };
+  const groups = new Map<string, DesignTypeGroup>();
+  for (const item of v1.typography) {
+    const key = familyKey(item.family);
+    let group = groups.get(key);
+    if (!group) {
+      group = { name: item.family.slice(0, 120), family: key, styles: [] };
+      groups.set(key, group);
+    }
+    group.styles.push({
+      name: item.name,
+      fontSize: item.size,
+      ...(item.lineHeight !== undefined ? { lineHeight: item.lineHeight } : {}),
+      ...(item.weight !== undefined ? { fontWeight: item.weight } : {}),
+      ...(item.sample !== undefined ? { sample: item.sample } : {}),
+    });
+  }
+  const measures = (items: readonly { name: string; value: string; note?: string }[]): DesignMeasureGroup => ({
+    tokens: items.map(item => ({ name: item.name, value: item.value, ...(item.note ? { usage: item.note } : {}) })),
+  });
+  return designTokensV2Schema.parse({
+    format: "openwork.design-tokens",
+    version: 2,
+    overview: v1.overview,
+    content: v1.content,
+    meta: {},
+    color: {
+      themes: DEFAULT_COLOR_THEMES.map(theme => ({ ...theme })),
+      tokens: v1.colors.map(color => ({
+        name: color.name,
+        value: { light: color.value, dark: color.value },
+        ...(color.role ? { usage: color.role } : {}),
+        ...(color.group ? { group: color.group } : {}),
+      })),
+    },
+    type: { fonts: [], families, groups: [...groups.values()] },
+    spacing: measures(v1.spacing),
+    radius: measures(v1.radii),
+    shadow: measures(v1.shadows),
+    gradient: measures(v1.gradients),
+    layout: measures(v1.layout),
+    components: v1.components.map(component => ({
+      name: component.name,
+      ...(component.description ? { summary: component.description } : {}),
+      file: component.file,
+    })),
+    assets: v1.assets,
+  });
+}
+
+/**
+ * The tokens contract: v2 documents parse as-is, v1 documents are migrated to v2 on parse, so
+ * every consumer reads the same `DesignTokens` (v2) shape. Writes always serialize v2.
+ */
+export const designTokensSchema = z.union([designTokensV2Schema, designTokensV1Schema.transform(migrateDesignTokens)]);
 
 // ---- Board (kind "board"): board.json ----
 

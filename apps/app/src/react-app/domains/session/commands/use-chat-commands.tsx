@@ -22,7 +22,7 @@ export type ChatCommandTarget = {
   sessionId?: string; title?: string; secondary?: boolean; loadTranscript?: () => Promise<OpenworkSessionMessage[]>;
   fork?: () => Promise<void>; contextLimit?: number; messages?: readonly OpenworkSessionMessage[];
 };
-type Props = ChatCommandTarget & { busy: boolean; canAttach: boolean; model: ModelRef; onAttach: (files: File[]) => void; listMcp?: () => Promise<{ servers: McpServerEntry[]; statuses: McpStatusMap; status: string | null }> };
+type Props = ChatCommandTarget & { busy: boolean; canAttach: boolean; model: ModelRef; onAttach: (files: File[]) => void; listMcp?: () => Promise<{ servers: McpServerEntry[]; statuses: McpStatusMap; status: string | null }>; designStudioEnabled?: boolean; onOpenDesign?: () => void; onInsertPrompt?: (text: string) => void };
 const compactionReceipt = z.object({ data: z.object({ sessionID: z.string(), id: z.string(), type: z.literal("compaction") }) });
 const INITIAL = { kind: null, text: "" };
 export function useChatCommands(p: Props) {
@@ -37,7 +37,7 @@ export function useChatCommands(p: Props) {
   useEffect(() => { setDialog(INITIAL); setError(""); setConnections(null); }, [owner]);
   const hasSession = Boolean(p.sessionId?.startsWith("ses_")); const nativeV2 = isOpencodeV2BaseUrl(p.opencodeBaseUrl);
   const canArchive = Boolean(host && p.nativeClient); const canFork = Boolean(p.fork); const secondary = Boolean(p.secondary); const hasMessages = Boolean(p.messages?.length);
-  const options = useMemo(() => chatCommandOptions({ hasSession, busy: p.busy, nativeV2, canArchive, canFork, canAttach: p.canAttach, secondary, pending, pinned, hasMessages }), [hasSession, p.busy, nativeV2, canArchive, canFork, p.canAttach, secondary, pending, pinned, hasMessages]);
+  const options = useMemo(() => chatCommandOptions({ hasSession, busy: p.busy, nativeV2, canArchive, canFork, canAttach: p.canAttach, secondary, pending, pinned, hasMessages, designStudioEnabled: p.designStudioEnabled }), [hasSession, p.busy, nativeV2, canArchive, canFork, p.canAttach, secondary, pending, pinned, hasMessages, p.designStudioEnabled]);
   const work = async (job: () => Promise<void>) => {
     if (inFlight.current) return; inFlight.current = true; setPending(true); setError(""); const current = owner;
     try { await job(); } catch (e) { if (ownerRef.current === current) setError(e instanceof Error ? e.message : "No se pudo completar el comando."); }
@@ -50,6 +50,8 @@ export function useChatCommands(p: Props) {
     if (id === "init") return; // Composer inserts the engine's own /init command.
     if (id === "pin") { if (p.sessionId) pinStore.getState().togglePin(p.sessionId); return; }
     if (id === "pet") { useLocalPet.getState().toggle(); return; }
+  if (id === "design") { p.onOpenDesign?.(); return; }
+  if (id === "marca") { p.onInsertPrompt?.("/diseno-marca "); return; }
     if (id === "compact" || id === "draw" || id === "status") { setError(""); setDialog({ kind: id, text: "" }); return; }
     await work(async () => {
       const current = owner;

@@ -26,21 +26,30 @@ const NOW = 1_700_000_000_000;
 function fixtureTokens(): Tokens {
   return designTokensSchema.parse({
     format: "openwork.design-tokens",
-    version: 1,
+    version: 2,
     overview: "Marca de ejemplo para una tienda de café de especialidad.",
     content: "Tutea al lector. Frases cortas.",
-    colors: [
-      { name: "Primario", value: "#0A5FFF", role: "Acciones principales", group: "Marca" },
-      { name: "Tinta", value: "rgb(20 20 30)", role: "Texto", group: "Neutros" },
-      { name: "Raro", value: "url(https://example.invalid/x.png)" },
-    ],
-    typography: [{ name: "Título", family: "Brand Sans", size: "32px", weight: 600, lineHeight: "1.2", sample: "Café de origen" }],
-    spacing: [{ name: "s", value: "8px" }, { name: "m", value: "16px" }],
-    radii: [{ name: "Tarjeta", value: "12px" }],
-    shadows: [{ name: "Elevada", value: "0 4px 12px rgb(0 0 0 / 0.12)" }],
-    gradients: [{ name: "Amanecer", value: "linear-gradient(90deg, #0A5FFF, #00B3A4)" }],
-    layout: [{ name: "Grilla", value: "12 columnas", note: "Separación de 24px" }],
-    components: [{ name: "Botón", file: "pages/boton.html", description: "Botón primario y secundario" }],
+    color: {
+      themes: [{ id: "light", name: "Claro" }, { id: "dark", name: "Oscuro" }],
+      tokens: [
+        { name: "Primario", value: { light: "#0A5FFF", dark: "#0A5FFF" }, usage: "Acciones principales", group: "Marca" },
+        { name: "Tinta", value: { light: "rgb(20 20 30)", dark: "rgb(20 20 30)" }, usage: "Texto", group: "Neutros" },
+        { name: "Raro", value: "url(https://example.invalid/x.png)" },
+      ],
+    },
+    type: {
+      fonts: [],
+      families: { "brand-sans": "Brand Sans" },
+      groups: [{ name: "Brand Sans", family: "brand-sans", styles: [
+        { name: "Título", fontSize: "32px", fontWeight: 600, lineHeight: "1.2", sample: "Café de origen" },
+      ] }],
+    },
+    spacing: { tokens: [{ name: "s", value: "8px" }, { name: "m", value: "16px" }] },
+    radius: { tokens: [{ name: "Tarjeta", value: "12px" }] },
+    shadow: { tokens: [{ name: "Elevada", value: "0 4px 12px rgb(0 0 0 / 0.12)" }] },
+    gradient: { tokens: [{ name: "Amanecer", value: "linear-gradient(90deg, #0A5FFF, #00B3A4)" }] },
+    layout: { tokens: [{ name: "Grilla", value: "12 columnas", usage: "Separación de 24px" }] },
+    components: [{ name: "Botón", file: "pages/boton.html", summary: "Botón primario y secundario" }],
     assets: [{ name: "Logo", file: "assets/logo.svg" }, { name: "Guía", file: "assets/guia.pdf" }],
   });
 }
@@ -77,7 +86,7 @@ function fakeClient(): Client {
   };
 }
 
-const FakeFrame: Frame = ({ page, designId }) => <div data-fake-frame={`${designId}:${page.file}`} />;
+const FakeFrame: Frame = ({ page, designId, reloadKey }) => <div data-fake-frame={`${designId}:${page.file}`} data-reload-key={reloadKey} />;
 
 let root: ReturnType<typeof createRoot> | null = null;
 let host: HTMLDivElement;
@@ -86,12 +95,12 @@ let queryClient: InstanceType<typeof QueryClient>;
 async function settle(rounds = 8) {
   for (let index = 0; index < rounds; index += 1) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 }
-async function render(options: { writable?: boolean; design?: Manifest; frame?: Frame | undefined } = {}) {
+async function render(options: { writable?: boolean; design?: Manifest; frame?: Frame | undefined; revision?: number } = {}) {
   await act(async () => {
     root?.render(<QueryClientProvider client={queryClient}>
       <SystemEditor workspaceId="ws_1" design={options.design ?? manifest()} writable={options.writable ?? true} client={fakeClient()}
         onChanged={() => { changed += 1; }} chatOpen={false} onAskAgent={(text, context) => { asked.push([text, context]); }}
-        frame={"frame" in options ? options.frame : FakeFrame} />
+        frame={"frame" in options ? options.frame : FakeFrame} revision={options.revision} />
       <ConfirmDialogHost />
     </QueryClientProvider>);
   });
@@ -160,7 +169,7 @@ test("model: parses tokens.json, empty files are an empty system and bad files s
   expect(model.parseTokensText("{nope")).toEqual({ ok: false, code: "invalid_json" });
   expect(model.parseTokensText(JSON.stringify({ format: "other" }))).toEqual({ ok: false, code: "invalid_tokens" });
   const parsed = model.parseTokensText(model.serializeTokens(fixtureTokens()));
-  expect(parsed.ok && parsed.tokens.colors.length).toBe(3);
+  expect(parsed.ok && parsed.tokens.color.tokens.length).toBe(3);
   expect(model.tokensAreEmpty(model.emptyTokens())).toBe(true);
   expect(model.tokensAreEmpty(fixtureTokens())).toBe(false);
 });
@@ -184,31 +193,36 @@ test("model: CSS values for samples never load anything", () => {
 
 test("model: token validation is per field, names are unique per section and weights become numbers", () => {
   const tokens = fixtureTokens();
-  expect(model.buildToken("colors", { name: "", value: "" }, tokens.colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.required", value: "design_ui.system.error.required" } });
-  expect(model.buildToken("colors", { name: "primario", value: "#fff" }, tokens.colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.name_taken" } });
-  expect(model.buildToken("colors", { name: "Primario", value: "#fff" }, tokens.colors, 0).ok).toBe(true);
-  expect(model.buildToken("colors", { name: "Fondo", value: "azulito" }, tokens.colors, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.color" } });
-  expect(model.buildToken("spacing", { name: "l", value: "24" }, tokens.spacing, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.length" } });
-  expect(model.buildToken("gradients", { name: "g", value: "url(x)" }, tokens.gradients, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.gradient" } });
-  expect(model.buildToken("assets", { name: "x", file: "../fuera.png" }, tokens.assets, null)).toEqual({ ok: false, errors: { file: "design_ui.system.error.path" } });
-  expect(model.buildToken("colors", { name: "n".repeat(81), value: "#fff" }, tokens.colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.too_long" } });
-  const type = model.buildToken("typography", { name: "Cuerpo", family: "Brand Sans", size: "16px", weight: "400", lineHeight: "1.5", sample: "" }, tokens.typography, null);
+  const colors = model.sectionTokens(tokens, "colors");
+  const spacing = model.sectionTokens(tokens, "spacing");
+  const gradients = model.sectionTokens(tokens, "gradients");
+  const assets = model.sectionTokens(tokens, "assets");
+  const styles = model.typeEntries(tokens);
+  expect(model.buildToken("colors", { name: "", value: "" }, colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.required", value: "design_ui.system.error.required" } });
+  expect(model.buildToken("colors", { name: "primario", value: "#fff" }, colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.name_taken" } });
+  expect(model.buildToken("colors", { name: "Primario", value: "#fff" }, colors, 0).ok).toBe(true);
+  expect(model.buildToken("colors", { name: "Fondo", value: "azulito" }, colors, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.color" } });
+  expect(model.buildToken("spacing", { name: "l", value: "24" }, spacing, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.length" } });
+  expect(model.buildToken("gradients", { name: "g", value: "url(x)" }, gradients, null)).toEqual({ ok: false, errors: { value: "design_ui.system.error.gradient" } });
+  expect(model.buildToken("assets", { name: "x", file: "../fuera.png" }, assets, null)).toEqual({ ok: false, errors: { file: "design_ui.system.error.path" } });
+  expect(model.buildToken("colors", { name: "n".repeat(81), value: "#fff" }, colors, null)).toEqual({ ok: false, errors: { name: "design_ui.system.error.too_long" } });
+  const type = model.buildToken("typography", { name: "Cuerpo", family: "Brand Sans", size: "16px", weight: "400", lineHeight: "1.5", sample: "" }, styles, null);
   expect(type).toEqual({ ok: true, token: { name: "Cuerpo", family: "Brand Sans", size: "16px", weight: 400, lineHeight: "1.5" } });
   expect(model.buildToken("typography", { name: "x", family: "f", size: "16px", weight: "pesado", lineHeight: "alto" }, [], null))
     .toEqual({ ok: false, errors: { weight: "design_ui.system.error.weight", lineHeight: "design_ui.system.error.line_height" } });
-  const form = model.tokenFormFrom("typography", tokens.typography[0] ?? null);
+  const form = model.tokenFormFrom("typography", styles[0] ?? null);
   expect(form).toEqual({ name: "Título", family: "Brand Sans", size: "32px", weight: "600", lineHeight: "1.2", sample: "Café de origen" });
 });
 
 test("model: adding, replacing and removing tokens keeps the rest", () => {
   const tokens = fixtureTokens();
   const added = model.updateTokens(tokens, "spacing", null, { name: "l", value: "24px" });
-  expect(added.spacing.map(item => item.name)).toEqual(["s", "m", "l"]);
+  expect(model.sectionTokens(added, "spacing").map(item => item.name)).toEqual(["s", "m", "l"]);
   const replaced = model.updateTokens(added, "spacing", 0, { name: "xs", value: "4px" });
-  expect(replaced.spacing[0]).toEqual({ name: "xs", value: "4px" });
+  expect(model.sectionTokens(replaced, "spacing")[0]).toEqual({ name: "xs", value: "4px" });
   const removed = model.updateTokens(replaced, "spacing", 1, null);
-  expect(removed.spacing.map(item => item.name)).toEqual(["xs", "l"]);
-  expect(removed.colors).toEqual(tokens.colors);
+  expect(model.sectionTokens(removed, "spacing").map(item => item.name)).toEqual(["xs", "l"]);
+  expect(model.sectionTokens(removed, "colors")).toEqual(model.sectionTokens(tokens, "colors"));
 });
 
 test("model: search, counts, files list and component pages", () => {
@@ -330,7 +344,7 @@ test("editor: adds a color after validation and writes tokens.json", async () =>
   await type("[data-system-field='value']", "#F5F1EA");
   await type("[data-system-field='role']", "Fondo de página");
   await click("[data-system-token-save]");
-  expect(savedTokens().colors.at(-1)).toEqual({ name: "Fondo", value: "#F5F1EA", role: "Fondo de página" });
+  expect(savedTokens().color.tokens.at(-1)).toEqual({ name: "Fondo", value: { light: "#F5F1EA", dark: "#F5F1EA" }, usage: "Fondo de página" });
   expect(changed).toBe(1);
   expect(document.body.querySelector("[data-system-token-dialog]")).toBe(null);
   await waitFor("[data-system-color='Fondo']");
@@ -343,16 +357,16 @@ test("editor: edits and deletes tokens (delete asks first)", async () => {
   expect(find("[data-system-field='value']").getAttribute("value") ?? "").toBe("8px");
   await type("[data-system-field='value']", "4px");
   await click("[data-system-token-save]");
-  expect(savedTokens().spacing[0]).toEqual({ name: "s", value: "4px" });
+  expect(model.sectionTokens(savedTokens(), "spacing")[0]).toEqual({ name: "s", value: "4px" });
   await click("[data-system-measure='m'] [data-system-delete]");
   await click("[data-slot='alert-dialog-action']");
-  expect(savedTokens().spacing).toEqual([{ name: "s", value: "4px" }]);
+  expect(model.sectionTokens(savedTokens(), "spacing")).toEqual([{ name: "s", value: "4px" }]);
 });
 
 test("editor: refuses to overwrite tokens.json the agent changed meanwhile", async () => {
   await render();
   await open("radii");
-  files.set("tokens.json", model.serializeTokens({ ...fixtureTokens(), radii: [] }));
+  files.set("tokens.json", model.serializeTokens({ ...fixtureTokens(), radius: { tokens: [] } }));
   await click("[data-system-measure='Tarjeta'] [data-system-delete]");
   await click("[data-slot='alert-dialog-action']");
   expect(writes.length).toBe(0);
@@ -402,6 +416,18 @@ test("editor: a broken tokens.json offers to ask the agent to fix it", async () 
   expect(find("[data-system-invalid]").textContent).toContain(t("design_ui.system.error.invalid_json"));
   await click("[data-system-ask-fix]");
   expect(asked[0]?.[0]).toBe(t("design_ui.system.ask.fix", { title: "Marca Café" }));
+});
+
+test("editor: a revision bump (the agent edited files on disk) reloads tokens and component previews", async () => {
+  await render({ revision: 1 });
+  expect(find("[data-system-prose-value='overview']").textContent).toBe(fixtureTokens().overview);
+  // The agent writes tokens.json directly: the manifest's updatedAt does not move, only the
+  // revision the page polls does. Without it in the query key the editor keeps stale tokens.
+  files.set("tokens.json", model.serializeTokens({ ...fixtureTokens(), overview: "Marca renovada por el agente." }));
+  await render({ revision: 2 });
+  expect(find("[data-system-prose-value='overview']").textContent).toBe("Marca renovada por el agente.");
+  await open("components");
+  expect(find("[data-system-component='Botón'] [data-fake-frame]").getAttribute("data-reload-key")).toBe("2");
 });
 
 test("editor: read only shows tokens without any edit control", async () => {

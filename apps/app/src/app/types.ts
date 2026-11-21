@@ -123,6 +123,7 @@ export type SlashCommandOption = {
   name: string;
   description?: string;
   source?: "command" | "mcp" | "skill";
+  group?: string;
 };
 
 export type ComposerDraft = {

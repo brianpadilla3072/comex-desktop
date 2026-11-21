@@ -3,16 +3,27 @@ import {
   designRelativePathSchema,
   designTokensSchema,
   pageIdSchema,
+  type DesignAsset,
+  type DesignColorTheme,
+  type DesignColorToken,
+  type DesignComponent,
   type DesignManifest,
+  type DesignMeasureToken,
   type DesignPage,
   type DesignSummary,
   type DesignTokens,
+  type DesignTypeGroup,
+  type ThemedTokenValue,
 } from "@openwork/types/designs";
 
 /**
  * Pure model of the design system editor (kind "system", `tokens.json`). No React, no I/O:
  * parsing, sections and search, token forms and validation, the files list, and the helpers the
  * design page uses to let a design follow a system.
+ *
+ * `tokens.json` is stored in the v2 shape (themes, grouped type styles, measure groups, rich
+ * components). The editor still speaks the v1 section names; this module is the adapter: it
+ * reads v2 into flat, v1-like token views and writes edited views back into the v2 document.
  */
 
 export const TOKENS_FILE = "tokens.json";
@@ -25,20 +36,134 @@ export type SystemSection = (typeof SYSTEM_SECTIONS)[number];
 /** Sections whose items are tokens of `tokens.json` (everything but Overview and Files). */
 export const TOKEN_KINDS = ["colors", "typography", "spacing", "radii", "shadows", "gradients", "layout", "components", "assets"] as const;
 export type TokenKind = (typeof TOKEN_KINDS)[number];
-export type TokenOf<K extends TokenKind> = DesignTokens[K][number];
-export type AnyToken = TokenOf<TokenKind>;
 
 export function isTokenKind(section: SystemSection): section is TokenKind {
   return TOKEN_KINDS.some(kind => kind === section);
 }
 
+// ---- The v2 document, seen through the editor's v1-named sections ----
+
+/** A color value may be themed; the editor edits the value of the first theme. */
+export type ColorToken = { name: string; value: string; role?: string; group?: string };
+/** A type style, with its family key resolved to the CSS stack and its group flattened in. */
+export type TypographyToken = { name: string; family: string; size: string; weight: number | string; lineHeight?: string; sample?: string };
+/** A spacing/radius/shadow/gradient/layout token; `note` is the v2 `usage`. */
+export type MeasureToken = { name: string; value: string; note?: string };
+/** A component preview; `description` maps to the v2 `summary`. */
+export type ComponentToken = { name: string; file: string; description?: string };
+export type AssetToken = { name: string; file: string };
+
+export type TokenOf<K extends TokenKind> =
+  K extends "colors" ? ColorToken
+    : K extends "typography" ? TypographyToken
+      : K extends "components" ? ComponentToken
+        : K extends "assets" ? AssetToken
+          : MeasureToken;
+export type AnyToken = TokenOf<TokenKind>;
+
+const themedValue = (value: ThemedTokenValue): string => typeof value === "string" ? value : Object.values(value)[0] ?? "";
+
+const colorView = (token: DesignColorToken): ColorToken => ({
+  name: token.name,
+  value: themedValue(token.value),
+  ...(token.usage ? { role: token.usage } : {}),
+  ...(token.group ? { group: token.group } : {}),
+});
+
+const measureView = (token: DesignMeasureToken): MeasureToken => ({
+  name: token.name,
+  value: themedValue(token.value),
+  ...(token.usage ? { note: token.usage } : {}),
+});
+
+const componentView = (token: DesignComponent): ComponentToken => {
+  const description = token.summary ?? token.description;
+  return { name: token.name, file: token.file ?? "", ...(description ? { description } : {}) };
+};
+
+const assetView = (token: DesignAsset): AssetToken => ({ name: token.name, file: token.file });
+
+const familyKeySlug = (family: string): string =>
+  family.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "familia";
+
+/** v2 type groups → flat styles, with each group's family key resolved to its CSS stack. */
+export function typeEntries(tokens: DesignTokens): TypographyToken[] {
+  const entries: TypographyToken[] = [];
+  for (const group of tokens.type.groups) {
+    const family = tokens.type.families[group.family ?? ""] ?? group.family ?? "";
+    for (const style of group.styles) entries.push({
+      name: style.name,
+      family,
+      size: style.fontSize,
+      weight: style.fontWeight ?? 400,
+      ...(style.lineHeight !== undefined ? { lineHeight: style.lineHeight } : {}),
+      ...(style.sample !== undefined ? { sample: style.sample } : {}),
+    });
+  }
+  return entries;
+}
+
+/** Flat styles → v2 type groups and family map; font files and the rest of the document survive. */
+export function rebuildTypeGroups(tokens: DesignTokens, entries: readonly TypographyToken[]): DesignTokens {
+  const families: Record<string, string> = {};
+  const groups: DesignTypeGroup[] = [];
+  const byFamily = new Map<string, DesignTypeGroup>();
+  const used = new Set<string>();
+  const keyFor = (stack: string): string => {
+    for (const [key, value] of Object.entries(tokens.type.families)) {
+      if (value === stack && !used.has(key)) { used.add(key); return key; }
+    }
+    const base = familyKeySlug(stack);
+    let key = base;
+    for (let n = 2; Object.hasOwn(families, key) || used.has(key); n += 1) key = `${base}-${n}`;
+    used.add(key);
+    return key;
+  };
+  for (const entry of entries) {
+    const stack = entry.family.trim();
+    let group = byFamily.get(stack);
+    if (!group) {
+      const key = keyFor(stack);
+      families[key] = stack;
+      group = { name: stack.slice(0, 120) || "Familia", family: key, styles: [] };
+      byFamily.set(stack, group);
+      groups.push(group);
+    }
+    group.styles.push({
+      name: entry.name,
+      fontSize: entry.size,
+      ...(entry.lineHeight !== undefined ? { lineHeight: entry.lineHeight } : {}),
+      ...(entry.weight !== undefined ? { fontWeight: entry.weight } : {}),
+      ...(entry.sample !== undefined ? { sample: entry.sample } : {}),
+    });
+  }
+  return designTokensSchema.parse({ ...tokens, type: { ...tokens.type, families, groups } });
+}
+
+const sectionReaders: { [K in TokenKind]: (tokens: DesignTokens) => TokenOf<K>[] } = {
+  colors: tokens => tokens.color.tokens.map(colorView),
+  typography: typeEntries,
+  spacing: tokens => tokens.spacing.tokens.map(measureView),
+  radii: tokens => tokens.radius.tokens.map(measureView),
+  shadows: tokens => tokens.shadow.tokens.map(measureView),
+  gradients: tokens => tokens.gradient.tokens.map(measureView),
+  layout: tokens => tokens.layout.tokens.map(measureView),
+  components: tokens => tokens.components.map(componentView),
+  assets: tokens => tokens.assets.map(assetView),
+};
+
+/** The tokens of a section, in the flat shape the UI and the forms use. */
+export function sectionTokens<K extends TokenKind>(tokens: DesignTokens, kind: K): TokenOf<K>[] {
+  return sectionReaders[kind](tokens);
+}
+
 export function emptyTokens(): DesignTokens {
-  return designTokensSchema.parse({ format: "openwork.design-tokens", version: 1 });
+  return designTokensSchema.parse({ format: "openwork.design-tokens", version: 2 });
 }
 
 export type ParsedTokens = { ok: true; tokens: DesignTokens } | { ok: false; code: "invalid_json" | "invalid_tokens" };
 
-/** Reads the text of `tokens.json`. An empty file is an empty system. */
+/** Reads the text of `tokens.json`. An empty file is an empty system; v1 files are migrated. */
 export function parseTokensText(text: string): ParsedTokens {
   if (!text.trim()) return { ok: true, tokens: emptyTokens() };
   let raw: unknown;
@@ -57,7 +182,7 @@ export function serializeTokens(tokens: DesignTokens): string {
 
 /** True when the system has nothing yet: no prose and no tokens. */
 export function tokensAreEmpty(tokens: DesignTokens): boolean {
-  return !tokens.overview.trim() && !tokens.content.trim() && TOKEN_KINDS.every(kind => tokens[kind].length === 0);
+  return !tokens.overview.trim() && !tokens.content.trim() && TOKEN_KINDS.every(kind => sectionTokens(tokens, kind).length === 0);
 }
 
 // ---- Search ----
@@ -73,8 +198,8 @@ export function tokenSearchText(token: AnyToken): string {
 
 export function filterTokens<K extends TokenKind>(tokens: DesignTokens, kind: K, query: string): { token: TokenOf<K>; index: number }[] {
   const needle = normalizeSearch(query);
-  const list: TokenOf<K>[] = tokens[kind];
-  return list.map((token, index) => ({ token, index })).filter(({ token }) => !needle || normalizeSearch(tokenSearchText(token)).includes(needle));
+  return sectionTokens(tokens, kind).map((token, index) => ({ token, index }))
+    .filter(({ token }) => !needle || normalizeSearch(tokenSearchText(token)).includes(needle));
 }
 
 /** Items per section for the navigation; a search counts only matching items. */
@@ -158,6 +283,12 @@ export type TokenForm = Partial<Record<TokenField, string>>;
 const REQUIRED_FIELDS = new Set<TokenField>(["name", "value", "family", "size", "weight", "file"]);
 const MULTILINE_FIELDS = new Set<TokenField>(["description", "note", "sample"]);
 
+/** Same limits as the v2 schema: the form checks them before writing a document. */
+const FIELD_LIMITS: Partial<Record<TokenField, number>> = {
+  name: 80, value: 400, role: 2000, group: 80, family: 200, size: 32, weight: 16,
+  lineHeight: 32, sample: 300, description: 2000, note: 2000,
+};
+
 export function tokenFieldRequired(field: TokenField): boolean {
   return REQUIRED_FIELDS.has(field);
 }
@@ -177,25 +308,9 @@ export function tokenFormFrom(kind: TokenKind, token: AnyToken | null): TokenFor
 export type TokenErrors = Partial<Record<TokenField, string>>;
 export type BuiltToken = { ok: true; token: AnyToken } | { ok: false; errors: TokenErrors };
 
-const elementSchemas = {
-  colors: designTokensSchema.shape.colors.unwrap().element,
-  typography: designTokensSchema.shape.typography.unwrap().element,
-  spacing: designTokensSchema.shape.spacing.unwrap().element,
-  radii: designTokensSchema.shape.radii.unwrap().element,
-  shadows: designTokensSchema.shape.shadows.unwrap().element,
-  gradients: designTokensSchema.shape.gradients.unwrap().element,
-  layout: designTokensSchema.shape.layout.unwrap().element,
-  components: designTokensSchema.shape.components.unwrap().element,
-  assets: designTokensSchema.shape.assets.unwrap().element,
-};
-
-function isTokenField(value: unknown): value is TokenField {
-  return Object.values(TOKEN_FIELDS).some(fields => fields.some(field => field === value));
-}
-
 /**
  * Validates a token form against the list it goes into (names are unique per section, ignoring
- * case) and the schema's limits. `editIndex` is the position being edited, or null when adding.
+ * case) and the document's limits. `editIndex` is the position being edited, or null when adding.
  * Errors are i18n keys.
  */
 export function buildToken(kind: TokenKind, form: TokenForm, list: readonly AnyToken[], editIndex: number | null): BuiltToken {
@@ -203,6 +318,8 @@ export function buildToken(kind: TokenKind, form: TokenForm, list: readonly AnyT
   const value = (field: TokenField) => (form[field] ?? "").trim();
   for (const field of TOKEN_FIELDS[kind]) {
     if (tokenFieldRequired(field) && !value(field)) errors[field] = "design_ui.system.error.required";
+    const limit = FIELD_LIMITS[field];
+    if (limit !== undefined && value(field).length > limit) errors[field] = "design_ui.system.error.too_long";
   }
   const name = value("name");
   if (name && list.some((token, index) => index !== editIndex && normalizeSearch(token.name) === normalizeSearch(name))) {
@@ -228,29 +345,73 @@ export function buildToken(kind: TokenKind, form: TokenForm, list: readonly AnyT
     if (!text) continue;
     candidate[field] = field === "weight" && /^\d+$/.test(text) ? Number(text) : text;
   }
-  const parsed = elementSchemas[kind].safeParse(candidate);
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      const field = issue.path[0];
-      if (isTokenField(field) && !errors[field]) errors[field] = issue.code === "too_big" ? "design_ui.system.error.too_long" : "design_ui.system.error.invalid";
-    }
-  }
-  if (Object.keys(errors).length > 0 || !parsed.success) return { ok: false, errors };
-  return { ok: true, token: parsed.data };
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, token: candidate as AnyToken };
 }
 
-/** Returns the tokens with the item added (editIndex null), replaced or removed (token null). */
-export function updateTokens(tokens: DesignTokens, kind: TokenKind, editIndex: number | null, token: AnyToken | null): DesignTokens {
-  const list: AnyToken[] = [...tokens[kind]];
+function replaceAt<T>(list: readonly T[], editIndex: number | null, token: T | null): T[] {
+  const next = [...list];
   if (editIndex === null) {
-    if (token) list.push(token);
+    if (token) next.push(token);
   } else if (token) {
-    list[editIndex] = token;
+    next[editIndex] = token;
   } else {
-    list.splice(editIndex, 1);
+    next.splice(editIndex, 1);
   }
-  // Reading back through the schema keeps every list typed as its own kind.
-  return designTokensSchema.parse({ ...tokens, [kind]: list });
+  return next;
+}
+
+function colorToV2(view: ColorToken, themes: readonly DesignColorTheme[], existing?: DesignColorToken): DesignColorToken {
+  const ids = existing && typeof existing.value === "object" && existing.value !== null
+    ? Object.keys(existing.value) : themes.map(theme => theme.id);
+  const value: ThemedTokenValue = ids.length ? Object.fromEntries(ids.map(id => [id, view.value])) : view.value;
+  return {
+    name: view.name,
+    value,
+    ...(view.role ? { usage: view.role } : {}),
+    ...(view.group ? { group: view.group } : {}),
+  };
+}
+
+const measureToV2 = (view: MeasureToken): DesignMeasureToken => ({
+  name: view.name,
+  value: view.value,
+  ...(view.note ? { usage: view.note } : {}),
+});
+
+function componentToV2(view: ComponentToken, existing?: DesignComponent): DesignComponent {
+  const file = view.file.trim() || existing?.file;
+  return {
+    ...(existing ?? {}),
+    name: view.name,
+    ...(file ? { file } : {}),
+    ...(view.description ? { summary: view.description } : {}),
+  };
+}
+
+const assetToV2 = (view: AssetToken, existing?: DesignAsset): DesignAsset => ({ ...(existing ?? {}), name: view.name, file: view.file });
+
+const sectionWriters: { [K in TokenKind]: (tokens: DesignTokens, editIndex: number | null, token: TokenOf<K> | null) => DesignTokens } = {
+  colors: (tokens, editIndex, token) => {
+    const list = replaceAt(tokens.color.tokens, editIndex, token ? colorToV2(token, tokens.color.themes, editIndex === null ? undefined : tokens.color.tokens[editIndex]) : null);
+    return designTokensSchema.parse({ ...tokens, color: { ...tokens.color, tokens: list } });
+  },
+  typography: (tokens, editIndex, token) => {
+    const entries = replaceAt(typeEntries(tokens), editIndex, token);
+    return rebuildTypeGroups(tokens, entries);
+  },
+  spacing: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, spacing: { ...tokens.spacing, tokens: replaceAt(tokens.spacing.tokens, editIndex, token ? measureToV2(token) : null) } }),
+  radii: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, radius: { ...tokens.radius, tokens: replaceAt(tokens.radius.tokens, editIndex, token ? measureToV2(token) : null) } }),
+  shadows: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, shadow: { ...tokens.shadow, tokens: replaceAt(tokens.shadow.tokens, editIndex, token ? measureToV2(token) : null) } }),
+  gradients: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, gradient: { ...tokens.gradient, tokens: replaceAt(tokens.gradient.tokens, editIndex, token ? measureToV2(token) : null) } }),
+  layout: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, layout: { ...tokens.layout, tokens: replaceAt(tokens.layout.tokens, editIndex, token ? measureToV2(token) : null) } }),
+  components: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, components: replaceAt(tokens.components, editIndex, token ? componentToV2(token, editIndex === null ? undefined : tokens.components[editIndex]) : null) }),
+  assets: (tokens, editIndex, token) => designTokensSchema.parse({ ...tokens, assets: replaceAt(tokens.assets, editIndex, token ? assetToV2(token, editIndex === null ? undefined : tokens.assets[editIndex]) : null) }),
+};
+
+/** Returns the tokens with the item added (editIndex null), replaced or removed (token null). */
+export function updateTokens<K extends TokenKind>(tokens: DesignTokens, kind: K, editIndex: number | null, token: TokenOf<K> | null): DesignTokens {
+  return sectionWriters[kind](tokens, editIndex, token);
 }
 
 // ---- Files and components ----
@@ -265,7 +426,7 @@ export function designFiles(design: DesignManifest, tokens: DesignTokens): Desig
   add("design.json", "manifest");
   add(TOKENS_FILE, "tokens");
   for (const page of design.pages) add(page.file, "page");
-  for (const component of tokens.components) add(component.file, "component");
+  for (const component of tokens.components) if (component.file) add(component.file, "component");
   for (const asset of tokens.assets) add(asset.file, "asset");
   if (design.thumbnail) add(design.thumbnail, "thumbnail");
   return [...files].map(([path, kind]) => ({ path, kind })).sort((a, b) => a.path.localeCompare(b.path));
@@ -282,7 +443,7 @@ export function imageType(path: string): string | null {
 }
 
 /** The page a component preview renders: the manifest's page for that file, or one built from it. */
-export function componentPage(design: DesignManifest, component: TokenOf<"components">, index: number): DesignPage {
+export function componentPage(design: DesignManifest, component: ComponentToken, index: number): DesignPage {
   const existing = design.pages.find(page => page.file === component.file);
   if (existing) return existing;
   const slug = component.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
