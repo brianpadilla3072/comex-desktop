@@ -12,7 +12,8 @@ test("a slides manifest parses with defaults and rejects unsafe page paths", () 
 
 test("tokens and boards fill their defaults", () => {
   const tokens = designTokensSchema.parse({ format: "openwork.design-tokens", version: 1, colors: [{ name: "Primario", value: "#1E3A8A" }] });
-  expect(tokens.spacing).toEqual([]);
+  expect(tokens.version).toBe(2); // v1 input is migrated on parse
+  expect(tokens.spacing.tokens).toEqual([]);
   const board = boardSchema.parse({ format: "openwork.board", version: 1, elements: [{ id: "f1", type: "frame", title: "1 · Relevamiento", x: 0, y: 0, width: 400, height: 300 }] });
   expect(board.viewport.zoom).toBe(1);
   expect(boardSchema.safeParse({ format: "openwork.board", version: 1, elements: [{ id: "x", type: "video", x: 0, y: 0, width: 1, height: 1 }] }).success).toBe(false);
