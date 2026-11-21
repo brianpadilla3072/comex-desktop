@@ -1,0 +1,567 @@
+{
+  "source": "https://models.dev/api.json",
+  "revision": 6,
+  "changes": [
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.3-flash",
+      "before": [
+        0.15,
+        0.5,
+        0.03,
+        null
+      ],
+      "after": [
+        0.15,
+        0.5,
+        0.03,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy4",
+      "before": [
+        0.834,
+        2.501,
+        0.042,
+        null
+      ],
+      "after": [
+        0.834,
+        2.501,
+        0.042,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k3.1-pro",
+      "before": [
+        2,
+        10,
+        0.2,
+        2
+      ],
+      "after": [
+        2,
+        10,
+        0.2,
+        2
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "minimax-m3.1-flash",
+      "before": [
+        0.15,
+        0.6,
+        0.015,
+        null
+      ],
+      "after": [
+        0.15,
+        0.6,
+        0.015,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.6-flash",
+      "before": [
+        0.14,
+        0.28,
+        0.0028,
+        null
+      ],
+      "after": [
+        0.14,
+        0.28,
+        0.0028,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.6-pro",
+      "before": [
+        0.435,
+        0.87,
+        0.003625,
+        null
+      ],
+      "after": [
+        0.435,
+        0.87,
+        0.003625,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "step-5-preview",
+      "before": [
+        1,
+        2.7,
+        0.1,
+        null
+      ],
+      "after": [
+        1,
+        2.7,
+        0.1,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "glm-5.3-flash-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "mimo-v2.6-flash-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "nemotron-3.5-lightning-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.3",
+      "before": [
+        1.4,
+        4.4,
+        0.26,
+        null
+      ],
+      "after": [
+        1.4,
+        4.4,
+        0.26,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "nemotron-3.5-super-vl-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "beam-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "beam-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "crouton-alpha-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "crouton-alpha-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "deepseek-v4.1-flash",
+      "before": [
+        0.15,
+        0.6,
+        0.003,
+        null
+      ],
+      "after": [
+        0.15,
+        0.6,
+        0.003,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "deepseek-v4.1-flash-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "deepseek-v4-pro",
+      "before": [
+        0.66,
+        1.98,
+        0.022,
+        null
+      ],
+      "after": [
+        0.66,
+        1.98,
+        0.022,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "flint-40b-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "glm-5.2",
+      "before": [
+        1.4,
+        4.4,
+        0.26,
+        null
+      ],
+      "after": [
+        1.4,
+        4.4,
+        0.26,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy3",
+      "before": [
+        0.14,
+        0.58,
+        0.035,
+        null
+      ],
+      "after": [
+        0.14,
+        0.58,
+        0.035,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "hy4-preview",
+      "before": [
+        0.834,
+        2.501,
+        0.042,
+        null
+      ],
+      "after": [
+        0.834,
+        2.501,
+        0.042,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "iceman-contributor-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k2.7-code",
+      "before": [
+        0.95,
+        4,
+        0.19,
+        null
+      ],
+      "after": [
+        0.95,
+        4,
+        0.19,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "kimi-k3",
+      "before": [
+        3,
+        15,
+        0.3,
+        3
+      ],
+      "after": [
+        3,
+        15,
+        0.3,
+        3
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "longcat-2.0",
+      "before": [
+        0.3,
+        1.2,
+        0.006,
+        null
+      ],
+      "after": [
+        0.3,
+        1.2,
+        0.006,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.5",
+      "before": [
+        0.14,
+        0.28,
+        0.0028,
+        null
+      ],
+      "after": [
+        0.14,
+        0.28,
+        0.0028,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "mimo-v2.5-pro",
+      "before": [
+        0.435,
+        0.87,
+        0.003625,
+        null
+      ],
+      "after": [
+        0.435,
+        0.87,
+        0.003625,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "muse-spark-1.2-contributor",
+      "before": [
+        0.1,
+        0.2,
+        0.002,
+        null
+      ],
+      "after": [
+        0.1,
+        0.2,
+        0.002,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "muse-spark-1.3-contributor",
+      "before": [
+        0.1,
+        0.2,
+        0.002,
+        null
+      ],
+      "after": [
+        0.1,
+        0.2,
+        0.002,
+        null
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "qwen3.8-flash",
+      "before": [
+        0.15,
+        0.47,
+        0.016,
+        0.2
+      ],
+      "after": [
+        0.15,
+        0.47,
+        0.016,
+        0.2
+      ]
+    },
+    {
+      "providerID": "opencode-go",
+      "modelID": "qwen3.8-max",
+      "before": [
+        2,
+        6,
+        0.25,
+        2.5
+      ],
+      "after": [
+        2,
+        6,
+        0.25,
+        2.5
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "big-pickle",
+      "before": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "providerID": "opencode",
+      "modelID": "pulse-alpha-free",
+      "before": [
+        0,
+        0,
+        0,
+        null
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        null
+      ]
+    }
+  ],
+  "assessmentsChanged": false
+}
