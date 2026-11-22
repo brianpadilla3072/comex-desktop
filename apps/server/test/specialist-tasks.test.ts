@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
@@ -45,7 +45,7 @@ async function fixture() {
   const store = await specialistStore(config as unknown as ServerConfig);
   const pack = join(root, "source");
   await mkdir(join(pack, "agents"), { recursive: true });
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   const app = store.create(input("Alpha"), { agents: 1, skills: 0 });
   await saveSpecialistPack(config, app.id, await inspectSpecialistPack(pack));
   return { root, config, store, app };
@@ -69,6 +69,10 @@ test("the task store validates names, limits and running edits", async () => {
     assert.ok(edited.nextRunAt !== task.nextRunAt);
     const paused = await updateTask(config, app.id, task.id, { enabled: false });
     assert.equal(paused.enabled, false);
+    // A paused task holds no next run: the slot is empty, not a future date nobody will honour.
+    assert.equal(paused.nextRunAt, null);
+    const resumed = await updateTask(config, app.id, task.id, { enabled: true });
+    assert.ok(resumed.nextRunAt !== null && resumed.nextRunAt > Date.now());
     // Delete refuses while a run holds the claim.
     await patchTask(config, app.id, task.id, t => ({ ...t, running: { workspaceId: "ws", sessionId: null, startedAt: Date.now(), mode: "scheduled", missed: 0 } }));
     await assert.rejects(deleteTask(config, app.id, task.id), (error) => failureStatus(error, "task_running"));
@@ -103,6 +107,27 @@ function apiHarness(config: Record<string, unknown>) {
   };
 }
 
+test("a task can pin the model each run uses, and it survives edits", async () => {
+  const { root, config, app } = await fixture();
+  try {
+    const task = await createTask(config, app.id, {
+      name: "con modelo", prompt: "P.", schedule: { kind: "interval", everyMinutes: 20 },
+      model: { providerID: "opencode", modelID: "gpt-5-nano" },
+    });
+    assert.deepEqual(task.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    const listed = (await listTasks(config, app.id)).find(entry => entry.id === task.id)!;
+    assert.deepEqual(listed.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    // Editing something else keeps the model; an explicit null returns to the engine default.
+    const edited = await updateTask(config, app.id, task.id, { name: "renombrada" });
+    assert.deepEqual(edited.model, { providerID: "opencode", modelID: "gpt-5-nano" });
+    const cleared = await updateTask(config, app.id, task.id, { model: null });
+    assert.equal(cleared.model, null);
+    // A task created without one stays explicit-null (the engine default), never guessed.
+    const plain = await createTask(config, app.id, { name: "sin modelo", prompt: "P.", schedule: { kind: "interval", everyMinutes: 30 } });
+    assert.equal(plain.model, null);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("task routes live and die with the scheduledTasks flag", async () => {
   const { root, config, app } = await fixture();
   const call = apiHarness(config);
@@ -115,7 +140,7 @@ test("task routes live and die with the scheduledTasks flag", async () => {
     await withFlag("true", async () => {
       const catalog = await call("GET", "/specialist-applications");
       assert.equal(catalog.json.scheduledTasksEnabled, true);
-      const created = await call("POST", `/specialist-applications/${app.id}/tasks`, { name: "monitoreo", prompt: "Consultá las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } });
+      const created = await call("POST", `/specialist-applications/${app.id}/tasks`, { name: "monitoreo", prompt: "Consulta las fuentes.", schedule: { kind: "interval", everyMinutes: 20 } });
       assert.equal(created.status, 200);
       const listed = await call("GET", `/specialist-applications/${app.id}/tasks`);
       assert.equal((listed.json.tasks as Array<Record<string, unknown>>).length, 1);
@@ -137,14 +162,14 @@ function fakeEngine(state: EngineState) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/workspace\/[^/]+\/opencode2\/api/, "");
     state.calls.push(`${request.method} ${path}`);
-    if (request.method === "POST" && path === "/session") return new Response(JSON.stringify({ id: "ses_auto_1" }), { status: 200, headers: { "content-type": "application/json" } });
+    if (request.method === "POST" && path === "/session") return new Response(JSON.stringify({ data: { id: "ses_auto_1" } }), { status: 200, headers: { "content-type": "application/json" } });
     if (request.method === "POST" && path.startsWith("/session/")) { state.prompted = await request.json() as Record<string, unknown>; return new Response("{}", { status: 200 }); }
     if (path.startsWith("/session/")) {
       // Newest first, like the engine's order=desc pages.
       const history = state.history ?? (state.completed
         ? [{ type: "assistant", time: { completed: 1_700_000_000_000 } }, { type: "user", time: { created: 1 } }]
         : []);
-      return new Response(JSON.stringify(history), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ data: history }), { status: 200, headers: { "content-type": "application/json" } });
     }
     return new Response("{}", { status: 200 });
   };
@@ -186,10 +211,10 @@ test("the scheduler claims before dispatch, records the run and finalizes it", a
       assert.equal(done.running, null);
       // The run left auditable evidence inside the project, not just in the config dir.
       const { readdir } = await import("node:fs/promises");
-      const runFiles = await readdir(join(project, "comex", "tareas", task.id, "runs"));
+      const runFiles = await readdir(join(project, (await import("../src/specialists/project-data.js")).resolveDataDir(project), "tareas", task.id, "runs"));
       assert.equal(runFiles.length, 1);
       assert.match(runFiles[0]!, /\.json$/);
-      const evidence = JSON.parse(await readFile(join(project, "comex", "tareas", task.id, "runs", runFiles[0]!), "utf8")) as { status: string; sessionId: string | null };
+      const evidence = JSON.parse(await readFile(join(project, (await import("../src/specialists/project-data.js")).resolveDataDir(project), "tareas", task.id, "runs", runFiles[0]!), "utf8")) as { status: string; sessionId: string | null };
       assert.equal(evidence.status, "ok");
       assert.equal(evidence.sessionId, "ses_auto_1");
       const runs = await listRuns(config, app.id, task.id);
@@ -268,7 +293,7 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
     store.bind(workspaceId, app.id, project);
     await syncLibraryToolPlugin(config as unknown as ServerConfig, workspaceId, project);
     await withFlag("true", async () => {
-      const created = await runLibraryTool(config, project, "specialist_task_create", { name: "lunes", prompt: "Resumí la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) as { task: { name: string; schedule: { kind: string } } };
+      const created = await runLibraryTool(config, project, "specialist_task_create", { name: "lunes", prompt: "Resume la semana.", schedule: { kind: "weekly", daysOfWeek: [1], hour: 9, minute: 0 } }) as { task: { name: string; schedule: { kind: string } } };
       assert.equal(created.task.name, "lunes");
       assert.equal(created.task.schedule.kind, "weekly");
       const listed = await runLibraryTool(config, project, "specialist_task_list", {}) as { tasks: Array<{ name: string; id: string }> };
@@ -290,7 +315,29 @@ test("chat can create and manage tasks through the scoped tool bridge", async ()
       const listed = await call("POST", "/specialist-tool", { name: "specialist_task_list", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
       assert.equal(listed.status, 200);
       assert.equal((listed.json.result as { tasks: unknown[] }).tasks.length, 1);
-      await assert.rejects(call("POST", "/specialist-tool", { name: "specialist_task_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" }));
+      const unknownTool = await call("POST", "/specialist-tool", { name: "specialist_task_rename", input: {} }, { authorization: `Bearer ${descriptor.token}`, "content-type": "application/json" });
+      assert.equal(unknownTool.status, 422);
+      assert.equal(unknownTool.json.error, "invalid_library_tool");
     });
   } finally { await rmAll(root); }
+});
+
+test("a monthly task runs on the chosen day and falls back to the last day of short months", async () => {
+  const monthly = { kind: "monthly" as const, dayOfMonth: 31, hour: 9, minute: 0 };
+  // 2026-01-15 → 2026-01-31 09:00
+  const january = nextRun(monthly, new Date(2026, 0, 15, 12, 0).getTime());
+  assert.equal(new Date(january!).getDate(), 31);
+  assert.equal(new Date(january!).getMonth(), 0);
+  // From Feb 1st, day 31 becomes Feb 28 (2026 is not a leap year).
+  const february = nextRun(monthly, new Date(2026, 1, 1, 0, 0).getTime());
+  assert.equal(new Date(february!).getMonth(), 1);
+  assert.equal(new Date(february!).getDate(), 28);
+  // April has 30 days.
+  const april = nextRun(monthly, new Date(2026, 3, 2, 0, 0).getTime());
+  assert.equal(new Date(april!).getMonth(), 3);
+  assert.equal(new Date(april!).getDate(), 30);
+  // Same day but earlier hour still waits for the clock.
+  const sameDay = nextRun({ kind: "monthly", dayOfMonth: 5, hour: 9, minute: 0 }, new Date(2026, 4, 5, 8, 0).getTime());
+  assert.equal(new Date(sameDay!).getDate(), 5);
+  assert.equal(new Date(sameDay!).getHours(), 9);
 });

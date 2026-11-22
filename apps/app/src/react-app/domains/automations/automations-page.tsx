@@ -1,3 +1,4 @@
+import { LocalAutomationsPage } from "./local-automations-page";
 /** @jsxImportSource react */
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
@@ -76,8 +77,10 @@ import { describeAutomationModel } from "./automation-model-options"
 const AUTOMATIONS_PAGE_FAST_POLL_MS = AUTOMATIONS_FAST_POLL_MS
 
 function stateLabel(state: AutomationState) {
-  if (state === "needs_attention") return "Needs attention"
-  return state.slice(0, 1).toUpperCase() + state.slice(1)
+  if (state === "needs_attention") return t("connect.state_unavailable_label")
+  if (state === "active") return t("session.cmd_agent_active")
+  if (state === "inactive") return t("workspace_list.feed_inactive")
+  return t("composer.session_reference_archived")
 }
 
 function stateVariant(state: AutomationState): "default" | "secondary" | "destructive" | "outline" {
@@ -150,19 +153,19 @@ function eventSummary(event: AutomationRunEvent) {
     .at(0)
   if (preferred) return preferred
   const serialized = JSON.stringify(payload)
-  return serialized === "{}" ? "No additional details." : serialized
+  return serialized === "{}" ? t("secondary_ui.automations.den.no_details") : serialized
 }
 
 function usageLabel(run: AutomationRun) {
   const input = run.usage.inputTokens === null ? "—" : run.usage.inputTokens.toLocaleString()
   const output = run.usage.outputTokens === null ? "—" : run.usage.outputTokens.toLocaleString()
   const cost = run.usage.costMicros === null ? "—" : `$${(run.usage.costMicros / 1_000_000).toFixed(4)}`
-  return `${input} input · ${output} output · ${cost}`
+  return t("secondary_ui.automations.den.usage", { input, output, cost })
 }
 
 function LoadingState() {
   return (
-    <div className="space-y-4 p-6" role="status" aria-label="Loading Automations">
+    <div className="space-y-4 p-6" role="status" aria-label={t("secondary_ui.automations.den.loading")}>
       <Skeleton className="h-14 rounded-2xl" />
       <Skeleton className="h-40 rounded-2xl" />
       <Skeleton className="h-40 rounded-2xl" />
@@ -170,7 +173,18 @@ function LoadingState() {
   )
 }
 
-export function AutomationsPage(props: {
+/** One entry, two explicit storage locations; the local view has no Den hooks. */
+export function AutomationsPage(props: Parameters<typeof DenAutomationsPage>[0] = {}) {
+  const local = useComexWorkspaceEnabled();
+  const [showDen, setShowDen] = useState(false);
+  if (local && !showDen) return <LocalAutomationsPage onShowDen={() => setShowDen(true)} />;
+  return <>
+    {local && <Button variant="ghost" size="sm" className="m-3" onClick={() => setShowDen(false)}><ArrowLeft />Tareas de esta computadora</Button>}
+    <DenAutomationsPage {...props} />
+  </>;
+}
+
+function DenAutomationsPage(props: {
   providerCatalog?: AutomationProviderCatalog
   workspaceId?: string | null
   /** Titlebar slot for New Automation, matching Library and Dashboard. */
@@ -284,7 +298,7 @@ export function AutomationsPage(props: {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon"><CalendarClock /></EmptyMedia>
-            <EmptyTitle>No Automations yet</EmptyTitle>
+            <EmptyTitle>{t("secondary_ui.automations.den.none_yet")}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       </div>
@@ -295,8 +309,8 @@ export function AutomationsPage(props: {
       <div className="mx-auto max-w-xl p-6 pt-16">
         <Alert variant="warning">
           <AlertCircle aria-hidden="true" />
-          <AlertTitle>Select a Den organization</AlertTitle>
-          <AlertDescription>Automations belong to your active Den organization.</AlertDescription>
+          <AlertTitle>{t("secondary_ui.automations.den.select_org")}</AlertTitle>
+          <AlertDescription>{t("secondary_ui.automations.den.belong_to_org")}</AlertDescription>
         </Alert>
       </div>
     )
@@ -307,10 +321,10 @@ export function AutomationsPage(props: {
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4 p-6 pt-16 text-center" role="alert">
         <AlertCircle className="size-8 text-destructive" aria-hidden="true" />
         <div>
-          <h2 className="font-medium">Automations unavailable</h2>
+          <h2 className="font-medium">{t("secondary_ui.automations.den.unavailable")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{describeError(listQuery.error)}</p>
         </div>
-        <Button variant="outline" onClick={() => void listQuery.refetch()}><RefreshCw />Retry</Button>
+        <Button variant="outline" onClick={() => void listQuery.refetch()}><RefreshCw />{t("common.retry")}</Button>
       </div>
     )
   }
@@ -329,22 +343,22 @@ export function AutomationsPage(props: {
     return (
       <div className="mx-auto max-w-3xl space-y-5 p-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" aria-label="Back to Automations" onClick={() => openAutomation(null)}>
+          <Button variant="ghost" size="icon" aria-label={t("secondary_ui.automations.den.back")} onClick={() => openAutomation(null)}>
             <ArrowLeft />
           </Button>
           <div>
-            <h2 className="text-xl font-semibold">Create Automation</h2>
+            <h2 className="text-xl font-semibold">{t("secondary_ui.automations.den.create_title")}</h2>
             <p className="text-sm text-muted-foreground">
               {createChoices.length > 1
-                ? "The schedule starts as soon as you create it."
-                : createPlacement === "cloud" ? "Runs on your cloud computer. The schedule starts as soon as you create it." : "Runs on your desktop computer. Keep OpenWork open and connected at the scheduled time."}
+                ? t("secondary_ui.automations.den.schedule_starts")
+                : createPlacement === "cloud" ? t("secondary_ui.automations.den.create_cloud_hint") : t("secondary_ui.automations.den.desktop_hint")}
             </p>
           </div>
         </div>
         {placement === "cloud" && workflowId && workflowQuery.error ? (
-          <Alert variant="warning"><AlertCircle /><AlertTitle>Workflow unavailable</AlertTitle><AlertDescription>{describeError(workflowQuery.error)}</AlertDescription></Alert>
+          <Alert variant="warning"><AlertCircle /><AlertTitle>{t("secondary_ui.automations.den.workflow_unavailable")}</AlertTitle><AlertDescription>{describeError(workflowQuery.error)}</AlertDescription></Alert>
         ) : placement === "cloud" && workflowId && workflowQuery.data && !workflowQuery.data.canSchedule ? (
-          <Alert variant="warning"><AlertCircle /><AlertTitle>You can run this Workflow manually, but not schedule it</AlertTitle><AlertDescription>Ask a Workflow manager for scheduling access. You can still create an ordinary Automation below.</AlertDescription></Alert>
+          <Alert variant="warning"><AlertCircle /><AlertTitle>{t("secondary_ui.automations.den.workflow_manual_only")}</AlertTitle><AlertDescription>{t("secondary_ui.automations.den.workflow_ask_manager")}</AlertDescription></Alert>
         ) : null}
         <AutomationEditor
           key={workflowVersion?.id ?? "agent"}
@@ -355,7 +369,7 @@ export function AutomationsPage(props: {
           onThisComputer={isDesktopRuntime()}
           connectedAccounts={connectedAccounts}
           initial={workflow && workflowVersion
-            ? { ...inputDefaults(modelsFor(createPlacement)), name: `${workflow.title} refresh` }
+            ? { ...inputDefaults(modelsFor(createPlacement)), name: t("secondary_ui.automations.den.workflow_refresh_name", { title: workflow.title }) }
             : prefill ? { ...inputDefaults(modelsFor(createPlacement)), ...prefill } : undefined}
           initialKey={workflowVersion?.id ?? (prefill ? "calendar" : undefined)}
           pinnedWorkflow={workflow && workflowVersion ? { title: workflow.title, configObjectVersionId: workflowVersion.id } : undefined}
@@ -363,7 +377,7 @@ export function AutomationsPage(props: {
           modelOptions={modelsFor(createPlacement)}
           modelOptionsByPlacement={modelsByPlacement}
           providerCatalog={props.providerCatalog}
-          submitLabel="Create and activate"
+          submitLabel={t("secondary_ui.automations.den.create_activate")}
           onCancel={() => openAutomation(null)}
           onSave={async (input, chosenPlacement) => {
             setBusyAction("create")
@@ -390,7 +404,7 @@ export function AutomationsPage(props: {
                   })
               await refresh()
               openAutomation(detail.automation.id)
-              toast.success("Automation created and active")
+              toast.success(t("secondary_ui.automations.den.created"))
             } catch (error) {
               toast.error(describeError(error))
             } finally {
@@ -409,7 +423,7 @@ export function AutomationsPage(props: {
         <div className="mx-auto max-w-xl space-y-4 p-6 pt-16 text-center">
           <AlertCircle className="mx-auto size-8 text-destructive" />
           <p>{describeError(detailQuery.error)}</p>
-          <Button variant="outline" onClick={() => openAutomation(null)}>Back to Automations</Button>
+          <Button variant="outline" onClick={() => openAutomation(null)}>{t("secondary_ui.automations.den.back")}</Button>
         </div>
       )
     }
@@ -437,8 +451,8 @@ export function AutomationsPage(props: {
       return (
         <div className="mx-auto max-w-3xl space-y-5 p-6">
           <div>
-            <h2 className="text-xl font-semibold">Edit Automation</h2>
-            <p className="text-sm text-muted-foreground">Saving creates an immutable revision for future runs.</p>
+            <h2 className="text-xl font-semibold">{t("secondary_ui.automations.den.edit_title")}</h2>
+            <p className="text-sm text-muted-foreground">{t("secondary_ui.automations.den.edit_hint")}</p>
           </div>
           <AutomationEditor
             onOpenProviderSettings={openProviderSettings}
@@ -454,7 +468,7 @@ export function AutomationsPage(props: {
             modelOptions={modelsFor(detailPlacement, detail.revision.workspaceId)}
             modelOptionsByPlacement={modelsByPlacementFor(detail.revision.workspaceId)}
             providerCatalog={props.providerCatalog}
-            submitLabel="Save changes"
+            submitLabel={t("secondary_ui.automations.den.save_changes")}
             onCancel={() => {
               setEditing(false)
               setRepairingModel(false)
@@ -472,7 +486,7 @@ export function AutomationsPage(props: {
                 await refresh()
                 setEditing(false)
                 setRepairingModel(false)
-                toast.success("Automation updated")
+                toast.success(t("secondary_ui.automations.den.updated"))
               } catch (error) {
                 toast.error(describeError(error))
               } finally {
@@ -488,7 +502,7 @@ export function AutomationsPage(props: {
       <div className="mx-auto max-w-5xl space-y-5 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <Button variant="ghost" size="icon" aria-label="Back to Automations" onClick={() => openAutomation(null)}>
+            <Button variant="ghost" size="icon" aria-label={t("secondary_ui.automations.den.back")} onClick={() => openAutomation(null)}>
               <ArrowLeft />
             </Button>
             <div className="min-w-0">
@@ -503,16 +517,16 @@ export function AutomationsPage(props: {
             {editable ? <Button variant="outline" onClick={() => {
               setRepairingModel(false)
               setEditing(true)
-            }}><Pencil />Edit</Button> : null}
+            }}><Pencil />{t("common.edit")}</Button> : null}
             {task.state === "active" ? (
               <Button
                 variant="outline"
                 disabled={busyAction !== null}
                 onClick={() => void act("deactivate", async () => {
                   await client.deactivateAutomation(organizationId, task.id)
-                }, "Automation deactivated. A run already in progress will continue.")}
+                }, t("secondary_ui.automations.den.deactivated"))}
               >
-                <Square />Deactivate
+                <Square />{t("secondary_ui.automations.den.deactivate")}
               </Button>
             ) : task.state === "inactive" ? (
               <Button
@@ -520,9 +534,9 @@ export function AutomationsPage(props: {
                 disabled={busyAction !== null}
                 onClick={() => void act("activate", async () => {
                   await client.activateAutomation(organizationId, task.id)
-                }, "Automation activated")}
+                }, t("secondary_ui.automations.den.activated"))}
               >
-                <Play />Activate
+                <Play />{t("secondary_ui.automations.den.activate")}
               </Button>
             ) : null}
             {detailPlacement === "desktop" && cloudRunAvailable ? (
@@ -533,9 +547,9 @@ export function AutomationsPage(props: {
                 onClick={() => void act("run-cloud", async () => {
                   const run = await client.runAutomationNow(organizationId, task.id, { executionTarget: "cloud" })
                   setSearchParams(new URLSearchParams({ automation: task.id, run: run.id }))
-                }, "Automation queued in the cloud")}
+                }, t("secondary_ui.automations.den.queued_cloud"))}
               >
-                <Cloud />Run in cloud
+                <Cloud />{t("secondary_ui.automations.den.run_cloud")}
               </Button>
             ) : null}
             <Button
@@ -544,11 +558,11 @@ export function AutomationsPage(props: {
                 const run = await client.runAutomationNow(organizationId, task.id)
                 const next = new URLSearchParams({ automation: task.id, run: run.id })
                 setSearchParams(next)
-              }, "Automation queued")}
+              }, t("secondary_ui.automations.den.queued"))}
             >
-              <Play />Run now
+              <Play />{t("command_center.action_run_now")}
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Archive Automation" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label={t("secondary_ui.automations.den.archive_aria")} onClick={() => setArchiveOpen(true)}>
               <Archive />
             </Button>
           </div>
@@ -559,11 +573,10 @@ export function AutomationsPage(props: {
           && noDesktopConnected ? (
           <Alert variant="warning" data-automation-runner-offline>
             <AlertCircle />
-            <AlertTitle>No desktop connected</AlertTitle>
+            <AlertTitle>{t("secondary_ui.automations.den.no_desktop")}</AlertTitle>
             <AlertDescription>
               <p>
-                This Automation runs on your desktop, and Den cannot see one right now. Occurrences that
-                come due are recorded as missed unless a signed-in desktop is running by then.
+                {t("secondary_ui.automations.den.no_desktop_body")}
               </p>
             </AlertDescription>
           </Alert>
@@ -572,12 +585,12 @@ export function AutomationsPage(props: {
         {task.needsAttentionReason ? (
           <Alert variant="warning" data-automation-model-attention={modelNeedsAttention || undefined}>
             {modelNeedsAttention ? <AlertTriangle /> : <AlertCircle />}
-            <AlertTitle>{modelNeedsAttention ? "Model needs attention" : "Action required"}</AlertTitle>
+            <AlertTitle>{modelNeedsAttention ? t("secondary_ui.automations.den.model_attention") : t("secondary_ui.automations.den.action_required")}</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>{task.needsAttentionReason.message}</p>
               {modelNeedsAttention && editable ? (
                 <>
-                  <p>This Automation is paused. Its instructions, schedule, and run history are unchanged.</p>
+                  <p>{t("secondary_ui.automations.den.paused")}</p>
                   <Button
                     type="button"
                     size="sm"
@@ -587,7 +600,7 @@ export function AutomationsPage(props: {
                       setEditing(true)
                     }}
                   >
-                    Select a supported model
+                    {t("secondary_ui.automations.den.select_model")}
                   </Button>
                 </>
               ) : null}
@@ -599,8 +612,8 @@ export function AutomationsPage(props: {
           <div className="space-y-5">
             <Card variant="outline">
               <CardHeader>
-                <CardTitle>Instructions</CardTitle>
-                <CardDescription>Revision {detail.revision.version}</CardDescription>
+                <CardTitle>{t("extensions.add_instructions_label")}</CardTitle>
+                <CardDescription>{t("secondary_ui.automations.den.revision", { version: detail.revision.version })}</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="whitespace-pre-wrap text-sm leading-6">{detail.revision.instructions}</p>
@@ -609,25 +622,25 @@ export function AutomationsPage(props: {
 
             <Card variant="outline">
               <CardHeader>
-                <CardTitle>{detail.revision.executionTarget === "cloud" ? "Cloud computer" : "Desktop computer"}</CardTitle>
-                <CardDescription>{detail.revision.executionTarget === "cloud" ? "Runs on your cloud computer, even when your desktop is offline." : "Runs on your desktop computer. Keep OpenWork open and connected at the scheduled time."}</CardDescription>
+                <CardTitle>{detail.revision.executionTarget === "cloud" ? t("session.remote_task_cloud") : t("secondary_ui.automations.den.desktop_computer")}</CardTitle>
+                <CardDescription>{detail.revision.executionTarget === "cloud" ? t("secondary_ui.automations.den.cloud_hint") : t("secondary_ui.automations.den.desktop_hint")}</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-                <div className="min-w-0"><span className="text-muted-foreground">Model</span><p className="break-words">{describeAutomationModel(detail.revision.model, modelsFor(detailPlacement, detail.revision.workspaceId))}</p></div>
-                <div className="min-w-0"><span className="text-muted-foreground">Next run</span><p className="break-words">{task.state === "needs_attention" ? "No future run scheduled" : formatAutomationTime(task.nextDueAt)}</p></div>
-                <div className="min-w-0"><span className="text-muted-foreground">Runtime limit</span><p className="break-words">{Math.round(detail.revision.maximumRuntimeMs / 60_000)} minutes</p></div>
-                <div className="min-w-0"><span className="text-muted-foreground">Integrations</span><p className="break-words">Your available OpenWork Connect tools</p></div>
+                <div className="min-w-0"><span className="text-muted-foreground">{t("extensions.detail_fact_model")}</span><p className="break-words">{describeAutomationModel(detail.revision.model, modelsFor(detailPlacement, detail.revision.workspaceId))}</p></div>
+                <div className="min-w-0"><span className="text-muted-foreground">{t("secondary_ui.automations.den.next_run")}</span><p className="break-words">{task.state === "needs_attention" ? t("secondary_ui.automations.den.no_future_run") : formatAutomationTime(task.nextDueAt)}</p></div>
+                <div className="min-w-0"><span className="text-muted-foreground">{t("secondary_ui.automations.den.runtime_limit")}</span><p className="break-words">{t("secondary_ui.automations.den.minutes", { count: Math.round(detail.revision.maximumRuntimeMs / 60_000) })}</p></div>
+                <div className="min-w-0"><span className="text-muted-foreground">{t("secondary_ui.automations.den.integrations")}</span><p className="break-words">{t("secondary_ui.automations.den.connect_tools")}</p></div>
               </CardContent>
             </Card>
 
             <Card variant="outline">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History className="size-4" />Run history</CardTitle>
-                <CardDescription>Durable receipts for manual and scheduled runs.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><History className="size-4" />{t("secondary_ui.automations.den.run_history")}</CardTitle>
+                <CardDescription>{t("secondary_ui.automations.den.run_history_desc")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {runsQuery.isLoading ? <Skeleton className="h-24 rounded-xl" /> : null}
-                {!runsQuery.isLoading && runs.length === 0 ? <p className="text-sm text-muted-foreground">No runs yet.</p> : null}
+                {!runsQuery.isLoading && runs.length === 0 ? <p className="text-sm text-muted-foreground">{t("secondary_ui.automations.den.no_runs")}</p> : null}
                 {runs.map((run) => (
                   <div
                     key={run.id}
@@ -655,8 +668,8 @@ export function AutomationsPage(props: {
                           disabled={busyAction !== null}
                           onClick={() => void act(`cancel:${run.id}`, async () => {
                             await client.cancelAutomationRun(organizationId, run.id)
-                          }, "Run cancellation requested")}
-                        >Cancel</Button>
+                          }, t("secondary_ui.automations.den.cancel_requested"))}
+                        >{t("common.cancel")}</Button>
                       ) : null}
                       <Button
                         type="button"
@@ -666,7 +679,7 @@ export function AutomationsPage(props: {
                           if (run.executionThread) navigate(automationExecutionThreadRoute(run.executionThread))
                           else setSearchParams(new URLSearchParams({ automation: task.id, run: run.id }))
                         }}
-                      >Open</Button>
+                      >{t("den.open")}</Button>
                     </span>
                   </div>
                 ))}
@@ -676,18 +689,18 @@ export function AutomationsPage(props: {
 
           <Card variant="outline" className="h-fit">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Monitor className="size-4" />Execution thread</CardTitle>
-              <CardDescription>{selectedRunId ? "Run receipt and event timeline" : "Select a run to inspect its execution thread."}</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Monitor className="size-4" />{t("secondary_ui.automations.den.execution_thread")}</CardTitle>
+              <CardDescription>{selectedRunId ? t("secondary_ui.automations.den.receipt_timeline") : t("secondary_ui.automations.den.select_run")}</CardDescription>
             </CardHeader>
             <CardContent>
               {!selectedRunId ? (
-                <div className="py-10 text-center text-sm text-muted-foreground">No run selected.</div>
+                <div className="py-10 text-center text-sm text-muted-foreground">{t("secondary_ui.automations.den.no_run_selected")}</div>
               ) : receiptIsLoading ? (
                 <Skeleton className="h-48 rounded-xl" />
               ) : receiptQuery.error || !selectedReceipt ? (
                 <Alert variant="warning"><AlertCircle /><AlertDescription>{describeError(receiptQuery.error)}</AlertDescription></Alert>
               ) : !threadMatches ? (
-                <Alert variant="warning"><AlertCircle /><AlertDescription>This Cloud thread no longer matches the selected run.</AlertDescription></Alert>
+                <Alert variant="warning"><AlertCircle /><AlertDescription>{t("secondary_ui.automations.den.thread_mismatch")}</AlertDescription></Alert>
               ) : (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -695,9 +708,9 @@ export function AutomationsPage(props: {
                     {selectedReceipt.run.executionThread ? (
                       <Badge variant="outline"><ExecutionIcon run={selectedReceipt.run} />{automationExecutionIdentity(selectedReceipt.run.executionThread).label}</Badge>
                     ) : selectedReceipt.run.status === "queued" ? (
-                      <Badge variant="outline">{selectedReceipt.run.executionTarget === "cloud" ? "Waiting for cloud computer" : "Waiting for desktop computer"}</Badge>
+                      <Badge variant="outline">{selectedReceipt.run.executionTarget === "cloud" ? t("secondary_ui.automations.den.waiting_cloud") : t("secondary_ui.automations.den.waiting_desktop")}</Badge>
                     ) : (
-                      <Badge variant="outline">{selectedReceipt.run.executionTarget === "cloud" ? <Cloud className="mr-1 h-3 w-3" /> : <Monitor className="mr-1 h-3 w-3" />}{selectedReceipt.run.executionTarget === "cloud" ? "Cloud computer" : "Desktop computer"}</Badge>
+                      <Badge variant="outline">{selectedReceipt.run.executionTarget === "cloud" ? <Cloud className="mr-1 h-3 w-3" /> : <Monitor className="mr-1 h-3 w-3" />}{selectedReceipt.run.executionTarget === "cloud" ? t("session.remote_task_cloud") : t("secondary_ui.automations.den.desktop_computer")}</Badge>
                     )}
                     {localSessionRoute ? (
                       <Button
@@ -707,7 +720,7 @@ export function AutomationsPage(props: {
                         data-automation-run-id={selectedReceipt.run.id}
                         onClick={() => navigate(localSessionRoute)}
                       >
-                        Open local thread
+                        {t("secondary_ui.automations.den.open_local_thread")}
                       </Button>
                     ) : null}
                   </div>
@@ -731,7 +744,7 @@ export function AutomationsPage(props: {
                     </Alert>
                   ) : null}
                   {selectedReceipt.run.resultSummary ? (
-                    <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Result</p><p className="mt-1 whitespace-pre-wrap text-sm">{selectedReceipt.run.resultSummary}</p></div>
+                    <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("secondary_ui.automations.den.result")}</p><p className="mt-1 whitespace-pre-wrap text-sm">{selectedReceipt.run.resultSummary}</p></div>
                   ) : null}
                   <div className="text-xs text-muted-foreground">{usageLabel(selectedReceipt.run)}</div>
                   <ol className="space-y-3 border-s border-border ps-4">
@@ -755,17 +768,17 @@ export function AutomationsPage(props: {
         <ConfirmModal
           open={archiveOpen}
           variant="danger"
-          title="Archive Automation?"
-          message="Future runs will stop. Durable run history will remain available in Den."
-          confirmLabel="Archive"
-          cancelLabel="Cancel"
+          title={t("secondary_ui.automations.den.archive_title")}
+          message={t("secondary_ui.automations.den.archive_message")}
+          confirmLabel={t("secondary_ui.automations.den.archive")}
+          cancelLabel={t("common.cancel")}
           onCancel={() => setArchiveOpen(false)}
           onConfirm={() => {
             setArchiveOpen(false)
             void act("archive", async () => {
               await client.archiveAutomation(organizationId, task.id)
               openAutomation(null)
-            }, "Automation archived")
+            }, t("secondary_ui.automations.den.archived"))
           }}
         />
       </div>
@@ -776,7 +789,7 @@ export function AutomationsPage(props: {
 
   // The page title lives in the titlebar; New Automation sits beside it there,
   // as Library and Dashboard place their add controls.
-  const newAutomation = <Button onClick={() => setSearchParams(new URLSearchParams({ create: "1" }))}><Plus />New Automation</Button>
+  const newAutomation = <Button onClick={() => setSearchParams(new URLSearchParams({ create: "1" }))}><Plus />{t("secondary_ui.automations.den.new")}</Button>
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-6 py-8 sm:px-8">
       {props.headerActionsTarget
@@ -784,24 +797,24 @@ export function AutomationsPage(props: {
         : props.headerActionsTarget === undefined ? <div className="flex justify-end">{newAutomation}</div> : null}
       <div className="relative max-w-md">
         <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-        <Input className="pl-9" value={query} placeholder="Search Automations" onChange={(event) => setQuery(event.currentTarget.value)} />
+        <Input className="pl-9" value={query} placeholder={t("secondary_ui.automations.den.search")} onChange={(event) => setQuery(event.currentTarget.value)} />
       </div>
       {filteredItems.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon"><CalendarClock /></EmptyMedia>
-            <EmptyTitle>{query ? "No matching Automations" : "No Automations yet"}</EmptyTitle>
+            <EmptyTitle>{query ? t("secondary_ui.automations.den.no_matching") : t("secondary_ui.automations.den.none_yet")}</EmptyTitle>
             <EmptyDescription>
               {query
-                ? "Try a different search."
+                ? t("secondary_ui.automations.den.try_different")
                 : placementChoices.length > 1
-                  ? "Create a task that runs on your desktops or in the cloud."
+                  ? t("secondary_ui.automations.den.empty_both")
                   : placement === "cloud"
-                    ? "Create a task that runs on your cloud computer, even when your desktop is offline."
-                    : "Create a task for this desktop computer. For tasks that run while it’s offline, create a cloud automation in OpenWork Web."}
+                    ? t("secondary_ui.automations.den.empty_cloud")
+                    : t("secondary_ui.automations.den.empty_desktop")}
             </EmptyDescription>
           </EmptyHeader>
-          {!query ? <EmptyContent><Button onClick={() => setSearchParams(new URLSearchParams({ create: "1" }))}><Plus />New Automation</Button></EmptyContent> : null}
+          {!query ? <EmptyContent><Button onClick={() => setSearchParams(new URLSearchParams({ create: "1" }))}><Plus />{t("secondary_ui.automations.den.new")}</Button></EmptyContent> : null}
         </Empty>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -818,7 +831,7 @@ export function AutomationsPage(props: {
                 <div className="min-w-0">
                   <h3 className="flex items-center gap-2 truncate font-medium">
                     {item.automation.state === "needs_attention" ? (
-                      <AlertTriangle className="size-4 shrink-0 text-warning" aria-label="Automation needs attention" />
+                      <AlertTriangle className="size-4 shrink-0 text-warning" aria-label={t("secondary_ui.automations.den.needs_attention_aria")} />
                     ) : null}
                     <span className="truncate">{item.automation.name}</span>
                   </h3>
@@ -828,11 +841,11 @@ export function AutomationsPage(props: {
               </div>
               <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground" data-automation-computer={item.revision.executionTarget ?? "desktop"}>
                 {item.revision.executionTarget === "cloud" ? <Cloud className="size-3.5" aria-hidden="true" /> : <Monitor className="size-3.5" aria-hidden="true" />}
-                <span>{item.revision.executionTarget === "cloud" ? "Cloud computer" : "Desktop computer"}</span>
+                <span>{item.revision.executionTarget === "cloud" ? t("session.remote_task_cloud") : t("secondary_ui.automations.den.desktop_computer")}</span>
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>{formatAutomationSchedule(item.revision.schedule)}</span>
-                <span>{item.latestRun ? `Last run: ${runStatusLabel(item.latestRun)}` : `Next: ${formatAutomationTime(item.automation.nextDueAt)}`}</span>
+                <span>{item.latestRun ? t("secondary_ui.automations.den.last_run", { status: runStatusLabel(item.latestRun) }) : t("secondary_ui.automations.den.next", { time: formatAutomationTime(item.automation.nextDueAt) })}</span>
               </div>
             </button>
           ))}

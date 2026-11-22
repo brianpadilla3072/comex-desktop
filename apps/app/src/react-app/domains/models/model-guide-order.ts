@@ -1,7 +1,7 @@
 import type { GuideSnapshot } from "@openwork/types/model-guide";
-import type { ModelGroup } from "./model-catalog";
+import { AUTO_ROUTER_GROUP, MODEL_GROUP_IDS, type ModelGroup } from "./model-catalog";
 
-const PERSONAL_GROUPS = new Set(["Pinned", "Recent", "Smart", "OpenWork Models", "Saved selection", "Search results"]);
+const PERSONAL_GROUPS = new Set<string>([MODEL_GROUP_IDS.pinned, MODEL_GROUP_IDS.recent, AUTO_ROUTER_GROUP, MODEL_GROUP_IDS.openwork, MODEL_GROUP_IDS.saved, MODEL_GROUP_IDS.search]);
 
 /** Stable partition within each billing/provider group. Never override pins, recents or search relevance. */
 export function prioritizeAssessedModels(groups: readonly ModelGroup[], snapshot?: GuideSnapshot): ModelGroup[] {

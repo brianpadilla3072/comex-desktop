@@ -1,8 +1,10 @@
+import { companionEnabled } from "./companion-platform.mjs";
 import { processBlankSlateProfile, resolveBlankSlateLaunch } from "./blank-slate-profile.mjs";
+import { createDesktopCompanion } from "./desktop-companion.mjs";
 import { DESKTOP_POLICY_ENFORCEMENT_ENABLED } from "@openwork/types/den/desktop-policies-runtime";
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import net from "node:net";
+import { resolveRemoteDebugPort } from "./remote-debug-port.mjs";
 import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import {
   cp,
@@ -33,6 +35,7 @@ import { createNativeContextMenus } from "./context-menu.mjs";
 import { createNativeDictation, createSpeechDictation } from "./native-dictation.mjs";
 import { applyBrandAppName } from "./brand-app-name.mjs";
 import { createBrowserPanel } from "./browser-panel.mjs";
+import { createDesignRenderer } from "./design-render.mjs";
 import { createComputerControl } from "@openwork/computer-use/computer-control";
 import { createComputerAgentPermissions } from "./computer-agent-permissions.mjs";
 import { createBrowserUploadGrantStore, createBrowserUploadPermissions } from "./browser-upload-permissions.mjs";
@@ -48,6 +51,7 @@ import {
   executeNukeFreshStart,
   runPendingNukeCleanup,
 } from "./nuke.mjs";
+import { opencodeCacheCandidates, resetOpencodeCache } from "./opencode-cache.mjs";
 import {
   createConnectLinkReplayGuard,
   extractConnectExchange,
@@ -108,6 +112,25 @@ import { createKeepAwake } from "./keep-awake.mjs";
 import { attachFloatingViewWindow, floatingViewWindowOptions } from "./floating-view-window.mjs";
 import { createStartupLog, startupPhase, withStartupPhase } from "./startup-log.mjs";
 import { createWindowStateStore } from "./window-state.mjs";
+import { z } from "zod";
+
+// `computer-targets.json`: the person's saved app-to-computer choices (SavedChoices).
+const savedComputerChoicesSchema = z.object({
+  targets: z.record(z.string(), z.unknown()).catch({}).transform((targets) => {
+    /** @type {Record<string, string>} */
+    const kept = {};
+    for (const [app, computer] of Object.entries(targets)) if (typeof computer === "string") kept[app] = computer;
+    return kept;
+  }),
+  computer: z.string().optional().catch(undefined),
+});
+// The cached brand icon's sidecar; only the URL it was fetched from is read back.
+const brandIconSidecarSchema = z.object({ sourceUrl: z.string().optional().catch(undefined) });
+// `openwork-ui-control.json` as returned to the renderer (UiControlBridgeInfo).
+const uiControlBridgeInfoSchema = z.object({
+  baseUrl: z.string().optional().catch(undefined),
+  token: z.string().optional().catch(undefined),
+});
 
 // Startup milestones (epoch ms) for the renderer's one-per-launch startup
 // report to Den. The OS process creation time includes module loading; the
@@ -138,6 +161,8 @@ const desktopPackageMetadata = require("../package.json");
 const {
   app,
   BrowserWindow,
+  Tray,
+  globalShortcut,
   clipboard,
   dialog,
   ipcMain,
@@ -296,10 +321,11 @@ const computerControl = createComputerControl({
   standing: {
     read: async () => {
       try {
-        const saved = JSON.parse(await readFile(computerTargetsPath(), "utf8"));
+        const saved = savedComputerChoicesSchema.safeParse(JSON.parse(await readFile(computerTargetsPath(), "utf8")));
+        if (!saved.success) return { targets: {} };
         return {
-          targets: saved?.targets && typeof saved.targets === "object" ? saved.targets : {},
-          ...(typeof saved?.computer === "string" ? { computer: saved.computer } : {}),
+          targets: saved.data.targets,
+          ...(saved.data.computer !== undefined ? { computer: saved.data.computer } : {}),
         };
       } catch { return { targets: {} }; }
     },
@@ -947,8 +973,8 @@ function showDesktopNotification(input) {
 
 async function readBrandIconSidecar() {
   try {
-    const parsed = JSON.parse(await readFile(brandIconSidecarPath(), "utf8"));
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = brandIconSidecarSchema.safeParse(JSON.parse(await readFile(brandIconSidecarPath(), "utf8")));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -956,10 +982,8 @@ async function readBrandIconSidecar() {
 
 function readBrandIconSidecarSourceUrlSync() {
   try {
-    const parsed = JSON.parse(readFileSync(brandIconSidecarPath(), "utf8"));
-    return parsed && typeof parsed === "object" && typeof parsed.sourceUrl === "string"
-      ? parsed.sourceUrl
-      : null;
+    const parsed = brandIconSidecarSchema.safeParse(JSON.parse(readFileSync(brandIconSidecarPath(), "utf8")));
+    return parsed.success ? parsed.data.sourceUrl ?? null : null;
   } catch {
     return null;
   }
@@ -1192,41 +1216,19 @@ if (process.platform === "darwin" && INITIAL_APP_ICON_IMAGE && !INITIAL_APP_ICON
   app.dock.setIcon(INITIAL_APP_ICON_IMAGE);
 }
 
-// Expose the Chrome DevTools Protocol for local debugging and test harnesses.
-// Use OPENWORK_ELECTRON_REMOTE_DEBUG_PORT to pin a specific port; otherwise
-// probe for a free one starting at 9223.
-// Must resolve before app.commandLine.appendSwitch (before `ready`).
-function probePort(port) {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.once("error", () => resolve(false));
-    srv.listen({ port, host: "127.0.0.1" }, () => {
-      srv.close(() => resolve(true));
-    });
-  });
-}
-
-async function findFreeCdpPort(candidates) {
-  for (const port of candidates) {
-    if (await probePort(port)) return port;
-  }
-  return 0;
-}
-
-const explicitCdpPort = Number.parseInt(
-  process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT?.trim() ?? "",
-  10,
-);
-const remoteDebugPort = Number.isFinite(explicitCdpPort) && explicitCdpPort > 0
-  ? explicitCdpPort
-  : await findFreeCdpPort([9223, 9224, 9225, 9226, 9227]);
+// Packaged builds expose CDP only when explicitly requested for diagnostics.
+// Native browser tools use the conversation-scoped bridge, not this port.
+const remoteDebugPort = await resolveRemoteDebugPort({
+  packaged: app.isPackaged,
+  requested: process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT,
+});
 if (remoteDebugPort > 0) {
   app.commandLine.appendSwitch("remote-debugging-port", String(remoteDebugPort));
   app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
+  process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT = String(remoteDebugPort);
+} else {
+  delete process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT;
 }
-// Publish the resolved port; child processes (and the shells they spawn)
-// inherit it through the environment.
-process.env.OPENWORK_ELECTRON_REMOTE_DEBUG_PORT = String(remoteDebugPort);
 if (isDevMode && !app.isPackaged) {
   const cdpAddress = remoteDebugPort > 0 ? `http://127.0.0.1:${remoteDebugPort}` : "disabled";
   console.log(`[openwork] dev profile=${app.getPath("userData")} cdp=${cdpAddress}`);
@@ -1304,6 +1306,18 @@ const IDLE_ROUTER_INFO = Object.freeze({
 });
 
 let mainWindow = null;
+const desktopCompanion = createDesktopCompanion({
+  enabled: companionEnabled,
+  app, BrowserWindow, Tray, Menu, globalShortcut, screen, ipcMain, powerMonitor,
+  icon: APP_ICON_IMAGE ?? nativeImage.createEmpty(), directory: app.getPath("userData"), preload: path.join(__dirname, "companion-preload.cjs"),
+  getMain: () => mainWindow, quitting: () => quitInProgress(),
+  openMain: async () => { const window = await createMainWindow(); if (window.isMinimized()) window.restore(); window.show(); window.focus(); },
+  load: async window => {
+    const start = process.env.OPENWORK_ELECTRON_START_URL?.trim() || process.env.ELECTRON_START_URL?.trim();
+    if (start) await window.loadURL(new URL("companion.html", start).href);
+    else await window.loadFile(app.isPackaged ? path.join(process.resourcesPath, "app-dist", "companion.html") : path.resolve(__dirname, "../../app/dist/companion.html"));
+  },
+});
 const pendingDeepLinks = [];
 const nativeContextMenus = createNativeContextMenus({ Menu, clipboard, getWindow: () => mainWindow });
 
@@ -1312,7 +1326,7 @@ const browserUploadPermissions = createBrowserUploadPermissions({
   readPolicy: async () => {
     const server = await runtimeManager.openworkServerInfo();
     if (!server.baseUrl || !(server.clientToken ?? server.ownerToken)) throw new Error("OpenWork server unavailable");
-    // Trusted local service verifies the current Den organization, member and rollout.
+    // loopback-fetch: the local OpenWork server verifies the current Den organization, member and rollout.
     const response = await fetch(`${server.baseUrl}/managed-policy/browser-upload-permissions`, {
       headers: { Authorization: `Bearer ${server.clientToken ?? server.ownerToken}` }, signal: AbortSignal.timeout(15_000),
     });
@@ -1557,6 +1571,21 @@ const runtimeManager = createRuntimeManager({
     });
     return response === 1;
   },
+  // External delegates (docs/features/external-delegates): the person confirms
+  // here, in the main process, so engine tools cannot approve themselves.
+  delegationApproval: async ({ action, title, detail }) => {
+    const win = await createMainWindow();
+    const { response } = await dialog.showMessageBox(win, {
+      type: "question",
+      message: String(title).slice(0, 300),
+      detail: String(detail).slice(0, 2000),
+      buttons: ["Cancel", action === "register" ? "Allow tasks" : "Allow"], defaultId: 0, cancelId: 0, noLink: true,
+    });
+    return response === 1;
+  },
+  // node-pty gives external delegates a real terminal on macOS, Linux and
+  // Windows (ConPTY). A string argument is a verbatim Windows command line.
+  delegationPty: ({ file, args, cwd, env, cols, rows }) => pty.spawn(file, args, { name: "xterm-256color", cols, rows, cwd, env }),
   anonymousInference: {
     // Signed-out Auto has no device identity: like OpenCode Zen, the gateway limits it by IP.
     desktop: {
@@ -1693,6 +1722,7 @@ const keepAwakeSenders = new Set();
 
 const quitSequencer = createQuitSequencer({
   stop: async () => {
+    desktopCompanion.dispose();
     keepAwake.releaseAll();
     showShutdownScreen();
     desktopAutomationRunner.stop();
@@ -2028,6 +2058,9 @@ async function ensureProjectSkillRoot(projectDir) {
   return modern;
 }
 
+// Design studio exports: offline PDF/PNG rendering in hidden sandboxed windows.
+const designRenderer = createDesignRenderer({ BrowserWindow, session, tempRoot: app.getPath("temp") });
+
 function activeWindowFromEvent(event) {
   return BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
 }
@@ -2159,7 +2192,8 @@ const desktopCommandHandlers = {
   "getUiControlBridgeInfo": async (event, ...args) => {
       try {
         const raw = await readFile(path.join(app.getPath("userData"), "openwork-ui-control.json"), "utf8");
-        return JSON.parse(raw);
+        const info = uiControlBridgeInfoSchema.safeParse(JSON.parse(raw));
+        return info.success ? info.data : null;
       } catch {
         return null;
       }
@@ -2445,6 +2479,57 @@ const desktopCommandHandlers = {
       await cp(sourceDir, destination, { recursive: true });
       return execResult(true, `Imported skill to ${destination}`);
   },
+  "importSkillRepo": async (event, ...args) => {
+      const projectDir = String(args[0] ?? "").trim();
+      const url = String(args[1] ?? "").trim();
+      if (!projectDir || !url) throw new Error("projectDir and url are required");
+      const allowed = [
+        "https://github.com/pbakaus/impeccable",
+        "https://github.com/anthropics/skills",
+        "https://github.com/obra/superpowers",
+        "https://github.com/vercel-labs/agent-skills",
+        "https://github.com/alirezarezvani/claude-skills",
+        "https://github.com/microsoft/skills",
+        "https://github.com/microsoft/azure-skills",
+        "https://github.com/microsoft/power-platform-skills",
+      ];
+      if (!allowed.some((base) => url === base || url.startsWith(base + "/"))) {
+        throw new Error("URL no permitida");
+      }
+      const skillRoot = await ensureProjectSkillRoot(projectDir);
+      const tmp = path.join(os.tmpdir(), `openwork-skill-import-${Date.now()}`);
+      await mkdir(tmp, { recursive: true });
+      const imported = [];
+      const skipped = [];
+      try {
+        await new Promise((resolve, reject) => {
+          execFile("git", ["clone", "--depth", "1", url, tmp], { timeout: 180000 }, (err) => (err ? reject(err) : resolve()));
+        });
+        const skillDirs = [];
+        async function walk(dir, depth) {
+          if (depth > 8) return;
+          const entries = await readdir(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const full = path.join(dir, entry.name);
+            if (await pathExists(path.join(full, "SKILL.md"))) skillDirs.push(full);
+            else await walk(full, depth + 1);
+          }
+        }
+        await walk(tmp, 0);
+        for (const src of skillDirs) {
+          let name;
+          try { name = validateSkillName(path.basename(src)); } catch { continue; }
+          const dest = path.join(skillRoot, name);
+          if (await pathExists(dest)) { skipped.push(name); continue; }
+          await cp(src, dest, { recursive: true });
+          imported.push(name);
+        }
+      } finally {
+        await rm(tmp, { recursive: true, force: true }).catch(() => {});
+      }
+      return { ok: true, status: 0, stdout: `Imported ${imported.length} skills`, stderr: "", imported, skipped };
+  },
   "installSkillTemplate": async (event, ...args) => {
       const projectDir = String(args[0] ?? "").trim();
       const name = validateSkillName(args[1]);
@@ -2517,6 +2602,12 @@ const desktopCommandHandlers = {
   },
   "resetOpenworkState": async (event, ...args) => {
       return workspaceStore.resetOpenworkState();
+  },
+  "resetOpencodeCache": async (event) => {
+      return resetOpencodeCache(opencodeCacheCandidates({ env: process.env, homedir: os.homedir(), platform: process.platform, userDataPath: app.getPath("userData") }));
+  },
+  "sandboxCleanupOpenworkContainers": async (event) => {
+      return runtimeManager.sandboxCleanupOpenworkContainers();
   },
   "opencodeMcpAuth": async (event, ...args) => {
       return runtimeManager.opencodeMcpAuth(String(args[0] ?? "").trim(), String(args[1] ?? "").trim());
@@ -2719,6 +2810,13 @@ const desktopCommandHandlers = {
   "__joinPath": async (event, ...args) => {
       return path.join(...args.map((value) => String(value ?? "")));
   },
+  "designRender": async (event, ...args) => {
+      // Only the app window (its main frame) may render; embedded browser tabs never reach this.
+      if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame) {
+        return { ok: false, code: "invalid_request", message: "Rendering is only available to the app window." };
+      }
+      return designRenderer.render(args[0]);
+  },
   "__setZoomFactor": async (event, ...args) => {
       const factor = Number(args[0]);
       const window = activeWindowFromEvent(event);
@@ -2909,6 +3007,7 @@ async function createMainWindowInner() {
       plugins: true,
     },
   });
+  desktopCompanion.attachMain(mainWindow);
   if (cachedBrandImage && bootSourceUrl) {
     await applyCachedBrandIcon(cachedBrandImage, bootSourceUrl);
   }
@@ -3084,6 +3183,14 @@ async function createMainWindowInner() {
     const packagedIndexPath = path.join(process.resourcesPath, "app-dist", "index.html");
     const devIndexPath = path.resolve(__dirname, "../../app/dist/index.html");
     await mainWindow.loadFile(app.isPackaged ? packagedIndexPath : devIndexPath);
+  }
+
+  if (desktopCompanion.enabled()) {
+    void desktopCompanion.start().catch(error => {
+      desktopCompanion.dispose();
+      if (mainWindow && !mainWindow.isDestroyed() && !quitInProgress()) mainWindow.show();
+      console.warn("[companion] Could not start; normal window closing remains available", error);
+    });
   }
 
   return mainWindow;

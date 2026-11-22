@@ -118,3 +118,14 @@ test("this Mac is unavailable when the helper cannot be installed", async () => 
   assert.match(state.detail, /could not set up/);
   assert.deepEqual(started, []);
 });
+
+test("other platforms are told Computer Use is macOS-only, never 'This Mac'", async () => {
+  for (const platform of ["linux", "win32"]) {
+    const adapter = createLocalComputerAdapter({ ...adapterOptions, platform, osRelease: "7.0.0", spawnChild: checkingHelper([]), installHelper: async () => "/unused" });
+    const state = await adapter.readiness();
+    assert.equal(state.readiness, "unsupported");
+    assert.doesNotMatch(state.detail, /This Mac/);
+  }
+  const oldMac = createLocalComputerAdapter({ ...adapterOptions, osRelease: "22.6.0", spawnChild: checkingHelper([]), installHelper: async () => "/unused" });
+  assert.match((await oldMac.readiness()).detail, /macOS 14/);
+});

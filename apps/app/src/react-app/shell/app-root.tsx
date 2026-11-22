@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+import { toast } from "@/components/ui/sonner";
+import { PairDeviceRoute, verifyPairedDevice } from "@/react-app/shell/pair-device-route";
 import { SpecialistApplicationsProvider } from "@/react-app/domains/specialists/provider";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -32,6 +34,7 @@ import {
 import { ForcedSigninPage } from "../domains/cloud/forced-signin-page";
 import { EnterpriseActivationGate } from "../domains/cloud/enterprise-activation-gate";
 import { OpenWorkWebAccessGate } from "../domains/cloud/openwork-web-access-gate";
+import { WebApprovalsResponder } from "../domains/connections/web-approvals";
 import { OrgOnboardingPage } from "../domains/cloud/org-onboarding-page";
 import { ChatDeepLinkListener } from "./chat-deep-link-listener";
 import { NewProvidersListener } from "./new-providers-listener";
@@ -214,8 +217,8 @@ function DenSigninGate({ children }: DenSigninGateProps) {
   }, [navigate]);
 
   if (requireSignin && denAuth.status === "checking") {
-    if (isOpenworkGatewayRuntime()) return <WebStartupScreen message="Checking sign-in…" />;
-    return <StartupScreen message="Checking your sign-in" />;
+    if (isOpenworkGatewayRuntime()) return <WebStartupScreen message={t("startup.checking_signin")} />;
+    return <StartupScreen message={t("startup.checking_signin")} />;
   }
 
   if (redirectingPreparedWorkspace) return <Navigate to="/onboarding" replace />;
@@ -432,6 +435,13 @@ export function AppRoot() {
   useMemberActivitySync(egressAllowed);
   useEngineRouting(egressAllowed);
 
+  // A paired browser whose access was revoked goes back to the page's own access.
+  useEffect(() => {
+    void verifyPairedDevice().then((result) => {
+      if (result === "revoked") { toast.warning(t("pairing.revoked_notice")); window.setTimeout(() => window.location.reload(), 1500); }
+    });
+  }, []);
+
   // Module-level dedupe keeps StrictMode double-mounts from double-counting.
   useEffect(() => {
     if (!egressAllowed || appOpenedCaptured) return;
@@ -474,6 +484,8 @@ export function AppRoot() {
                   {/* Settings unmounts the chat; computer use stays connected on every route. */}
                   {isElectronRuntime() ? <ComputerBridge /> : null}
                   {isElectronRuntime() ? <AgentQuestionsBridge /> : null}
+                  {/* The desktop server approves automatically; the web app answers its own server's approvals. */}
+                  {!isDesktopRuntime() && import.meta.env.MODE !== "test" ? <WebApprovalsResponder /> : null}
                   <Routes>
               <Route
                 path="/signin"
@@ -540,7 +552,14 @@ export function AppRoot() {
                   </DevProfiler>
                 }
               />
+              <Route path="/pair" element={<PairDeviceRoute />} />
               <Route path="/activity" element={<DevProfiler id="ActivityRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/command-center" element={<DevProfiler id="CommandCenterRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/projects/:workspaceId" element={<DevProfiler id="ProjectRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/inbox" element={<DevProfiler id="ResultsInboxRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/projects" element={<DevProfiler id="ProjectsRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/design/:workspaceId/:designId" element={<DevProfiler id="DesignRoute"><SessionRoute /></DevProfiler>} />
+              <Route path="/design" element={<DevProfiler id="DesignGalleryRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/apps" element={<DevProfiler id="AppsRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/dashboard/apps/:appId" element={<DevProfiler id="DashboardAppRoute"><SessionRoute /></DevProfiler>} />
               <Route path="/apps/:appId" element={<DevProfiler id="AppPreviewRoute"><SessionRoute /></DevProfiler>} />

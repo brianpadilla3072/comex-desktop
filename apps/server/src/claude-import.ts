@@ -198,7 +198,8 @@ function currentBranch<T>(items: T[], id: (item: T) => string | undefined, paren
 
 function parseExportJson(bytes: Buffer): unknown {
   try {
-    return JSON.parse(bytes.toString("utf8"));
+    const value: unknown = JSON.parse(bytes.toString("utf8"));
+    return value;
   } catch {
     throw new ClaudeImportError("claude_export_unreadable", "This file is not a Claude export.");
   }

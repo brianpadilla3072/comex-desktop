@@ -84,6 +84,7 @@ import {
   settleBackgroundShell,
   useBackgroundShellStore,
 } from "../status/background-shell-store";
+import { abortedMarker } from "../surface/session-admission-outcome";
 
 export { type SyncStreamPhase } from "./sync-stream-lifecycle";
 export {
@@ -494,6 +495,11 @@ function isTrackedSession(entry: SyncEntry, sessionId: string) {
 
 function admitRelatedSession(entry: SyncEntry, sessionId: string) {
   if (!isTrackedSession(entry, sessionId)) retainSession(entry.input, entry, sessionId);
+}
+
+function isKnownChildSession(workspaceId: string, sessionId: string) {
+  const records = useSessionActivityStore.getState().recordsByWorkspaceId[workspaceId];
+  return Object.values(records ?? {}).some((record) => record.childSessionIds.includes(sessionId));
 }
 
 function discoverTaskSessions(entry: SyncEntry, parentId: string) {
@@ -1359,7 +1365,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
         });
         trackTaskFailed(sessionId, Date.now() - runStartedAt);
       }
-      notifyDesktopEvent({ type: "task.failed", sessionId, errorText });
+      notifyDesktopEvent({ type: "task.failed", sessionId, workspaceId, errorText });
       useSessionActivityStore.getState().setError(workspaceId, sessionId, errorText);
       stopTrackingLiveSession(entry, sessionId);
       if (isTrackedSession(entry, sessionId)) {
@@ -1434,6 +1440,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "permission.asked",
       sessionId: permission.sessionID,
+      workspaceId,
       detail: permissionNotificationDetail(permission),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, permission.sessionID, "permission", permission.id, true);
@@ -1456,6 +1463,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "permission.asked",
       sessionId: permission.sessionID,
+      workspaceId,
       detail: permissionNotificationDetail(permission),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, permission.sessionID, "permission", permission.id, true);
@@ -1485,6 +1493,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     notifyDesktopEvent({
       type: "question.asked",
       sessionId: question.sessionID,
+      workspaceId,
       question: questionNotificationText(question),
     });
     useSessionActivityStore.getState().setWaitingRequest(workspaceId, question.sessionID, "question", question.id, true);
@@ -1509,7 +1518,7 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
 
   if (event.type === "message.updated") {
     const props = (event.properties ?? {}) as {
-      info?: { id?: string; role?: UIMessage["role"] | string; sessionID?: string; parentID?: string; time?: { created?: number; completed?: number } };
+      info?: { id?: string; role?: UIMessage["role"] | string; sessionID?: string; parentID?: string; finish?: string; time?: { created?: number; completed?: number } };
     };
     const info = props.info;
     if (!info?.id || !info.sessionID || (info.role !== "user" && info.role !== "assistant" && info.role !== "system")) {
@@ -1522,6 +1531,9 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     }
     useSessionActivityStore.getState().markMessageRole(workspaceId, info.sessionID, info.id, info.role);
     if (info.role === "assistant" && typeof info.time?.completed === "number") {
+      if (info.finish && info.finish !== "tool-calls" && info.finish !== "unknown" && !("error" in info && info.error) && !("summary" in info && info.summary === true)) {
+        useSessionActivityStore.getState().recordAssistantResponse(workspaceId, info.sessionID, info.time.completed);
+      }
       if (usageRun && !("error" in info && info.error)) usageRun.responseCompleted = true;
       const observedAt = perfNow();
       entry.assistantMessageCompletedAt.set(info.sessionID, observedAt);
@@ -1542,8 +1554,10 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
       metadata: { opencode: {
         ...(typeof created === "number" ? { created } : {}),
         ...(typeof completed === "number" ? { completed } : {}),
+        ...(typeof info.finish === "string" ? { finish: info.finish } : {}),
         ...(typeof info.parentID === "string" ? { parentID: info.parentID } : {}),
         ...(replyModelFromInfo(info) ? { replyModel: replyModelFromInfo(info) } : {}),
+        ...abortedMarker(info),
       } },
       parts: [],
     } satisfies UIMessage;
@@ -1918,8 +1932,17 @@ function applySessionRunStatus(
       });
       trackTaskCompleted(sessionId, Date.now() - runStartedAt);
       noteActivationRunCompleted(sessionId, Date.now() - runStartedAt);
-      notifyDesktopEvent({ type: "task.completed", sessionId });
+      notifyDesktopEvent({ type: "task.completed", sessionId, workspaceId });
       entry.titleRecovery?.observe(sessionId);
+    } else if (
+      wasLive
+      && (options.completed ?? !v2)
+      && entry.gatewayUsageRuns.get(sessionId)?.failed !== true
+      && !isKnownChildSession(workspaceId, sessionId)
+    ) {
+      // A run this window only watched (a scheduled task, another device or
+      // tab) finished. Subagent sessions stay quiet: their parent reports.
+      notifyDesktopEvent({ type: "task.completed", sessionId, workspaceId, observed: true });
     }
     const shouldRecordTerminal = wasLive || runStartedAt !== null;
     const shouldConvergeTerminal = shouldRecordTerminal || options.terminalEvent === true;

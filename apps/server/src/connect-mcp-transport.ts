@@ -15,7 +15,10 @@ export function stringHeaders(value: unknown): Record<string, string> {
 }
 
 function parseJsonOrText(raw: string): unknown {
-  try { return JSON.parse(raw); } catch { return raw; }
+  try {
+    const value: unknown = JSON.parse(raw);
+    return value;
+  } catch { return raw; }
 }
 
 export async function readMcpPayload(response: Response, requestId?: string | number): Promise<unknown> {

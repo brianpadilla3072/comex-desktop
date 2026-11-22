@@ -82,6 +82,26 @@ def check_skills():
                 warnings.append(f"skills/{folder}: el SKILL.md menciona scripts/{rel} y no existe en el pack")
 
 
+# Rutas absolutas a la carpeta personal de quien armó el pack: no existen en otra computadora
+# y viajan en cada exportación de la aplicación.
+PERSONAL_PATH = re.compile(r"/home/[A-Za-z0-9_.-]+/|/Users/[A-Za-z0-9_.-]+/|[A-Za-z]:\\\\Users\\\\")
+TEXT_EXTENSIONS = (".md", ".py", ".txt", ".html", ".json", ".yaml", ".yml", ".csv")
+
+
+def check_personal_paths():
+    for base, _dirs, files in os.walk(ROOT):
+        if "__pycache__" in base or os.sep + "tests" in base:
+            continue
+        for name in files:
+            if not name.endswith(TEXT_EXTENSIONS):
+                continue
+            path = os.path.join(base, name)
+            with open(path, encoding="utf-8", errors="ignore") as handle:
+                for number, line in enumerate(handle, 1):
+                    if PERSONAL_PATH.search(line):
+                        errors.append(f"{os.path.relpath(path, ROOT)}:{number}: ruta absoluta de una carpeta personal; usá una ruta relativa al proyecto o a la skill")
+
+
 def check_agents():
     agents_dir = os.path.join(ROOT, "agents")
     if not os.path.isdir(agents_dir):
@@ -122,6 +142,7 @@ def main():
 
     check_skills()
     check_agents()
+    check_personal_paths()
 
     if not args.quiet:
         total_skills = len([d for d in os.listdir(os.path.join(ROOT, "skills")) if os.path.isdir(os.path.join(ROOT, "skills", d))])

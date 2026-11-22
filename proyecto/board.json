@@ -1,0 +1,26 @@
+[
+  {
+    "id": "e1",
+    "project_id": "A",
+    "owner_agent": "researcher",
+    "title": "Alternativas de notificación",
+    "status": "draft",
+    "draft_path": "proyecto/entregables/e1.md",
+    "comments": [],
+    "approval_state": "none",
+    "created_at": "2026-11-14T14:00:00Z",
+    "updated_at": "2026-11-14T14:00:00Z"
+  },
+  {
+    "id": "e2",
+    "project_id": "A",
+    "owner_agent": "drafter",
+    "title": "Spec approval gate",
+    "status": "draft",
+    "draft_path": "proyecto/entregables/e2.md",
+    "comments": [],
+    "approval_state": "none",
+    "created_at": "2026-11-14T14:00:00Z",
+    "updated_at": "2026-11-14T14:00:00Z"
+  }
+]

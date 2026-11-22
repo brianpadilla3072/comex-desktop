@@ -32,9 +32,9 @@ import { credentialHealthKey, useProviderCredentialHealth, type ProviderCredenti
 /** "Everyone", the team names, or a member count; null when Den did not say. */
 export function providerAccessLabel(access: DenOrgLlmProviderAccess | undefined): string | null {
   if (!access) return null;
-  if (access.allMembers) return "Everyone";
+  if (access.allMembers) return t("ai_providers.access_everyone");
   if (access.teamNames.length) return access.teamNames.join(", ");
-  if (access.memberCount) return access.memberCount === 1 ? "1 member" : `${access.memberCount} members`;
+  if (access.memberCount) return t("ai_providers.member_count", { count: access.memberCount });
   return null;
 }
 
@@ -156,8 +156,8 @@ export function CloudProvidersView({
         reloadPending: serverSync?.reloadPending === true,
       });
       const providerDetail = provider.source === "openwork"
-        ? `Organization credential · ${provider.models.length ? `${provider.models.length} models` : "All models"}`
-        : `${imported?.source === "openwork_gateway" ? "OpenWork Gateway" : "Organization credential"} · ${provider.credentialMode === "per_member" ? "Each member signs in" : "Shared org key"}`;
+        ? `${t("ai_providers.organization_credential")} · ${provider.models.length ? t("ai_providers.model_count", { count: provider.models.length }) : t("ai_providers.all_models")}`
+        : `${imported?.source === "openwork_gateway" ? "OpenWork Gateway" : t("ai_providers.organization_credential")} · ${provider.credentialMode === "per_member" ? t("ai_providers.each_member_signs_in") : t("ai_providers.shared_org_key")}`;
       const detail = status === "blocked"
         ? t("den.cloud_provider_blocked")
         : status === "unavailable"
@@ -184,12 +184,12 @@ export function CloudProvidersView({
     const importedRows: CloudProviderRow[] = Object.values(importedCloudProviders).filter((provider) => !cloudOrgProviders.some((live) => live.id === provider.cloudProviderId)).map((provider) => ({
       key: `imported:${provider.cloudProviderId}`, cloudProviderId: provider.cloudProviderId, provider: null, imported: provider, name: provider.name,
       status: resolveCloudProviderRowStatus({ imported: true, credentialHealth: providerHealth(provider.providerId), outOfSync: false, allowed: isProviderAllowedByDesktopPolicy({ providerId: provider.providerId, restrictToCloud, checkRestriction: checkDesktopAppRestriction }), importsUnavailable, needsCredential: false, needsServer: false, syncError: null, reloadPending: serverSync?.reloadPending, skippedByServer: Boolean(serverSync?.skippedProviders[provider.cloudProviderId]) }),
-      detail: provider.source === "openwork_gateway" ? "OpenWork Gateway · Organization credential" : "Managed in Den",
+      detail: provider.source === "openwork_gateway" ? `OpenWork Gateway · ${t("ai_providers.organization_credential")}` : t("ai_providers.managed_in_den"),
       metaId: provider.cloudProviderId,
       credentialReady: true,
     }));
     const combined = [...liveRows, ...importedRows];
-    return combined.filter((row) => !gatewayConnectProviders.some((provider) => provider.cloudProviderId === row.cloudProviderId)).map<CloudProviderRow>((row) => serverSync?.lastRun?.status === "failed" ? { ...row, status: "unavailable", detail: "Could not verify with Den. Sync again to check access." } : row);
+    return combined.filter((row) => !gatewayConnectProviders.some((provider) => provider.cloudProviderId === row.cloudProviderId)).map<CloudProviderRow>((row) => serverSync?.lastRun?.status === "failed" ? { ...row, status: "unavailable", detail: t("ai_providers.den_verify_failed_row") } : row);
   }, [
     runtimeWorkspaceId,
     healthEntries,
@@ -208,7 +208,7 @@ export function CloudProvidersView({
     let current = true;
     setBusy(true);
     void refreshCloudOrgProviders().catch(() => {
-      if (current) setActionError("Could not verify organization providers. Sync again to retry.");
+      if (current) setActionError(t("ai_providers.org_verify_failed"));
     }).finally(() => { if (current) setBusy(false); });
     return () => { current = false; };
   }, [activeOrganization?.id, isSignedIn, refreshCloudOrgProviders]);
@@ -243,8 +243,8 @@ export function CloudProvidersView({
     const notice = (
       <section className="flex flex-col gap-3" aria-labelledby="ai-providers-organization">
         <div className="space-y-1">
-          <h2 id="ai-providers-organization" className="text-base font-medium text-dls-text">From your organization</h2>
-          <p className="text-sm text-muted-foreground">Providers your team pays for, delivered through the OpenWork Gateway. Nothing to set up on this device.</p>
+          <h2 id="ai-providers-organization" className="text-base font-medium text-dls-text">{t("ai_providers.from_your_organization")}</h2>
+          <p className="text-sm text-muted-foreground">{t("ai_providers.org_desc")}</p>
         </div>
         <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-dls-border px-5 py-5 sm:flex-row sm:items-center">
           <div className="flex shrink-0 items-center -space-x-2" aria-hidden>
@@ -252,10 +252,10 @@ export function CloudProvidersView({
             <span className="flex size-8 items-center justify-center rounded-full border border-dls-border bg-dls-hover text-[11px] font-medium text-muted-foreground">+2</span>
           </div>
           <div className="min-w-0 flex-1 space-y-0.5">
-            <h3 className="text-sm font-medium text-dls-text">No organization yet</h3>
-            <p className="text-sm text-muted-foreground">Sign in to see what your organization already provides. Your keys on this device keep working either way.</p>
+            <h3 className="text-sm font-medium text-dls-text">{t("ai_providers.no_organization")}</h3>
+            <p className="text-sm text-muted-foreground">{t("ai_providers.no_organization_desc")}</p>
           </div>
-          <Button variant="outline" className="shrink-0 self-start sm:self-center" onClick={onOpenAccount}>Sign in to OpenWork</Button>
+          <Button variant="outline" className="shrink-0 self-start sm:self-center" onClick={onOpenAccount}>{t("ai_providers.sign_in_openwork")}</Button>
         </div>
       </section>
     );
@@ -269,7 +269,7 @@ export function CloudProvidersView({
 
   const section = (
     <CloudProvidersSection
-      actionError={actionError ?? (serverSync?.lastRun?.status === "failed" ? "Could not verify providers with Den. Sync again to retry." : null)}
+      actionError={actionError ?? (serverSync?.lastRun?.status === "failed" ? t("ai_providers.den_verify_failed") : null)}
       actionId={actionId}
       busy={busy}
       rows={rows}

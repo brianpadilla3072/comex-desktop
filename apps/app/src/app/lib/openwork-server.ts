@@ -3,6 +3,8 @@ import type { TaskState, GoalInput } from "@openwork/types/task-continuity";
 import type { PermissionProfileInput, PermissionModesSnapshot } from "@openwork/types/permission-modes";
 import type { GuideObservation, GuideSnapshot } from "@openwork/types/model-guide";
 import { z } from "zod";
+import { designChatsSchema, designDeleteResponseSchema, designDetailSchema, designListSchema, designResponseSchema, designWriteResponseSchema, type DesignCreateInput, type DesignPageInput, type DesignPagePatchInput, type DesignPatchInput } from "./designs";
+import { projectContextChangeSchema, projectContextListingSchema, projectDetailSchema, projectInstructionsSchema, projectListSchema, projectMemorySchema, projectPatchResponseSchema, projectTaskInputSchema, projectTaskListSchema, projectTaskSavedSchema, type ProjectPatchInput, type ProjectTaskInput } from "./projects";
 import type { McpStatusMap } from "../types";
 import type { ConnectionActionIntent } from "@openwork/types/connection-action-app";
 import type { Message, Part, Session, Todo } from "@opencode-ai/sdk/v2/client";
@@ -27,6 +29,7 @@ import type { DenResourceSnapshot } from "./den-types";
 import type { CloudImportedMarketplace, CloudImportedPlugin, CloudImportedProvider } from "../cloud/import-state";
 import { desktopFreeAccessStatusSchema } from "./inference-access";
 import { claudeImportItemsSchema, claudeImportResultsSchema } from "./claude-import";
+import type { ArtifactBase, ArtifactRecord, ArtifactSourceRef, ArtifactStatus, ArtifactType } from "../../react-app/domains/artifacts/types";
 
 const desktopFreePreferencesSchema = z.object({ enabled: z.boolean(), available: z.boolean(), canEnable: z.boolean(), refresh: z.enum(["reloaded", "deferred"]).optional() });
 export type DesktopFreePreferences = z.infer<typeof desktopFreePreferencesSchema>;
@@ -86,6 +89,25 @@ export type OpenworkCloudProviderSyncStatus = {
 };
 
 /** Work an engine switch would interrupt, as counts only. */
+export interface EcosystemNeed {
+  id: string; from: string; projectId: string; sessionId: string; need: string;
+  contextShort: string; priority: "high" | "normal" | "low";
+  status: "open" | "claimed" | "resolved" | "failed" | "expired";
+  claimedBy: string | null; resultRef: string | null;
+}
+export interface EcosystemSummary {
+  projectId: string; sessionId: string; agentId: string; title: string;
+  status: "active" | "paused" | "done" | "halted"; oneLiner: string;
+}
+export interface EcosystemDeliverable {
+  id: string; projectId: string; ownerAgent: string; title: string;
+  status: "draft" | "review" | "done"; draftPath: string; comments: string[];
+}
+export interface EcosystemState {
+  needs: EcosystemNeed[]; index: EcosystemSummary[]; board: EcosystemDeliverable[];
+  halted: boolean; haltedAt: number | null; haltedBy: string | null;
+}
+
 export interface EngineActivityCount {
   verdict: "idle" | "busy" | "unknown";
   busySessions: number;
@@ -124,8 +146,22 @@ export interface SpecialistApplication {
 export interface SpecialistCatalog {
   enabled: boolean;
   integrationsEnabled?: boolean;
+  /** False when this connection cannot create or change applications (the web app's collaborator token). */
+  writable?: boolean;
+  /** Export, import and delete applications (feature: specialistAppPortability). */
+  portabilityEnabled?: boolean;
+  /** Export as a `.owapp` archive with the project's work files (feature: specialistAppZipBundle). */
+  zipBundleEnabled?: boolean;
   libraryEnabled?: boolean;
   scheduledTasksEnabled?: boolean;
+  taskDryRunEnabled?: boolean;
+  datasetsEnabled?: boolean;
+  panelsEnabled?: boolean;
+  /** The panel also renders as an interactive MCP App inside the chat. */
+  panelAppsEnabled?: boolean;
+  sourcesEnabled?: boolean;
+  sourcesLocalFilesEnabled?: boolean;
+  outputsEnabled?: boolean;
   user: { id: string; displayName: string } | null;
   activeApplicationId?: string | null;
   applications: SpecialistApplication[];
@@ -154,26 +190,87 @@ export interface SpecialistSyncResult {
 }
 export interface SpecialistLibraryWriteResult { item: SpecialistLibraryFile; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }
 export interface SpecialistTaskSchedule {
-  kind: "interval" | "daily" | "weekly" | "once";
+  kind: "interval" | "daily" | "weekly" | "monthly" | "once";
   everyMinutes?: number;
   hour?: number;
   minute?: number;
   daysOfWeek?: number[];
+  dayOfMonth?: number;
   at?: number;
 }
+export interface SpecialistTaskModel {
+  providerID: string; modelID: string;
+}
 export interface SpecialistTask {
+  catchUp?: boolean;
   id: string; name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean;
+  /** Pinned model for each run; null means the engine's default. */
+  model?: SpecialistTaskModel | null;
+  /** Projects experience: the project it runs in (null: the application's first project),
+   *  whether its runs approve their own permission requests, and per-task isolation. */
+  workspaceId?: string | null; permissionMode?: "auto" | "manual"; isolation?: boolean;
   createdAt: number; updatedAt: number; nextRunAt: number | null; lastRunAt: number | null;
-  lastStatus: "ok" | "failed" | "blocked" | "running" | null; runs: number;
+  lastStatus: "ok" | "failed" | "blocked" | "running" | "skipped" | null; runs: number;
   running: { workspaceId: string; sessionId: string | null; startedAt: number; mode: "scheduled" | "manual"; missed: number } | null;
 }
 export interface SpecialistTaskRun {
   at: number; mode: "scheduled" | "manual"; missed: number; workspaceId: string;
-  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap"; detail: string | null;
+  sessionId: string | null; status: "dispatched" | "ok" | "failed" | "blocked" | "skipped_overlap" | "skipped_missed"; detail: string | null;
+  /** Isolated copy the run worked in, and whether its changes still wait for review (taskIsolationReview). */
+  isolationId?: string | null; review?: "pending" | "reviewed" | null;
 }
+export interface SpecialistDataset {
+  id: string; name: string; question: string; provider: string; operation: string;
+  createdAt: number; updatedAt: number; lastSnapshotAt: number | null; snapshots: number;
+  derivedFrom: string | null; workspaceId: string; workspaceName: string;
+}
+export interface SpecialistDatasetDetail {
+  dataset: SpecialistDataset; snapshots: string[];
+  /** Last snapshot parsed, or { tooLarge: true } when it exceeds the 200 KB preview bound. */
+  latest: unknown;
+}
+export interface SpecialistSource {
+  id: string; provider: string; title: string; url: string | null;
+  evidencePath: string; datasetId: string | null; retrievedAt: number; chunks: number;
+  workspaceId: string; workspaceName: string;
+}
+export interface SpecialistSourceDetail {
+  ok: boolean; source: SpecialistSource;
+  /** Passage index with ?chunk=, or null for the passage list. */
+  chunk: number | null; text: string | null;
+  chunks?: string[]; totalChunks?: number; error?: string;
+  workspaceId: string; workspaceName: string;
+}
+export type SpecialistPanelBlock =
+  | { type: "stat"; field: string; agg?: "last" | "first" | "sum" | "avg" | "count" | "min" | "max"; title?: string; format?: "number" | "percent" | "currency" }
+  | { type: "line" | "bar"; x: string; y: string[]; title?: string }
+  | { type: "table"; limit?: number; sort?: { by: string; desc?: boolean }; columns?: string[] }
+  | { type: "markdown"; text: string }
+  | { type: "changes"; title?: string };
+export interface SpecialistPanelSpec {
+  panel: string; title: string;
+  source: { dataset: string } | { file: string };
+  refresh?: { watch: "latest" };
+  blocks: SpecialistPanelBlock[];
+}
+export interface SpecialistPanelEntry { name: string; title: string; source: string; updatedAt: number; bytes: number }
+export interface SpecialistPanelResolution {
+  workspaceId: string; workspaceName: string;
+  ok: boolean; error?: string; data?: unknown; sourceLabel?: string; diff?: unknown;
+}
+export type SpecialistOutputKind = "mindmap" | "report" | "flashcards" | "quiz" | "table";
+export interface SpecialistTaskBudget { runsPerDay: number; estTokensPerRun: number; estTokensPerDay: number; estSnapshotsMBPerDay: number; note: string }
+export interface SpecialistOutput {
+  id: string; kind: SpecialistOutputKind; title: string;
+  fromDatasets: string[]; fromSources: string[]; focus: string;
+  createdAt: number; updatedAt: number;
+  workspaceId: string; workspaceName: string;
+}
+export interface SpecialistOutputAudit { total: number; valid: number; invalid: Array<{ sourceId: string; chunk: number; reason: string }>; note?: string }
 export interface SpecialistProposal {
-  id: string; kind: "skill" | "agent" | "context"; name: string; description: string; content: string; reason: string; createdAt: number;
+  id: string; kind: "skill" | "agent" | "context" | "task" | "plan"; name: string; description: string; content: string; reason: string; createdAt: number;
 }
+export interface SpecialistAppliedPiece { piece: string; ok: boolean; id?: string; detail?: string }
 export interface SpecialistIntegrationCatalog {
   providers: Array<{ id: string; label: string; enabled: boolean; installed: boolean; authenticated: boolean; version?: string; loginPending: boolean; error: string | null }>;
   packFactories: Array<{ id: string; name: string; version?: string }>;
@@ -381,6 +478,26 @@ function parseCloudProviderSyncStatus(value: unknown): OpenworkCloudProviderSync
 }
 
 export type OpenworkServerStatus = "connected" | "disconnected" | "limited";
+
+/** A gated write the server holds until someone with owner access answers it. */
+const pendingApprovalSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  action: z.string(),
+  summary: z.string(),
+  paths: z.array(z.string()),
+  createdAt: z.number(),
+  actor: z.object({ type: z.string().optional(), clientId: z.string().optional(), scope: z.string().optional() }).optional(),
+});
+const pendingApprovalsSchema = z.object({ items: z.array(pendingApprovalSchema) });
+/** GET/PUT /delegates/settings (owner access). overriddenBy "environment": an operator locked it. */
+export const delegateSettingsSchema = z.object({
+  decider: z.enum(["person", "orchestrator"]),
+  overriddenBy: z.enum(["environment"]).nullable().catch(null),
+});
+export type DelegateSettings = z.infer<typeof delegateSettingsSchema>;
+const approvalReplySchema = z.object({ ok: z.boolean(), allowed: z.boolean() });
+export type OpenworkPendingApproval = z.infer<typeof pendingApprovalSchema>;
 
 export type OpenworkServerDiagnostics = {
   ok: boolean;
@@ -1182,6 +1299,11 @@ const STORAGE_URL_OVERRIDE = "openwork.server.urlOverride";
 const STORAGE_PORT_OVERRIDE = "openwork.server.port";
 const STORAGE_TOKEN = "openwork.server.token";
 const STORAGE_HOST_AUTH_KEY = "openwork.server.hostToken";
+/** "paired" when this browser redeemed a pairing code. The device's owner token lives under its
+ *  own key: other code that rewrites the connection settings (with the page's token) can never
+ *  replace it, and every read prefers it. */
+const STORAGE_TOKEN_SOURCE = "openwork.server.tokenSource";
+const STORAGE_PAIRED_TOKEN = "openwork.server.pairedToken";
 // Remote access was removed; writes clear the key older builds persisted.
 const LEGACY_STORAGE_REMOTE_ACCESS = "openwork.server.remoteAccessEnabled";
 
@@ -1286,7 +1408,7 @@ export function readOpenworkServerSettings(): OpenworkServerSettings {
     );
     const portRaw = window.localStorage.getItem(STORAGE_PORT_OVERRIDE) ?? "";
     const portOverride = portRaw ? Number(portRaw) : undefined;
-    const token = window.localStorage.getItem(STORAGE_TOKEN) ?? undefined;
+    const token = window.localStorage.getItem(STORAGE_PAIRED_TOKEN) ?? window.localStorage.getItem(STORAGE_TOKEN) ?? undefined;
     const hostToken = window.localStorage.getItem(STORAGE_HOST_AUTH_KEY) ?? undefined;
     return {
       urlOverride: urlOverride ?? undefined,
@@ -1393,7 +1515,11 @@ export function hydrateOpenworkServerSettingsFromEnv() {
       }
     }
 
-    if (bootstrapToken && current.token !== bootstrapToken) {
+    // A paired device keeps its own owner token: the page's injected collaborator token must not
+    // replace it on every load (docs/features/remote-device-pairing).
+    if (isPairedDevice() && current.token) {
+      // keep current.token
+    } else if (bootstrapToken && current.token !== bootstrapToken) {
       next.token = bootstrapToken;
       changed = true;
     } else if (envToken && (forceEnvSettings || !current.token) && current.token !== envToken) {
@@ -1420,6 +1546,26 @@ export function hydrateOpenworkServerSettingsFromEnv() {
   }
 }
 
+export function isPairedDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return Boolean(window.localStorage.getItem(STORAGE_PAIRED_TOKEN)?.trim()); } catch { return false; }
+}
+
+/** Store the owner token a pairing code was redeemed for; it then wins over the page's token. */
+export function savePairedDeviceToken(token: string) {
+  window.localStorage.setItem(STORAGE_PAIRED_TOKEN, token);
+  window.localStorage.setItem(STORAGE_TOKEN_SOURCE, "paired");
+  writeOpenworkServerSettings({ ...readOpenworkServerSettings(), token });
+}
+
+/** Back to the page's own (collaborator) access, for example after the device was revoked. */
+export function forgetPairedDevice() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_PAIRED_TOKEN);
+  window.localStorage.removeItem(STORAGE_TOKEN_SOURCE);
+  window.localStorage.removeItem(STORAGE_TOKEN);
+}
+
 export function clearOpenworkServerSettings() {
   if (typeof window === "undefined") return;
   try {
@@ -1427,6 +1573,8 @@ export function clearOpenworkServerSettings() {
     window.localStorage.removeItem(STORAGE_PORT_OVERRIDE);
     window.localStorage.removeItem(STORAGE_TOKEN);
     window.localStorage.removeItem(STORAGE_HOST_AUTH_KEY);
+    window.localStorage.removeItem(STORAGE_TOKEN_SOURCE);
+    window.localStorage.removeItem(STORAGE_PAIRED_TOKEN);
     window.localStorage.removeItem(LEGACY_STORAGE_REMOTE_ACCESS);
   } catch {
     // ignore
@@ -1619,7 +1767,7 @@ async function requestAgentContextDiagnosticsJson(
 async function requestUploadRaw(
   baseUrl: string,
   path: string,
-  options: { method?: string; token?: string; hostToken?: string; body?: FormData | File; contentType?: string; timeoutMs?: number } = {},
+  options: { method?: string; token?: string; hostToken?: string; body?: FormData | Blob; contentType?: string; timeoutMs?: number } = {},
 ): Promise<{ ok: boolean; status: number; text: string }>{
   const url = `${baseUrl}${path}`;
   const fetchImpl = resolveFetch(url);
@@ -1635,6 +1783,24 @@ async function requestUploadRaw(
   );
   const text = await response.text();
   return { ok: response.ok, status: response.status, text };
+}
+
+const designApiPath = (workspaceId: string, designId: string) => `/designs/${encodeURIComponent(workspaceId)}/${encodeURIComponent(designId)}`;
+
+/** A raw-body request (PUT of a file) whose answer is JSON; failures become `OpenworkServerError`. */
+async function requestRawJson(
+  baseUrl: string,
+  path: string,
+  options: { method: string; token?: string; hostToken?: string; body: Blob; timeoutMs?: number },
+): Promise<unknown> {
+  const result = await requestUploadRaw(baseUrl, path, { ...options, contentType: options.body.type || "application/octet-stream" });
+  let parsed: unknown = null;
+  try { parsed = result.text.trim() ? JSON.parse(result.text) : null; } catch { parsed = null; }
+  if (!result.ok) {
+    const failure = z.object({ code: z.string().optional(), message: z.string().optional(), details: z.unknown().optional() }).safeParse(parsed);
+    throw new OpenworkServerError(result.status, failure.success && failure.data.code ? failure.data.code : "request_failed", failure.success && failure.data.message ? failure.data.message : "Request failed", failure.success ? failure.data.details : undefined);
+  }
+  return parsed;
 }
 
 async function requestBinary(
@@ -2132,6 +2298,12 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
       ),
     getMcpStatus: (workspaceId: string) =>
       requestJson<McpStatusMap>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode/mcp`, { token, hostToken }),
+    listEngineModels: (workspaceId: string) =>
+      requestJson<{ data?: Array<{ providerID?: string; id?: string; modelID?: string; name?: string }> } | Array<{ providerID?: string; id?: string; modelID?: string; name?: string }>>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/opencode2/api/model`,
+        { token, hostToken, timeoutMs: timeouts.binary },
+      ),
     listMcpApps: (workspaceId: string) =>
       requestJson<{ servers: OpenworkMcpAppCatalogServer[] }>(
         baseUrl,
@@ -2495,6 +2667,34 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     previewSpecialistPack: (payload: { template?: "comex"; packPath?: string }) => requestJson<SpecialistPackSummary>(baseUrl, "/specialist-applications/preview-pack", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     createSpecialistApplication: (payload: SpecialistApplicationInput) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications", { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
     updateSpecialistApplication: (id: string, payload: Pick<SpecialistApplicationInput, "name" | "specialty" | "personality">) => requestJson<{ catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "PATCH", body: payload }),
+    /** The application as a portable JSON bundle (see docs/features/specialist-app-portability). */
+    exportSpecialistApplication: (id: string) => requestJson<Record<string, unknown>>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/export`, { token, hostToken, timeoutMs: 120_000 }),
+    importSpecialistApplication: (bundle: unknown, userName?: string) => requestJson<{ workspaceId: string; skippedSections: string[]; warnings: string[]; catalog: SpecialistCatalog }>(baseUrl, "/specialist-applications/import", { token, hostToken, method: "POST", body: { bundle, userName }, timeoutMs: 180_000 }),
+    /** `.owapp` archive (feature: specialistAppZipBundle). A Blob, so the browser can keep it out of the JS heap. */
+    exportSpecialistApplicationArchive: async (id: string): Promise<Blob> => {
+      const url = `${baseUrl}/specialist-applications/${encodeURIComponent(id)}/export`;
+      const response = await fetchWithTimeout(resolveFetch(url), url, { method: "GET", headers: buildAuthHeaders(token, hostToken) }, 10 * 60_000);
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(response.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : response.statusText);
+      }
+      return await response.blob();
+    },
+    importSpecialistApplicationArchive: async (file: Blob, userName?: string) => {
+      const query = userName?.trim() ? `?userName=${encodeURIComponent(userName.trim())}` : "";
+      const result = await requestUploadRaw(baseUrl, `/specialist-applications/import${query}`, { token, hostToken, method: "POST", body: file, contentType: "application/zip", timeoutMs: 10 * 60_000 });
+      let parsed: unknown = null;
+      try { parsed = result.text ? JSON.parse(result.text) : null; } catch { parsed = null; }
+      if (!result.ok) {
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(result.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : "request_failed");
+      }
+      return z.object({ workspaceId: z.string(), skippedSections: z.array(z.string()), warnings: z.array(z.string()) }).parse(parsed);
+    },
+    deleteSpecialistApplication: (id: string) => requestJson<{ removedWorkspaceIds: string[]; keptWorkspaceIds: string[]; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     activateSpecialistApplication: (id: string) => requestJson<SpecialistCatalog>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/activate`, { token, hostToken, method: "POST", body: {} }),
     createSpecialistProject: (id: string, name: string) => requestJson<{ workspaceId: string; catalog: SpecialistCatalog }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/projects`, { token, hostToken, method: "POST", body: { name }, timeoutMs: 60_000 }),
     getSpecialistLibrary: (id: string) => requestJson<SpecialistLibrary>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library`, { token, hostToken }),
@@ -2506,14 +2706,114 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     getSpecialistContext: (id: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken }),
     putSpecialistContext: (id: string, content: string) => requestJson<{ content: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/context`, { token, hostToken, method: "PUT", body: { content } }),
     getSpecialistProposals: (id: string) => requestJson<{ proposals: SpecialistProposal[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals`, { token, hostToken }),
-    acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; counts: { agents: number; skills: number }; sync: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    acceptSpecialistProposal: (id: string, proposalId: string) => requestJson<{ accepted: string; applied?: SpecialistAppliedPiece[]; counts?: { agents: number; skills: number }; sync?: SpecialistSyncResult[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}/accept`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     dismissSpecialistProposal: (id: string, proposalId: string) => requestJson<{ dismissed: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/library/proposals/${encodeURIComponent(proposalId)}`, { token, hostToken, method: "DELETE" }),
     getSpecialistTasks: (id: string) => requestJson<{ tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken }),
-    createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
-    updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
+    createSpecialistTask: (id: string, payload: { name: string; prompt: string; schedule: SpecialistTaskSchedule; catchUp?: boolean; model?: SpecialistTaskModel | null }) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks`, { token, hostToken, method: "POST", body: payload, timeoutMs: 60_000 }),
+    updateSpecialistTask: (id: string, taskId: string, payload: Partial<{ name: string; prompt: string; schedule: SpecialistTaskSchedule; enabled: boolean; catchUp: boolean }>) => requestJson<{ task: SpecialistTask; tasks: SpecialistTask[]; budget?: SpecialistTaskBudget }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: payload, timeoutMs: 60_000 }),
     deleteSpecialistTask: (id: string, taskId: string) => requestJson<{ deleted: string; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     runSpecialistTaskNow: (id: string, taskId: string) => requestJson<{ started: boolean; detail: string | null; tasks: SpecialistTask[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/run-now`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    // Projects experience (feature projectsExperience; docs/features/projects-experience).
+    // Reads work with the collaborator token; writes need owner access (host token or paired device).
+    listProjects: async () => projectListSchema.parse(await requestJson<unknown>(baseUrl, "/specialist-projects", { token, hostToken })),
+    getProject: async (workspaceId: string) => projectDetailSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}`, { token, hostToken, timeoutMs: 30_000 })),
+    updateProject: async (workspaceId: string, patch: ProjectPatchInput) => projectPatchResponseSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}`, { token, hostToken, method: "PATCH", body: patch, timeoutMs: 60_000 })).project,
+    getProjectInstructions: async (workspaceId: string) => projectInstructionsSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/instructions`, { token, hostToken })),
+    /** An empty text removes the instructions. */
+    setProjectInstructions: async (workspaceId: string, text: string) => projectInstructionsSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/instructions`, { token, hostToken, method: "PUT", body: { text } })),
+    listProjectContext: async (workspaceId: string, path = "") => projectContextListingSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: 30_000 })),
+    /** Streams the file as the raw body into `folder` (context root by default) under `name` (the file's own name by default). */
+    uploadProjectContextFile: async (workspaceId: string, file: Blob, options: { name: string; folder?: string; replace?: boolean }) => {
+      const query = new URLSearchParams({ path: options.folder ?? "", name: options.name, ...(options.replace ? { replace: "true" } : {}) });
+      const result = await requestUploadRaw(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context/files?${query.toString()}`, {
+        token, hostToken, method: "POST", contentType: "application/octet-stream", body: file,
+        timeoutMs: Math.max(timeouts.binary, (file.size / UPLOAD_MIN_BYTES_PER_SECOND) * 1000),
+      });
+      const parsed: unknown = result.text.trim() ? JSON.parse(result.text) : null;
+      if (!result.ok) {
+        const failure = z.object({ code: z.string().optional(), message: z.string().optional(), details: z.unknown().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(result.status, failure.success && failure.data.code ? failure.data.code : "request_failed", failure.success && failure.data.message ? failure.data.message : "Upload failed", failure.success ? failure.data.details : undefined);
+      }
+      return projectContextChangeSchema.parse(parsed);
+    },
+    createProjectContextFolder: async (workspaceId: string, path: string) => projectContextChangeSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context/folders`, { token, hostToken, method: "POST", body: { path } })),
+    /** Removes a file, or a folder with everything in it. */
+    deleteProjectContextEntry: async (workspaceId: string, path: string) => projectContextChangeSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/context?path=${encodeURIComponent(path)}`, { token, hostToken, method: "DELETE" })),
+    getProjectMemory: async (workspaceId: string) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory`, { token, hostToken })),
+    /** Without `id` adds a note; with it replaces that note. `expectedRevision` comes from the last read. */
+    saveProjectMemoryNote: async (workspaceId: string, input: { expectedRevision: number; text: string; id?: string }) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory`, { token, hostToken, method: "POST", body: input })),
+    deleteProjectMemoryNote: async (workspaceId: string, noteId: string, expectedRevision: number) => projectMemorySchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(noteId)}?expectedRevision=${expectedRevision}`, { token, hostToken, method: "DELETE" })),
+    listProjectTasks: async (workspaceId: string) => projectTaskListSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-projects/${encodeURIComponent(workspaceId)}/tasks`, { token, hostToken })),
+    /** Creates a task that runs in this project (through the application's task route). Send `permissionMode` explicitly: without it the task is "manual". */
+    createProjectTask: async (applicationId: string, workspaceId: string, input: ProjectTaskInput) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks`, { token, hostToken, method: "POST", body: { ...projectTaskInputSchema.parse(input), workspaceId }, timeoutMs: 60_000 })),
+    updateProjectTask: async (applicationId: string, taskId: string, patch: Partial<ProjectTaskInput>) => projectTaskSavedSchema.parse(await requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/tasks/${encodeURIComponent(taskId)}`, { token, hostToken, method: "PUT", body: projectTaskInputSchema.partial().parse(patch), timeoutMs: 60_000 })),
+    // Design studio (feature designStudio; docs/features/design-studio). Reads work with the
+    // collaborator token; writes need owner access (host token or paired device).
+    listDesigns: async (workspaceId?: string) => designListSchema.parse(await requestJson<unknown>(baseUrl, `/designs${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 })),
+    createDesign: async (input: DesignCreateInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, "/designs", { token, hostToken, method: "POST", body: input, timeoutMs: 60_000 })).design,
+    getDesign: async (workspaceId: string, designId: string) => designDetailSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken })),
+    updateDesign: async (workspaceId: string, designId: string, patch: DesignPatchInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken, method: "PATCH", body: patch })).design,
+    deleteDesign: async (workspaceId: string, designId: string) => { designDeleteResponseSchema.parse(await requestJson<unknown>(baseUrl, designApiPath(workspaceId, designId), { token, hostToken, method: "DELETE", timeoutMs: 60_000 })); },
+    /** One file of the design folder (`pages/p-1.html`, `assets/logo.svg`…), typed by its extension. */
+    readDesignFile: async (workspaceId: string, designId: string, path: string) => {
+      const result = await requestBinary(baseUrl, `${designApiPath(workspaceId, designId)}/files?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: timeouts.binary });
+      return new Blob([result.data], { type: result.contentType ?? "application/octet-stream" });
+    },
+    writeDesignFile: async (workspaceId: string, designId: string, path: string, body: Blob | string) => {
+      const blob = typeof body === "string" ? new Blob([body], { type: "text/plain;charset=utf-8" }) : body;
+      return designWriteResponseSchema.parse(await requestRawJson(baseUrl, `${designApiPath(workspaceId, designId)}/files?path=${encodeURIComponent(path)}`, { token, hostToken, method: "PUT", body: blob, timeoutMs: Math.max(timeouts.binary, (blob.size / UPLOAD_MIN_BYTES_PER_SECOND) * 1000) })).design;
+    },
+    addDesignPage: async (workspaceId: string, designId: string, input: DesignPageInput = {}) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages`, { token, hostToken, method: "POST", body: input })).design,
+    reorderDesignPages: async (workspaceId: string, designId: string, pageIds: string[]) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/order`, { token, hostToken, method: "PUT", body: { pageIds } })).design,
+    /** Rename a page or change its notes (`notes: null` removes them). */
+    updateDesignPage: async (workspaceId: string, designId: string, pageId: string, patch: DesignPagePatchInput) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/${encodeURIComponent(pageId)}`, { token, hostToken, method: "PATCH", body: patch })).design,
+    deleteDesignPage: async (workspaceId: string, designId: string, pageId: string) => designResponseSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/pages/${encodeURIComponent(pageId)}`, { token, hostToken, method: "DELETE" })).design,
+    putDesignThumbnail: async (workspaceId: string, designId: string, png: Blob) => designWriteResponseSchema.parse(await requestRawJson(baseUrl, `${designApiPath(workspaceId, designId)}/thumbnail`, { token, hostToken, method: "PUT", body: png, timeoutMs: timeouts.binary })).design,
+    /** The design folder as a zip with an index (opens offline in any browser). */
+    exportDesignHtml: async (workspaceId: string, designId: string) => {
+      const result = await requestBinary(baseUrl, `${designApiPath(workspaceId, designId)}/export?format=html`, { token, hostToken, timeoutMs: timeouts.binary });
+      return new Blob([result.data], { type: result.contentType ?? "application/zip" });
+    },
+    /** `POST /designs/:ws/:id/export` with the slides as PNG (base64) → the `.pptx` bytes, built on the server. */
+    exportDesignPptx: async (workspaceId: string, designId: string, input: { format: "pptx"; slides: Array<{ pageId: string; png: string }> }): Promise<Blob> => {
+      const url = `${baseUrl}${designApiPath(workspaceId, designId)}/export`;
+      const response = await fetchWithTimeout(resolveFetch(url), url, { method: "POST", headers: { ...buildAuthHeaders(token, hostToken), "Content-Type": "application/json" }, body: JSON.stringify(input) }, 5 * 60_000);
+      if (!response.ok) {
+        const text = await response.text();
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+        const error = z.object({ code: z.string().optional(), message: z.string().optional() }).safeParse(parsed);
+        throw new OpenworkServerError(response.status, error.success ? error.data.code ?? "request_failed" : "request_failed", error.success && error.data.message ? error.data.message : response.statusText);
+      }
+      return new Blob([await response.arrayBuffer()], { type: response.headers.get("content-type") ?? "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    },
+    /** Chat sessions bound to the design, newest first: their prompts carry the design guidance. */
+    listDesignChats: async (workspaceId: string, designId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken })).sessions,
+    bindDesignChat: async (workspaceId: string, designId: string, sessionId: string) => designChatsSchema.parse(await requestJson<unknown>(baseUrl, `${designApiPath(workspaceId, designId)}/chats`, { token, hostToken, method: "POST", body: { sessionId } })).sessions,
+    dryRunSpecialistTask: (id: string, taskId: string) => requestJson<{ started: boolean; sessionId: string | null; workspaceId: string | null; detail: string | null; note: string | null }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/dry-run`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     getSpecialistTaskRuns: (id: string, taskId: string) => requestJson<{ runs: SpecialistTaskRun[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`, { token, hostToken }),
+    getSpecialistDatasets: (id: string, workspaceId?: string) => requestJson<{ datasets: SpecialistDataset[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<SpecialistDatasetDetail>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    refreshSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<{ dataset: SpecialistDataset }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}/refresh${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 660_000 }),
+    deleteSpecialistDataset: (id: string, datasetId: string, workspaceId?: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/datasets/${encodeURIComponent(datasetId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
+    getSpecialistSources: (id: string, workspaceId?: string) => requestJson<{ sources: SpecialistSource[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistSource: (id: string, sourceId: string, workspaceId?: string, chunk?: number) => requestJson<SpecialistSourceDetail>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources/${encodeURIComponent(sourceId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}${chunk !== undefined ? `${workspaceId ? "&" : "?"}chunk=${chunk}` : ""}`, { token, hostToken }),
+    addSpecialistLocalSource: (id: string, path: string, title?: string, workspaceId?: string) => requestJson<{ source: SpecialistSource }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/sources/local${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: { path, title }, timeoutMs: 60_000 }),
+    getSpecialistPanels: (id: string) => requestJson<{ panels: SpecialistPanelEntry[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels`, { token, hostToken }),
+    putSpecialistPanel: (id: string, name: string, spec: unknown) => requestJson<{ name: string; spec: SpecialistPanelSpec; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "PUT", body: spec, timeoutMs: 60_000 }),
+    deleteSpecialistPanel: (id: string, name: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
+    resolveSpecialistPanel: (id: string, name: string, workspaceId?: string) => requestJson<{ spec: SpecialistPanelSpec; resolutions: SpecialistPanelResolution[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}/resolve${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistOutputs: (id: string, workspaceId?: string) => requestJson<{ outputs: SpecialistOutput[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ output: SpecialistOutput; content: string; truncated: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistOutputAudit: (id: string, outputId: string, workspaceId?: string) => requestJson<{ audit: SpecialistOutputAudit }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}/audit${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    deleteSpecialistOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
+    getArtifacts: (id: string, workspaceId?: string) => requestJson<{ artifacts: ArtifactBase[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getArtifact: (id: string, artifactId: string, workspaceId?: string) => requestJson<ArtifactRecord>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    createArtifactFromOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/from-output/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
+    createArtifact: (id: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; sources?: ArtifactSourceRef[]; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body, timeoutMs: 60_000 }),
+    saveArtifactVersion: (id: string, artifactId: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "PUT", body, timeoutMs: 60_000 }),
+    revertArtifact: (id: string, artifactId: string, versionId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/revert${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: { versionId }, timeoutMs: 60_000 }),
+    resolveArtifact: (id: string, artifactId: string, workspaceId?: string) => requestJson<{ spec: SpecialistPanelSpec; resolution: SpecialistPanelResolution }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/resolve${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
     putComexCheckpoint: (workspaceId: string, sessionId: string, body: { expectedRevision: number; checkpoint: ComexCheckpointInput }) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken, method: "PUT", body }),
     getComexGitReview: (workspaceId: string, sessionId?: string) => requestJson<ComexGitReview>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/git/review${sessionId ? `?codeOnly=true&session=${encodeURIComponent(sessionId)}` : ""}`, { token, hostToken, timeoutMs: 30_000 }),
@@ -2532,7 +2832,25 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     saveScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, text: string, id?: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "POST", body: { expectedRevision, text, ...(id ? { id } : {}) } }),
     deleteScopedMemory: (workspaceId: string, sessionId: string, scope: MemoryScope, expectedRevision: number, id: string) => requestJson<MemorySnapshot & { writable: boolean }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/memory/${encodeURIComponent(sessionId)}/${scope}`, { token, hostToken, method: "DELETE", body: { expectedRevision, id } }),
 
-    getComexFeatures: () => requestJson<{ enabled: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    // Gated server writes waiting for someone with owner access (host token or a paired device).
+    listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
+    respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean; designStudio?: boolean; externalDelegates?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    /** Owner access: who decides about external agent CLIs (docs/features/external-delegates). */
+    getDelegateSettings: async () => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, timeoutMs: timeouts.config })),
+    setDelegateSettings: async (decider: "person" | "orchestrator") => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, method: "PUT", body: { decider }, timeoutMs: timeouts.config })),
+    /** Owner access: everything in flight on this server. Validate with `commandCenterSnapshotSchema`. */
+    getCommandCenter: () => requestJson<unknown>(baseUrl, "/command-center/snapshot", { token, hostToken, timeoutMs: 30_000 }),
+    stopCommandCenterSession: (workspaceId: string, sessionId: string) => requestJson<{ stopped: boolean }>(baseUrl, `/command-center/sessions/${encodeURIComponent(workspaceId)}/${encodeURIComponent(sessionId)}/stop`, { token, hostToken, method: "POST", body: {}, timeoutMs: 30_000 }),
+    /** Owner access: finished scheduled runs (results inbox). Validate with `resultsInboxSnapshotSchema`. */
+    getResultsInbox: () => requestJson<unknown>(baseUrl, "/results-inbox", { token, hostToken, timeoutMs: 30_000 }),
+    getResultsInboxSummary: () => requestJson<unknown>(baseUrl, "/results-inbox/summary", { token, hostToken, timeoutMs: 30_000 }),
+    markResultsInboxSeen: (ids: string[], seen: boolean) => requestJson<unknown>(baseUrl, "/results-inbox/seen", { token, hostToken, method: "POST", body: { ids, seen }, timeoutMs: 30_000 }),
+    markAllResultsInboxSeen: (upTo?: number) => requestJson<unknown>(baseUrl, "/results-inbox/seen-all", { token, hostToken, method: "POST", body: upTo === undefined ? {} : { upTo }, timeoutMs: 30_000 }),
+
+    /** Agent ecosystem board: need bus, cross-project index and deliverables. */
+    getEcosystemState: (workspaceId: string) => requestJson<EcosystemState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem`, { token, hostToken }),
+    ecosystemHalt: (workspaceId: string, halted: boolean, by: string) => requestJson<{ state: EcosystemState }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/agent-ecosystem/halt`, { token, hostToken, method: "POST", body: { halted, by } }),
 
     /** `sessionId` also finds files the conversation wrote after moving into a worktree. */
     readWorkspaceFile: (workspaceId: string, path: string, options?: { sessionId?: string; fileScope?: "workspace" | "conversation" }) =>
@@ -2691,6 +3009,44 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         "/env/keys",
         { token, hostToken, timeoutMs: timeouts.config, desktopTransport: options?.desktopTransport },
       ),
+
+    // Pairing other devices (docs/features/remote-device-pairing). Redeeming needs no token: the
+    // one-time code is the credential.
+    getPairingStatus: () => requestJson<{ enabled: boolean }>(baseUrl, "/pairing/status", { timeoutMs: timeouts.config }),
+    createPairingCode: () => requestJson<{ code: string; expiresAt: number }>(baseUrl, "/pairing/codes", { method: "POST", token, hostToken, timeoutMs: timeouts.config }),
+    cancelPairingCode: () => requestJson<{ ok: true }>(baseUrl, "/pairing/codes", { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
+    redeemPairingCode: (code: string, deviceName: string) => requestJson<{ id: string; token: string; scope: "owner"; deviceName: string }>(baseUrl, "/pairing/redeem", { method: "POST", body: { code, deviceName }, timeoutMs: timeouts.config }),
+    listPairedDevices: () => requestJson<{ items: Array<{ id: string; name: string; createdAt: number }> }>(baseUrl, "/pairing/devices", { token, hostToken, timeoutMs: timeouts.config }),
+    revokePairedDevice: (id: string) => requestJson<{ ok: true }>(baseUrl, `/pairing/devices/${encodeURIComponent(id)}`, { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
+
+    // Isolated task copies and their review (docs/features/task-isolation-review). Owner-only;
+    // callers validate the payload (app/lib/task-isolation.ts).
+    getTaskIsolation: (applicationId: string, isolationId: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}`, { token, hostToken, timeoutMs: 60_000 }),
+    getTaskIsolationDiff: (applicationId: string, isolationId: string, path: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/diff?path=${encodeURIComponent(path)}`, { token, hostToken, timeoutMs: 60_000 }),
+    acceptTaskIsolationFiles: (applicationId: string, isolationId: string, paths: string[], overwrite?: boolean) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/accept`, { method: "POST", body: { paths, ...(overwrite ? { overwrite: true } : {}) }, token, hostToken, timeoutMs: 120_000 }),
+    discardTaskIsolationFiles: (applicationId: string, isolationId: string, paths: string[]) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}/discard`, { method: "POST", body: { paths }, token, hostToken, timeoutMs: 120_000 }),
+    closeTaskIsolation: (applicationId: string, isolationId: string) =>
+      requestJson<unknown>(baseUrl, `/specialist-applications/${encodeURIComponent(applicationId)}/isolations/${encodeURIComponent(isolationId)}`, { method: "DELETE", token, hostToken, timeoutMs: 120_000 }),
+    getSessionIsolation: (workspaceId: string, sessionId: string) =>
+      requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/task-isolation/sessions/${encodeURIComponent(sessionId)}`, { token, hostToken }),
+    isolateSession: (workspaceId: string, sessionId: string) =>
+      requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/task-isolation/sessions/${encodeURIComponent(sessionId)}`, { method: "POST", body: {}, token, hostToken, timeoutMs: 300_000 }),
+
+    // Folder browser for creating workspaces from the web (docs/features/web-folder-browser).
+    // Owner-only; callers validate the payload (app/lib/web-folder-browser.ts).
+    browseFolders: (path?: string | null, options?: { hidden?: boolean }) => {
+      const params = new URLSearchParams();
+      if (path?.trim()) params.set("path", path.trim());
+      if (options?.hidden) params.set("hidden", "1");
+      const query = params.size ? `?${params.toString()}` : "";
+      return requestJson<unknown>(baseUrl, `/folders/browse${query}`, { token, hostToken, timeoutMs: timeouts.config });
+    },
+    createFolder: (parent: string, name: string) =>
+      requestJson<unknown>(baseUrl, "/folders/browse", { method: "POST", body: { parent, name }, token, hostToken, timeoutMs: timeouts.config }),
 
     getUserEnvStatus: (runtimeKey?: string | null) => {
       const params = new URLSearchParams();

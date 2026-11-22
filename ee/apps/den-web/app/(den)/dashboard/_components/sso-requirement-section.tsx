@@ -82,7 +82,7 @@ export function SsoRequirementSection() {
     <form className="mb-6" onSubmit={handleSave} data-testid="sso-requirement-section">
       <DenCard size="spacious" className="grid gap-6">
         <div className="grid gap-2">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             Authentication
           </p>
           <h2 className="text-[24px] font-semibold tracking-[-0.04em] text-gray-900">

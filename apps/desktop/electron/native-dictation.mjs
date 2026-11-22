@@ -2,6 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import path from "node:path";
+import { z } from "zod";
 
 const run = promisify(execFile);
 
@@ -49,8 +50,14 @@ if (-not [OpenWorkVoiceTyping]::Start()) { exit 2 }
 }
 
 export const SPEECH_DICTATION_EVENT = "openwork:dictation:event";
-const helperEvents = new Set(["ready", "result", "error", "end"]);
-const speechErrors = new Set(["not-allowed", "service-not-allowed", "audio-capture", "language-not-supported", "network"]);
+const speechErrors = ["not-allowed", "service-not-allowed", "audio-capture", "language-not-supported", "network"];
+// One line from the speech helper. An unknown error code is reported as "network".
+const helperEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ready") }),
+  z.object({ type: z.literal("end") }),
+  z.object({ type: z.literal("result"), segments: z.array(z.string()).max(500) }),
+  z.object({ type: z.literal("error"), code: z.enum(speechErrors).catch("network") }),
+]);
 
 function trustedSender(event, window) {
   return Boolean(window && event.sender === window.webContents && event.senderFrame === event.sender.mainFrame
@@ -59,14 +66,12 @@ function trustedSender(event, window) {
 
 /** Forwards only the helper's known event shapes; transcript text stays in memory. */
 export function helperEvent(line) {
-  let value;
-  try { value = JSON.parse(line) } catch { return null }
-  if (!value || !helperEvents.has(value.type)) return null;
-  if (value.type === "result") {
-    if (!Array.isArray(value.segments) || value.segments.length > 500 || !value.segments.every(part => typeof part === "string")) return null;
-    return { type: "result", segments: value.segments };
-  }
-  if (value.type === "error") return { type: "error", code: speechErrors.has(value.code) ? value.code : "network" };
+  let parsed;
+  try { parsed = helperEventSchema.safeParse(JSON.parse(line)) } catch { return null }
+  if (!parsed.success) return null;
+  const value = parsed.data;
+  if (value.type === "result") return { type: "result", segments: value.segments };
+  if (value.type === "error") return { type: "error", code: value.code };
   return { type: value.type };
 }
 

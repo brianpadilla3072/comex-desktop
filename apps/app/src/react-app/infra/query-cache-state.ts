@@ -1,6 +1,20 @@
 import { useMemo, useSyncExternalStore } from "react";
 
+import type { QueryClient, QueryCacheNotifyEvent } from "@tanstack/react-query";
+
 import { getReactQueryClient } from "./query-client";
+
+/** Events that never change a query's data or state as these hooks read it. A component that
+ *  mounts creates its query during render ("added"); passing that on re-rendered the subscriber
+ *  in the middle of another component's render ("Cannot update a component while rendering a
+ *  different component", hive QA w1-3). React re-reads the snapshot on its next render anyway. */
+const IGNORED_EVENTS = new Set<QueryCacheNotifyEvent["type"]>(["added", "observerAdded", "observerRemoved", "observerOptionsUpdated"]);
+
+export function subscribeToQueryCacheChanges(queryClient: QueryClient, onChange: () => void): () => void {
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (!IGNORED_EVENTS.has(event.type)) onChange();
+  });
+}
 
 /**
  * Subscribe to a TanStack Query cache entry as plain external state.
@@ -9,7 +23,7 @@ import { getReactQueryClient } from "./query-client";
 export function useQueryCacheState<T>(queryKey: readonly unknown[] | null, fallback: T): T {
   const queryClient = getReactQueryClient();
   return useSyncExternalStore(
-    (callback) => (queryKey ? queryClient.getQueryCache().subscribe(callback) : () => {}),
+    (callback) => (queryKey ? subscribeToQueryCacheChanges(queryClient, callback) : () => {}),
     () => (queryKey ? queryClient.getQueryData<T>(queryKey) ?? fallback : fallback),
     () => fallback,
   );
@@ -44,7 +58,7 @@ export function useQueryCacheArrayState<T>(
   }, [fallback, queryClient, queryKeys]);
 
   return useSyncExternalStore(
-    (callback) => queryClient.getQueryCache().subscribe(callback),
+    (callback) => subscribeToQueryCacheChanges(queryClient, callback),
     getSnapshot,
     () => fallback,
   );

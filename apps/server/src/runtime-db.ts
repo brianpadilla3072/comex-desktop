@@ -1,3 +1,4 @@
+import { chmod } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { openworkConfigDir } from "@openwork/paths";
 import type { Database as BunDatabase } from "bun:sqlite";
@@ -33,11 +34,15 @@ export function importNodeSqlite(): Promise<typeof import("node:sqlite")> {
 }
 
 export function runtimeDbPath(config: Pick<ServerConfig, "configPath">): string {
+  // An explicit config path always wins: it is the caller's statement about where this server's
+  // state lives. The environment override exists for hosts that start the server without a
+  // config file. Letting the override hijack an explicit path made every store that honoured
+  // configPath collide with an unrelated override (tests running in one process proved it).
+  const configPath = config.configPath?.trim();
+  if (configPath) return join(dirname(configPath), "runtime.sqlite");
   const override = process.env.OPENWORK_RUNTIME_DB?.trim();
   if (override) return resolve(override);
-  const configPath = config.configPath?.trim();
-  const configDir = configPath ? dirname(configPath) : openworkConfigDir();
-  return join(configDir, "runtime.sqlite");
+  return join(openworkConfigDir(), "runtime.sqlite");
 }
 
 /** Directory holding runtime state (the SQLite DB and derived files). */
@@ -51,6 +56,7 @@ export async function openRuntimeSqliteDatabase(path: string): Promise<RuntimeSq
     const { Database } = await import("bun:sqlite");
     const { drizzle } = await import("drizzle-orm/bun-sqlite");
     const sqlite = new Database(path, { create: true });
+    try { await chmod(path, 0o600); } catch (error) { sqlite.close(); throw error; }
     sqlite.exec("PRAGMA journal_mode=WAL");
     sqlite.exec("PRAGMA busy_timeout=5000");
     return {
@@ -63,6 +69,7 @@ export async function openRuntimeSqliteDatabase(path: string): Promise<RuntimeSq
 
   const { DatabaseSync } = await importNodeSqlite();
   const sqlite = new DatabaseSync(path);
+  try { await chmod(path, 0o600); } catch (error) { sqlite.close(); throw error; }
   sqlite.exec("PRAGMA journal_mode=WAL");
   sqlite.exec("PRAGMA busy_timeout=5000");
   return {

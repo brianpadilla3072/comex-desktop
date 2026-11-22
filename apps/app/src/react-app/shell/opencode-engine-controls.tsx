@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { EngineV2PreviewStatus } from "@/app/lib/openwork-server";
 import { isDesktopRuntime } from "@/app/lib/runtime-env";
+import { t } from "@/i18n";
 import type { PaletteItem } from "./command-palette-search";
 import {
   requestEngineSwitch,
@@ -30,21 +31,21 @@ export function useOpencodeEngineControls(client: OpencodeEngineClient | null | 
         setStatus(next);
         setError(null);
       } catch (cause) {
-        if (!disposed) setError(cause instanceof Error ? cause.message : "Reconnect to check the chat engine.");
+        if (!disposed) setError(cause instanceof Error ? cause.message : t("engine_settings.reconnect"));
       }
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 1500);
     return () => { disposed = true; window.clearInterval(timer); };
   }, [client, available, active, status?.enabled, status?.running]);
-  const blockedReason = !available ? "Available in the desktop app with a local server connection."
-    : error ? "Reconnect to check the chat engine."
-    : !status ? "Checking chat engine…" : undefined;
+  const blockedReason = !available ? t("engine_settings.desktop_only")
+    : error ? t("engine_settings.reconnect")
+    : !status ? t("engine_settings.checking") : undefined;
   const disabled = Boolean(blockedReason) || busy;
   const selected: ChatEngine = status ? selectedChatEngine(status) : "v1";
   // Policy and shared-history safety both keep v1 visible but locked (DESIGN P4).
   const v2Only = status?.v2Only === true;
-  const v1Locked = status?.v1UnavailableReason || (v2Only ? V2_ONLY_REASON : undefined);
+  const v1Locked = status?.v1UnavailableReason || (v2Only ? t("engine_settings.v2_only") : undefined);
   const select = (engine: ChatEngine) => {
     if (!client || disabled || engine === selected || (engine === "v1" && Boolean(v1Locked))) return;
     void requestEngineSwitch(client, engine, selected).then((next) => { if (next) setStatus(next); });
@@ -58,5 +59,3 @@ export function useOpencodeEngineControls(client: OpencodeEngineClient | null | 
   }));
   return { status, selected, disabled, blockedReason, busy, error, select, v2Only, v1Locked, items: desktop ? items : [] };
 }
-
-export const V2_ONLY_REASON = "Your organization runs every chat on OpenCode v2.";

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Clock, FileCheck, LockKeyhole } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createDenClient, isDenOrgAdminRole, readDenSettings } from "@/app/lib/den";
 import { denDashboardUrl } from "@/app/lib/den-dashboard-links";
@@ -72,7 +73,7 @@ export function UsageLimitCard({ testId, kind, title, reset, saved = true, actio
         <h2 className="text-[13px] font-medium leading-5 text-foreground">{title}</h2>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-4 text-muted-foreground">
           {reset ? <span className="inline-flex items-center gap-1"><Clock aria-hidden="true" className="size-3.5" />{reset}</span> : null}
-          {saved ? <span className="inline-flex items-center gap-1"><FileCheck aria-hidden="true" className="size-3.5" />Your message is saved</span> : null}
+          {saved ? <span className="inline-flex items-center gap-1"><FileCheck aria-hidden="true" className="size-3.5" />{t("secondary_ui.cloud.message_saved")}</span> : null}
         </p>
       </div>
       {children}

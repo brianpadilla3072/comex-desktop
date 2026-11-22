@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { LanguageSection } from "../appearance/language-section";
 import { ThemeSection } from "../appearance/theme-section";
 import { WindowSection } from "../appearance/window-section";
+import { ActivityMotionSection } from "../appearance/activity-motion-section";
 import { LayoutStack } from "../settings-layout";
 
 export type AppearanceViewProps = {
@@ -23,6 +24,8 @@ export function AppearanceView(props: AppearanceViewProps) {
       <ThemeSection {...props} />
       <Separator />
       <LanguageSection {...props} />
+      <Separator />
+      <ActivityMotionSection busy={props.busy} />
       {isDesktopRuntime() ? (
         <>
           <Separator />

@@ -2,7 +2,10 @@ import { approvalLoopbackFetch } from "./approval-loopback-fetch.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
+import { z } from "zod";
 type UiBridge = { baseUrl: string; token: string };
+/** The desktop's `openwork-ui-control.json` discovery file. */
+const uiBridgeDiscoverySchema = z.object({ baseUrl: z.string(), token: z.string() });
 let cachedBridge: UiBridge | null = null;
 let cachedBridgeAt = 0;
 let cachedBridgeDiscovery: string | undefined;
@@ -32,8 +35,9 @@ async function discoverUiBridge(): Promise<UiBridge | null> {
   for (const candidate of uiControlDiscoveryPaths()) {
     try {
       const raw = await readFile(candidate, "utf8");
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof parsed.baseUrl === "string" && typeof parsed.token === "string") {
+      const discovered = uiBridgeDiscoverySchema.safeParse(JSON.parse(raw));
+      if (discovered.success) {
+        const parsed = discovered.data;
         const url = new URL(parsed.baseUrl);
         if (url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) || url.username || url.password) continue;
         cachedBridge = { baseUrl: parsed.baseUrl, token: parsed.token };
@@ -70,7 +74,10 @@ export async function uiBridgeRequest(
       ? await approvalLoopbackFetch(`${bridge.baseUrl}${path}`, request)
       : await fetch(`${bridge.baseUrl}${path}`, { ...request, redirect: "error" });
     const text = await response.text();
-    try { return JSON.parse(text); } catch { return { ok: false, code: "browser_disconnected", mayHaveChangedState: true, retrySafe: false, error: "The browser returned no readable receipt. Inspect the page before retrying an action." }; }
+    try {
+      const receipt: unknown = JSON.parse(text);
+      return receipt;
+    } catch { return { ok: false, code: "browser_disconnected", mayHaveChangedState: true, retrySafe: false, error: "The browser returned no readable receipt. Inspect the page before retrying an action." }; }
   } catch {
     cachedBridge = null;
     cachedBridgeAt = 0;

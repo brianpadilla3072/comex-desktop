@@ -8,7 +8,7 @@ const serviceSchema = z.object({ url: z.string(), password: z.string().min(1), p
 const infoSchema = z.object({ version: z.string().regex(/^2\./), pid: z.number().int().positive() });
 const providersSchema = z.object({ data: z.array(z.object({ id: z.string() })) });
 const modelsSchema = z.object({ data: z.array(z.object({ id: z.string(), providerID: z.string() })) });
-const unavailable = "No se pudo conectar al OpenCode instalado. Iniciá su servicio con «opencode service start» y volvé a intentar. Comex no cambió a otro motor.";
+const unavailable = "No se pudo conectar al OpenCode instalado. Inicia su servicio con «opencode service start» y vuelve a intentar. Comex no cambió a otro motor.";
 
 /** The service receipt contains a local transport password, never provider keys.
  * Read it again after a service restart; do not persist it or send it to the UI. */
@@ -30,6 +30,8 @@ export function readInstalledOpencodeConnection(file: string): OpencodeV2Connect
 
 /** Attach only: OpenCode continues owning accounts, configuration and history.
  * No migration, global provider mirror, config rewrite or child-process shutdown. */
+export const BROWSER_BRIDGE_PENDING = "El puente del navegador todavía no está disponible en OpenCode. Las herramientas del navegador se activan solas cuando cargue; el chat funciona igual.";
+
 export function createInstalledOpencodeEngine(file: string, deferStart = false, browser?: { install(directory: string): Promise<void>; close(): Promise<void> }): EngineV2Preview {
   let stopped = false;
   let pending: Promise<void> | undefined;
@@ -80,12 +82,12 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false, 
     }
   }
   async function keepV2(enabled: boolean) {
-    if (!enabled) throw new Error("Para dejar de usar OpenCode instalado, iniciá Comex con OPENWORK_COMEX_OPENCODE_MODE=managed.");
+    if (!enabled) throw new Error("Para dejar de usar OpenCode instalado, inicia Comex con OPENWORK_COMEX_OPENCODE_MODE=managed.");
     await probe();
     return status();
   }
   async function unsupportedMcp() {
-    throw new Error("Administrá las conexiones MCP desde tu OpenCode instalado. Comex no modifica su configuración.");
+    throw new Error("Administra las conexiones MCP desde tu OpenCode instalado. Comex no modifica su configuración.");
   }
   async function ensureWorkspaceReady(directory: string) {
     if (browser) {
@@ -93,12 +95,14 @@ export function createInstalledOpencodeEngine(file: string, deferStart = false, 
     }
     await probe(directory);
     if (browser) {
-      const result = await fetchOpencodeV2Json(readInstalledOpencodeConnection(file), "/api/plugin", { directory, timeoutMs: 8_000 });
-      const plugins = z.object({ data: z.array(z.object({ id: z.string().optional(), state: z.object({ status: z.string() }) })) }).safeParse(result.json);
-      if (result.status !== 200 || !plugins.success || !plugins.data.data.some(plugin => plugin.id === "comex.browser" && plugin.state.status === "active")) {
-        throw new Error("El puente del navegador todavía no está disponible en OpenCode. Volvé a intentar en unos segundos.");
-      }
-      state.lastWarning = "Navegador de Comex conectado mediante un puente local por proyecto. Las cuentas y conexiones MCP siguen perteneciendo a tu OpenCode instalado.";
+      // The browser bridge is one tool among many. When it is not active yet, chats, models and
+      // providers must keep working: report it in the status instead of failing every request.
+      const result = await fetchOpencodeV2Json(readInstalledOpencodeConnection(file), "/api/plugin", { directory, timeoutMs: 8_000 }).catch(() => null);
+      const plugins = z.object({ data: z.array(z.object({ id: z.string().optional(), state: z.object({ status: z.string() }) })) }).safeParse(result?.json);
+      const active = result?.status === 200 && plugins.success && plugins.data.data.some(plugin => plugin.id === "comex.browser" && plugin.state.status === "active");
+      state.lastWarning = active
+        ? "Navegador de Comex conectado mediante un puente local por proyecto. Las cuentas y conexiones MCP siguen perteneciendo a tu OpenCode instalado."
+        : BROWSER_BRIDGE_PENDING;
     }
   }
   if (!deferStart) start();

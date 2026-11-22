@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ComposerAttachment, WorkspacePreset } from "../../../app/types";
 
 export type CreateWorkspaceScreen = "chooser" | "local";
@@ -53,4 +54,6 @@ export type CreateWorkspaceModalProps = {
   submittingProgress?: CreateWorkspaceProgress | null;
   localDisabled?: boolean;
   localDisabledReason?: string | null;
+  /** A dialog opened by `onPickFolder` (the web folder browser), rendered inside this dialog so it nests. */
+  pickerDialog?: ReactNode;
 };

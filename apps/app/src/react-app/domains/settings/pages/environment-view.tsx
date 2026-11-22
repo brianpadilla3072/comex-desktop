@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { PairDeviceHint } from "@/react-app/shell/pair-device-hint";
 import { useEffect, useId, useState, type SetStateAction } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
@@ -30,6 +31,7 @@ import {
   environmentUserEnvQueryKey,
   type ApplyEnvironmentChangesResult,
   type EnvironmentEditorDraft,
+  isEnvironmentAccessDenied,
   useEnvironmentVariableApplyChanges,
   useEnvironmentVariableList,
   useEnvironmentVariableModify,
@@ -129,6 +131,8 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
     client: props.client,
     runtimeKey: props.runtimeKey,
   });
+  const accessDenied = isEnvironmentAccessDenied(error);
+  const canEdit = props.canEdit && !accessDenied;
 
   const readEnvironmentValue = async (item: EnvItem) => {
     if (typeof item.value === "string") return item.value;
@@ -171,14 +175,14 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
   };
 
   const openAdd = () => {
-    if (!props.canEdit) {
+    if (!canEdit) {
       return;
     }
     props.onEditorChange({ mode: "add", key: "", value: "" });
   };
 
   const openEdit = (item: EnvItem) => {
-    if (!props.canEdit) {
+    if (!canEdit) {
       return;
     }
     void readEnvironmentValue(item)
@@ -198,7 +202,7 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
               {t("settings.environment.description")}
             </LayoutSectionDescription>
           </div>
-          {props.canEdit ? (
+          {canEdit ? (
             <Button className="shrink-0" onClick={openAdd}>
               <Plus className="size-4" />
               {t("settings.environment.add_button")}
@@ -207,7 +211,8 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
         </div>
       </LayoutSectionHeader>
 
-      {error ? <SettingsNotice tone="error">{error.message}</SettingsNotice> : null}
+      {accessDenied ? <SettingsNotice>{t("settings.environment.access_denied")} <PairDeviceHint /></SettingsNotice>
+        : error ? <SettingsNotice tone="error">{error.message}</SettingsNotice> : null}
 
       {isPendingChanges ? (
         <EnvironmentPendingChanges
@@ -217,14 +222,14 @@ function EnvironmentSettingsPanel(props: EnvironmentSettingsPanelProps) {
         />
       ) : null}
 
-      <EnvironmentItemsTable
+      {accessDenied ? null : <EnvironmentItemsTable
         loading={isLoading}
         items={data?.items ?? []}
-        canEdit={props.canEdit}
+        canEdit={canEdit}
         onAdd={openAdd}
         onEdit={openEdit}
         onRevealValue={readEnvironmentValue}
-      />
+      />}
 
       <LayoutSectionItemFootnote>{t("settings.environment.footer_hint")}</LayoutSectionItemFootnote>
       <LayoutSectionItemFootnote>{t("settings.environment.override_hint")}</LayoutSectionItemFootnote>

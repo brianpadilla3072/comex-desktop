@@ -9,6 +9,12 @@ import { Buffer } from "node:buffer";
 import { createPublicKey, verify } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
+
+// A JWS header or payload: a JSON object whose claims are checked one by one below.
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+// The replay guard file: used token ids. Anything that is not a list starts empty.
+const replayCacheSchema = z.array(z.unknown()).catch([]);
 
 const CONNECT_LINK_ALGORITHM = "EdDSA";
 const CONNECT_LINK_AUDIENCE = "openwork-desktop-connect";
@@ -212,15 +218,16 @@ export function verifyConnectLinkToken(input) {
   if (headerJson === null) {
     return { ok: false, code: "invalid_token", message: "Token header is not valid base64url." };
   }
-  let header;
+  let parsedHeader;
   try {
-    header = JSON.parse(headerJson);
+    parsedHeader = jsonObjectSchema.safeParse(JSON.parse(headerJson));
   } catch {
     return { ok: false, code: "invalid_token", message: "Token header is not valid JSON." };
   }
-  if (typeof header !== "object" || header === null) {
+  if (!parsedHeader.success) {
     return { ok: false, code: "invalid_token", message: "Token header is not an object." };
   }
+  const header = parsedHeader.data;
   if (header.alg !== CONNECT_LINK_ALGORITHM) {
     return { ok: false, code: "invalid_token", message: `Token alg must be ${CONNECT_LINK_ALGORITHM}.` };
   }
@@ -259,15 +266,16 @@ export function verifyConnectLinkToken(input) {
   if (payloadJson === null) {
     return { ok: false, code: "invalid_token", message: "Token payload is not valid base64url." };
   }
-  let payload;
+  let parsedPayload;
   try {
-    payload = JSON.parse(payloadJson);
+    parsedPayload = jsonObjectSchema.safeParse(JSON.parse(payloadJson));
   } catch {
     return { ok: false, code: "invalid_token", message: "Token payload is not valid JSON." };
   }
-  if (typeof payload !== "object" || payload === null) {
+  if (!parsedPayload.success) {
     return { ok: false, code: "invalid_token", message: "Token payload is not an object." };
   }
+  const payload = parsedPayload.data;
   if (payload.aud !== CONNECT_LINK_AUDIENCE) {
     return { ok: false, code: "wrong_audience", message: "Token audience is not the desktop connect audience." };
   }
@@ -459,8 +467,8 @@ export function createConnectLinkReplayGuard(options) {
     if (cache) return cache;
     try {
       const raw = await readFile(options.filePath, "utf8");
-      const parsed = JSON.parse(raw);
-      cache = Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : [];
+      const parsed = replayCacheSchema.parse(JSON.parse(raw));
+      cache = parsed.filter((entry) => typeof entry === "string");
     } catch {
       cache = [];
     }

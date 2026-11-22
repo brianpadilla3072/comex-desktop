@@ -386,7 +386,7 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
     try {
       await props.onRefresh();
     } catch (error) {
-      setRefreshError(error instanceof Error ? error.message : "Could not refresh Cloud MCP diagnostics.");
+      setRefreshError(error instanceof Error ? error.message : t("secondary_ui.advanced.cloud_refresh_failed"));
     } finally {
       setBusy(false);
     }
@@ -395,31 +395,31 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
   const copy = async () => {
     const payload = JSON.stringify({ cloudMcpHealth: safeHealth }, null, 2);
     await navigator.clipboard.writeText(payload);
-    setCopyStatus("Copied sanitized Cloud diagnostic.");
+    setCopyStatus(t("secondary_ui.advanced.cloud_copied"));
   };
 
   return (
     <LayoutSection id="advanced-agent-access">
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Agent access diagnostics</LayoutSectionTitle>
+        <LayoutSectionTitle>{t("secondary_ui.advanced.agent_access_title")}</LayoutSectionTitle>
         <LayoutSectionDescription>
-          Technical details for OpenWork Cloud MCP delivery. Tokens and Authorization headers are redacted before display or copy.
+          {t("secondary_ui.advanced.agent_access_desc")}
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>OpenWork Cloud MCP health</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("secondary_ui.advanced.cloud_health_title")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Use this when support needs exact runtime state. The main Connect card stays user-facing.
+            {t("secondary_ui.advanced.cloud_health_desc")}
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
               <RefreshCcw size={14} className={busy ? "animate-spin" : ""} />
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void copy()} disabled={!props.cloudMcpHealth}>
-              Copy sanitized diagnostic
+              {t("secondary_ui.advanced.copy_sanitized")}
             </Button>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
@@ -429,57 +429,57 @@ export function AdvancedCloudMcpDiagnosticsSection(props: AdvancedCloudMcpDiagno
         {props.cloudMcpHealth ? (
           <div className="space-y-2 rounded-xl border border-gray-6 bg-gray-1/60 p-3">
             <div className="grid gap-2">
-              <DiagnosticRow label="Active workspace" value={`${props.cloudMcpHealth.workspace.id} (${props.cloudMcpHealth.workspace.directory ?? "no directory"})`} />
-              <DiagnosticRow label="Desired revision" value={props.cloudMcpHealth.desired.revision ?? "none"} />
-              <DiagnosticRow label="Applied revision" value={props.cloudMcpHealth.delivery.appliedRevision ?? "none"} />
-              <DiagnosticRow label="Delivery" value={`${props.cloudMcpHealth.delivery.state}${props.cloudMcpHealth.delivery.trigger ? ` / ${props.cloudMcpHealth.delivery.trigger}` : ""}`} />
-              <DiagnosticRow label="Engine status" value={props.cloudMcpHealth.engine.status} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_active_workspace")} value={`${props.cloudMcpHealth.workspace.id} (${props.cloudMcpHealth.workspace.directory ?? "no directory"})`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_desired_revision")} value={props.cloudMcpHealth.desired.revision ?? "none"} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_applied_revision")} value={props.cloudMcpHealth.delivery.appliedRevision ?? "none"} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_delivery")} value={`${props.cloudMcpHealth.delivery.state}${props.cloudMcpHealth.delivery.trigger ? ` / ${props.cloudMcpHealth.delivery.trigger}` : ""}`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_engine_status")} value={props.cloudMcpHealth.engine.status} />
               {props.cloudMcpHealth.engineInspection?.checked ? (
                 <DiagnosticRow
-                  label="Engine MCP servers"
+                  label={t("secondary_ui.advanced.row_engine_mcp_servers")}
                   value={(props.cloudMcpHealth.engineInspection.servers ?? []).length
                     ? (props.cloudMcpHealth.engineInspection.servers ?? []).map((server) => `${server.name} ${server.status}${server.error ? ` (${server.error})` : ""}`).join("; ")
                     : "none tracked"}
                 />
               ) : null}
-              <DiagnosticRow label="Provider/model" value={projection?.checked ? `${projection.provider ?? "unknown"}/${projection.model ?? "unknown"}; source ${projection.source ?? "unknown"}; tool calling ${formatMaybe(projection.toolCalling)}; present ${joinList(projection.present)}; missing ${joinList(projection.missing)}${projection.limitation ? `; limitation: ${projection.limitation}` : ""}` : "not checked"} />
-              <DiagnosticRow label="Cloud tools" value={`derived present ${joinList(props.cloudMcpHealth.tools.present)}; missing ${joinList(props.cloudMcpHealth.tools.missing)}`} />
-              <DiagnosticRow label="Direct tools/list" value={`checked ${props.cloudMcpHealth.tools.direct.checked ? "yes" : "no"}; present ${joinList(props.cloudMcpHealth.tools.direct.present)}; missing ${joinList(props.cloudMcpHealth.tools.direct.missing)}`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_provider_model")} value={projection?.checked ? `${projection.provider ?? "unknown"}/${projection.model ?? "unknown"}; source ${projection.source ?? "unknown"}; tool calling ${formatMaybe(projection.toolCalling)}; present ${joinList(projection.present)}; missing ${joinList(projection.missing)}${projection.limitation ? `; limitation: ${projection.limitation}` : ""}` : "not checked"} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_cloud_tools")} value={`derived present ${joinList(props.cloudMcpHealth.tools.present)}; missing ${joinList(props.cloudMcpHealth.tools.missing)}`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_direct_tools")} value={`checked ${props.cloudMcpHealth.tools.direct.checked ? "yes" : "no"}; present ${joinList(props.cloudMcpHealth.tools.direct.present)}; missing ${joinList(props.cloudMcpHealth.tools.direct.missing)}`} />
               {props.cloudMcpHealth.tools.direct.trace ? (
                 <DiagnosticRow
-                  label="Direct probe"
+                  label={t("secondary_ui.advanced.row_direct_probe")}
                   value={`${props.cloudMcpHealth.tools.direct.trace.endpoint ?? "unknown endpoint"} · ${props.cloudMcpHealth.tools.direct.trace.latencyMs} ms · ${props.cloudMcpHealth.tools.direct.trace.steps.map((step) => `${step.step} ${step.ok ? "ok" : "failed"}${step.httpStatus !== undefined ? ` (HTTP ${step.httpStatus})` : ""} ${Math.max(0, Math.round(step.latencyMs))}ms`).join(" → ") || "no steps"}`}
                 />
               ) : null}
               {props.cloudMcpHealth.firstFailure ? (
                 <DiagnosticRow
-                  label="First failure"
+                  label={t("secondary_ui.advanced.row_first_failure")}
                   value={`${props.cloudMcpHealth.firstFailure.code} (stage ${props.cloudMcpHealth.firstFailure.stage}; ${props.cloudMcpHealth.firstFailure.retryable ? "retryable" : "not retryable"}): ${props.cloudMcpHealth.firstFailure.message}`}
                 />
               ) : null}
-              <DiagnosticRow label="Plugin canaries" value={`present ${joinList(props.cloudMcpHealth.pluginCanaries.present)}; missing ${joinList(props.cloudMcpHealth.pluginCanaries.missing)}`} />
-              <DiagnosticRow label="Safe capabilities" value={`schema v${props.cloudMcpHealth.schemaVersion}; connect catalog ${props.cloudMcpHealth.connectCatalogEnabled ? "enabled" : "disabled"}`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_plugin_canaries")} value={`present ${joinList(props.cloudMcpHealth.pluginCanaries.present)}; missing ${joinList(props.cloudMcpHealth.pluginCanaries.missing)}`} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_safe_capabilities")} value={`schema v${props.cloudMcpHealth.schemaVersion}; connect catalog ${props.cloudMcpHealth.connectCatalogEnabled ? "enabled" : "disabled"}`} />
               {compatibility ? (
                 <>
-                  <DiagnosticRow label="OpenWork versions" value={`server ${formatMaybe(compatibility.openwork.serverVersion)}; app ${formatMetadataRecord(compatibility.openwork.app)}`} />
-                  <DiagnosticRow label="OpenCode compatibility" value={`expected ${formatMaybe(compatibility.opencode.expectedVersion)}; actual ${formatMaybe(compatibility.opencode.actualVersion)}; probe ${compatibility.opencode.probe}`} />
-                  <DiagnosticRow label="Feature probes" value={formatSupportedFeatures(compatibility.supportedFeatures)} />
-                  <DiagnosticRow label="Experimental tool IDs" value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
-                  <DiagnosticRow label="Experimental provider tools" value={formatMcpToolExposure(compatibility.experimentalProviderTools)} />
-                  <DiagnosticRow label="Plugin hashes" value={formatPluginHashes(compatibility.pluginFileHashes)} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_openwork_versions")} value={`server ${formatMaybe(compatibility.openwork.serverVersion)}; app ${formatMetadataRecord(compatibility.openwork.app)}`} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_opencode_compat")} value={`expected ${formatMaybe(compatibility.opencode.expectedVersion)}; actual ${formatMaybe(compatibility.opencode.actualVersion)}; probe ${compatibility.opencode.probe}`} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_feature_probes")} value={formatSupportedFeatures(compatibility.supportedFeatures)} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_experimental_tool_ids")} value={formatMcpToolExposure(compatibility.experimentalToolIds)} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_experimental_provider_tools")} value={formatMcpToolExposure(compatibility.experimentalProviderTools)} />
+                  <DiagnosticRow label={t("secondary_ui.advanced.row_plugin_hashes")} value={formatPluginHashes(compatibility.pluginFileHashes)} />
                 </>
               ) : null}
-              <DiagnosticRow label="Live verification" value={props.cloudMcpHealth.checkedAt} />
+              <DiagnosticRow label={t("secondary_ui.advanced.row_live_verification")} value={props.cloudMcpHealth.checkedAt} />
             </div>
             <details className="rounded-lg bg-gray-3 p-2">
-              <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show sanitized health JSON</summary>
+              <summary className="cursor-pointer text-[11px] font-medium text-gray-11">{t("secondary_ui.advanced.show_health_json")}</summary>
               <pre className="mt-2 max-h-72 overflow-auto font-mono text-[11px] text-gray-11">
                 {JSON.stringify(safeHealth, null, 2)}
               </pre>
             </details>
           </div>
         ) : (
-          <SettingsNotice>No Cloud MCP health has been loaded for this workspace yet.</SettingsNotice>
+          <SettingsNotice>{t("secondary_ui.advanced.no_cloud_health")}</SettingsNotice>
         )}
       </LayoutSectionItem>
     </LayoutSection>
@@ -537,24 +537,24 @@ function RuntimeConfigSummary(props: { config: Record<string, unknown> }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Default agent</div>
+        <div className="text-[10px] uppercase tracking-wide text-gray-8">{t("secondary_ui.advanced.summary_default_agent")}</div>
         <div className="mt-1 truncate font-mono text-[11px] text-gray-12" title={defaultAgent}>{defaultAgent}</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Providers / models</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{providers} providers, {models} models</div>
+        <div className="text-[10px] uppercase tracking-wide text-gray-8">{t("secondary_ui.advanced.summary_providers_models")}</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{t("secondary_ui.advanced.summary_providers_models_value", { providers, models })}</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">Agents / plugins</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{agents} agents, {plugins} plugins</div>
+        <div className="text-[10px] uppercase tracking-wide text-gray-8">{t("secondary_ui.advanced.summary_agents_plugins")}</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{t("secondary_ui.advanced.summary_agents_plugins_value", { agents, plugins })}</div>
       </div>
       <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2">
-        <div className="text-[10px] uppercase tracking-wide text-gray-8">MCP / permissions</div>
-        <div className="mt-1 font-mono text-[11px] text-gray-12">{mcps} MCPs, {permissions} permission keys</div>
+        <div className="text-[10px] uppercase tracking-wide text-gray-8">{t("secondary_ui.advanced.summary_mcp_permissions")}</div>
+        <div className="mt-1 font-mono text-[11px] text-gray-12">{t("secondary_ui.advanced.summary_mcp_permissions_value", { mcps, permissions })}</div>
       </div>
       {disabledProviders ? (
         <div className="rounded-lg border border-gray-6 bg-gray-2/60 p-2 sm:col-span-2 lg:col-span-4">
-          <div className="text-[10px] uppercase tracking-wide text-gray-8">Disabled providers</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-8">{t("secondary_ui.advanced.summary_disabled_providers")}</div>
           <div className="mt-1 font-mono text-[11px] text-gray-12">{disabledProviders}</div>
         </div>
       ) : null}
@@ -577,12 +577,12 @@ function RuntimeConfigSourceBlock(props: {
         <div className="font-medium text-gray-12">{props.title}</div>
         <div className="text-[11px] text-gray-9">{props.description}</div>
         {props.path ? <div className="mt-1 break-all font-mono text-[11px] text-gray-8">{props.path}</div> : null}
-        {props.exists !== undefined ? <div className="text-[11px] text-gray-9">{props.exists ? "Found" : "Not found"}</div> : null}
-        <div className="text-[11px] text-gray-9">Keys: {formatKeys(props.keys)}</div>
+        {props.exists !== undefined ? <div className="text-[11px] text-gray-9">{props.exists ? t("secondary_ui.advanced.found") : t("secondary_ui.advanced.not_found")}</div> : null}
+        <div className="text-[11px] text-gray-9">{t("secondary_ui.advanced.keys", { keys: formatKeys(props.keys) })}</div>
       </div>
       <RuntimeConfigSummary config={safeConfig} />
       <details className="rounded-lg bg-gray-3 p-2">
-        <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show raw JSON</summary>
+        <summary className="cursor-pointer text-[11px] font-medium text-gray-11">{t("secondary_ui.advanced.show_raw_json")}</summary>
         <pre className="mt-2 max-h-56 overflow-auto font-mono text-[11px] text-gray-11">
           {JSON.stringify(safeConfig, null, 2)}
         </pre>
@@ -599,17 +599,17 @@ export function AdvancedRuntimeConfigSourcesSection(props: AdvancedRuntimeConfig
   return (
     <LayoutSection id="advanced-config-sources">
       <LayoutSectionHeader>
-        <LayoutSectionTitle>OpenCode config sources</LayoutSectionTitle>
+        <LayoutSectionTitle>{t("secondary_ui.advanced.config_sources_title")}</LayoutSectionTitle>
         <LayoutSectionDescription>
-          Inspect what OpenWork controls at runtime versus what belongs to your workspace config. This works through the OpenWork server and does not require the OpenCode engine to be healthy.
+          {t("secondary_ui.advanced.config_sources_desc")}
         </LayoutSectionDescription>
       </LayoutSectionHeader>
 
       <LayoutSectionItem>
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Config source snapshot</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("secondary_ui.advanced.snapshot_title")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Shows the OpenWork runtime database, the injected runtime config, and the workspace-owned OpenCode config files.
+            {t("secondary_ui.advanced.snapshot_desc")}
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Button
@@ -620,7 +620,7 @@ export function AdvancedRuntimeConfigSourcesSection(props: AdvancedRuntimeConfig
               disabled={props.busy || props.configStatusBusy || !props.canInspect}
             >
               <RefreshCcw size={14} className={props.configStatusBusy ? "animate-spin" : ""} />
-              Refresh
+              {t("common.refresh")}
             </Button>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
@@ -628,13 +628,13 @@ export function AdvancedRuntimeConfigSourcesSection(props: AdvancedRuntimeConfig
         {props.configStatus ? (
           <div className="space-y-3 rounded-xl border border-gray-6 bg-gray-1/60 p-3 text-xs text-gray-10">
             <div className="space-y-2 rounded-xl border border-blue-6/50 bg-blue-2/40 p-3">
-              <div className="font-medium text-gray-12">Desired OpenWork runtime config</div>
+              <div className="font-medium text-gray-12">{t("secondary_ui.advanced.desired_title")}</div>
               <div className="text-[11px] text-gray-9">
-                This is the OpenWork-built config object requested for the runtime database and injected safely by the server. Sensitive headers are redacted here.
+                {t("secondary_ui.advanced.desired_desc")}
               </div>
               <RuntimeConfigSummary config={effectiveRuntimeConfig ?? {}} />
               <details className="rounded-lg bg-gray-3 p-2">
-                <summary className="cursor-pointer text-[11px] font-medium text-gray-11">Show desired JSON</summary>
+                <summary className="cursor-pointer text-[11px] font-medium text-gray-11">{t("secondary_ui.advanced.show_desired_json")}</summary>
                 <pre className="mt-2 max-h-72 overflow-auto font-mono text-[11px] text-gray-11">
                   {JSON.stringify(effectiveRuntimeConfig, null, 2)}
                 </pre>
@@ -643,53 +643,53 @@ export function AdvancedRuntimeConfigSourcesSection(props: AdvancedRuntimeConfig
             {props.configStatus.sources ? (
               <div className="space-y-3">
                 <div>
-                  <div className="font-medium text-gray-12">OpenCode source breakdown</div>
+                  <div className="font-medium text-gray-12">{t("secondary_ui.advanced.breakdown_title")}</div>
                   <div className="text-[11px] text-gray-9">
-                    OpenCode also reads its own project and global config files. OpenWork injects the runtime config separately; for OpenWork-managed keys, the injected config is the source to inspect.
+                    {t("secondary_ui.advanced.breakdown_desc")}
                   </div>
                 </div>
                 <RuntimeConfigSourceBlock
-                  title="Project opencode config"
-                  description="Workspace-level OpenCode config owned by the user/project."
+                  title={t("secondary_ui.advanced.project_config_title")}
+                  description={t("secondary_ui.advanced.project_config_desc")}
                   path={props.configStatus.sources.projectOpencode.path}
                   exists={props.configStatus.sources.projectOpencode.exists}
                   keys={props.configStatus.sources.projectOpencode.keys}
                   config={props.configStatus.sources.projectOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="Global opencode config"
-                  description="User-level OpenCode config under ~/.config/opencode."
+                  title={t("secondary_ui.advanced.global_config_title")}
+                  description={t("secondary_ui.advanced.global_config_desc")}
                   path={props.configStatus.sources.globalOpencode.path}
                   exists={props.configStatus.sources.globalOpencode.exists}
                   keys={props.configStatus.sources.globalOpencode.keys}
                   config={props.configStatus.sources.globalOpencode.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="OpenWork runtime DB"
-                  description="OpenWork-managed runtime values stored outside workspace files."
+                  title={t("secondary_ui.advanced.runtime_db_title")}
+                  description={t("secondary_ui.advanced.runtime_db_desc")}
                   keys={props.configStatus.sources.runtimeDatabase.keys}
                   config={props.configStatus.sources.runtimeDatabase.config}
                 />
                 <RuntimeConfigSourceBlock
-                  title="OpenWork injected config"
-                  description="The object OpenWork injects into OpenCode at runtime."
+                  title={t("secondary_ui.advanced.injected_title")}
+                  description={t("secondary_ui.advanced.injected_desc")}
                   keys={props.configStatus.sources.injected.keys}
                   config={props.configStatus.sources.injected.config}
                 />
               </div>
             ) : null}
             <div>
-              <div className="font-medium text-gray-12">Runtime database</div>
-              <div>Stored keys: {formatKeys(props.configStatus.runtimeKeys)}</div>
+              <div className="font-medium text-gray-12">{t("secondary_ui.advanced.runtime_database")}</div>
+              <div>{t("secondary_ui.advanced.stored_keys", { keys: formatKeys(props.configStatus.runtimeKeys) })}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">User opencode.jsonc</div>
+              <div className="font-medium text-gray-12">{t("secondary_ui.advanced.user_opencode")}</div>
               <div className="break-all">{props.configStatus.userOpencode.path}</div>
-              <div>{props.configStatus.userOpencode.exists ? "Found" : "Not found"}</div>
-              <div>User-owned keys: {formatKeys(props.configStatus.userOpencode.keys)}</div>
+              <div>{props.configStatus.userOpencode.exists ? t("secondary_ui.advanced.found") : t("secondary_ui.advanced.not_found")}</div>
+              <div>{t("secondary_ui.advanced.user_keys", { keys: formatKeys(props.configStatus.userOpencode.keys) })}</div>
             </div>
             <div>
-              <div className="font-medium text-gray-12">Runtime DB JSON</div>
+              <div className="font-medium text-gray-12">{t("secondary_ui.advanced.runtime_db_json")}</div>
               <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-gray-3 p-2 font-mono text-[11px] text-gray-11">
                 {JSON.stringify(runtimeConfig, null, 2)}
               </pre>
@@ -707,19 +707,19 @@ export function AdvancedWorkspaceRunModeSection() {
   return (
     <LayoutSection id="advanced-workspace-run-mode">
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Workspace run mode</LayoutSectionTitle>
-        <LayoutSectionDescription>Experimental approval controls in the composer.</LayoutSectionDescription>
+        <LayoutSectionTitle>{t("settings_ui.run_mode_title")}</LayoutSectionTitle>
+        <LayoutSectionDescription>{t("settings_ui.run_mode_desc")}</LayoutSectionDescription>
       </LayoutSectionHeader>
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="show-workspace-run-mode">
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Show workspace run mode</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("settings_ui.run_mode_show")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>
-            Choose when OpenWork asks before acting, using the icon beside attachments. Off by default. Available with the standard desktop engine.
+            {t("settings_ui.run_mode_show_desc")}
           </LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
               data-testid="workspace-run-mode-flag"
-              aria-label="Show workspace run mode"
+              aria-label={t("settings_ui.run_mode_show")}
               checked={workspaceRunModeEnabled}
               disabled={restricted || !isDesktopRuntime()}
               onCheckedChange={toggleWorkspaceRunMode}
@@ -727,7 +727,7 @@ export function AdvancedWorkspaceRunModeSection() {
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
         <LayoutSectionItemFootnote>
-          This switch only shows or hides the control. Hiding it does not reset workspace permissions; choose Workspace defaults in the menu first if you want to remove the override.
+          {t("settings_ui.run_mode_footnote")}
         </LayoutSectionItemFootnote>
       </LayoutSectionItem>
     </LayoutSection>
@@ -741,26 +741,26 @@ export function AdvancedEngineV2PreviewSection(props: { client: OpenworkServerCl
   const engineNote = engine.blockedReason ?? engine.v1Locked;
   return (
     <LayoutSection id="advanced-experimental-engine">
-      <LayoutSectionHeader><LayoutSectionTitle>OpenCode engine</LayoutSectionTitle></LayoutSectionHeader>
-      <LayoutSectionItem>
+      <LayoutSectionHeader><LayoutSectionTitle>{t("engine_settings.title")}</LayoutSectionTitle></LayoutSectionHeader>
+      <LayoutSectionItem anchor="chat-engine">
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Chat engine</LayoutSectionItemTitle>
+          <LayoutSectionItemTitle>{t("engine_settings.chat_engine")}</LayoutSectionItemTitle>
           <LayoutSectionItemHeaderActions>
-            <ToggleGroup aria-label="Chat engine" value={[engine.selected]} variant="outline" disabled={engine.disabled}
+            <ToggleGroup aria-label={t("engine_settings.chat_engine")} value={[engine.selected]} variant="outline" disabled={engine.disabled}
               onValueChange={(value) => { if (value[0] === "v1" || value[0] === "v2") engine.select(value[0]); }}>
               <ToggleGroupItem value="v1" data-engine="v1" disabled={Boolean(engine.v1Locked)}>OpenCode v1</ToggleGroupItem>
-              <ToggleGroupItem value="v2" data-engine="v2">OpenCode v2 (preview)</ToggleGroupItem>
+              <ToggleGroupItem value="v2" data-engine="v2">{t("engine_settings.v2_preview")}</ToggleGroupItem>
             </ToggleGroup>
           </LayoutSectionItemHeaderActions>
         </LayoutSectionItemHeader>
-        {engine.status?.connectionSource === "installed" ? <p role="status" className="text-xs text-muted-foreground">Usando tu OpenCode instalado · cuentas y modelos de tu instalación.</p> : null}
+        {engine.status?.connectionSource === "installed" ? <p role="status" className="text-xs text-muted-foreground">{t("engine_settings.installed_source")}</p> : null}
         {engineNote ? <p className="text-xs text-muted-foreground">{engineNote}</p> : null}
-        {engine.status?.enabled && !engine.status.running && !engine.status.lastError ? <p role="status" className="text-xs text-muted-foreground">OpenCode v2 is starting…</p> : null}
+        {engine.status?.enabled && !engine.status.running && !engine.status.lastError ? <p role="status" className="text-xs text-muted-foreground">{t("engine_settings.v2_starting")}</p> : null}
         {engine.error || runtimeError ? <p role="alert" className="text-xs text-destructive">{engine.error ?? runtimeError}</p> : null}
       </LayoutSectionItem>
-      <details className="text-xs text-muted-foreground"><summary>Engine details</summary>
+      <details className="text-xs text-muted-foreground"><summary>{t("engine_settings.details")}</summary>
         {engine.status?.lastWarning ? <p>{engine.status.lastWarning}</p> : null}
-        {engine.status?.running ? <p>OpenCode {engine.status.version} · {engine.status.mirroredProviderIds.length} providers · {engine.status.catalogModelIds.length} models</p> : null}
+        {engine.status?.running ? <p>{t("engine_settings.details_running", { version: engine.status.version ?? "", providers: engine.status.mirroredProviderIds.length, models: engine.status.catalogModelIds.length })}</p> : null}
       </details>
     </LayoutSection>
   );
@@ -787,7 +787,7 @@ export function AdvancedDeveloperSection(props: AdvancedDeveloperSectionProps) {
         <LayoutSectionTitle>{t("settings.developer")}</LayoutSectionTitle>
       </LayoutSectionHeader>
 
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="developer-mode">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("settings.developer_mode_title")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>{t("settings.developer_mode_desc")}</LayoutSectionItemDescription>

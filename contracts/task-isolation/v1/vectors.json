@@ -1,0 +1,84 @@
+{
+ "contract": "openwork.task-isolation",
+ "version": 1,
+ "routes": "GET/POST/DELETE /specialist-applications/:id/isolations[/:isoId[/diff|/accept|/discard]], GET/POST /workspace/:id/task-isolation/sessions/:sessionId",
+ "paths": [
+  { "path": "informe.md", "problem": null },
+  { "path": "proyecto/tareas/resumen.csv", "problem": null },
+  { "path": ".opencode/agents/analista.md", "problem": null },
+  { "path": "año 2026/factura ñ.pdf", "problem": null },
+  { "path": "", "problem": "path_invalid" },
+  { "path": "/etc/passwd", "problem": "path_invalid" },
+  { "path": "C:/Windows/win.ini", "problem": "path_invalid" },
+  { "path": "../fuera.txt", "problem": "path_invalid" },
+  { "path": "docs/../../fuera.txt", "problem": "path_invalid" },
+  { "path": "docs/./a.txt", "problem": "path_invalid" },
+  { "path": "docs//a.txt", "problem": "path_invalid" },
+  { "path": "docs/", "problem": "path_invalid" },
+  { "path": "docs\\a.txt", "problem": "path_invalid" },
+  { "path": "tab\tname.txt", "problem": "path_invalid" },
+  { "path": ".git/config", "problem": "path_excluded" },
+  { "path": ".opencode/node_modules/x/index.js", "problem": "path_excluded" },
+  { "path": ".opencode/bun.lock", "problem": "path_excluded" },
+  { "path": "src/__pycache__/m.pyc", "problem": "path_excluded" },
+  { "path": "fotos/.DS_Store", "problem": "path_excluded" },
+  { "path": "docs/.openwork-isolation-0000.tmp", "problem": "path_excluded" }
+ ],
+ "classify": [
+  { "name": "unchanged", "base": "A", "copy": "A", "project": "A", "change": null, "conflict": false, "alreadyApplied": false },
+  { "name": "modified cleanly", "base": "A", "copy": "B", "project": "A", "change": "modified", "conflict": false, "alreadyApplied": false },
+  { "name": "modified, project changed too", "base": "A", "copy": "B", "project": "C", "change": "modified", "conflict": true, "alreadyApplied": false },
+  { "name": "modified, project already has the task's version", "base": "A", "copy": "B", "project": "B", "change": "modified", "conflict": false, "alreadyApplied": true },
+  { "name": "modified, project deleted the file", "base": "A", "copy": "B", "project": null, "change": "modified", "conflict": true, "alreadyApplied": false },
+  { "name": "added cleanly", "base": null, "copy": "B", "project": null, "change": "added", "conflict": false, "alreadyApplied": false },
+  { "name": "added, project created a different file there", "base": null, "copy": "B", "project": "C", "change": "added", "conflict": true, "alreadyApplied": false },
+  { "name": "deleted cleanly", "base": "A", "copy": null, "project": "A", "change": "deleted", "conflict": false, "alreadyApplied": false },
+  { "name": "deleted, project edited the file", "base": "A", "copy": null, "project": "C", "change": "deleted", "conflict": true, "alreadyApplied": false },
+  { "name": "deleted, project deleted it too", "base": "A", "copy": null, "project": null, "change": "deleted", "conflict": false, "alreadyApplied": true },
+  { "name": "project path is a link", "base": "A", "copy": "B", "project": "other", "change": "modified", "conflict": true, "alreadyApplied": false },
+  { "name": "copy path became a link", "base": "A", "copy": "other", "project": "A", "change": null, "conflict": false, "alreadyApplied": false }
+ ],
+ "text": [
+  { "bytes": "68 6f 6c 61 0a", "text": true },
+  { "bytes": "c3 b1 61 6e 64 c3 ba 0a", "text": true },
+  { "bytes": "", "text": true },
+  { "bytes": "25 50 44 46 00 01", "text": false },
+  { "bytes": "ff fe 00 41", "text": false },
+  { "bytes": "c3 28", "text": false }
+ ],
+ "diff": [
+  {
+   "name": "one line replaced",
+   "before": "a\nb\nc\n", "after": "a\nB\nc\n",
+   "hunks": [{ "oldStart": 1, "oldLines": 3, "newStart": 1, "newLines": 3, "lines": [["context", "a"], ["removed", "b"], ["added", "B"], ["context", "c"]] }]
+  },
+  {
+   "name": "new file",
+   "before": "", "after": "x\ny\n",
+   "hunks": [{ "oldStart": 0, "oldLines": 0, "newStart": 1, "newLines": 2, "lines": [["added", "x"], ["added", "y"]] }]
+  },
+  {
+   "name": "deleted file",
+   "before": "x\ny\n", "after": "",
+   "hunks": [{ "oldStart": 1, "oldLines": 2, "newStart": 0, "newLines": 0, "lines": [["removed", "x"], ["removed", "y"]] }]
+  },
+  {
+   "name": "two distant edits make two hunks with three lines of context",
+   "before": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n", "after": "1\n2\nX\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\nY\n15\n",
+   "hunks": [
+    { "oldStart": 1, "oldLines": 6, "newStart": 1, "newLines": 6, "lines": [["context", "1"], ["context", "2"], ["removed", "3"], ["added", "X"], ["context", "4"], ["context", "5"], ["context", "6"]] },
+    { "oldStart": 11, "oldLines": 5, "newStart": 11, "newLines": 5, "lines": [["context", "11"], ["context", "12"], ["context", "13"], ["removed", "14"], ["added", "Y"], ["context", "15"]] }
+   ]
+  },
+  {
+   "name": "line appended without a final newline",
+   "before": "uno\ndos", "after": "uno\ndos\ntres",
+   "hunks": [{ "oldStart": 1, "oldLines": 2, "newStart": 1, "newLines": 3, "lines": [["context", "uno"], ["context", "dos"], ["added", "tres"]] }]
+  },
+  {
+   "name": "windows line endings compare as lines",
+   "before": "a\r\nb\r\n", "after": "a\nb\n",
+   "hunks": []
+  }
+ ]
+}

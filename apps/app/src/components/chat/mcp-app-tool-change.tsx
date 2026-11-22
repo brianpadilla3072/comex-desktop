@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { t } from "@/i18n"
 import { mcpAppToolNameSchema } from "@openwork/types/mcp-app"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -53,11 +54,11 @@ export function McpAppChangedToolPrompt({ tool, onFix, className }: {
   }
   return (
     <div data-testid="mcp-app-changed-tool" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-background px-3 py-2", className)}>
-      <p className="min-w-0 flex-1 text-sm">“{tool}” changed since this App was published, so the App can’t use it until it’s updated.</p>
+      <p className="min-w-0 flex-1 text-sm">{t("chat_ui.app_tool_changed", { tool })}</p>
       <Button variant="outline" size="sm" disabled={state === "opening"} onClick={() => void fix()}>
-        {state === "opening" ? "Opening conversation…" : "Fix with agent"}
+        {state === "opening" ? t("chat_ui.opening_conversation") : t("chat_ui.fix_with_agent")}
       </Button>
-      {state === "failed" ? <p role="alert" className="w-full text-xs text-destructive">Could not start a conversation. Try again.</p> : null}
+      {state === "failed" ? <p role="alert" className="w-full text-xs text-destructive">{t("chat_ui.start_conversation_failed")}</p> : null}
     </div>
   )
 }

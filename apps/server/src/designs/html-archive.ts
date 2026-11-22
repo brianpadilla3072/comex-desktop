@@ -1,0 +1,77 @@
+import { lstat, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { zipSync, type Zippable } from "fflate";
+import { DESIGN_LIMITS, type DesignManifest } from "@openwork/types/designs";
+import { ApiError } from "../errors.js";
+import { designDir, designFiles, readManifest } from "./store.js";
+import { designTokensSchema } from "@openwork/types/designs";
+import { tokensCss, tokensMd, componentMd, indexDts, bundleCss, systemManifest } from "./system-generators.js";
+
+/**
+ * "Exportar HTML": the design folder as a zip, under one top folder named after the design, plus
+ * an `index.html` that lists the pages. Pages keep their relative references, so the export opens
+ * offline in any browser. Hidden files and links are left out.
+ */
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
+
+export function htmlIndex(manifest: DesignManifest): string {
+  const items = manifest.pages.map(page => `<li><a href="${escapeHtml(encodeURI(page.file))}">${escapeHtml(page.title || page.id)}</a></li>`).join("\n");
+  return `<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>${escapeHtml(manifest.title)}</title>
+<style>body{font-family:system-ui,sans-serif;margin:48px;color:#111827}li{margin:8px 0}a{color:#1d4ed8}</style></head>
+<body>
+<h1>${escapeHtml(manifest.title)}</h1>
+<ol>
+${items}
+</ol>
+</body>
+</html>
+`;
+}
+
+export async function designHtmlArchive(projectRoot: string, designId: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; fileName: string }> {
+  const manifest = await readManifest(projectRoot, designId);
+  const dir = await designDir(projectRoot, designId);
+  const entries: Zippable = {};
+  let total = 0;
+  for (const file of await designFiles(dir)) {
+    const info = await lstat(join(dir, file)).catch(() => null);
+    if (!info?.isFile()) continue;
+    total += info.size;
+    if (total > DESIGN_LIMITS.designBytes) throw new ApiError(413, "design_capacity_bytes", "El diseño supera el espacio permitido para exportarlo.");
+    entries[`${manifest.id}/${file}`] = new Uint8Array(await readFile(join(dir, file)));
+  }
+  // System designs also ship the generated package artefacts (tokens.css, api docs, types, bundle).
+  if (manifest.kind === "system") {
+    let tokens = null as ReturnType<typeof designTokensSchema.safeParse>["data"] | null;
+    try {
+      const raw = JSON.parse(await readFile(join(dir, "tokens.json"), "utf8"));
+      const parsed = designTokensSchema.safeParse(raw);
+      if (parsed.success) tokens = parsed.data;
+    } catch { /* no tokens: skip generated artefacts */ }
+    if (tokens) {
+      const generated: Record<string, string> = {
+        "tokens.css": tokensCss(tokens),
+        "api/tokens.md": tokensMd(tokens),
+        "components/index.d.ts": indexDts(tokens),
+        "components/bundle.css": bundleCss(tokens),
+      };
+      for (const [path, text] of Object.entries(generated)) {
+        const key = `${manifest.id}/${path}`;
+        if (!entries[key]) entries[key] = new TextEncoder().encode(text);
+      }
+      for (const component of tokens.components) {
+        const name = String(component.name ?? "").replace(/[^a-zA-Z0-9_-]/g, "") || "Component";
+        const key = `${manifest.id}/api/components/${name}.md`;
+        if (!entries[key]) entries[key] = new TextEncoder().encode(componentMd(name, component));
+      }
+      const fileList = Object.keys(entries).map(k => k.slice(manifest.id.length + 1));
+      const mkey = `${manifest.id}/manifest.json`;
+      if (!entries[mkey]) entries[mkey] = new TextEncoder().encode(JSON.stringify(systemManifest(manifest, tokens, fileList), null, 2));
+    }
+  }
+  if (!entries[`${manifest.id}/index.html`]) entries[`${manifest.id}/index.html`] = new TextEncoder().encode(htmlIndex(manifest));
+  return { bytes: zipSync(entries, { level: 6 }), fileName: `${manifest.id}.zip` };
+}

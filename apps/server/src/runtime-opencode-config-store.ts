@@ -60,7 +60,8 @@ function normalizeRuntimeOpencodeConfig(value: unknown): RuntimeOpencodeConfig {
 
 function parseRuntimeOpencodeConfig(configJson: string): RuntimeOpencodeConfig {
   try {
-    return normalizeRuntimeOpencodeConfig(JSON.parse(configJson));
+    const value: unknown = JSON.parse(configJson);
+    return normalizeRuntimeOpencodeConfig(value);
   } catch {
     return {};
   }

@@ -299,19 +299,19 @@ export function McpAppDiagnosticNotice({ error, notice, onRetry, engine }: { err
     <div className="mt-2 text-xs text-muted-foreground" role="status">
       {compact ? (
         <div className="flex items-center gap-2">
-          <p>View unavailable</p>
-          {onRetry ? <Button type="button" variant="link" size="xs" className="px-0" onClick={onRetry}>Retry view</Button> : null}
+          <p>{t("chat_ui.view_unavailable")}</p>
+          {onRetry ? <Button type="button" variant="link" size="xs" className="px-0" onClick={onRetry}>{t("chat_ui.retry_view")}</Button> : null}
         </div>
       ) : <p>{notice} {error.message}</p>}
       {!compact && (error.causeCode === "server_unavailable" || error.causeCode === "mcp_unreachable") ? (
-        <p className="mt-1">The connection was not ready. Retry, or check the connection under Settings &gt; Library.</p>
+        <p className="mt-1">{t("chat_ui.connection_not_ready")}</p>
       ) : null}
       {!compact && onRetry ? (
         <Button type="button" variant="link" size="xs" className="mt-1 px-0" onClick={onRetry}>{t("common.retry")}</Button>
       ) : null}
       <details className="mt-1">
-        <summary className="cursor-pointer select-none">Technical details{compact ? null : ` (${error.code})`}</summary>
-        <p className="mt-1">Copy these details when reporting the rendering problem.</p>
+        <summary className="cursor-pointer select-none">{t("chat_ui.technical_details")}{compact ? null : ` (${error.code})`}</summary>
+        <p className="mt-1">{t("chat_ui.copy_details_hint")}</p>
         <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-mono text-[11px] text-foreground">{details}</pre>
         <button
           type="button"
@@ -323,7 +323,7 @@ export function McpAppDiagnosticNotice({ error, notice, onRetry, engine }: { err
               .catch(() => setDetailsCopied(false))
           }}
         >
-          {detailsCopied ? "Copied" : "Copy details"}
+          {detailsCopied ? t("chat_ui.copied") : t("chat_ui.copy_details")}
         </button>
       </details>
     </div>
@@ -513,7 +513,9 @@ export function McpAppSandboxView({ origin, app, resolveLiveActions, goesLiveInP
       onErrorRef.current?.()
     }
     checkpoint("resource-resolved")
-    if (!readOnly && !app.launchId) {
+    // A missing launch context is only fatal when nothing can fetch a live one: with
+    // resolveLiveActions the App waits for the lease instead of blanking the artifact.
+    if (!readOnly && !app.launchId && !resolveLiveActions) {
       fail("MCP_APP_LAUNCH_CONTEXT_MISSING", "resource-resolution", null,
         "This artifact has no live launch context. Update OpenWork and reopen the artifact before using its actions.")
       return
@@ -1193,7 +1195,7 @@ function EmbeddedMcpAppFrame({ part, origin: surfaceOrigin }: { part: DynamicToo
     return <AppChatArtifact key={`${viewId}:${revisionId}:${receiptId}`} appId={viewId} revisionId={revisionId} title={title} receiptId={receiptId} />
   }
   if (!result) return null
-  if (!origin) return <p role="status">This artifact is missing its conversation origin. Reopen the conversation to use it.</p>
+  if (!origin) return <p role="status">{t("chat_ui.artifact_missing_origin")}</p>
   if (error) return <McpAppDiagnosticNotice error={error} notice={CHAT_MCP_APP_UNAVAILABLE_NOTICE} onRetry={() => setResolveToken((token) => token + 1)} engine={origin.engine} />
   if (!app || resolvedFor.current !== resolution) return launch && resolvedFor.current !== resolution
     ? <McpAppLoading /> : null

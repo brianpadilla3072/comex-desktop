@@ -19,6 +19,7 @@ import {
   presentOpencodeSessionError,
   type OpencodeSessionErrorPresentation,
 } from "./session-error";
+import { abortedMarker } from "../surface/session-admission-outcome";
 
 function sessionErrorMessageId(turnKey: string) {
   return `${SYNTHETIC_SESSION_ERROR_MESSAGE_PREFIX}${turnKey}`;
@@ -193,9 +194,11 @@ export function snapshotToUIMessages(snapshot: Pick<OpenworkSessionSnapshot, "me
       metadata: { opencode: {
         ...(typeof created === "number" ? { created } : {}),
         ...(typeof completed === "number" ? { completed } : {}),
+        ...("finish" in message.info && typeof message.info.finish === "string" ? { finish: message.info.finish } : {}),
         ...(message.info.role === "assistant" && "summary" in message.info && message.info.summary === true && typeof completed === "number" ? { contextCompacted: true } : {}),
         ...(typeof parentID === "string" ? { parentID } : {}),
         ...(replyModelFromInfo(message.info) ? { replyModel: replyModelFromInfo(message.info) } : {}),
+        ...abortedMarker(message.info),
       } },
       parts: message.parts.flatMap<UIMessage["parts"][number]>((part) => {
         if (part.type === "text") {

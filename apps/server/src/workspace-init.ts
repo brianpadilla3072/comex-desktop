@@ -1,5 +1,5 @@
 import { ensureComexWorkspace } from "./comex/seed.js";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 
 import { ensureDir, exists } from "./utils.js";
@@ -69,15 +69,90 @@ export function isLegacyBrowserPlugin(value: unknown): boolean {
   return value === LEGACY_BROWSER_PLUGIN;
 }
 
+// Reading a workspace config can block forever: a cloud-offloaded file that
+// cannot be downloaded, a dead network share. Startup and every request that
+// resolves the workspace would wait with it, and each blocked read holds one of
+// the runtime's few file threads. Stop waiting after a few seconds, and start
+// no second read of a file while its read is still blocked.
+const CONFIG_READ_TIMEOUT_MS = 5_000;
+const configReads = new Map<string, { read: Promise<{ data: Record<string, unknown> }>; blocked: boolean }>();
+
+function configReadBlockedError(path: string): ApiError {
+  return new ApiError(409, "workspace_inaccessible", "Workspace config could not be read in time", { path });
+}
+
+/** True while this workspace's config read is blocked; its other files are likely to block too. */
+export function workspaceConfigReadBlocked(workspaceRoot: string): boolean {
+  return configReads.get(resolve(opencodeConfigPath(workspaceRoot)))?.blocked === true;
+}
+
+async function readOpencodeConfigData(configPath: string): Promise<Record<string, unknown>> {
+  const path = resolve(configPath);
+  let entry = configReads.get(path);
+  if (entry?.blocked) throw configReadBlockedError(path);
+  if (!entry) {
+    const read = readJsoncFile<Record<string, unknown>>(path, {}, { allowInvalid: true });
+    entry = { read, blocked: false };
+    configReads.set(path, entry);
+    const settled = () => { configReads.delete(path); };
+    read.then(settled, settled);
+  }
+  const current = entry;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const blocked = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      current.blocked = true;
+      reject(configReadBlockedError(path));
+    }, CONFIG_READ_TIMEOUT_MS);
+  });
+  try {
+    return (await Promise.race([current.read, blocked])).data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function ensureOpencodeConfig(workspaceRoot: string): Promise<boolean> {
   const path = opencodeConfigPath(workspaceRoot);
   if (!(await exists(path))) return false;
-  const { data } = await readJsoncFile<Record<string, unknown>>(path, {}, { allowInvalid: true });
+  let data: Record<string, unknown>;
+  try {
+    data = await readOpencodeConfigData(path);
+  } catch (error) {
+    if (!isConfigAccessError(error)) throw error;
+    warnConfigAccessError("read", path, error);
+    return false;
+  }
   if (!Array.isArray(data.plugin) || !data.plugin.some(isLegacyBrowserPlugin)) return false;
   // Remove only that entry, keeping the rest of the file and its comments.
   const plugin = data.plugin.filter((item) => !isLegacyBrowserPlugin(item));
-  await updateJsoncTopLevel(path, { plugin: plugin.length ? plugin : undefined });
+  try {
+    await updateJsoncTopLevel(path, { plugin: plugin.length ? plugin : undefined });
+  } catch (error) {
+    if (!isConfigAccessError(error)) throw error;
+    warnConfigAccessError("update", path, error);
+    return false;
+  }
   return true;
+}
+
+// The legacy-plugin cleanup is best-effort. When the OS denies access to the
+// workspace config (e.g. macOS privacy protection on ~/Documents returns EPERM),
+// skip the cleanup instead of failing every request that resolves the workspace.
+const CONFIG_ACCESS_ERROR_CODES = new Set(["EPERM", "EACCES", "EISDIR"]);
+
+function isConfigAccessError(error: unknown): boolean {
+  const code = errorStringField(error, "code");
+  return code !== undefined && CONFIG_ACCESS_ERROR_CODES.has(code);
+}
+
+function warnConfigAccessError(action: "read" | "update", path: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  console.warn(`[workspace-init] Skipping legacy plugin cleanup; could not ${action} ${path}: ${message}`, {
+    fsCode: errorStringField(error, "code"),
+    syscall: errorStringField(error, "syscall"),
+    fsPath: errorStringField(error, "path"),
+  });
 }
 
 export async function ensureWorkspaceFiles(workspaceRoot: string, presetInput: string): Promise<EnsureWorkspaceFilesResult> {
@@ -97,10 +172,12 @@ export async function ensureWorkspaceFiles(workspaceRoot: string, presetInput: s
   }
   const reloadReasons = new Set<ReloadReason>();
   if (await ensureOpencodeConfig(workspaceRoot)) reloadReasons.add("config");
-  if (await ensureComexWorkspace(workspaceRoot)) reloadReasons.add("config");
+  // A specialist application owns its project: seeding the Comex pack here used to create a
+  // `comex/` folder (and Comex instructions) inside apps about architecture or accounting,
+  // before the specialist marker existed. Those projects get their own `proyecto/` data folder.
+  if (preset !== "specialist" && await ensureComexWorkspace(workspaceRoot)) reloadReasons.add("config");
   // openwork config is seeded into the runtime DB by the caller, not written
   // as a file here.
-  void preset;
   return {
     changed: reloadReasons.size > 0,
     reloadReasons: Array.from(reloadReasons),

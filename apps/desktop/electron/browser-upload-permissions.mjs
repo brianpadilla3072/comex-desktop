@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { access, lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import { agentPermissionDenialMessage, decideAgentPermission } from "@openwork/types/den/agent-permissions-runtime";
 
 /** Exact HTTP(S) origin, never a display hostname or native application's name. */
@@ -32,6 +33,16 @@ async function canonicalFiles(folder, files) {
   return await realpath(folder) === folder && (await lstat(folder)).isDirectory();
 }
 
+/** One account's remembered grants file (`<scope key>.json`). Unknown grant keys are dropped. */
+const grantStoreSchema = z.object({
+  version: z.literal(1),
+  grants: z.array(z.object({
+    id: z.string().regex(/^[a-f0-9-]{36}$/),
+    origin: z.string().refine((origin) => browserUploadOrigin(origin) === origin),
+    folder: z.string().max(4095).refine((folder) => path.isAbsolute(folder)),
+  })).max(100),
+});
+
 /** Private, atomic, bounded account-partitioned storage. Corruption never becomes a grant. */
 export function createBrowserUploadGrantStore({ directory }) {
   let writes = Promise.resolve();
@@ -49,13 +60,11 @@ export function createBrowserUploadGrantStore({ directory }) {
       if (!parent.isDirectory() || parent.isSymbolicLink()) throw new Error("The grant store is not a private directory.");
       handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
       if ((await handle.stat()).size > 256_000) throw new Error("Remembered file-sharing data is too large.");
-      const data = JSON.parse(await handle.readFile("utf8"));
-      if (data?.version !== 1 || !Array.isArray(data.grants) || data.grants.length > 100 || !data.grants.every((grant) =>
-        typeof grant?.id === "string" && /^[a-f0-9-]{36}$/.test(grant.id) && browserUploadOrigin(grant.origin) === grant.origin
-        && typeof grant.folder === "string" && grant.folder.length < 4096 && path.isAbsolute(grant.folder))) {
+      const data = grantStoreSchema.safeParse(JSON.parse(await handle.readFile("utf8")));
+      if (!data.success) {
         throw new Error("Remembered file-sharing data is invalid. No remembered permission was used.");
       }
-      return data.grants.map(({ id, origin, folder }) => ({ id, origin, folder }));
+      return data.data.grants;
     } catch (error) {
       if (error?.code === "ENOENT") return [];
       throw error;

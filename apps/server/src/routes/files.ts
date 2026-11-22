@@ -1,14 +1,15 @@
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, realpathSync } from "node:fs";
 import { link, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { Readable, Transform } from "node:stream";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { recordAudit } from "../audit.js";
 import { ApiError } from "../errors.js";
 import { FileSessionStore } from "../file-sessions.js";
 import type { ApprovalRequest, ServerConfig, TokenScope, WorkspaceInfo } from "../types.js";
-import { ensureDir, exists, shortId } from "../utils.js";
+import { nodeReadableToWeb } from "../node-web-stream.js";
+import { ensureDir, exists, renameWithRetry, shortId } from "../utils.js";
 import { addRoute, type RequestContext, type Route } from "./registry.js";
 
 /**
@@ -216,7 +217,7 @@ export function isSupportedWorkspaceTextFilePath(relativePath: string): boolean 
   );
 }
 
-function resolveSafeChildPath(root: string, child: string): string {
+export function resolveSafeChildPath(root: string, child: string): string {
   const rootResolved = resolve(root);
   const candidate = resolve(rootResolved, child);
   if (candidate === rootResolved) {
@@ -225,7 +226,21 @@ function resolveSafeChildPath(root: string, child: string): string {
   if (!candidate.startsWith(rootResolved + sep)) {
     throw new ApiError(400, "invalid_path", "Path traversal is not allowed");
   }
+  // The text check alone lets a symlink inside the workspace read or write outside it. Resolve the
+  // deepest part of the path that exists (the file, or its folder for a new file) and require the
+  // real location to stay inside the real root.
+  const realRoot = realpathOrNull(rootResolved) ?? rootResolved;
+  let existing = candidate;
+  while (existing !== rootResolved && !existsSync(existing)) existing = dirname(existing);
+  const realExisting = realpathOrNull(existing);
+  if (realExisting && realExisting !== realRoot && !realExisting.startsWith(realRoot + sep)) {
+    throw new ApiError(400, "invalid_path", "Path leaves the workspace through a symbolic link");
+  }
   return candidate;
+}
+
+function realpathOrNull(path: string): string | null {
+  try { return realpathSync(path); } catch { return null; }
 }
 
 function encodeArtifactId(path: string): string {
@@ -712,7 +727,7 @@ export async function writeWorkspaceTextArtifact(absPath: string, content: strin
         if (error instanceof Error && "code" in error && error.code === "EEXIST") throw new ApiError(409, "conflict", "A file already exists at this path");
         throw error;
       }
-    } else await rename(tmp, absPath);
+    } else await renameWithRetry(tmp, absPath);
     return await stat(absPath);
   } finally { await rm(tmp, { force: true }).catch(() => undefined); }
 }
@@ -819,7 +834,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("attachment", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 
@@ -878,7 +893,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     let bytes: number;
     try {
       bytes = await writeUploadToFile(body, tmp, maxBytes, ctx.request.signal);
-      await rename(tmp, dest);
+      await renameWithRetry(tmp, dest);
     } catch (error) {
       await rm(tmp, { force: true }).catch(() => undefined);
       throw error;
@@ -927,7 +942,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("attachment", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 
@@ -1160,7 +1175,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     headers.set("Content-Type", contentTypeForPath(relativePath));
     headers.set("Content-Length", String(info.size));
     headers.set("Content-Disposition", contentDisposition("inline", basename(relativePath)));
-    const stream = Readable.toWeb(createReadStream(absPath)) as unknown as ReadableStream;
+    const stream = nodeReadableToWeb(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
   });
 
@@ -1209,7 +1224,7 @@ export function registerFileRoutes(options: RegisterFileRoutesOptions): void {
     await ensureDir(dirname(absPath));
     const tmp = `${absPath}.tmp-${shortId()}`;
     await writeFile(tmp, bytes);
-    await rename(tmp, absPath);
+    await renameWithRetry(tmp, absPath);
     const after = await stat(absPath);
     const revision = fileRevision(after);
     recordWorkspaceFileEvent(workspace.id, { type: "write", path: relativePath, revision });

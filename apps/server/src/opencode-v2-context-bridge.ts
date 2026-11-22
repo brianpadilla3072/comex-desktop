@@ -90,7 +90,10 @@ export async function askEngineApproval(engine: EngineConnection | undefined, ap
       for (const frame of frames) {
         const data = frame.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trim()).join("\n");
         let event: unknown;
-        try { event = JSON.parse(data); } catch { continue; }
+        try {
+          const parsed: unknown = JSON.parse(data);
+          event = parsed;
+        } catch { continue; }
         const replied = repliedPermission.safeParse(event);
         if (!replied.success || replied.data.data.requestID !== created.data.data.id) continue;
         if (replied.data.data.reply === "once" || replied.data.data.reply === "always") return replied.data.data.reply;

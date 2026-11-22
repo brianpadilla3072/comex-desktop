@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import * as React from "react";
+import { t } from "@/i18n";
 import { createPortal } from "react-dom";
 import { Plus } from "lucide-react";
 
@@ -68,7 +69,7 @@ export function BrowserWindow({ slot, sessionId, tab, tabs, onPresent }: Browser
                 </div>
               ))}
             </div>
-            <Button variant="ghost" size="icon-sm" className="titlebar-no-drag" title="New tab" aria-label="New tab" data-testid="browser-window-new-tab" onClick={() => void createTab()}>
+            <Button variant="ghost" size="icon-sm" className="titlebar-no-drag" title={t("session_ui.new_tab")} aria-label={t("session_ui.new_tab")} data-testid="browser-window-new-tab" onClick={() => void createTab()}>
               <Plus />
             </Button>
           </header>

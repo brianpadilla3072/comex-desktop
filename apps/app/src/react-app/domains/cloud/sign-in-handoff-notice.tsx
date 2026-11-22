@@ -48,17 +48,17 @@ export function SignInHandoffNotice(props: {
   if (target && sameConversation && target.signedInAt !== null && !target.draftCarried
     && auth.isSignedIn && identity && scope && hasSignedOutDraft(target)) {
     const organization = readDenSettings().activeOrgName?.trim();
-    const account = auth.user?.email ?? auth.user?.name ?? "this account";
+    const account = auth.user?.email ?? auth.user?.name ?? t("secondary_ui.cloud.handoff.this_account");
     return (
       <div role="status" data-testid="sign-in-draft-consent">
-        <ComposerNoticeCard icon={null} title={`Move the signed-out draft to ${account}${organization ? ` in ${organization}` : ""}? It stays unsent; this move can’t be undone.`}>
+        <ComposerNoticeCard icon={null} title={organization ? t("secondary_ui.cloud.handoff.move_draft_org", { account, organization }) : t("secondary_ui.cloud.handoff.move_draft", { account })}>
           <div className="flex flex-wrap items-center gap-1">
             <Button size="sm" onClick={() => {
               if (!carrySignInReturnDraft(identity, { scope, startedAt: target.startedAt })) {
-                toast.error("Couldn’t move the draft. Your signed-out draft is still on this device.");
+                toast.error(t("secondary_ui.cloud.handoff.move_failed"));
               }
-            }}>Move draft to this account</Button>
-            <Button size="sm" variant="ghost" onClick={() => claimSignInReturnDraft()}>Keep draft signed out</Button>
+            }}>{t("secondary_ui.cloud.handoff.move")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => claimSignInReturnDraft()}>{t("secondary_ui.cloud.handoff.keep")}</Button>
           </div>
         </ComposerNoticeCard>
       </div>
@@ -75,30 +75,30 @@ export function SignInHandoffNotice(props: {
   if (!visible || !target) return null;
 
   const detail = target.pendingTurn
-    ? "Your message is saved and sends when you’re back"
-    : props.hasDraft ? "Your draft is saved" : undefined;
+    ? t("secondary_ui.cloud.handoff.message_saved")
+    : props.hasDraft ? t("secondary_ui.cloud.handoff.draft_saved") : undefined;
   const authUrl = target.authUrl;
   const copyLink = () => {
     if (!authUrl) return;
     void navigator.clipboard.writeText(authUrl)
-      .then(() => toast.success("Sign-in link copied"))
-      .catch(() => toast.error("Couldn’t copy the sign-in link. Use a sign-in code instead."));
+      .then(() => toast.success(t("secondary_ui.cloud.handoff.link_copied")))
+      .catch(() => toast.error(t("secondary_ui.cloud.handoff.copy_failed")));
   };
 
   return (
     <div role="status" data-testid="sign-in-handoff-notice">
       <ComposerNoticeCard
         icon={<LoaderCircle className="animate-spin motion-reduce:animate-none" />}
-        title="Finish signing in in your browser"
+        title={t("secondary_ui.cloud.handoff.finish")}
         detail={detail}
       >
         <div className="flex flex-wrap items-center gap-1 ps-7">
-          {authUrl ? <Button size="sm" variant="outline" onClick={copyLink}>Copy sign-in link</Button> : null}
+          {authUrl ? <Button size="sm" variant="outline" onClick={copyLink}>{t("den.copy_signin_link")}</Button> : null}
           <Button size="sm" variant="outline" aria-expanded={pasteOpen}
             onClick={() => setPasteOpen((open) => !open)}>
             {pasteOpen ? t("den.hide_signin_code") : t("den.paste_signin_code")}
           </Button>
-          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => clearSignInReturnTarget()}>Cancel</Button>
+          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => clearSignInReturnTarget()}>{t("common.cancel")}</Button>
         </div>
         {pasteOpen ? (
           <form

@@ -10,8 +10,9 @@ const PORTABLE_OPENCODE_TOP_LEVEL_KEYS = [
   "watcher",
 ] as const;
 
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
+function cloneJson(value: unknown): unknown {
+  const copy: unknown = JSON.parse(JSON.stringify(value));
+  return copy;
 }
 
 export function sanitizePortableOpencodeConfig(opencode: Record<string, unknown> | null | undefined): Record<string, unknown> {

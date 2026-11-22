@@ -31,6 +31,7 @@ type SessionActivityRecord = {
   runHydrationAfter: number | null;
   transcriptActivity: TranscriptActivity | null;
   lastProgressAt: number;
+  lastAssistantResponseAt: number;
   progressRevision: string | null;
   progressParts: Record<string, string>;
   latestActivity: string | null;
@@ -60,6 +61,7 @@ type SessionLike = {
 
 type SessionActivityStore = {
   recordsByWorkspaceId: Record<string, Record<string, SessionActivityRecord>>;
+  responseTimesByWorkspaceId: Record<string, Record<string, number>>;
   statusesByWorkspaceId: Record<string, Record<string, SessionActivityStatus>>;
   /**
    * Sessions with an unanswered permission or question, by what they ask for.
@@ -86,6 +88,7 @@ type SessionActivityStore = {
     options?: { snapshotStartedAt?: number },
   ) => void;
   markMessageRole: (workspaceId: string, sessionId: string, messageId: string, role: SessionMessageRole) => void;
+  recordAssistantResponse: (workspaceId: string, sessionId: string, completedAt: number) => void;
   markAssistantOutput: (workspaceId: string, sessionId: string, messageId?: string, options?: { allowUnknownMessageRole?: boolean; markDeltaProgress?: boolean }) => void;
   setWaitingRequest: (workspaceId: string, sessionId: string, kind: "permission" | "question", requestId: string, waiting: boolean) => void;
   replaceWaitingRequests: (workspaceId: string, sessionId: string, kind: "permission" | "question", requestIds: string[]) => void;
@@ -104,6 +107,7 @@ const createRecord = (): SessionActivityRecord => ({
   runHydrationAfter: null,
   transcriptActivity: null,
   lastProgressAt: 0,
+  lastAssistantResponseAt: 0,
   progressRevision: null,
   progressParts: {},
   latestActivity: null,
@@ -118,6 +122,16 @@ const createRecord = (): SessionActivityRecord => ({
   childSessionIds: [],
   updatedAt: 0,
 });
+
+/** Persisted completion time, never the time at which history happened to be opened. */
+export function assistantResponseTime(message: UIMessage): number {
+  if (message.role !== "assistant" || !message.parts.some(part => part.type === "text" && part.text.trim())) return 0;
+  const metadata = message.metadata;
+  const timing = metadata && typeof metadata === "object" ? Reflect.get(metadata, "opencode") : undefined;
+  if (timing && typeof timing === "object" && (Reflect.get(timing, "finish") === "tool-calls" || Reflect.get(timing, "contextCompacted") === true)) return 0;
+  const completed = timing && typeof timing === "object" ? Reflect.get(timing, "completed") : undefined;
+  return typeof completed === "number" && Number.isFinite(completed) && completed > 0 ? completed < 1e12 ? completed * 1000 : completed : 0;
+}
 
 function normalizeRunStatus(status: unknown): "idle" | "running" | "retry" {
   if (typeof status === "string") {
@@ -211,6 +225,7 @@ function sameActivityRecord(
     && current.transcriptActivity?.assistantOutput === next.transcriptActivity?.assistantOutput
     && current.transcriptActivity?.activeStartedAt === next.transcriptActivity?.activeStartedAt
     && current.lastProgressAt === next.lastProgressAt
+    && current.lastAssistantResponseAt === next.lastAssistantResponseAt
     && current.progressRevision === next.progressRevision
     && current.latestActivity === next.latestActivity
     && current.assistantOutput === next.assistantOutput
@@ -225,7 +240,7 @@ function sameActivityRecord(
     && sameStrings(current.childSessionIds, next.childSessionIds);
 }
 
-type SessionActivityDerivedState = Pick<SessionActivityStore, "recordsByWorkspaceId" | "statusesByWorkspaceId" | "waitingByWorkspaceId">;
+type SessionActivityDerivedState = Pick<SessionActivityStore, "recordsByWorkspaceId" | "statusesByWorkspaceId" | "waitingByWorkspaceId" | "responseTimesByWorkspaceId">;
 
 // Waits before the current run no longer matter, so only the newest are kept.
 const MAX_WAIT_INTERVALS = 50;
@@ -264,6 +279,9 @@ function updateRecord(
     },
     statusesByWorkspaceId: updateWorkspaceStatus(state.statusesByWorkspaceId, workspaceId, sessionId, status),
     waitingByWorkspaceId: updateWorkspaceWaiting(state.waitingByWorkspaceId, workspaceId, sessionId, waitingKindForRecord(nextRecord)),
+    responseTimesByWorkspaceId: nextRecord.lastAssistantResponseAt === (state.responseTimesByWorkspaceId[workspaceId]?.[sessionId] ?? 0)
+      ? state.responseTimesByWorkspaceId
+      : { ...state.responseTimesByWorkspaceId, [workspaceId]: { ...state.responseTimesByWorkspaceId[workspaceId], [sessionId]: nextRecord.lastAssistantResponseAt } },
   };
 }
 
@@ -318,6 +336,7 @@ function reconcileTranscriptActivity(record: SessionActivityRecord): SessionActi
 
 export const useSessionActivityStore = create<SessionActivityStore>((set, get) => ({
   recordsByWorkspaceId: {},
+  responseTimesByWorkspaceId: {},
   statusesByWorkspaceId: {},
   waitingByWorkspaceId: {},
   getStatus: (workspaceId, sessionId) => (
@@ -429,8 +448,10 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     set((state) => updateRecord(state, workspaceId, sessionId, (record) => {
       const progress = transcriptProgress(messages, record.progressParts);
       const childSessionIds = new Set(record.childSessionIds);
+      let lastAssistantResponseAt = record.lastAssistantResponseAt;
       for (const message of messages) {
         if (message.role !== "assistant") continue;
+        lastAssistantResponseAt = Math.max(lastAssistantResponseAt, assistantResponseTime(message));
         for (const part of message.parts) {
           if (!isToolUIPart(part) || !isTaskToolPart(part)) continue;
           const childId = taskChildSessionId(part);
@@ -444,6 +465,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       const observedAt = snapshot ? snapshotStartedAt ?? 0 : turnChanged || progressChanged ? Date.now() : 0;
       const next = reconcileTranscriptActivity({
         ...record,
+        lastAssistantResponseAt,
         childSessionIds: childSessionIds.size === record.childSessionIds.length ? record.childSessionIds : [...childSessionIds],
         ...(turnChanged ? {
           assistantOutput: false,
@@ -484,6 +506,11 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
           : record.lastProgressAt,
       };
     }));
+  },
+  recordAssistantResponse: (workspaceId, sessionId, completedAt) => {
+    if (!workspaceId || !sessionId || !Number.isFinite(completedAt) || completedAt <= 0) return;
+    const at = completedAt < 1e12 ? completedAt * 1000 : completedAt;
+    set(state => updateRecord(state, workspaceId, sessionId, record => ({ ...record, lastAssistantResponseAt: Math.max(record.lastAssistantResponseAt, at) })));
   },
   markMessageRole: (workspaceId, sessionId, messageId, role) => {
     const workspace = workspaceId.trim();
@@ -582,8 +609,10 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
       if (!workspaceRecords?.[session] && !workspaceStatuses?.[session]) return state;
       const nextRecords = { ...(workspaceRecords ?? {}) };
       const nextStatuses = { ...(workspaceStatuses ?? {}) };
+      const nextResponseTimes = { ...state.responseTimesByWorkspaceId[workspace] };
       delete nextRecords[session];
       delete nextStatuses[session];
+      delete nextResponseTimes[session];
       return {
         ...state,
         recordsByWorkspaceId: {
@@ -595,6 +624,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
           [workspace]: nextStatuses,
         },
         waitingByWorkspaceId: updateWorkspaceWaiting(state.waitingByWorkspaceId, workspace, session, undefined),
+        responseTimesByWorkspaceId: { ...state.responseTimesByWorkspaceId, [workspace]: nextResponseTimes },
       };
     });
   },

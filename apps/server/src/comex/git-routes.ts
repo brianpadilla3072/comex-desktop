@@ -37,7 +37,7 @@ export function registerComexGitRoutes(options: {
     ensureWritable(config);
     if (!config.configPath) throw new ApiError(503, "git_runtime_unavailable", "No hay una carpeta de configuración disponible para crear el trabajo aislado.");
     const parsed = z.object({ expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/) }).strict().safeParse(await readJsonBody(ctx.request));
-    if (!parsed.success) throw new ApiError(422, "git_invalid_head", "Revisá el commit de origen antes de crear un trabajo aislado.");
+    if (!parsed.success) throw new ApiError(422, "git_invalid_head", "Revisa el commit de origen antes de crear un trabajo aislado.");
     return jsonResponse(await createGitWorktree(value.path, dirname(config.configPath), parsed.data.expectedHead), 201);
   });
 }

@@ -71,7 +71,7 @@ export function ConversationNavigator({ messages, scrollRef, onNavigate, history
     className="absolute inset-y-5 left-0 z-20 hidden w-9 flex-col items-center justify-center lg:flex">
     {!historyComplete && onLoadHistory ? <Button variant="ghost" size="icon-xs" aria-label="Cargar toda la conversación" title={loadError ? "Reintentar cargar la conversación" : "Cargar toda la conversación"}
       disabled={loading} onClick={() => { setLoading(true); setLoadError(false); void onLoadHistory().catch(() => setLoadError(true)).finally(() => setLoading(false)); }}><ChevronUp /></Button> : null}
-    {loadError ? <span className="sr-only" role="alert">No se pudo cargar la conversación. Volvé a intentarlo.</span> : null}
+    {loadError ? <span className="sr-only" role="alert">No se pudo cargar la conversación. Vuelve a intentarlo.</span> : null}
     <div className="max-h-full w-full overflow-y-auto py-1 [scrollbar-width:none]">
       {stops.map((stop, index) => <HoverCard key={stop.id} open={previewId === stop.id} onOpenChange={open => setPreviewId(open ? stop.id : null)}>
         <HoverCardTrigger render={<Button variant="ghost" className="group/stop flex h-3 w-9 rounded-sm p-0 transition-none" />}

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import * as React from "react";
+import { t } from "@/i18n";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Globe, Minimize2, PanelRight, PictureInPicture2 } from "lucide-react";
 
@@ -57,29 +58,29 @@ function BrowserFullscreenDialog({ sessionId, controller }: BrowserFullscreenDia
                 <Tooltip>
                   <TooltipTrigger
                     render={(
-                      <Button variant="ghost" size="icon-sm" aria-label="Open beside chat" data-testid="browser-mode-side" onClick={() => present("side")}>
+                      <Button variant="ghost" size="icon-sm" aria-label={t("session_ui.open_beside_chat")} data-testid="browser-mode-side" onClick={() => present("side")}>
                         <PanelRight />
                       </Button>
                     )}
                   />
-                  <TooltipContent>Open beside chat</TooltipContent>
+                  <TooltipContent>{t("session_ui.open_beside_chat")}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger
                     render={(
-                      <Button variant="ghost" size="icon-sm" aria-label="Pop out browser" data-testid="browser-mode-float" onClick={() => present("floating")}>
+                      <Button variant="ghost" size="icon-sm" aria-label={t("session_ui.pop_out_browser")} data-testid="browser-mode-float" onClick={() => present("floating")}>
                         <PictureInPicture2 />
                       </Button>
                     )}
                   />
-                  <TooltipContent>Pop out into its own window</TooltipContent>
+                  <TooltipContent>{t("session_ui.pop_out_window")}</TooltipContent>
                 </Tooltip>
                 <DialogPrimitive.Close
                   ref={exitRef}
                   render={<Button variant="outline" size="sm" data-testid="browser-fullscreen-exit" />}
                 >
                   <Minimize2 />
-                  Exit full screen
+                  {t("session_ui.exit_full_screen")}
                   <kbd className="ml-1 font-sans text-[11px] text-muted-foreground">esc</kbd>
                 </DialogPrimitive.Close>
               </div>

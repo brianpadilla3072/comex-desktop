@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import * as React from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ModelOption, ModelRef } from "@/app/types";
@@ -25,19 +26,19 @@ export function ModelPickerFooter({ effortButtonRef, effortLabel, effortShortcut
   return <div className="border-t border-border p-1.5" data-testid="model-behavior-rows">
     <button ref={effortButtonRef} type="button" data-testid="model-effort" disabled={!canChangeEffort} onClick={onOpenEffort}
       className="flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:bg-transparent">
-      <span className="min-w-0 flex-1">Effort</span>
+      <span className="min-w-0 flex-1">{t("models.effort")}</span>
       <span className="max-w-32 truncate text-muted-foreground">{effortLabel}</span>
       <kbd className={chordClass}>{effortShortcut}</kbd>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
     </button>
     {fast ? <div className="flex h-9 items-center gap-2.5 px-2 text-sm" title={FAST_PRICING_WARNING}>
-      <span className="min-w-0 flex-1">Fast mode</span>
+      <span className="min-w-0 flex-1">{t("models.fast_mode")}</span>
       <kbd className={chordClass}>{fast.shortcut}</kbd>
-      <Switch aria-label="Fast mode" size="sm" checked={fast.on} disabled={fast.disabled} onCheckedChange={fast.onToggle} />
+      <Switch aria-label={t("models.fast_mode")} size="sm" checked={fast.on} disabled={fast.disabled} onCheckedChange={fast.onToggle} />
     </div> : null}
     {/* The list above already holds every model; there is no second, larger picker. */}
     {onConnectProvider ? <div className="flex items-center pt-0.5">
-      <Button variant="ghost" size="sm" className="h-8 px-2 font-normal text-muted-foreground" onClick={onConnectProvider}>Connect more providers</Button>
+      <Button variant="ghost" size="sm" className="h-8 px-2 font-normal text-muted-foreground" onClick={onConnectProvider}>{t("models.connect_more_providers")}</Button>
     </div> : null}
   </div>;
 }
@@ -94,13 +95,13 @@ export function ModelPickerPanel(props: ModelPickerPanelProps) {
   const shortcutOs = resolveThinkingModeShortcutOs(undefined, typeof navigator === "undefined" ? "" : navigator.platform);
   const autoSelected = managesOwnBehavior(current);
   const canChangeEffort = Boolean(selected && onBehaviorChange && !autoSelected && hasEffort);
-  const effortValueLabel = autoSelected ? (isAutoRouterModel(current) ? "Managed by Smart Router" : "Managed by OpenWork") : hasEffort ? controls.options.find((option) => option.value === behaviorValue)?.label ?? selectedBehavior.label : "Unavailable";
+  const effortValueLabel = autoSelected ? (isAutoRouterModel(current) ? t("models.effort_managed_router") : t("models.effort_managed_openwork")) : hasEffort ? controls.options.find((option) => option.value === behaviorValue)?.label ?? selectedBehavior.label : t("models.effort_unavailable");
 
   if (effort && selected) {
     return <div data-slot="model-thinking-submenu" className="overflow-y-auto p-2">
-      <button ref={backButtonRef} type="button" aria-label="Back to models" className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setEffort(false)}>
+      <button ref={backButtonRef} type="button" aria-label={t("models_ui.back_to_models")} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setEffort(false)}>
         <ChevronLeft className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0"><span className="block truncate text-sm font-medium">Effort</span><span className="block truncate text-xs text-muted-foreground">{selected.title}</span></span>
+        <span className="min-w-0"><span className="block truncate text-sm font-medium">{t("models.effort")}</span><span className="block truncate text-xs text-muted-foreground">{selected.title}</span></span>
       </button>
       <p role="status" className="px-2 py-2 text-xs text-muted-foreground">{getModelBehaviorSelection(selectedBehavior.options, controls.fast ? controls.toggleValue ?? null : behaviorValue).description}</p>
       {controls.options.map((option) => <Button key={option.value ?? "default"} variant="ghost" className="h-11 w-full justify-between" aria-pressed={option.value === behaviorValue} onClick={() => { onBehaviorChange?.(option.value); setEffort(false); }}>

@@ -1,5 +1,7 @@
 "use client";
 
+import { t } from "@/i18n";
+
 import * as React from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
@@ -100,9 +102,9 @@ export function ModelSelect({ compact = false, open, value, hideValue = false, o
     if (next) setModeOpen(false);
     setFocusAlternative(false); onOpenChange(next);
   }}>
-    <PopoverTrigger type="button" disabled={disabled} aria-label="Change model"
+    <PopoverTrigger type="button" disabled={disabled} aria-label={t("session.change_model")}
       className={`inline-flex h-9 min-w-0 items-center gap-1.5 text-sm hover:text-foreground focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${compact ? "max-w-48 px-1 text-foreground" : "px-2.5 text-muted-foreground"}`}>
-      <span className="max-w-56 truncate">{hideValue ? "Select model" : fixedModelTitle(value, { plainFreeModel }) ?? (catalog.currentOption ? modelTitle(catalog.currentOption, { plainFreeModel }) : "Select model")}{!compact && !hideValue && summary ? ` · ${summary}` : ""}{!hideValue && fastOn ? <span data-testid="model-fast-indicator" className="text-xs font-medium"> · Fast</span> : null}</span><ChevronDown className="size-3" />
+      <span className="max-w-56 truncate">{hideValue ? t("models.select_model") : fixedModelTitle(value, { plainFreeModel }) ?? (catalog.currentOption ? modelTitle(catalog.currentOption, { plainFreeModel }) : t("models.select_model"))}{!compact && !hideValue && summary ? ` · ${summary}` : ""}{!hideValue && fastOn ? <span data-testid="model-fast-indicator" className="text-xs font-medium"> · {t("secondary_ui.models.fast")}</span> : null}</span><ChevronDown className="size-3" />
     </PopoverTrigger>
     <PopoverContent ref={popupRef} tabIndex={-1} align="start" initialFocus={() => isMobile || focusAlternative ? popupRef.current : searchInputRef.current} data-testid="composer-model-picker" className="flex max-h-[min(var(--available-height),36rem)] w-90 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl p-0">
       <ModelPickerPanel searchInputRef={searchInputRef} options={options} current={value} behaviorValue={behaviorValue} fallbackBehaviorOptions={behaviorOptions}

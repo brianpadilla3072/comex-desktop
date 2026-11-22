@@ -77,7 +77,7 @@ function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: Wo
   const update = (patch: Partial<WorkspaceResourceTab>) => useWorkspaceResources.getState().update(scope, tab.id, patch)
   const save = async () => {
     let path = resourcePagePath(tab.path ?? "")
-    if (!path) { setError("Elegí una ruta relativa del proyecto, por ejemplo paginas/Notas.md."); return }
+    if (!path) { setError("Elige una ruta relativa del proyecto, por ejemplo paginas/Notas.md."); return }
     // Codex-style control: a bare file name created inside a conversation is
     // filed under the session folder of this project, never somewhere else.
     if (comexLayout && sessionId && !path.includes("/")) path = `comex/proyecto/${sessionId}/${path}`
@@ -90,7 +90,7 @@ function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: Wo
       update({ path, savedPath: path, savedDraft: draft, updatedAt: result.updatedAt, title: path.split("/").pop() ?? "Página" })
       useWorkspaceResources.getState().record(scope, { kind: "page", value: path, title: path.split("/").pop() ?? path })
       toast.success("Página guardada")
-    } catch { setError("No se pudo guardar. Si el archivo ya existe o cambió, elegí otro nombre o abrilo desde Archivos. Tu borrador se conserva.") }
+    } catch { setError("No se pudo guardar. Si el archivo ya existe o cambió, elige otro nombre o ábrelo desde Archivos. Tu borrador se conserva.") }
     finally { setSaving(false) }
   }
   const dirty = tab.savedDraft !== (tab.draft ?? "") || tab.savedPath !== tab.path
@@ -136,7 +136,7 @@ export function WorkspaceResourceView(props: ResourceViewProps) {
   }
   const navigate = (value: string) => {
     const url = resourceAddress(value)
-    if (!url) { toast.error("Introducí una dirección web o una búsqueda válida."); return }
+    if (!url) { toast.error("Introduce una dirección web o una búsqueda válida."); return }
     if (active?.kind === "new" || active?.kind === "browser") store().update(props.scope, active.id, { kind: "browser", url, title: new URL(url).hostname, ownerSessionId: active.ownerSessionId ?? props.sessionId, history: [...(active.history ?? []).slice(0, (active.historyIndex ?? -1) + 1), url], historyIndex: (active.historyIndex ?? -1) + 1 })
     else open("browser", url)
     store().record(props.scope, { kind: "browser", value: url, title: new URL(url).hostname })

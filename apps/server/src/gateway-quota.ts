@@ -75,7 +75,8 @@ async function readBoundedJson(response: Response): Promise<unknown> {
       if (size > MAX_ERROR_BYTES) return null;
       text += decoder.decode(chunk.value, { stream: true });
     }
-    return JSON.parse(text + decoder.decode());
+    const value: unknown = JSON.parse(text + decoder.decode());
+    return value;
   };
   try {
     return await Promise.race([read(), expired]);

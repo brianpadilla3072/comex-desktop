@@ -7,7 +7,8 @@ function normalizeOpenworkWorkspaceConfig(value: unknown): Record<string, unknow
 
 function parseOpenworkWorkspaceConfig(configJson: string): Record<string, unknown> {
   try {
-    return normalizeOpenworkWorkspaceConfig(JSON.parse(configJson));
+    const value: unknown = JSON.parse(configJson);
+    return normalizeOpenworkWorkspaceConfig(value);
   } catch {
     return {};
   }

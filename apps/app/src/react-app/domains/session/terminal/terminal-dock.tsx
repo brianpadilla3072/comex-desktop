@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from "react";
+import { t } from "@/i18n";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -117,7 +118,7 @@ export function TerminalDock({ workspaceRoot, onClose }: TerminalDockProps) {
         <div className="min-w-0 truncate text-white/75">Terminal · {status}</div>
         <Button variant="ghost" size="icon-sm" className="text-white/70 hover:bg-white/10 hover:text-white" onClick={onClose}>
           <X className="size-4" />
-          <span className="sr-only">Hide terminal</span>
+          <span className="sr-only">{t("session_ui.hide_terminal")}</span>
         </Button>
       </header>
       <div ref={containerRef} className="min-h-0 flex-1 px-2 py-1 [&_.xterm]:h-full" />

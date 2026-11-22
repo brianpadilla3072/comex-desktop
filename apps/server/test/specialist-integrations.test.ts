@@ -18,9 +18,9 @@ async function setup() {
   const source = join(root, "source");
   await mkdir(join(source, "skills", "fuentes"), { recursive: true });
   await mkdir(join(source, "agents")); await mkdir(join(source, "commands"));
-  await writeFile(join(source, "skills", "fuentes", "SKILL.md"), "---\nname: fuentes\ndescription: Verifica fuentes.\n---\nLeé las fuentes originales.\n");
-  await writeFile(join(source, "agents", "revisor.md"), "---\ndescription: Revisa el trabajo.\nmode: subagent\n---\nPedí evidencia.\n");
-  await writeFile(join(source, "commands", "revisar.md"), "Revisá este trabajo.");
+  await writeFile(join(source, "skills", "fuentes", "SKILL.md"), "---\nname: fuentes\ndescription: Verifica fuentes.\n---\nLee las fuentes originales.\n");
+  await writeFile(join(source, "agents", "revisor.md"), "---\ndescription: Revisa el trabajo.\nmode: subagent\n---\nPide evidencia.\n");
+  await writeFile(join(source, "commands", "revisar.md"), "Revisa este trabajo.");
   await writeFile(join(source, "opencode.jsonc"), '{"plugins":["untrusted-plugin"],"provider":{"secret":"NOT_EXPORTED"}}');
   const config = { configPath: join(root, "server.json"), workspaces: new Array<WorkspaceInfo>() };
   const store = await specialistStore(config);
@@ -68,10 +68,10 @@ test("pack updates preserve project edits, detect stale reviews and propagate in
     const factory = createPackFactory(f.config);
     await writeFile(join(f.project, ".opencode/agents/revisor.md"), "Mi edición local");
     await writeFile(join(f.source, "agents/revisor.md"), "---\ndescription: Revisión nueva.\n---\nNueva guía.\n");
-    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias.");
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias.");
     const review = await factory.preview(f.app.id, f.source);
     assert.deepEqual(review.conflicts.map(item => item.path), ["agents/revisor.md"]);
-    await writeFile(join(f.source, "commands/revisar.md"), "Revisá con referencias y fechas.");
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias y fechas.");
     await assert.rejects(() => factory.update(f.app.id, f.source, review.fingerprint), /cambiaron/);
     const fresh = await factory.preview(f.app.id, f.source);
     const result = await factory.update(f.app.id, f.source, fresh.fingerprint);
@@ -110,7 +110,9 @@ test("research settings stay per profile in SQLite and native tool schemas are p
     for (const tool of tools) assert.deepEqual(providerSchemaProblems(tool.input), []);
     f.store.setResearchEnabled(f.app.id, false);
     await syncResearchPlugin(f.config, "ws_fixture", f.project);
-    await assert.rejects(() => tools[0]!.execute({ query: "test" }, { signal: new AbortController().signal }), /desactivada/);
+    // A disabled provider reaches the model as text it can read, never as a thrown null result.
+    const disabled = await tools[0]!.execute({ query: "test" }, { signal: new AbortController().signal }) as { content?: Array<{ text: string }> };
+    assert.match(disabled.content?.[0]?.text ?? "", /desactivada/);
     await dispose?.(); assert.equal(disposed, true);
   } finally {
     if (original.specialist === undefined) delete process.env.DEN_FEATURE_SPECIALIST_APPLICATIONS; else process.env.DEN_FEATURE_SPECIALIST_APPLICATIONS = original.specialist;
@@ -125,4 +127,27 @@ test("CLI runner passes shell-looking queries literally and honors cancellation"
   const controller = new AbortController();
   const running = runTavilyCommand(process.execPath, ["-e", "setTimeout(()=>{},10000)"], { signal: controller.signal });
   controller.abort(); await assert.rejects(() => running, /canceló/);
+});
+
+// w6-6 (local hive QA): a pack update wrote project files without updating specialist-sync.json or
+// the library manifest, so the next library sync wrote a false .nuevo for every updated file and
+// every pack file showed as the person's own.
+test("after a pack update the next sync reports no conflicts and pack files stay official", async () => {
+  const f = await setup();
+  try {
+    const factory = createPackFactory(f.config);
+    await writeFile(join(f.source, "commands/revisar.md"), "Revisa con referencias.");
+    const review = await factory.preview(f.app.id, f.source);
+    const result = await factory.update(f.app.id, f.source, review.fingerprint);
+    assert.ok(result.applied > 0);
+    const { syncSpecialistWorkspace } = await import("../src/specialists/sync.js");
+    const { listSpecialistLibrary } = await import("../src/specialists/library.js");
+    const sync = await syncSpecialistWorkspace(f.config, f.store.application(f.app.id), f.project);
+    assert.deepEqual(sync.conflicts, []);
+    await assert.rejects(readFile(join(f.project, ".opencode/commands/revisar.md.nuevo"), "utf8"));
+    const library = await listSpecialistLibrary(f.config, f.app.id);
+    const entries = [...library.agents, ...library.skills, ...(library.files ?? [])];
+    assert.ok(entries.length > 0);
+    assert.equal(entries.some(entry => entry.origin === "custom"), false);
+  } finally { await f.close(); }
 });

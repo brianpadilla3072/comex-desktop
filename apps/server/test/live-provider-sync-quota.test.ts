@@ -51,3 +51,9 @@ for (const live of [false, true]) test(`${live ? "plugin-injected" : "legacy mat
   await cleanup();
   assert.equal(disposed, 1);
 });
+
+test("the engine config carries the default web-search provider when one is chosen", () => {
+  const withProvider = renderOpencodeV2Config({ providers: [], skills: [], websearchProvider: "tavily" });
+  assert.deepEqual(withProvider.websearch, { provider: "tavily" });
+  assert.equal(renderOpencodeV2Config({ providers: [], skills: [] }).websearch, undefined);
+});

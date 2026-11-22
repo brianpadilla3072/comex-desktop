@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { openDesktopUrl, pickDirectory } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import type { OpenworkServerClient, SpecialistApplication, SpecialistPackReview } from "@/app/lib/openwork-server";
+import { specialistErrorMessage } from "./error-message";
 
 export function SpecialistIntegrationsDialog({ app, client, onClose, onChanged }: { app: SpecialistApplication; client: OpenworkServerClient; onClose(): void; onChanged(): Promise<unknown> }) {
   const [busy, setBusy] = useState(false);
@@ -24,16 +25,16 @@ export function SpecialistIntegrationsDialog({ app, client, onClose, onChanged }
     if (busy) return;
     setBusy(true); setError(null); setNotice(null);
     try { await action(); await query.refetch(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la operación. Volvé a intentar."); }
+    catch (cause) { setError(specialistErrorMessage(cause, "No se pudo completar la operación. Vuelve a intentar.")); }
     finally { setBusy(false); }
   }
   async function providerAction(id: string, action: "install" | "login" | "disconnect" | "test" | "key" | "enable", enabled?: boolean) {
     await perform(async () => {
       const result = await client.specialistIntegrationAction(app.id, id, { action, enabled, ...(action === "key" ? { apiKey } : {}) });
       if (action === "key") setApiKey("");
-      if (result.authorizationUrl) { await openDesktopUrl(result.authorizationUrl); setNotice("Completá el acceso a Tavily en el navegador. La conexión se actualiza al volver."); }
+      if (result.authorizationUrl) { await openDesktopUrl(result.authorizationUrl); setNotice("Completa el acceso a Tavily en el navegador. La conexión se actualiza al volver."); }
       else if (result.verifiedAt) setNotice(`Búsqueda verificada: ${result.sources?.length ?? 0} fuente encontrada.`);
-      else if (action === "install") setNotice("Tavily preparado. Ya podés conectar tu cuenta.");
+      else if (action === "install") setNotice("Tavily preparado. Ya puedes conectar tu cuenta.");
     });
   }
   async function pick(kind: "pack" | "export") {

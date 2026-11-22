@@ -1,0 +1,47 @@
+{
+  "apps/server/src/local-managed-mcp-url-guard.ts": {
+    "R3-double-cast": 2
+  },
+  "apps/server/src/server.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/server/src/specialists/artifacts.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/server/src/specialists/library-tool-api.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/server/src/specialists/outputs.ts": {
+    "R2-unvalidated-json-parse": 2
+  },
+  "apps/server/src/specialists/panel-app.ts": {
+    "R3-double-cast": 5
+  },
+  "apps/server/src/specialists/panels.ts": {
+    "R2-unvalidated-json-parse": 2
+  },
+  "apps/server/src/specialists/proposals.ts": {
+    "R3-double-cast": 2
+  },
+  "apps/server/src/specialists/routes.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/server/src/specialists/sources.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/server/src/specialists/sync.ts": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/desktop/electron/automation-runner.mjs": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/desktop/electron/preload.mjs": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/desktop/electron/session-runner-journal.mjs": {
+    "R2-unvalidated-json-parse": 1
+  },
+  "apps/desktop/electron/webmcp-host.mjs": {
+    "R2-unvalidated-json-parse": 2
+  }
+}

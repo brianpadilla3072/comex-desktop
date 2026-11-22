@@ -647,3 +647,12 @@ export function useDenAuth(): DenAuthStore {
   }
   return context;
 }
+
+/**
+ * Same store when a DenAuthProvider is above this component, otherwise `null`.
+ * Self-hosted Comex and the web surfaces that never mount Den still render chat
+ * and artifacts; those code paths must degrade to "no cloud account", not throw.
+ */
+export function useOptionalDenAuth(): DenAuthStore | null {
+  return use(DenAuthContext) ?? null;
+}

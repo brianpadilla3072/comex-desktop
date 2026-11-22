@@ -11,7 +11,7 @@ function engine() {
       { id: "opencode", methods: [{ type: "key" }, { type: "env", names: ["KEY"] }, { type: "oauth", id: "device", label: "OpenCode Console account", form: [{ key: "server", hidden: true, default: "https://opencode.ai/console" }] }], connections: [{ type: "credential", id: "cred_console" }] },
       { id: "opencode-go", methods: [{ type: "key" }], connections: [{ type: "credential", id: "cred_go" }, { type: "env", name: "KEY" }] },
     ] };
-    else if (path.endsWith("/connect/oauth")) payload = { data: { attemptID: "attempt_fixture", url: "https://opencode.ai/console/device", mode: "auto", instructions: "Ingresá el código de prueba." } };
+    else if (path.endsWith("/connect/oauth")) payload = { data: { attemptID: "attempt_fixture", url: "https://opencode.ai/console/device", mode: "auto", instructions: "Ingresa el código de prueba." } };
     else if (method === "GET" && path.includes("attempt_fixture")) payload = { data: { status } };
     const request = new Request(`http://localhost${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { payload, request, response: Response.json(payload) };

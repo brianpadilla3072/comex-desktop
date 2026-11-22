@@ -39,7 +39,9 @@ test("organization feature queries belong only in the shared guarded hook", () =
     return handrolledReads(readFileSync(path, "utf8"), imperative).map((line) => `${name}:${line}`);
   });
   expect(offenders, `Use useOrgFeature/useOrgFeatureState from ${sharedModule}; disabled queries still expose cached data`).toEqual([]);
-});
+// Parsing every source file with the TypeScript API takes seconds and the suite runs four workers
+// wide: the default 5s budget times out for reasons that have nothing to do with the rule.
+}, 60_000);
 
 test("the guard catches multiline keys and getOrgFeatures under alternate query keys", () => {
   expect(handrolledReads(`useQuery({ queryKey: [\n'den',\n'org-features', orgId] })`)).toEqual([3]);

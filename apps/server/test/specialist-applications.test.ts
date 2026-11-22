@@ -16,7 +16,7 @@ async function fixturePack(root: string) {
   await mkdir(join(pack, "scripts"));
   await writeFile(join(pack, "skills", "tono", "SKILL.md"), "---\nname: tono\ndescription: Una skill de prueba.\n---\nAyudá con claridad.\n");
   await writeFile(join(pack, "skills", "tono", "references", "datos.csv"), "dato,valor\na,1\n");
-  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisá evidencia.\n");
+  await writeFile(join(pack, "agents", "revisor.md"), "---\ndescription: Revisor de prueba.\nmode: subagent\n---\nRevisa evidencia.\n");
   await writeFile(join(pack, "scripts", "example.txt"), "Recurso de prueba");
   await writeFile(join(pack, ".env"), "SECRET=fixture\n");
   await writeFile(join(pack, "opencode.json"), '{"plugins":["not-loaded"]}');
@@ -81,9 +81,11 @@ test("custom application projects have separate packs, memory and identities wit
     await prepareSpecialistWorkspace(config, b, projectB);
     assert.equal(await ensureComexWorkspace(projectB), false);
     const note = "DECISION_SOLO_ALPHA";
-    await writeFile(join(projectA, "comex", "estado.md"), note);
+    // A custom application keeps its memory in `proyecto/`, never in the Comex folder.
+    await assert.rejects(readFile(join(projectA, "comex", "estado.md")));
+    await writeFile(join(projectA, "proyecto", "estado.md"), note);
     await prepareSpecialistWorkspace(config, a, projectA);
-    assert.equal(await readFile(join(projectA, "comex", "estado.md"), "utf8"), note);
+    assert.equal(await readFile(join(projectA, "proyecto", "estado.md"), "utf8"), note);
     await assert.rejects(prepareSpecialistWorkspace(config, b, projectA), /otra aplicación/);
     await assert.rejects(readFile(join(projectB, ".opencode", "skills", "tono", "SKILL.md")));
     await assert.rejects(readFile(join(projectB, ".opencode", "skills", "estudio-mercado-internacional", "SKILL.md")));
@@ -94,6 +96,37 @@ test("custom application projects have separate packs, memory and identities wit
     assert.ok(promptA.includes("PERSONA_Alpha") && promptA.includes(note));
     assert.ok(promptB.includes("PERSONA_Beta") && !promptB.includes(note) && !promptB.includes("PERSONA_Alpha"));
     assert.equal(promptB.includes("encuesta"), false);
+  } finally { store.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test("a project with its own .opencode is adopted without overwriting it, but never through a symlink", async () => {
+  const root = await mkdtemp(join(tmpdir(), "specialists-adopt-"));
+  const config = { configPath: join(root, "server.json") };
+  const store = await openSpecialistStore(join(root, "profiles.sqlite"));
+  try {
+    const app = store.create(input("Adopta"), { agents: 0, skills: 0 });
+    await saveSpecialistPack(config, app.id, null);
+    const project = join(root, "project"); await mkdir(join(project, ".opencode"), { recursive: true });
+    await writeFile(join(project, ".opencode", "opencode.json"), "{\"propio\":true}");
+    await prepareSpecialistWorkspace(config, app, project);
+    assert.deepEqual(JSON.parse(await readFile(join(project, ".opencode", "specialist-application.json"), "utf8")), { applicationId: app.id });
+    assert.equal(await readFile(join(project, ".opencode", "opencode.json"), "utf8"), "{\"propio\":true}");
+
+    const outside = join(root, "outside"); await mkdir(outside);
+    const linkedConfig = join(root, "linked-config"); await mkdir(linkedConfig);
+    await symlink(outside, join(linkedConfig, ".opencode"));
+    await assert.rejects(prepareSpecialistWorkspace(config, app, linkedConfig), /no es válida/);
+    await assert.rejects(readFile(join(outside, "specialist-application.json")));
+
+    const fileConfig = join(root, "file-config"); await mkdir(fileConfig);
+    await writeFile(join(fileConfig, ".opencode"), "no es una carpeta");
+    await assert.rejects(prepareSpecialistWorkspace(config, app, fileConfig), /no es válida/);
+
+    const linkedRoot = join(root, "linked-root");
+    await symlink(project, linkedRoot);
+    await rm(join(project, ".opencode", "specialist-application.json"));
+    await assert.rejects(prepareSpecialistWorkspace(config, app, linkedRoot), /enlace simbólico/);
+    await assert.rejects(readFile(join(project, ".opencode", "specialist-application.json")));
   } finally { store.close(); await rm(root, { recursive: true, force: true }); }
 });
 
@@ -109,8 +142,20 @@ test("invalid skills and oversized pack resources are rejected before a profile 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("the bundled Comex pack parses as valid native YAML and imports all 4 agents and 12 skills", async () => {
+test("the bundled Comex pack parses as valid native YAML and imports all 4 agents and 21 skills", async () => {
   const pack = await inspectSpecialistPack(builtInComexPack());
   assert.equal(pack.summary.agents.length, 4);
-  assert.equal(pack.summary.skills.length, 12);
+  assert.equal(pack.summary.skills.length, 21);
+});
+
+test("the specialist instructions point to Tavily research only when it is connected", () => {
+  const app = { id: "app_x", name: "Comercio", specialty: "Soja", personality: "Clara", template: "custom" as const, agentCount: 0, skillCount: 0, createdAt: 1, workspaceIds: [] };
+  const memory = { continuity: null } as never;
+  const withResearch = specialistInstructions(app, null, memory, null, false, false, true, false, true, false, true);
+  assert.match(withResearch, /tavily_search/);
+  assert.match(withResearch, /nunca inventes URLs/);
+  const without = specialistInstructions(app, null, memory, null, false, false, true, false, true, false, false);
+  assert.doesNotMatch(without, /tavily_search/);
+  // Even disconnected, the model must say a search failed out loud instead of inventing.
+  assert.match(without, /dilo en voz alta/);
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { t } from "@/i18n";
 import type { ModelRef } from "../types";
 import { AUTO_MODEL_ID, AUTO_PROVIDER_ID, isAutoModel } from "@/react-app/domains/models/model-catalog";
 
@@ -153,10 +154,10 @@ export function autoResetPhrase(resetsAt: string | undefined, now = Date.now()):
   const at = resetsAt ? Date.parse(resetsAt) : NaN;
   if (!Number.isFinite(at) || at <= now) return null;
   const minutes = Math.ceil((at - now) / 60_000);
-  if (minutes < 60) return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (minutes < 60) return t("secondary_ui.cloud.usage_limit.in_minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  return `on ${new Date(at).toLocaleDateString(undefined, { weekday: "long" })}`;
+  if (hours < 24) return t("secondary_ui.cloud.usage_limit.in_hours", { count: hours });
+  return t("secondary_ui.cloud.usage_limit.on_day", { day: new Date(at).toLocaleDateString(undefined, { weekday: "long" }) });
 }
 
 const NEXT_STEP = "Pick another model to keep going.";

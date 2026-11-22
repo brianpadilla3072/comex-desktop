@@ -8,7 +8,7 @@ import { openModelGuideStore as openStore, bundledCatalog as releaseCatalog } fr
 import { modelGuideCatalogSchema, type GuideObservation, type ModelGuideCatalog } from "@openwork/types/model-guide";
 
 // Storage tests use a stable fixture, independent of the editorial release revision.
-const bundledCatalog: ModelGuideCatalog = { ...releaseCatalog, revision: 1, models: [] };
+const bundledCatalog: ModelGuideCatalog = { ...releaseCatalog, revision: 1, publishedAt: "2026-11-06T14:00:00Z", models: [] };
 const openModelGuideStore: typeof openStore = (path, options = {}) => openStore(path, { bundled: bundledCatalog, ...options });
 
 const observed: GuideObservation = { providerID: "private-provider", modelID: "fixture", name: "Fixture", providerName: "Local fixture", pricing: null, freeVerified: false, tools: true, reasoning: null, input: ["text"], context: 4096, efforts: [] };

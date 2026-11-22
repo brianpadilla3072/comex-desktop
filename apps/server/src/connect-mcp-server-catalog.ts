@@ -371,7 +371,8 @@ export async function readOpenWorkConnectMcpServerIndexWithDiagnostics(
   if (text === null) return { index: null, diagnostic: "discovery_unavailable" };
   let value: unknown;
   try {
-    value = JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    value = parsed;
   } catch {
     return { index: null, diagnostic: "invalid_catalog" };
   }

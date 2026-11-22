@@ -1,10 +1,13 @@
 /** @jsxImportSource react */
 import { SpecialistApplicationSwitcher, useSpecialistApplications } from "@/react-app/domains/specialists/provider";
+import { CompanionRecentsBridge } from "../../desktop-companion/companion-recents-bridge";
 import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider";
 import { CompactSidebarNav } from "./compact-sidebar-nav";
+import { PinnedProjectsGroup, sidebarDestinationOrder, type SidebarDesign, type SidebarDestinationId, type SidebarProjects } from "../../projects/projects-sidebar";
 import { useNewTaskDraftState } from "../sync/draft-store";
 import { newSessionDraftOwnerKey, newSessionDraftSlot } from "../chat/new-session-destination";
 import { persistableComposerDraftText, useComposerStateStore } from "../surface/composer-state-store";
+import { useConsolidateMemoryStore } from "../comex/consolidate-memory-store";
 import * as React from "react";
 import { useLocation, useNavigate } from "react-router";
 import { usePendingConversationStore, withPendingGroupAssignments, type PendingConversation } from "../chat/pending-conversation-store";
@@ -15,17 +18,22 @@ import { getQueuedDrainState, subscribeQueuedDrain } from "../surface/queued-dra
 import {
   AlertCircle,
   AlertTriangle,
+  Activity,
   Archive,
+  Inbox,
   ArchiveRestore,
   Blocks,
   CheckCheck,
   Folder,
+  FolderClosed,
+  Palette,
   Clock3,
   ChevronRight,
   Columns2,
   FolderPlus,
   LayoutGrid,
   ListFilter,
+  Brain,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -34,6 +42,7 @@ import {
   Trash2,
   RotateCcw,
   FolderOpen,
+  Search,
   SquarePen,
   Tag,
   Undo2,
@@ -172,6 +181,7 @@ import { WorkspaceAvatarPicker } from "./workspace-avatar-picker";
 import { isSameWorkbenchSession, useWorkbenchStore } from "../chat/workbench-store";
 import { shouldHideAttachedSideChat } from "./side-chat-status";
 import { SidebarDestination } from "./sidebar-destination";
+import { ResultsInboxBadge, resultsInboxNavLabel } from "../../results-inbox/results-inbox-badge";
 import { SessionTitle } from "./session-title";
 import { isKeyboardFocus } from "./session-title-marquee";
 import { getSessionOrder } from "./session-order";
@@ -499,6 +509,14 @@ function useSessionMenuActions({
     icon: isArchived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />,
     onSelect: () => ctx.onArchiveSession?.(sessionId, !isArchived),
   });
+  const openConsolidateMemory = useConsolidateMemoryStore((state) => state.openFor);
+  actions.push({
+    type: "item", id: "consolidate-memory", label: "Consolidar memoria", icon: <Brain className="size-4" />,
+    onSelect: () => {
+      ctx.onOpenSession?.(workspaceId, sessionId);
+      openConsolidateMemory(workspaceId, sessionId);
+    },
+  });
   if (ctx.onOpenDeleteSession) actions.push({ type: "separator" }, {
     type: "item", id: "delete", label: t("workspace_list.delete_session"), icon: <Trash2 className="size-4" />, variant: "destructive",
     onSelect: () => ctx.onOpenDeleteSession?.(sessionId),
@@ -647,7 +665,7 @@ function WorkspaceActionsMenu({ workspace, className }: WorkspaceActionsMenuProp
         {workspace.workspaceType === "local" && platform.capabilities.revealInFileManager ? (
           <DropdownMenuItem onClick={() => ctx.onRevealWorkspace(workspace.id)}>
             <FolderOpen className="size-4" />
-            {isWindowsPlatform() ? t("workspace_list.reveal_explorer") : t("workspace_list.reveal_finder")}
+            {isWindowsPlatform() ? t("workspace_list.reveal_explorer") : isMacPlatform() ? t("workspace_list.reveal_finder") : t("workspace_list.reveal_file_manager")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />
@@ -703,9 +721,21 @@ export type AppSidebarProps = {
   automationsActive?: boolean;
   automationsNeedAttention?: boolean;
   onOpenAutomations?: () => void;
+  commandCenterActive?: boolean;
+  /** Opens the command center; absent while the `commandCenter` flag is off. */
+  onOpenCommandCenter?: () => void;
+  resultsInboxActive?: boolean;
+  /** Unread results for the badge; null while unknown. */
+  resultsInboxUnread?: number | null;
+  /** Opens the results inbox; absent while the `resultsInbox` flag is off. */
+  onOpenResultsInbox?: () => void;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
+  /** Projects experience: the Proyectos entry and the "Fijados" group; absent while `projectsExperience` is off. */
+  projects?: SidebarProjects;
+  /** Design studio: the "Diseño" entry; absent while `designStudio` is off. */
+  design?: SidebarDesign;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   /** Back/forward across recently viewed conversations, rendered at the top of the sidebar. */
@@ -849,14 +879,99 @@ export function AppSidebar(inputProps: AppSidebarProps) {
   });
   const feedView = feed !== null;
 
+  const projectsOn = Boolean(props.projects);
+  const availableDestinations = new Set<SidebarDestinationId>(["extensions"]);
+  if (props.projects) availableDestinations.add("projects");
+  if (props.projects && props.onOpenSessionSearch) availableDestinations.add("search");
+  if (props.design) availableDestinations.add("design");
+  if (props.onOpenDashboard) availableDestinations.add("artifacts");
+  if (props.onOpenAutomations) availableDestinations.add("scheduled");
+  if (props.onOpenCommandCenter) availableDestinations.add("command-center");
+  if (props.onOpenResultsInbox) availableDestinations.add("inbox");
+  const destinations: Record<SidebarDestinationId, React.ReactNode> = {
+    search: props.onOpenSessionSearch ? (
+      <SidebarDestination active={false} icon={Search} label={t("projects_ui.nav_search")} onSelect={props.onOpenSessionSearch} />
+    ) : null,
+    projects: props.projects ? (
+      <SidebarDestination active={props.projects.active} icon={FolderClosed} label={t("projects_ui.nav_projects")} onSelect={props.projects.onOpen} />
+    ) : null,
+    design: props.design ? (
+      <SidebarDestination active={props.design.active} icon={Palette} label={t("design_ui.studio.nav")} onSelect={props.design.onOpen} />
+    ) : null,
+    artifacts: props.onOpenDashboard ? (
+      <SidebarDestination
+        active={props.dashboardActive === true}
+        icon={Blocks}
+        label={projectsOn ? t("projects_ui.nav_artifacts") : props.dashboardLabel ?? "Dashboard"}
+        onSelect={props.onOpenDashboard}
+      />
+    ) : null,
+    scheduled: props.onOpenAutomations ? (
+      <SidebarDestination
+        active={props.automationsActive === true}
+        icon={Clock3}
+        label={projectsOn ? t("projects_ui.nav_scheduled") : "Automations"}
+        labelContent={(
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate">{projectsOn ? t("projects_ui.nav_scheduled") : "Automations"}</span>
+            {props.automationsNeedAttention ? (
+              <AlertTriangle
+                data-automations-attention-indicator
+                className="ml-auto size-3.5 shrink-0 text-warning"
+                aria-label={t("session_ui.automation_needs_attention")}
+              />
+            ) : null}
+          </span>
+        )}
+        onSelect={props.onOpenAutomations}
+      />
+    ) : null,
+    "command-center": props.onOpenCommandCenter ? (
+      <SidebarDestination
+        active={props.commandCenterActive === true}
+        icon={Activity}
+        label={t("command_center.nav")}
+        onSelect={props.onOpenCommandCenter}
+      />
+    ) : null,
+    inbox: props.onOpenResultsInbox ? (
+      <SidebarDestination
+        active={props.resultsInboxActive === true}
+        icon={Inbox}
+        label={resultsInboxNavLabel(props.resultsInboxUnread)}
+        labelContent={(
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate">{t("results_inbox.nav")}</span>
+            <ResultsInboxBadge count={props.resultsInboxUnread} className="ml-auto" />
+          </span>
+        )}
+        onSelect={props.onOpenResultsInbox}
+      />
+    ) : null,
+    extensions: (
+      <SidebarDestination
+        active={props.extensionsActive === true}
+        icon={LayoutGrid}
+        label={projectsOn ? t("projects_ui.nav_extensions") : t("settings.tab_extensions")}
+        onSelect={props.onOpenExtensions}
+      />
+    ),
+  };
+
   return (
     <SidebarContext.Provider value={contextValue}>
+      <CompanionRecentsBridge source={props} />
       {referenceLayout ? <aside data-permanent-navigation className="relative z-20 flex w-12 shrink-0 flex-col border-r border-border bg-sidebar">
         <CompactSidebarNav onNewTask={() => props.onCreateTaskInWorkspace(props.selectedWorkspaceId)} newTaskDisabled={props.newTaskDisabled}
           onSearch={props.onOpenSessionSearch} onDashboard={props.onOpenDashboard} dashboardLabel={props.dashboardLabel} dashboardActive={props.dashboardActive}
           onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
+          onCommandCenter={props.onOpenCommandCenter} commandCenterActive={props.commandCenterActive}
+          onResultsInbox={props.onOpenResultsInbox} resultsInboxActive={props.resultsInboxActive} resultsInboxUnread={props.resultsInboxUnread}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
-          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
+          onInstallSkillsTools={props.onOpenExtensions}
+          onProjectsPage={props.projects?.onOpen} projectsPageActive={props.projects?.active}
+          onDesign={props.design?.onOpen} designActive={props.design?.active}
+          referenceLabels onProjects={() => { if (props.extensionsActive || props.automationsActive || props.commandCenterActive || props.resultsInboxActive || props.projects?.active || props.design?.active) props.onCreateTaskInWorkspace(props.selectedWorkspaceId); useUiStateStore.getState().setSidebarOpen(true); }} />
         <div className="mt-auto p-1.5"><AccountStatusMenu {...props.status} compact onOpenAccountSettings={props.onOpenAccountSettings} /></div>
       </aside> : null}
       {!contextualDestination ? <Sidebar
@@ -905,40 +1020,8 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 </kbd>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {!referenceLayout && props.onOpenDashboard ? (
-              <SidebarDestination
-                active={props.dashboardActive === true}
-                icon={Blocks}
-                label={props.dashboardLabel ?? "Dashboard"}
-                onSelect={props.onOpenDashboard}
-              />
-            ) : null}
-            {!referenceLayout && props.onOpenAutomations ? (
-              <SidebarDestination
-                active={props.automationsActive === true}
-                icon={Clock3}
-                label="Automations"
-                labelContent={(
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate">Automations</span>
-                    {props.automationsNeedAttention ? (
-                      <AlertTriangle
-                        data-automations-attention-indicator
-                        className="ml-auto size-3.5 shrink-0 text-warning"
-                        aria-label="An Automation needs attention"
-                      />
-                    ) : null}
-                  </span>
-                )}
-                onSelect={props.onOpenAutomations}
-              />
-            ) : null}
-            {!referenceLayout ? <SidebarDestination
-              active={props.extensionsActive === true}
-              icon={LayoutGrid}
-              label={t("settings.tab_extensions")}
-              onSelect={props.onOpenExtensions}
-            /> : null}
+            {!referenceLayout ? sidebarDestinationOrder(projectsOn, availableDestinations)
+              .map(id => <React.Fragment key={id}>{destinations[id]}</React.Fragment>) : null}
             {props.mobileChatActions}
           </SidebarMenu>
         </SidebarHeader>
@@ -951,6 +1034,9 @@ export function AppSidebar(inputProps: AppSidebarProps) {
             className="no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-x-hidden overflow-y-auto [overflow-anchor:none] [--radius:var(--radius-md)] group-data-[collapsible=icon]:overflow-hidden"
           >
             <SidebarLayoutAnimationGate />
+            {props.projects ? (
+              <PinnedProjectsGroup projects={props.projects.pinned} activeProjectId={props.projects.activeProjectId} onOpenProject={props.projects.onOpenProject} />
+            ) : null}
             {pinnedSessions.length > 0 ? (
               <GlobalPinnedSessions entries={pinnedSessions} />
             ) : null}
@@ -1016,7 +1102,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
                 <SidebarMenu>{props.workspaceSessionGroups.flatMap(group => getRootSessions(group.sessions).filter(session => !session.time?.archived).map(session => ({ session, group })))
                   .sort((a, b) => (b.session.time?.updated ?? 0) - (a.session.time?.updated ?? 0)).slice(0, 12).map(({ session, group }) => <SidebarMenuItem key={`${group.workspace.id}:${session.id}`}>
                     <SidebarMenuButton isActive={props.selectedWorkspaceId === group.workspace.id && props.selectedSessionId === session.id} onClick={() => props.onOpenSession(group.workspace.id, session.id)} title={session.title}>
-                      <span className="truncate">{session.title || "Nuevo chat"}</span>
+                      <span className="truncate">{getDisplaySessionTitle(session.title)}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
                 </SidebarMenu>
@@ -1323,7 +1409,7 @@ function FeedShelfDock({ feed, archived, groups }: {
             action={(
               <button
                 type="button"
-                className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground group-hover/separator:flex"
+                className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:flex group-hover/separator:flex"
                 aria-label={t("session_management.unpin_from_feed")}
                 title={t("session_management.unpin_from_feed")}
                 onClick={(event) => {
@@ -1932,16 +2018,33 @@ function SessionGroupActions({ group, groups, workspaceId, count }: {
         {!expanded ? (
           <button
             type="button"
-            className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground group-hover/separator:flex"
-            onMouseEnter={() => setExpanded(true)}
-            onFocus={() => setExpanded(true)}
-            onClick={(event) => event.stopPropagation()}
+            className="hidden size-5 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:flex group-hover/separator:flex"
+            // Expand on click only: on hover the action row slid under the pointer and the same
+            // click landed on "delete group".
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpanded(true);
+            }}
             aria-label={t("session_management.group_actions")}
+            aria-expanded={false}
           >
             <MoreHorizontal className="size-3.5" />
           </button>
         ) : (
           <span className="flex items-center">
+            {/* Destructive action first, away from where the pointer opened the row. */}
+            <button
+              type="button"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDeleteDestination(UNGROUPED_GROUP_ID);
+                setDeleteOpen(true);
+              }}
+              aria-label={t("session_management.delete_group")}
+            >
+              <Trash2 className="size-3" />
+            </button>
             {ctx.feedEnabled ? (
               <button
                 type="button"
@@ -1980,18 +2083,6 @@ function SessionGroupActions({ group, groups, workspaceId, count }: {
               aria-label={t("session_management.rename_group")}
             >
               <Pencil className="size-3" />
-            </button>
-            <button
-              type="button"
-              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDeleteDestination(UNGROUPED_GROUP_ID);
-                setDeleteOpen(true);
-              }}
-              aria-label={t("session_management.delete_group")}
-            >
-              <Trash2 className="size-3" />
             </button>
           </span>
         )}

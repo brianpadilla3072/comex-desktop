@@ -13,6 +13,8 @@ import { ScopedMemoryPanel } from "./scoped-memory-panel";
 import { ComexContinuityPanel } from "./continuity-panel";
 import { TaskContinuityPanel } from "./task-panel";
 import { ComexGitPanel } from "./git-panel";
+import { AgentEcosystemPanel } from "./agent-ecosystem-panel";
+import { ConversationIsolationPanel } from "./task-isolation-panel";
 import { readMemoryDraft, writeMemoryDraft } from "./memory-draft";
 
 const projectPath = "comex/estado.md";
@@ -39,7 +41,7 @@ export function ComexProjectPanel({ client, workspaceId, sessionId, onOpenTarget
   return <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4" data-testid="comex-project-panel">
     <section>
       <div className="mb-2 flex items-center"><h2 className="flex-1 text-sm font-medium">{referenceLayout ? "Resultados" : "Resultados del proyecto"}</h2><Button variant="ghost" size="icon-sm" aria-label="Actualizar archivos" disabled={files.isFetching} onClick={() => void files.refetch()}><RefreshCw className={files.isFetching ? "animate-spin" : ""} /></Button></div>
-      {files.isLoading ? <div role="status" aria-label="Buscando archivos del proyecto" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div> : files.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer los archivos. Volvé a intentar con Actualizar archivos.</p> : !results.length ? <p className="text-xs text-muted-foreground">Todavía no hay documentos. Pedí el informe o la planilla en el chat.</p> : <ul className="space-y-1">{(referenceLayout && !allResults ? results.slice(0, 5) : results).map(item => <li key={item.path}><Button variant="ghost" className="w-full justify-start gap-2 rounded-lg text-left" onClick={() => openFile(item.path)}><FileText className="shrink-0" /><span className="truncate">{item.path.split("/").pop()}</span></Button></li>)}</ul>}
+      {files.isLoading ? <div role="status" aria-label="Buscando archivos del proyecto" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div> : files.isError ? <p role="alert" className="text-xs text-muted-foreground">No pude leer los archivos. Vuelve a intentar con Actualizar archivos.</p> : !results.length ? <p className="text-xs text-muted-foreground">Todavía no hay documentos. Pide el informe o la planilla en el chat.</p> : <ul className="space-y-1">{(referenceLayout && !allResults ? results.slice(0, 5) : results).map(item => <li key={item.path}><Button variant="ghost" className="w-full justify-start gap-2 rounded-lg text-left" onClick={() => openFile(item.path)}><FileText className="shrink-0" /><span className="truncate">{item.path.split("/").pop()}</span></Button></li>)}</ul>}
       {referenceLayout && results.length > 5 ? <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setAllResults(value => !value)}>{allResults ? "Mostrar menos" : `Ver todos (${results.length})`}</Button> : null}
     </section>
     <section>
@@ -53,6 +55,8 @@ export function ComexProjectPanel({ client, workspaceId, sessionId, onOpenTarget
     {!features.isError && features.data?.taskContinuity && <TaskContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
     {!features.isError && features.data?.comexContinuity && <ComexContinuityPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
     {!features.isError && features.data?.comexGitWorkspace && <ComexGitPanel key={`${workspaceId}:${sessionId}`} client={client} workspaceId={workspaceId} sessionId={features.data?.taskContinuity ? sessionId : undefined} />}
+    {!features.isError && features.data?.agentEcosystem && <AgentEcosystemPanel key={workspaceId} client={client} workspaceId={workspaceId} />}
+    {!features.isError && features.data?.taskIsolationReview && <ConversationIsolationPanel key={`${workspaceId}:${sessionId}:isolation`} client={client} workspaceId={workspaceId} sessionId={sessionId} />}
     </div></ProjectDisclosure>
     <ProjectDisclosure collapsible={referenceLayout} title="Memoria">
       {features.data?.comexScopedMemory ? <ScopedMemoryPanel client={client} workspaceId={workspaceId} sessionId={sessionId} /> : <>
@@ -108,16 +112,16 @@ function MemoryEditor({ client, workspaceId, path }: { client: OpenworkServerCli
         try {
           const latest = await client.readWorkspaceFile(workspaceId, path, { fileScope: "workspace" });
           setConflict({ content: latest.content, updatedAt: latest.updatedAt ?? null });
-          setStatus("Otra sesión cambió la memoria. Revisá la versión guardada antes de elegir cuál conservar.");
-        } catch { setStatus("La memoria cambió y no pude leer la versión actual. Tus notas siguen en el borrador; volvé a intentar."); }
-      } else { setStatus("No pude guardar la memoria. Tus notas siguen en el borrador; revisá la conexión y volvé a intentar."); }
+          setStatus("Otra sesión cambió la memoria. Revisa la versión guardada antes de elegir cuál conservar.");
+        } catch { setStatus("La memoria cambió y no pude leer la versión actual. Tus notas siguen en el borrador; vuelve a intentar."); }
+      } else { setStatus("No pude guardar la memoria. Tus notas siguen en el borrador; revisa la conexión y vuelve a intentar."); }
     }
     finally { setSaving(false); }
   };
   if (query.isLoading) return <Skeleton role="status" aria-label="Leyendo memoria" className="h-64 w-full" />;
   if (query.isError) return <div role="alert"><p className="text-xs text-muted-foreground">No pude leer la memoria del proyecto.</p><Button variant="outline" size="sm" onClick={() => void query.refetch()}>Volver a intentar</Button></div>;
   return <div className="space-y-3">
-    <Textarea aria-label="Notas de memoria" value={draft} disabled={saving} onChange={event => { setDraft(event.target.value); setDirty(true); setStatus(writeMemoryDraft(draftKey, { text: event.target.value, baseUpdatedAt: base.current }) ? "" : "No pude conservar el borrador local. Guardá antes de cerrar."); }} className="min-h-64 resize-y text-xs leading-6" />
+    <Textarea aria-label="Notas de memoria" value={draft} disabled={saving} onChange={event => { setDraft(event.target.value); setDirty(true); setStatus(writeMemoryDraft(draftKey, { text: event.target.value, baseUpdatedAt: base.current }) ? "" : "No pude conservar el borrador local. Guarda antes de cerrar."); }} className="min-h-64 resize-y text-xs leading-6" />
     <div className="flex items-center gap-3"><Button size="sm" disabled={!dirty || saving || Boolean(conflict)} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar memoria"}</Button>{dirty && <span className="text-xs text-muted-foreground">Sin guardar</span>}</div>
     <p role="status" className="text-xs text-muted-foreground">{status}</p>
     {conflict && <div className="space-y-3 border-t border-border pt-3">
@@ -129,7 +133,7 @@ function MemoryEditor({ client, workspaceId, path }: { client: OpenworkServerCli
           base.current = conflict.updatedAt;
           cache.setQueryData(key, conflict);
           writeMemoryDraft(draftKey, { text: draft, baseUpdatedAt: base.current });
-          setConflict(null); setStatus("Tus notas se conservan. Guardar memoria reemplazará la versión que acabás de revisar.");
+          setConflict(null); setStatus("Tus notas se conservan. Guardar memoria reemplazará la versión que acabas de revisar.");
         }}>Conservar mis notas</Button>
         <Button size="sm" disabled={saving} onClick={() => {
           setRecovery(draft); writeMemoryDraft(draftKey, null);
@@ -146,6 +150,6 @@ function MemoryEditor({ client, workspaceId, path }: { client: OpenworkServerCli
       writeMemoryDraft(draftKey, { text: recovery, baseUpdatedAt: base.current });
       setRecovery(null); setStatus("Notas recuperadas como borrador; todavía no se guardaron.");
     }}>Recuperar mis notas anteriores</Button>}
-    <p className="text-xs text-muted-foreground">Se guarda en tu carpeta. Registrá decisiones y pendientes; evitá claves y datos personales.</p>
+    <p className="text-xs text-muted-foreground">Se guarda en tu carpeta. Registra decisiones y pendientes; evita claves y datos personales.</p>
   </div>;
 }

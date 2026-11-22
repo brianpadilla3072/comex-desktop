@@ -78,7 +78,8 @@ function sanitizeAnthropicBody(body: string): string | null {
   if (!body.includes("input_schema")) return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(body);
+    const value: unknown = JSON.parse(body);
+    parsed = value;
   } catch {
     return null;
   }

@@ -16,9 +16,22 @@ interface PendingApproval {
 export class ApprovalService {
   private config: ApprovalConfig;
   private pending = new Map<string, PendingApproval>();
+  private lastResponderAt: number | null = null;
 
   constructor(config: ApprovalConfig) {
     this.config = config;
+  }
+
+  /** Records that a client with owner access is watching for approvals (it polled the list). */
+  noteResponder(now: number = Date.now()): void {
+    this.lastResponderAt = now;
+  }
+
+  /** False when this server needs a live responder and none polled within the window. */
+  hasResponder(now: number = Date.now()): boolean {
+    const windowMs = this.config.responderWindowMs;
+    if (windowMs === undefined) return true;
+    return this.lastResponderAt !== null && now - this.lastResponderAt <= windowMs;
   }
 
   list(): ApprovalRequest[] {
@@ -32,6 +45,8 @@ export class ApprovalService {
       return { id: "auto", allowed: true };
     }
     const id = shortId();
+    // Nobody can answer: say so now instead of holding the request until the timeout.
+    if (!this.hasResponder()) return { id, allowed: false, reason: "no_responder" };
     const request: ApprovalRequest = {
       ...input,
       id,

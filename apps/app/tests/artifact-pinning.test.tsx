@@ -14,7 +14,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 const { createDenClient } = await import("../src/app/lib/den");
 const appsClient = await import("../src/react-app/domains/apps/use-apps");
 const { BuiltAppPinButton } = await import("../src/react-app/domains/apps/built-app-pin-button");
-const { BuiltAppCatalogSync } = await import("../src/react-app/domains/apps/built-app-catalog-sync");
+const { SignedInCatalogSync: BuiltAppCatalogSync } = await import("../src/react-app/domains/apps/built-app-catalog-sync");
 const { builtDashboardScope, readBuiltDashboardApps, useBuiltDashboardApps } = await import("../src/react-app/domains/dashboard/built-dashboard-apps");
 const { subscribeBuiltDashboardApps, writeBuiltDashboardApps } = await import("../src/react-app/domains/dashboard/built-dashboard-placement");
 const { builtAppSummary, latestBuiltAppParts } = await import("../src/react-app/domains/apps/built-mcp-app-model");

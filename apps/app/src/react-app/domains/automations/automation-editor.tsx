@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState } from "react"
+import { t } from "@/i18n";
 import {
   AUTOMATION_CLOUD_DEFAULT_MODEL,
   AUTOMATION_FREE_MODEL,
@@ -113,15 +114,15 @@ export function automationPlacementOf(choice: AutomationCanUse): AutomationExecu
 
 /** The words for each choice say what the Automation can reach, not where it runs. */
 export function automationCanUseLabel(choice: AutomationCanUse, onThisComputer?: boolean) {
-  if (choice === "computer") return onThisComputer ? "Desktop: Connected accounts and files on this computer" : "Desktop: Connected accounts and files on your computer"
-  if (choice === "cloud-computer") return "Cloud: Connected accounts and files on your cloud computer"
-  return "Cloud: Only connected accounts"
+  if (choice === "computer") return onThisComputer ? t("secondary_ui.automations.editor.use_this_computer") : t("secondary_ui.automations.editor.use_your_computer")
+  if (choice === "cloud-computer") return t("secondary_ui.automations.editor.use_cloud_computer")
+  return t("secondary_ui.automations.editor.use_accounts")
 }
 
 export function automationCanUseNote(choice: AutomationCanUse) {
-  if (choice === "computer") return "Needs OpenWork open on one of your computers at the scheduled time."
-  if (choice === "cloud-computer") return "Runs on your cloud computer, even when your desktop is offline."
-  return "Runs in the cloud, even when your computer is off."
+  if (choice === "computer") return t("secondary_ui.automations.editor.note_computer")
+  if (choice === "cloud-computer") return t("secondary_ui.automations.den.cloud_hint")
+  return t("secondary_ui.automations.editor.note_accounts")
 }
 
 /** Where an Automation starts: its placement, then the cloud it uses (the cloud default model means only accounts). */
@@ -145,10 +146,10 @@ const LOGO_TILE = "grid size-5 place-items-center overflow-hidden rounded-md bor
 function ConnectedAccountLogos({ accounts, files }: { accounts: readonly AutomationConnectedAccount[]; files?: "computer" | "cloud-computer" }) {
   const shown = accounts.slice(0, 4)
   const names = accounts.map((account) => account.name)
-  const accountsLabel = names.length > 3 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", ")
-  const filesLabel = files === "computer" ? "Files on your computer" : files === "cloud-computer" ? "Files on your cloud computer" : null
-  const label = [filesLabel, accountsLabel].filter(Boolean).join(", plus ")
-  if (!filesLabel && accounts.length === 0) return <span className="text-xs text-muted-foreground">None connected yet</span>
+  const accountsLabel = names.length > 3 ? t("secondary_ui.automations.editor.accounts_more", { names: names.slice(0, 3).join(", "), count: names.length - 3 }) : names.join(", ")
+  const filesLabel = files === "computer" ? t("secondary_ui.automations.editor.files_computer") : files === "cloud-computer" ? t("secondary_ui.automations.editor.files_cloud") : null
+  const label = [filesLabel, accountsLabel].filter(Boolean).join(t("secondary_ui.automations.editor.plus_joiner"))
+  if (!filesLabel && accounts.length === 0) return <span className="text-xs text-muted-foreground">{t("secondary_ui.automations.editor.none_connected")}</span>
   return (
     <span className="flex shrink-0 items-center gap-1.5" aria-label={label} title={label} data-automation-connected-accounts={accounts.length}>
       {files ? (
@@ -255,13 +256,13 @@ export function AutomationEditor(props: AutomationEditorProps) {
       }}
     >
       <div className="space-y-2">
-        <Label htmlFor="automation-name">Name</Label>
+        <Label htmlFor="automation-name">{t("extensions.add_name_label")}</Label>
         <Input
           id="automation-name"
           value={input.name}
           maxLength={120}
           required
-          placeholder="Daily project summary"
+          placeholder={t("secondary_ui.automations.editor.name_placeholder")}
           onChange={(event) => {
             const name = event.currentTarget.value
             setInput((current) => ({ ...current, name }))
@@ -271,27 +272,27 @@ export function AutomationEditor(props: AutomationEditorProps) {
 
       {pinnedWorkflow ? (
         <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm" data-automation-pinned-workflow={pinnedWorkflow.configObjectVersionId}>
-          <p className="font-medium">Pinned Workflow</p>
+          <p className="font-medium">{t("secondary_ui.automations.editor.pinned_workflow")}</p>
           <p className="mt-1 text-muted-foreground">{pinnedWorkflow.title}</p>
-          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">Version {pinnedWorkflow.configObjectVersionId}</p>
+          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{t("secondary_ui.automations.editor.version", { version: pinnedWorkflow.configObjectVersionId })}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          <Label htmlFor="automation-instructions">Instructions</Label>
+          <Label htmlFor="automation-instructions">{t("extensions.add_instructions_label")}</Label>
           <Textarea
             id="automation-instructions"
             className="min-h-36 resize-y"
             value={input.instructions}
             required
-            placeholder="Describe the outcome, sources to check, and what a useful result should include."
+            placeholder={t("secondary_ui.automations.editor.instructions_placeholder")}
             onChange={(event) => {
               const instructions = event.currentTarget.value
               setInput((current) => ({ ...current, instructions }))
             }}
           />
           <p className="text-xs text-muted-foreground">{cloud
-            ? canUse === "accounts" ? "Each run starts fresh in the cloud." : "Each run starts a new task on your cloud computer."
-            : "Each run starts a new task on your desktop computer."}</p>
+            ? canUse === "accounts" ? t("secondary_ui.automations.editor.fresh_cloud") : t("secondary_ui.automations.editor.new_task_cloud")
+            : t("secondary_ui.automations.editor.new_task_desktop")}</p>
         </div>
       )}
 
@@ -306,14 +307,14 @@ export function AutomationEditor(props: AutomationEditorProps) {
           onChange={(timezone) => setInput((current) => ({ ...current, schedule: { ...current.schedule, timezone } }))}
         />
         {pinnedWorkflow || usesCloudDefault ? null : <div className="space-y-2">
-          <Label htmlFor="automation-model">Model</Label>
+          <Label htmlFor="automation-model">{t("extensions.detail_fact_model")}</Label>
           <AutomationModelButton id="automation-model" model={input.model} options={modelOptions} onClick={() => setPickerOpen(true)} />
           <ModelPickerModal
             open={pickerOpen}
             options={pickerOptions}
             query={modelQuery}
             setQuery={setModelQuery}
-            subtitle={cloud ? "Your cloud computer uses this model and reasoning level." : "Your desktop computer uses this model and reasoning level."}
+            subtitle={cloud ? t("secondary_ui.automations.editor.model_cloud") : t("secondary_ui.automations.editor.model_desktop")}
             target="default"
             current={{ providerID: input.model.providerId, modelID: input.model.modelId }}
             onSelect={(model) => {
@@ -341,7 +342,7 @@ export function AutomationEditor(props: AutomationEditorProps) {
 
       {canChoose ? (
         <div className="space-y-2">
-          <Label id="automation-can-use">What it can use</Label>
+          <Label id="automation-can-use">{t("secondary_ui.automations.editor.can_use")}</Label>
           <RadioGroup
             aria-labelledby="automation-can-use"
             data-automation-runs-on={placement}
@@ -372,13 +373,13 @@ export function AutomationEditor(props: AutomationEditorProps) {
 
       <p className="text-sm text-muted-foreground" data-automation-placement={placement}>
         {meetingsNeedCloud
-          ? "Automations that run around your meetings run in OpenWork Cloud. Choose a cloud option above, or a clock schedule to run it on this computer."
+          ? t("secondary_ui.automations.editor.meetings_need_cloud")
           : automationCanUseNote(canChoose ? canUse : props.placement === "desktop" ? "computer" : fallbackChoice)}
       </p>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" disabled={props.busy} onClick={props.onCancel}>Cancel</Button>
-        <Button type="submit" disabled={!canSave || props.busy}>{props.busy ? "Saving…" : props.submitLabel}</Button>
+        <Button type="button" variant="outline" disabled={props.busy} onClick={props.onCancel}>{t("common.cancel")}</Button>
+        <Button type="submit" disabled={!canSave || props.busy}>{props.busy ? t("settings.environment.saving") : props.submitLabel}</Button>
       </div>
     </form>
   )

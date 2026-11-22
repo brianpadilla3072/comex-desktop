@@ -1,4 +1,5 @@
 import { Message, MessageContent } from "@/components/ui/message";
+import { t } from "@/i18n";
 import { TaskRecovery } from "@/components/chat/task-recovery";
 import { presentOpencodeSessionError } from "../sync/session-error";
 import { persistableComposerDraftText } from "../surface/composer-state-store";
@@ -24,10 +25,10 @@ export function PendingConversationView({ conversation, composer }: { conversati
             </MessageContent>
           </Message>
           {failed ? <TaskRecovery state="failed"
-            title={gatewayProviderAuthFailure ? error?.title ?? "Couldn’t send your message" : "Couldn’t send your message"}
+            title={gatewayProviderAuthFailure ? error?.title ?? t("session_ui.send_failed_title") : t("session_ui.send_failed_title")}
             description={gatewayProviderAuthFailure ? error?.description : undefined}
             technicalDetails={error?.technicalDetails}
-            retryLabel="Retry sending"
+            retryLabel={t("session_ui.retry_sending")}
             onRetry={() => { void retryPendingConversation(conversation.id); }}
           /> : null}
         </div>

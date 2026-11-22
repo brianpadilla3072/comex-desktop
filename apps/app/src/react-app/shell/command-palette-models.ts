@@ -1,5 +1,5 @@
 import type { ModelOption, ModelRef } from "@/app/types";
-import { managesOwnBehavior, modelSource, modelTitle, nextModelSource, nextPinnedModel, orderedModelPins, MODEL_SOURCE_LABELS } from "@/react-app/domains/models/model-catalog";
+import { managesOwnBehavior, modelSource, modelTitle, nextModelSource, nextPinnedModel, orderedModelPins, modelSourceLabel } from "@/react-app/domains/models/model-catalog";
 
 export function commandPaletteModelTarget(workbench: { focusedPane: string; secondary: { sessionId: string; draftDestination?: unknown } | null }, primarySessionId: string | null) {
   if (workbench.focusedPane !== "secondary" || !workbench.secondary) return primarySessionId;
@@ -52,7 +52,7 @@ export function createCommandPaletteModelControls(input: CommandPaletteModelCont
     nextPinnedOption,
     nextSourceOption: nextSource,
     sourceCycleDetail: [...new Set([...pins, ...input.options.filter((option) => !option.disabled)].map(modelSource))]
-      .map((source) => MODEL_SOURCE_LABELS[source]).join(" · "),
+      .map((source) => modelSourceLabel(source)).join(" · "),
   };
 }
 

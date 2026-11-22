@@ -71,6 +71,7 @@ export async function buildSteps({ root = repositoryRoot, env = process.env, nod
     nodeTests('features', features),
     nodeTests('server', serverTests.map(name => `apps/server/test/${name}.test.ts`), true),
     nodeTests('evaluation', ['scripts/comex-eval.test.mjs']),
+    nodeTests('maintenance', ['scripts/local-backup.test.mjs', 'scripts/refresh-model-catalog.test.mjs', 'scripts/fork-maintenance.test.mjs']),
     nodeTests('verification-runner', ['scripts/comex-verify.test.mjs']),
     nodeTests('distribution', ['apps/desktop/electron/updater.test.mjs', 'scripts/release/comex-artifacts.test.mjs', 'scripts/release/comex-python-runtime.test.mjs']),
     { id: 'pack', binary: env.COMEX_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3'), args: ['-X', 'utf8', '-B', '-m', 'unittest', 'discover', '-s', 'pack/tests', '-v'] },
@@ -86,7 +87,7 @@ export function verificationReport(results, complete) {
   return {
     schemaVersion: 1, verifiedAt: new Date().toISOString(), scope: 'local-working-tree',
     status: localStatus === 'Failed' ? 'Failed' : 'Incomplete', localStatus, complete, results,
-    externalAcceptance: { status: 'Incomplete', pending: ['modelo autenticado: caso académico con fuentes y campo reales', 'instalación Windows limpia', 'actualización instalada A a B preservando datos', 'runtime documental en instalación empaquetada limpia', 'revisión visual de entregables'] },
+    externalAcceptance: { status: 'Incomplete', pending: ['casos generales con modelo autenticado, fuentes reales y revisión del resultado', 'instalación Windows limpia', 'actualización instalada A a B preservando datos', 'runtime documental en instalación empaquetada limpia', 'revisión visual de entregables'] },
   };
 }
 

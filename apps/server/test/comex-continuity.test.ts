@@ -10,6 +10,8 @@ const input = { objective: "Terminar el informe", decisions: ["Destino confirmad
 async function setup(t: { after(fn: () => Promise<void>): void }) {
   const root = await mkdtemp(join(tmpdir(), "comex-continuity-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  // A Comercio Exterior project keeps its data in `comex/`.
+  await mkdir(join(root, "comex"));
   return root;
 }
 
@@ -86,6 +88,7 @@ test("known credentials are redacted on disk and again when injected from extern
 
 test("symbolic files and parents cannot redirect persistence outside the project", async t => {
   const root = await setup(t); const outside = await setup(t);
+  await rm(join(root, "comex"), { recursive: true });
   await symlink(outside, join(root, "comex"), "dir");
   await assert.rejects(writeComexCheckpoint(root, "ses_a", input, 0), /enlaces simbólicos/);
   await assert.rejects(readComexCheckpoint(root, "ses_a"), /enlaces simbólicos/);
@@ -101,4 +104,22 @@ test("memory injection includes structured continuity only when its feature is e
   process.env.DEN_FEATURE_COMEX_CONTINUITY = "true";
   const memory = await readComexMemory(root, "ses_a");
   assert.deepEqual(memory.continuity?.checkpoint?.pending, input.pending);
+});
+
+// w6-9: checkpoints always went to comex/sesiones/, creating a comex/ folder in apps that use
+// proyecto/ (and steering every later write there in a project with no data folder yet).
+test("an app on proyecto/ keeps its checkpoints in proyecto/ and still reads older ones from comex/", async t => {
+  const root = await mkdtemp(join(tmpdir(), "comex-continuity-proyecto-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, "proyecto"));
+  await writeComexCheckpoint(root, "ses_p", input, 0);
+  assert.ok((await stat(join(root, checkpointPath("ses_p", "proyecto")))).isFile());
+  await assert.rejects(stat(join(root, "comex")));
+  const legacy = await mkdtemp(join(tmpdir(), "comex-continuity-legacy-"));
+  t.after(() => rm(legacy, { recursive: true, force: true }));
+  await mkdir(join(legacy, "comex"));
+  await writeComexCheckpoint(legacy, "ses_l", input, 0);
+  // The project later moves to proyecto/ (both folders exist; proyecto/ wins): the old checkpoint is still found.
+  await mkdir(join(legacy, "proyecto"));
+  assert.equal((await readComexCheckpoint(legacy, "ses_l")).status, "ready");
 });

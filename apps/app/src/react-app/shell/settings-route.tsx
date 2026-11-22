@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { workspaceRenameFailure } from "@/react-app/shell/workspace-rename-error";
 import { useChatEngineClient } from "@/react-app/domains/models/use-chat-engine-client";
 import { useAutoAccess } from "@/react-app/domains/cloud/auto-access-ui";
 import { freeAutoSwitchedOff } from "@/app/lib/inference-access";
@@ -98,8 +99,10 @@ import { isOpenWorkExtensionEnabled, OPENWORK_EXTENSION_STATE_CHANGED } from "@/
 import { PreferencesView } from "@/react-app/domains/settings/pages/preferences-view";
 import { GeneralSettingsView } from "@/react-app/domains/settings/pages/general-view";
 import { AuthorizedFoldersPanel } from "@/react-app/domains/settings/panels/authorized-folders-panel";
+import { ExternalDelegatesSection } from "@/react-app/domains/settings/permissions/external-delegates-section";
 import { EffectivePermissionsPanel } from "@/react-app/domains/settings/panels/effective-permissions-panel";
 import { SettingsStack } from "@/react-app/domains/settings/settings-section";
+import { isSettingAnchor, useRevealSetting } from "@/react-app/domains/settings/settings-anchor";
 import { AdvancedView } from "@/react-app/domains/settings/pages/advanced-view";
 import { ClaudeImportView } from "@/react-app/domains/settings/pages/claude-import-view";
 import { AppearanceView } from "@/react-app/domains/settings/pages/appearance-view";
@@ -118,6 +121,8 @@ import {
 } from "@/react-app/domains/connections/cloud-inventory-cache";
 import { createOpaqueDiagnosticsScopeKey } from "@/react-app/domains/settings/pages/agent-context-diagnostics-section";
 import { CloudProvidersView } from "@/react-app/domains/settings/pages/cloud-providers-view";
+import { confirmDialog } from "@/components/ui/confirm-dialog";
+import { specialistErrorMessage } from "@/react-app/domains/specialists/error-message";
 import { GatewayUsageSettingsView } from "@/react-app/domains/cloud/gateway-usage-panel";
 import { DebugView } from "@/react-app/domains/settings/pages/debug-view";
 import { EnvironmentView } from "@/react-app/domains/settings/pages/environment-view";
@@ -148,7 +153,11 @@ import {
   type WorkspaceInfo,
   type WorkspaceList,
   revealDesktopItemInDir,
+  resetOpencodeCache as resetOpencodeCacheOnDesktop,
+  sandboxCleanupOpenworkContainers,
 } from "@/app/lib/desktop";
+import { useSetWorkspaceDefaultModel } from "@/react-app/kernel/use-workspace-model-default";
+import { resetAppConfigDefaults } from "@/react-app/domains/settings/state/reset-app-config";
 import {
   SETTINGS_TAB_WITHOUT_CONTROL,
   desktopRestrictionNotice,
@@ -286,6 +295,8 @@ export function parseSettingsPath(pathname: string): {
   tab: SettingsTab;
   redirectPath: string | null;
   advancedSection?: string;
+  /** One setting on the page, opened from search: `/settings/<tab>/<anchor>`. */
+  anchor?: string;
   extensionsSection?: ExtensionsSection;
   extensionDetailId?: string;
 } {
@@ -311,9 +322,10 @@ export function parseSettingsPath(pathname: string): {
     case "updates":
     case "debug":
     case "import":
-      return { tab: head, redirectPath: null };
+      return { tab: head, redirectPath: null, anchor: isSettingAnchor(tail) ? tail : undefined };
     case "advanced":
-      return { tab: "advanced", redirectPath: null, advancedSection: tail };
+      // The tail names a whole section (AdvancedView scrolls to it) or one setting in it.
+      return { tab: "advanced", redirectPath: null, advancedSection: tail, anchor: isSettingAnchor(tail) ? tail : undefined };
     case "cloud-account":
     case "cloud-providers":
     case "usage":
@@ -426,6 +438,7 @@ function findSessionWorkspaceId(
 
 export function settingsPathForRoute(route: ReturnType<typeof parseSettingsPath>) {
   if (route.tab === "advanced" && route.advancedSection) return `advanced/${route.advancedSection}`;
+  if (route.anchor) return `${route.tab}/${route.anchor}`;
   if (route.tab === "extensions" && route.extensionDetailId) {
     return `extensions/${encodeURIComponent(route.extensionDetailId)}`;
   }
@@ -463,6 +476,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const routeWorkspaceIdRef = useRef(routeWorkspaceId);
   routeWorkspaceIdRef.current = routeWorkspaceId;
   const local = useLocal();
+  const setCurrentWorkspaceDefault = useSetWorkspaceDefaultModel();
   const platform = usePlatform();
   const checkDesktopRestriction = useCheckDesktopRestriction();
   const restrictionNotice = useRestrictionNotice();
@@ -475,6 +489,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     : props.standaloneExtensions
       ? parseExtensionsPath(location.pathname)
       : parseSettingsPath(location.pathname);
+  useRevealSetting(route.anchor, location.key);
   const navigationWorkspaceId = readNavigationWorkspaceId(location.state);
   const navigationSessionId = readNavigationSessionId(location.state);
 
@@ -555,6 +570,40 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [permissionsRefreshToken, setPermissionsRefreshToken] = useState(0);
   const [revealConfigBusy, setRevealConfigBusy] = useState(false);
   const [resetConfigBusy, setResetConfigBusy] = useState(false);
+  const [cacheRepairBusy, setCacheRepairBusy] = useState(false);
+  const [cacheRepairResult, setCacheRepairResult] = useState<string | null>(null);
+  const [dockerCleanupBusy, setDockerCleanupBusy] = useState(false);
+  const [dockerCleanupResult, setDockerCleanupResult] = useState<string | null>(null);
+  const resetAppConfig = useCallback(async () => {
+    if (resetConfigBusy || !(await confirmDialog({ title: t("settings.reset_config_defaults"), description: t("settings.reset_config_confirm"), destructive: true }))) return;
+    setResetConfigBusy(true);
+    resetAppConfigDefaults(window.localStorage);
+    setConfigActionStatus(t("app.reset_config_ok"));
+    // Every preference store reads localStorage on startup; reloading applies the defaults everywhere.
+    window.setTimeout(() => window.location.reload(), 600);
+  }, [resetConfigBusy]);
+  const repairOpencodeCache = useCallback(async () => {
+    if (cacheRepairBusy) return;
+    setCacheRepairBusy(true); setCacheRepairResult(null);
+    try {
+      const result = await resetOpencodeCacheOnDesktop();
+      setCacheRepairResult(result.errors[0] ?? (result.removed.length ? t("settings.cache_repaired") : t("settings.cache_nothing_to_repair")));
+    } catch (error) { setCacheRepairResult(error instanceof Error ? error.message : String(error)); }
+    finally { setCacheRepairBusy(false); }
+  }, [cacheRepairBusy]);
+  const cleanupDockerContainers = useCallback(async () => {
+    if (dockerCleanupBusy) return;
+    setDockerCleanupBusy(true); setDockerCleanupResult(null);
+    try {
+      const result = await sandboxCleanupOpenworkContainers();
+      setDockerCleanupResult(!result.candidates.length
+        ? t("settings.docker_cleanup_none")
+        : result.errors.length
+          ? t("settings.docker_cleanup_partial", { removed: result.removed.length, total: result.candidates.length, error: result.errors[0] ?? "" })
+          : t("settings.docker_cleanup_removed", { count: result.removed.length }));
+    } catch (error) { setDockerCleanupResult(error instanceof Error ? error.message : String(error)); }
+    finally { setDockerCleanupBusy(false); }
+  }, [dockerCleanupBusy]);
   const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(null);
   const [renameWorkspaceTitle, setRenameWorkspaceTitle] = useState("");
   const [renameWorkspaceBusy, setRenameWorkspaceBusy] = useState(false);
@@ -2112,9 +2161,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       setRenameWorkspaceTitle("");
       await refreshRouteState();
     } catch (error) {
-      toast.error("Workspace rename failed", {
-        description: describeRouteError(error),
-      });
+      const failure = workspaceRenameFailure(error, describeRouteError);
+      toast.error(failure.title, { description: failure.description });
     } finally {
       setRenameWorkspaceBusy(false);
     }
@@ -2128,12 +2176,11 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   }, [workspaces]);
 
   const handleForgetWorkspace = useCallback(async (workspaceId: string) => {
-    if (typeof window !== "undefined") {
-      const message = t("workspace_list.remove_confirm") || "Remove this workspace from the sidebar?";
-      if (!window.confirm(message)) return;
-    }
+    if (!(await confirmDialog({ title: t("workspace_list.remove_confirm"), destructive: true }))) return;
     if (openworkClient) {
-      await openworkClient.deleteWorkspace(workspaceId).catch(() => undefined);
+      // A failed server delete must not look like a removal (the web connection cannot remove it).
+      const failure = await openworkClient.deleteWorkspace(workspaceId).then(() => null, (error: unknown) => error);
+      if (failure && !isDesktopRuntime()) { toast.error(specialistErrorMessage(failure, t("workspace_list.remove_failed"))); return; }
     }
     if (isDesktopRuntime()) {
       await workspaceForget(workspaceId).catch(() => undefined);
@@ -2213,6 +2260,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
                 void connectionsStore.refreshMcpServers();
               }}
             />
+            <ExternalDelegatesSection />
           </SettingsStack>
         );
       case "ai":
@@ -2517,17 +2565,17 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             />
             {platform.capabilities.localRuntimeControl ? (
               <RecoveryView
-                anyActiveRuns={false}
+                anyActiveRuns={activeReloadBlockingSessions.length > 0}
                 workspaceConfigPath={selectedWorkspaceRoot ? `${selectedWorkspaceRoot}/.openwork/openwork.json` : ""}
                 resetConfigBusy={resetConfigBusy}
-                onResetAppConfigDefaults={() => {}}
+                onResetAppConfigDefaults={resetAppConfig}
                 configActionStatus={configActionStatus}
-                cacheRepairBusy={false}
-                cacheRepairResult={null}
-                onRepairOpencodeCache={() => {}}
-                dockerCleanupBusy={false}
-                dockerCleanupResult={null}
-                onCleanupOpenworkDockerContainers={() => {}}
+                cacheRepairBusy={cacheRepairBusy}
+                cacheRepairResult={cacheRepairResult}
+                onRepairOpencodeCache={repairOpencodeCache}
+                dockerCleanupBusy={dockerCleanupBusy}
+                dockerCleanupResult={dockerCleanupResult}
+                onCleanupOpenworkDockerContainers={cleanupDockerContainers}
               />
             ) : null}
             <EffectivePermissionsPanel
@@ -2797,6 +2845,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         }
         onSelect={(next: ModelRef) => {
           local.setPrefs((prev) => applyDefaultModelPreference(prev, next));
+          // Also this workspace's default: a model remembered earlier for the workspace would
+          // otherwise keep winning and the choice made here would have no visible effect.
+          setCurrentWorkspaceDefault?.(next);
           modelPicker.setOpen(false);
         }}
         onBehaviorChange={(_model, value) => local.setPrefs((previous) => ({ ...previous, modelVariant: value }))}

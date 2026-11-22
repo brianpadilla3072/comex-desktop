@@ -21,6 +21,7 @@ import { WelcomePage } from "../domains/onboarding/welcome-page";
 import { ProviderSelectionStep } from "../domains/onboarding/provider-selection-step";
 import { AttributionStep, type AttributionSource } from "../domains/onboarding/attribution-step";
 import { CreateWorkspaceModal } from "../domains/workspace/create-workspace-modal";
+import { useWebFolderPicker } from "../domains/workspace/folder-browser-dialog";
 import type { CreateWorkspaceOptions } from "../domains/workspace/types";
 import {
   getOpenWorkModelsActionUrl,
@@ -32,7 +33,7 @@ import { useDenAuth } from "../domains/cloud/den-auth-provider";
 import { JoinOrganizationDialog } from "../domains/cloud/join-organization-dialog";
 import { resolveOpenworkConnection } from "./openwork-connection";
 import { captureAnalyticsEvent } from "../../app/lib/analytics";
-import { buildOpenworkWorkspaceBaseUrl, createOpenworkServerClient } from "../../app/lib/openwork-server";
+import { buildOpenworkWorkspaceBaseUrl, createOpenworkServerClient, type OpenworkServerClient } from "../../app/lib/openwork-server";
 import { buildDenAuthUrl, DEFAULT_DEN_BASE_URL, readDenSettings } from "../../app/lib/den";
 import { markDesktopSignInInitiated } from "../../app/lib/den-sign-in-intent";
 import { denSettingsChangedEvent } from "../../app/lib/den-session-events";
@@ -190,7 +191,7 @@ export function WelcomeRoute() {
           list = null;
         }
         if (!list) {
-          throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
+          throw new Error(t("welcome.server_unavailable"));
         }
         const createdId =
           resolveWorkspaceListSelectedId(list) ||
@@ -246,7 +247,7 @@ export function WelcomeRoute() {
       } catch (error) {
         dispatch({
           type: "create:error",
-          error: error instanceof Error ? error.message : "Failed to create workspace.",
+          error: error instanceof Error ? error.message : t("welcome.create_failed"),
         });
       } finally {
         dispatch({ type: "create:finish" });
@@ -254,6 +255,20 @@ export function WelcomeRoute() {
     },
     [],
   );
+
+  // Web runtime: owners browse the server's folders instead of a native picker (docs/features/web-folder-browser).
+  const [webFolderClient, setWebFolderClient] = useState<OpenworkServerClient | null>(null);
+  useEffect(() => {
+    if (isDesktopRuntime()) return;
+    let cancelled = false;
+    void resolveOpenworkConnection().then(({ normalizedBaseUrl, resolvedToken, resolvedHostToken }) => {
+      if (cancelled || !normalizedBaseUrl || !(resolvedToken || resolvedHostToken)) return;
+      setWebFolderClient(createOpenworkServerClient({ baseUrl: normalizedBaseUrl, token: resolvedToken || undefined, hostToken: resolvedHostToken || undefined }));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+  const webFolderPicker = useWebFolderPicker(webFolderClient, !isDesktopRuntime());
+  const webFolderBrowserReady = webFolderPicker.availability === "available";
 
   const handleGetStarted = useCallback(async () => {
     if (!isDesktopRuntime()) {
@@ -322,7 +337,7 @@ export function WelcomeRoute() {
         manualFolder={manualFolder}
         onManualFolderChange={setManualFolder}
         onUseManualFolder={handleUseManualFolder}
-        showManualFolder={import.meta.env.DEV && isDesktopRuntime()}
+        showManualFolder={import.meta.env.DEV || isDesktopRuntime()}
         onTeamSignIn={shellConfig.cloudSignin ? handleTeamSignIn : undefined}
         onJoinOrganization={shellConfig.cloudSignin ? () => setJoinOrganizationOpen(true) : undefined}
       />
@@ -339,18 +354,23 @@ export function WelcomeRoute() {
         onClose={() => dispatch({ type: "close" })}
         onConfirm={handleCreateWorkspace}
         onPickFolder={() =>
-          pickDirectory({ title: t("onboarding.authorize_folder") }) as Promise<
-            string | null
-          >
+          !isDesktopRuntime() && webFolderBrowserReady
+            ? webFolderPicker.pick()
+            : pickDirectory({ title: t("onboarding.authorize_folder") }) as Promise<
+                string | null
+              >
         }
         submitting={state.createBusy}
         localError={state.createError}
-        localDisabled={!isDesktopRuntime()}
+        localDisabled={!isDesktopRuntime() && !import.meta.env.DEV && !webFolderBrowserReady}
         localDisabledReason={
-          isDesktopRuntime()
+          isDesktopRuntime() || import.meta.env.DEV || webFolderBrowserReady
             ? undefined
-            : t("app.local_disabled_reason")
+            : webFolderPicker.availability === "needs_owner"
+              ? t("web_folder_browser.needs_owner")
+              : t("app.local_disabled_reason")
         }
+        pickerDialog={webFolderPicker.dialog}
       />
       {state.providerStep ? (
         <ProviderSelectionStep

@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 
 import * as React from "react";
+import { t } from "@/i18n";
 import { formatCrashDiagnostic } from "@/app/lib/crash-diagnostics";
 import { openworkServerInfo, readDesktopDistributionInfo, revealDesktopItemInDir } from "@/app/lib/desktop";
 import { reportCaughtWebError } from "@/app/lib/error-monitoring";
@@ -90,7 +91,7 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
     try {
       await revealDesktopItemInDir(path);
     } catch {
-      setLogsError("Could not open the logs folder.");
+      setLogsError(t("shell_ui.open_logs_failed"));
     }
   };
 
@@ -98,9 +99,9 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
     <div className="flex h-screen w-screen items-center justify-center bg-background p-6" role="alert">
       <div className="flex w-full max-w-lg flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-foreground">OpenWork hit an unexpected error</h1>
+          <h1 className="text-lg font-semibold text-foreground">{t("shell_ui.unexpected_error_title")}</h1>
           <p className="text-muted-foreground">
-            The window recovered instead of going blank. Reloading usually clears it.
+            {t("shell_ui.unexpected_error_body")}
           </p>
         </div>
 
@@ -110,7 +111,7 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
             className="rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground"
             onClick={() => window.location.reload()}
           >
-            Reload
+            {t("shell_ui.reload")}
           </button>
         </div>
 
@@ -124,7 +125,7 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
             className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <span aria-hidden="true" className={open ? "inline-block rotate-90" : "inline-block"}>›</span>
-            Technical details
+            {t("shell_ui.technical_details")}
           </button>
           {open ? (
             <div className="flex flex-col gap-2 rounded-lg bg-muted p-3 text-xs">
@@ -138,7 +139,7 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
                   className="rounded-md border border-border px-3 py-1.5 font-medium text-foreground"
                   onClick={copy}
                 >
-                  {copied ? "Copied" : "Copy details"}
+                  {copied ? t("shell_ui.copied") : t("shell_ui.copy_details")}
                 </button>
                 {logFilePath ? (
                   <button
@@ -146,11 +147,11 @@ function RecoveryScreen({ crash }: { crash: CrashDetails }) {
                     className="rounded-md border border-border px-3 py-1.5 font-medium text-foreground"
                     onClick={() => openLogs(logFilePath)}
                   >
-                    Open logs folder
+                    {t("shell_ui.open_logs_folder")}
                   </button>
                 ) : null}
               </div>
-              {copyError ? <p role="status" className="text-muted-foreground">Could not copy details. You can select and copy the text above.</p> : null}
+              {copyError ? <p role="status" className="text-muted-foreground">{t("shell_ui.copy_details_failed")}</p> : null}
               {logsError ? <p className="text-muted-foreground">{logsError}</p> : null}
             </div>
           ) : null}

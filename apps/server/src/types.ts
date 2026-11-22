@@ -67,6 +67,11 @@ export interface OpencodeConfigFile {
 export interface ApprovalConfig {
   mode: ApprovalMode;
   timeoutMs: number;
+  /**
+   * Manual mode only: how recently a client with owner access must have polled
+   * `GET /approvals` for a gated write to wait for an answer. Unset waits always.
+   */
+  responderWindowMs?: number;
 }
 
 export type LocalManagedMcpVaultKeyProvider = () => Promise<Uint8Array>;
@@ -123,6 +128,10 @@ export interface ServerConfig {
   localManagedMcpVaultKey?: LocalManagedMcpVaultKeyProvider;
   /** In-process Desktop confirmation; never configured through HTTP, files or the engine environment. */
   driveFileApproval?: (request: DriveFileApprovalRequest) => Promise<boolean>;
+  /** Desktop-supplied pseudo-terminal factory (node-pty: ConPTY on Windows) for external delegates. */
+  delegationPty?: import("./delegation/process.js").PtyFactory;
+  /** Desktop-only native confirmation for running or registering an external delegate, and for its risky permission requests. */
+  delegationApproval?: (request: { action: "run" | "register" | "permission"; title: string; detail: string }) => Promise<boolean>;
   /** Desktop-owned managed engines only; never enabled by remote clients. */
   resumeInterruptedTasks?: boolean;
   anonymousInference?: { desktop: DesktopFreeHost };

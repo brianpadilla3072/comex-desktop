@@ -6,11 +6,20 @@ import { openRuntimeSqliteDatabase, runtimeStorageDir } from "../runtime-db.js";
 import { ApiError } from "../errors.js";
 import type { ServerConfig } from "../types.js";
 
+/** Control characters and bidirectional overrides (U+202A-E, U+2066-9) can hide or disguise a
+ * name in the switcher, sidebar and exports; names are also stored in Unicode NFC. */
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
+export const displayText = (max: number) => z.string().trim().min(1).max(max)
+  .refine(value => !UNSAFE_TEXT.test(value), "Usa solo texto visible (sin caracteres de control).")
+  .transform(value => value.normalize("NFC"));
+/** Duplicate check for names: case-insensitive beyond ASCII ("Árbol" = "árbol"). */
+export const nameKey = (name: string) => name.normalize("NFC").toLocaleLowerCase("es");
+
 export const applicationInput = z.object({
-  userName: z.string().trim().min(1).max(100).optional(),
-  name: z.string().trim().min(1).max(80),
-  specialty: z.string().trim().min(1).max(500),
-  personality: z.string().trim().max(8_000).default("Respondé en castellano, con claridad, fuentes verificables y pasos concretos. Preguntá cuando falten datos y distinguí hechos de supuestos."),
+  userName: displayText(100).optional(),
+  name: displayText(80),
+  specialty: displayText(500),
+  personality: z.string().trim().max(8_000).default("Responde en castellano, con claridad, fuentes verificables y pasos concretos. Pregunta cuando falten datos y distingue hechos de supuestos."),
   template: z.enum(["comex", "custom"]).default("custom"),
   packPath: z.string().trim().min(1).max(4_096).optional(),
 });
@@ -18,6 +27,8 @@ const userSchema = z.object({ id: z.string(), displayName: z.string() });
 const applicationId = z.string().regex(/^app_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 const applicationSchema = z.object({ id: applicationId, name: z.string(), specialty: z.string(), personality: z.string(), template: z.enum(["comex", "custom"]), agentCount: z.number(), skillCount: z.number(), createdAt: z.number() });
 const projectSchema = z.object({ workspaceId: z.string(), applicationId: z.string(), rootPath: z.string() });
+const projectMetaSchema = z.object({ description: z.string(), pinnedAt: z.number().int().nullable(), lastActivityAt: z.number().int().nullable() });
+export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type SpecialistApplication = z.infer<typeof applicationSchema>;
 export type SpecialistUser = z.infer<typeof userSchema>;
 type Binding = string | number | null;
@@ -65,6 +76,11 @@ export async function openSpecialistStore(path: string) {
     `CREATE TABLE IF NOT EXISTS specialist_projects (
       workspace_id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES specialist_applications(id),
       root_path TEXT NOT NULL UNIQUE)`,
+    // Projects experience: what the person adds to a project beyond its folder. Rows are made
+    // lazily (a project without one has no description, is not pinned and has no activity yet).
+    `CREATE TABLE IF NOT EXISTS specialist_project_meta (
+      workspace_id TEXT PRIMARY KEY REFERENCES specialist_projects(workspace_id) ON DELETE CASCADE,
+      description TEXT NOT NULL DEFAULT '', pinned_at INTEGER, last_activity_at INTEGER)`,
   ]) sql.exec(statement);
   const application = (id: string) => {
     const value = sql.get(`SELECT ${APP_COLUMNS} FROM specialist_applications WHERE id = ?`, [id]);
@@ -98,9 +114,9 @@ export async function openSpecialistStore(path: string) {
     create: (input: z.infer<typeof applicationInput>, counts: { agents: number; skills: number }, id = `app_${randomUUID()}`) => {
       applicationId.parse(id);
       if (sql.all("SELECT id FROM specialist_applications LIMIT 100").length >= 100) throw new ApiError(409, "application_limit", "Ya hay 100 aplicaciones locales.");
-      if (sql.get("SELECT id FROM specialist_applications WHERE name = ? COLLATE NOCASE", [input.name])) throw new ApiError(409, "application_name_exists", "Ya tenés una aplicación con ese nombre.");
+      if (sql.all("SELECT id, name FROM specialist_applications").some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tienes una aplicación con ese nombre.");
       const local = user();
-      if (!local && !input.userName) throw new ApiError(400, "user_name_required", "Ingresá tu nombre para crear el perfil local.");
+      if (!local && !input.userName) throw new ApiError(400, "user_name_required", "Ingresa tu nombre para crear el perfil local.");
       sql.exec("BEGIN IMMEDIATE");
       try {
         if (!local) sql.run("INSERT INTO specialist_users(id, display_name) VALUES ('local', ?)", [input.userName!]);
@@ -110,13 +126,32 @@ export async function openSpecialistStore(path: string) {
       } catch (error) { sql.exec("ROLLBACK"); throw error; }
       return application(id);
     },
+    /** Remove an application and its bindings in one transaction. If it was active, the oldest
+     *  remaining application becomes active (or none). Files are the caller's job. */
+    remove: (id: string) => {
+      application(id);
+      sql.exec("BEGIN IMMEDIATE");
+      try {
+        sql.run("DELETE FROM specialist_project_meta WHERE workspace_id IN (SELECT workspace_id FROM specialist_projects WHERE application_id = ?)", [id]);
+        sql.run("DELETE FROM specialist_projects WHERE application_id = ?", [id]);
+        sql.run("DELETE FROM specialist_provider_settings WHERE application_id = ?", [id]);
+        const active = sql.get("SELECT application_id AS id FROM specialist_user_state WHERE id = 'local'");
+        if (active && z.object({ id: z.string() }).parse(active).id === id) {
+          const next = sql.get("SELECT id FROM specialist_applications WHERE id <> ? ORDER BY created_at, id LIMIT 1", [id]);
+          if (next) sql.run("UPDATE specialist_user_state SET application_id = ? WHERE id = 'local'", [z.object({ id: z.string() }).parse(next).id]);
+          else sql.run("DELETE FROM specialist_user_state WHERE id = 'local'");
+        }
+        sql.run("DELETE FROM specialist_applications WHERE id = ?", [id]);
+        sql.exec("COMMIT");
+      } catch (error) { sql.exec("ROLLBACK"); throw error; }
+    },
     activate: (id: string) => {
       application(id);
       sql.run("INSERT INTO specialist_user_state(id, application_id) VALUES ('local', ?) ON CONFLICT(id) DO UPDATE SET application_id = excluded.application_id", [id]);
     },
     update: (id: string, input: Pick<SpecialistApplication, "name" | "specialty" | "personality">) => {
       application(id);
-      if (sql.get("SELECT id FROM specialist_applications WHERE name = ? COLLATE NOCASE AND id <> ?", [input.name, id])) throw new ApiError(409, "application_name_exists", "Ya tenés una aplicación con ese nombre.");
+      if (sql.all("SELECT id, name FROM specialist_applications WHERE id <> ?", [id]).some(row => nameKey(z.object({ name: z.string() }).parse(row).name) === nameKey(input.name))) throw new ApiError(409, "application_name_exists", "Ya tienes una aplicación con ese nombre.");
       sql.run("UPDATE specialist_applications SET name = ?, specialty = ?, personality = ? WHERE id = ?", [input.name, input.specialty, input.personality, id]);
       return application(id);
     },
@@ -129,6 +164,25 @@ export async function openSpecialistStore(path: string) {
     projectsFor: (id: string) => {
       application(id);
       return sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects WHERE application_id = ?", [id]).map(value => projectSchema.parse(value));
+    },
+    /** Every bound project (registry order is the caller's job). */
+    allProjects: () => sql.all("SELECT workspace_id AS workspaceId, application_id AS applicationId, root_path AS rootPath FROM specialist_projects").map(value => projectSchema.parse(value)),
+    projectMeta: (workspaceId: string): ProjectMeta => {
+      const row = sql.get("SELECT description, pinned_at AS pinnedAt, last_activity_at AS lastActivityAt FROM specialist_project_meta WHERE workspace_id = ?", [workspaceId]);
+      return row ? projectMetaSchema.parse(row) : { description: "", pinnedAt: null, lastActivityAt: null };
+    },
+    /** Change the description or pin of a bound project; pinning a pinned project keeps its pin time. */
+    updateProjectMeta: (workspaceId: string, patch: { description?: string; pinned?: boolean }, now = Date.now()) => {
+      if (!sql.get("SELECT workspace_id FROM specialist_projects WHERE workspace_id = ?", [workspaceId])) throw new ApiError(404, "project_not_found", "Ese proyecto no existe.");
+      sql.run("INSERT INTO specialist_project_meta(workspace_id) VALUES (?) ON CONFLICT(workspace_id) DO NOTHING", [workspaceId]);
+      if (patch.description !== undefined) sql.run("UPDATE specialist_project_meta SET description = ? WHERE workspace_id = ?", [patch.description, workspaceId]);
+      if (patch.pinned === false) sql.run("UPDATE specialist_project_meta SET pinned_at = NULL WHERE workspace_id = ?", [workspaceId]);
+      if (patch.pinned === true) sql.run("UPDATE specialist_project_meta SET pinned_at = COALESCE(pinned_at, ?) WHERE workspace_id = ?", [now, workspaceId]);
+    },
+    /** Something happened in the project (a prompt, an edit): the newer instant wins. */
+    touchProject: (workspaceId: string, at = Date.now()) => {
+      if (!sql.get("SELECT workspace_id FROM specialist_projects WHERE workspace_id = ?", [workspaceId])) return;
+      sql.run("INSERT INTO specialist_project_meta(workspace_id, last_activity_at) VALUES (?, ?) ON CONFLICT(workspace_id) DO UPDATE SET last_activity_at = MAX(COALESCE(last_activity_at, 0), excluded.last_activity_at)", [workspaceId, at]);
     },
     forWorkspace: (workspaceId: string) => {
       const row = sql.get("SELECT application_id AS applicationId FROM specialist_projects WHERE workspace_id = ?", [workspaceId]);

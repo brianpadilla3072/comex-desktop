@@ -17,7 +17,7 @@ export function createResearchPlugin(descriptorFile: string) {
         const descriptor = researchDescriptor.parse(JSON.parse(await readFile(descriptorFile, "utf8")));
         if (descriptor.directory !== directory || !descriptor.enabled) throw new Error();
         return descriptor;
-      } catch { throw new Error("La investigación web está desactivada en este perfil. Revisá Herramientas y fuentes."); }
+      } catch { throw new Error("La investigación web está desactivada en este perfil. Revisa Herramientas y fuentes."); }
     };
     // Keep registered tools stable while enabling/disabling without disposing chat history.
     const registration = await context.tool.transform(editor => {
@@ -27,7 +27,18 @@ export function createResearchPlugin(descriptorFile: string) {
         const name = z.enum(["search", "extract", "map", "crawl", "research"]).parse(operation);
         const definition = researchOperations[name];
         addProviderSafeTool(editor, { name: `tavily_${name}`, description: definition.description, input: z.toJSONSchema(definition.schema), options: { codemode: false },
-          async execute(input, call) { const descriptor = await read(); return executeTavily(descriptor, name, input, directory, call.signal); },
+          async execute(input, call) {
+            // A failed research call must reach the model as readable text, not as a null result.
+            try {
+              const descriptor = await read();
+              const result = await executeTavily(descriptor, name, input, directory, call.signal);
+              // The v2 runner reads content blocks off the result; a bare object showed up to the
+              // model as the text "undefined" and the search looked empty.
+              return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+            } catch (error) {
+              return { content: [{ type: "text" as const, text: `${error instanceof Error ? error.message : "La búsqueda falló sin detalle."} No inventes resultados: dile a la persona qué pasó.` }] };
+            }
+          },
         });
       }
     });

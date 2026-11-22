@@ -1,0 +1,180 @@
+{
+  "measuredOn": "2026-11-11",
+  "method": "One isolated Linux/Xvfb run per case, three 15-second phases, actual React hooks and capsule, simulated 20Hz text, animation disabled, no engines/inference/account. PSS sums Electron-owned processes. CPU is the sum of app.getAppMetrics().cpu.percentCPUUsage, without an additional core-count normalization. No statistical significance claimed.",
+  "runs": {
+    "before": {
+      "label": "before",
+      "enabled": true,
+      "electron": "43.8.1",
+      "node": "24.22.0",
+      "cpu": "Intel(R) Pentium(R) Gold G5420 CPU @ 3.80GHz",
+      "logicalCpus": 4,
+      "animation": false,
+      "streamHz": 20,
+      "scope": "isolated actual React host and capsule, no inference/backend; Linux summed PSS of Electron-owned processes",
+      "phases": [
+        {
+          "phase": "idle-folded",
+          "seconds": 15.01,
+          "pssMiB": 195.43,
+          "processes": 5,
+          "packets": {
+            "snapshots": 15,
+            "recents": 15,
+            "state": 30,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.183
+        },
+        {
+          "phase": "working-folded",
+          "seconds": 15,
+          "pssMiB": 196.63,
+          "processes": 5,
+          "packets": {
+            "snapshots": 15,
+            "recents": 15,
+            "state": 30,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 300,
+          "cpuPercentElectron": 0.666
+        },
+        {
+          "phase": "working-expanded",
+          "seconds": 15.01,
+          "pssMiB": 210.83,
+          "processes": 5,
+          "packets": {
+            "snapshots": 15,
+            "recents": 16,
+            "state": 31,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 301,
+          "cpuPercentElectron": 0.766
+        }
+      ]
+    },
+    "after": {
+      "label": "after",
+      "enabled": true,
+      "electron": "43.8.1",
+      "node": "24.22.0",
+      "cpu": "Intel(R) Pentium(R) Gold G5420 CPU @ 3.80GHz",
+      "logicalCpus": 4,
+      "animation": false,
+      "streamHz": 20,
+      "scope": "isolated actual React host and capsule, no inference/backend; Linux summed PSS of Electron-owned processes",
+      "phases": [
+        {
+          "phase": "idle-folded",
+          "seconds": 15.01,
+          "pssMiB": 194.17,
+          "processes": 5,
+          "packets": {
+            "snapshots": 0,
+            "recents": 0,
+            "state": 0,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.033
+        },
+        {
+          "phase": "working-folded",
+          "seconds": 15,
+          "pssMiB": 195.13,
+          "processes": 5,
+          "packets": {
+            "snapshots": 0,
+            "recents": 0,
+            "state": 0,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.35
+        },
+        {
+          "phase": "working-expanded",
+          "seconds": 15,
+          "pssMiB": 215.82,
+          "processes": 5,
+          "packets": {
+            "snapshots": 53,
+            "recents": 0,
+            "state": 53,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 53,
+          "cpuPercentElectron": 1.333
+        }
+      ]
+    },
+    "disabled": {
+      "label": "disabled",
+      "enabled": false,
+      "electron": "43.8.1",
+      "node": "24.22.0",
+      "cpu": "Intel(R) Pentium(R) Gold G5420 CPU @ 3.80GHz",
+      "logicalCpus": 4,
+      "animation": false,
+      "streamHz": 20,
+      "scope": "isolated actual React host and capsule, no inference/backend; Linux summed PSS of Electron-owned processes",
+      "phases": [
+        {
+          "phase": "idle-folded",
+          "seconds": 15.02,
+          "pssMiB": 166.56,
+          "processes": 4,
+          "packets": {
+            "snapshots": 0,
+            "recents": 0,
+            "state": 0,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.017
+        },
+        {
+          "phase": "working-folded",
+          "seconds": 15.01,
+          "pssMiB": 169.27,
+          "processes": 4,
+          "packets": {
+            "snapshots": 0,
+            "recents": 0,
+            "state": 0,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.25
+        },
+        {
+          "phase": "working-expanded",
+          "seconds": 15.01,
+          "pssMiB": 171.13,
+          "processes": 4,
+          "packets": {
+            "snapshots": 0,
+            "recents": 0,
+            "state": 0,
+            "view": 0,
+            "pongs": 0
+          },
+          "snapshotBuilds": 0,
+          "cpuPercentElectron": 0.283
+        }
+      ]
+    }
+  }
+}

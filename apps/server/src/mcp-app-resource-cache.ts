@@ -52,9 +52,8 @@ export function createMcpAppResourceCache(directory: string, now = Date.now) {
       const request = (async () => {
         let stored = memory.get(key);
         if (!stored) {
-          const raw: unknown = await readFile(join(directory, `${key}.json`), "utf8").then(text => JSON.parse(text)).catch(() => null);
-          const parsed = storedSchema.safeParse(raw);
-          if (parsed.success) stored = parsed.data;
+          const parsed = await readFile(join(directory, `${key}.json`), "utf8").then(text => storedSchema.safeParse(JSON.parse(text))).catch(() => null);
+          if (parsed?.success) stored = parsed.data;
         }
         if (stored && now() - stored.savedAt < TTL_MS && digest(stored.resource) === stored.digest) {
           remember(key, stored);

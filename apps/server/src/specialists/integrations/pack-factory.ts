@@ -6,6 +6,8 @@ import { inspectSpecialistPack } from "../packs.js";
 import { specialistDirectory, specialistStore } from "../store.js";
 import type { ServerConfig } from "../../types.js";
 import { exportPortableDefinitions } from "../factories.js";
+import { writeManifest } from "../library.js";
+import { recordSyncedFiles } from "../sync.js";
 
 type Config = Pick<ServerConfig, "configPath" | "workspaces">;
 type Pack = Awaited<ReturnType<typeof inspectSpecialistPack>>;
@@ -66,12 +68,14 @@ export function createPackFactory(config: Config) {
     preview: async (id: string, sourcePath: string) => (await plan(id, sourcePath)).summary,
     async update(id: string, sourcePath: string, expectedFingerprint: string) {
       const value = await plan(id, sourcePath);
-      if (value.summary.fingerprint !== expectedFingerprint) throw new ApiError(409, "pack_changed", "El pack o los proyectos cambiaron desde la revisión. Revisá los cambios otra vez.");
+      if (value.summary.fingerprint !== expectedFingerprint) throw new ApiError(409, "pack_changed", "El pack o los proyectos cambiaron desde la revisión. Revisa los cambios otra vez.");
       const stage = `${value.packRoot}.next-${randomUUID()}`, backup = `${value.packRoot}.previous-${randomUUID()}`;
       await mkdir(stage, { recursive: true });
       let moved = false;
       try {
         for (const file of value.next.files) { const path = join(stage, file.path); await mkdir(dirname(path), { recursive: true }); await writeFile(path, file.data, { flag: "wx", mode: 0o600 }); }
+        // The manifest marks these files as the pack's own (not "Propio"), as saveSpecialistPack does.
+        await writeManifest(stage, Object.fromEntries(value.next.files.map(file => [file.path, hash(file.data)])));
         await rename(value.packRoot, backup); moved = true;
         await rename(stage, value.packRoot);
         (await specialistStore(config)).updatePackCounts(id, { agents: value.next.summary.agents.length, skills: value.next.summary.skills.length });
@@ -79,6 +83,7 @@ export function createPackFactory(config: Config) {
       finally { await rm(stage, { recursive: true, force: true }); }
       const skipped = [...value.summary.conflicts];
       let applied = 0;
+      const recorded = new Map<string, Record<string, string | null>>();
       for (const target of value.targets) {
         try {
           await safeParents(target.root, target.path, true);
@@ -89,19 +94,24 @@ export function createPackFactory(config: Config) {
             try { await writeFile(temporary, target.data, { flag: "wx", mode: 0o600 }); await rename(temporary, path); }
             finally { await rm(temporary, { force: true }); }
           } else await rm(path);
+          const changes = recorded.get(target.root) ?? {};
+          changes[target.path] = target.data ? hash(target.data) : null;
+          recorded.set(target.root, changes);
           applied++;
         } catch { skipped.push({ workspaceId: target.workspaceId, path: target.path }); }
       }
+      // Without this, the next library sync took every updated file for a hand edit and wrote `.nuevo`.
+      for (const [root, changes] of recorded) await recordSyncedFiles(dirname(root), changes).catch(() => undefined);
       await rm(backup, { recursive: true, force: true });
       return { applied, preserved: skipped, pack: value.next.summary };
     },
     async exportOcx(id: string, destination: string) {
-      if (!isAbsolute(destination)) throw new ApiError(422, "invalid_export_folder", "Elegí una carpeta con ruta absoluta.");
+      if (!isAbsolute(destination)) throw new ApiError(422, "invalid_export_folder", "Elige una carpeta con ruta absoluta.");
       const app = (await specialistStore(config)).application(id);
       const root = join(destination, `specialist-${app.id.slice(4)}`);
       await safeParents(destination, "placeholder");
       try { await mkdir(root, { mode: 0o700 }); }
-      catch { throw new ApiError(409, "export_exists", "No se pudo crear la carpeta de exportación. Elegí otra carpeta vacía."); }
+      catch { throw new ApiError(409, "export_exists", "No se pudo crear la carpeta de exportación. Elige otra carpeta vacía."); }
       try {
         const pack = app.agentCount || app.skillCount ? await inspectSpecialistPack(join(specialistDirectory(config), id, "pack")) : null;
         for (const file of pack?.files ?? []) { const target = join(root, file.path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, file.data, { flag: "wx", mode: 0o600 }); }

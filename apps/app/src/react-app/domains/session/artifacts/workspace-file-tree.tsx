@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef } from "react";
+import { t } from "@/i18n";
 import { FileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, Search } from "lucide-react";
@@ -150,8 +151,8 @@ export function WorkspaceFileTree({ client, workspaceId, workspaceName, selected
         <InputGroup className="h-7 min-w-0 flex-1 bg-background">
           <InputGroupAddon align="inline-start"><Search /></InputGroupAddon>
           <InputGroupInput
-            aria-label={`Search ${workspaceName} files`}
-            placeholder="Search files"
+            aria-label={t("session_ui.search_named_files", { name: workspaceName })}
+            placeholder={t("session_ui.search_files")}
             value={search.value}
             onChange={(event) => {
               const value = event.target.value;
@@ -163,24 +164,24 @@ export function WorkspaceFileTree({ client, workspaceId, workspaceName, selected
         <Button
           variant="ghost"
           size="icon-xs"
-          aria-label="Refresh workspace files"
+          aria-label={t("session_ui.refresh_workspace_files")}
           onClick={() => void query.refetch()}
         >
           <RefreshCw className={cn(query.isFetching && "animate-spin")} />
         </Button>
       </div>
       {query.isError ? (
-        <p role="alert" className="p-3 text-xs text-dls-secondary">Could not load workspace files. Use Refresh to try again.</p>
+        <p role="alert" className="p-3 text-xs text-dls-secondary">{t("session_ui.workspace_files_load_failed")}</p>
       ) : (
         <FileTree
           model={model}
-          aria-label={`${workspaceName} files`}
+          aria-label={t("session_ui.named_files", { name: workspaceName })}
           className="min-h-0 flex-1 overflow-hidden"
           style={{ ["--trees-fg-override" as string]: "var(--foreground)" }}
         />
       )}
       {query.data?.incomplete ? (
-        <p role="status" className="border-t border-border px-2 py-1 text-[10px] text-muted-foreground">Some folders could not be read. Check their permissions and refresh.</p>
+        <p role="status" className="border-t border-border px-2 py-1 text-[10px] text-muted-foreground">{t("session_ui.workspace_files_incomplete")}</p>
       ) : null}
     </aside>
   );

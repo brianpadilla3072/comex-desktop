@@ -21,7 +21,7 @@ interface LanguageSectionProps extends Pick<AppearanceViewProps, "busy" | "langu
 
 export function LanguageSection(props: LanguageSectionProps) {
   return (
-    <LayoutSectionItem>
+    <LayoutSectionItem anchor="language">
       <LayoutSectionItemHeader>
         <LayoutSectionItemTitle>{t("settings.language")}</LayoutSectionItemTitle>
         <LayoutSectionItemDescription>{t("settings.language.description")}</LayoutSectionItemDescription>
@@ -30,7 +30,8 @@ export function LanguageSection(props: LanguageSectionProps) {
           <div className="w-64 max-w-full">
             <Select
               value={props.language}
-              items={LANGUAGE_OPTIONS}
+              // The trigger shows each language in its own name, like the list does.
+              items={LANGUAGE_OPTIONS.map((option) => ({ value: option.value, label: option.nativeName }))}
               onValueChange={(value) => {
                 if (value) props.setLanguage(value);
               }}

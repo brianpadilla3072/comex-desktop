@@ -732,6 +732,7 @@ const {
   pickFile,
   desktopNotificationShow,
   importSkill,
+  importSkillRepo,
   installSkillTemplate,
   listLocalSkills,
   readLocalSkill,
@@ -741,7 +742,10 @@ const {
   readOpencodeConfig,
   writeOpencodeConfig,
   resetOpenworkState,
+  resetOpencodeCache,
+  sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
+  designRender,
 } = desktopBridge;
 
 export {
@@ -774,6 +778,7 @@ export {
   pickFile,
   desktopNotificationShow,
   importSkill,
+  importSkillRepo,
   installSkillTemplate,
   listLocalSkills,
   readLocalSkill,
@@ -783,5 +788,8 @@ export {
   readOpencodeConfig,
   writeOpencodeConfig,
   resetOpenworkState,
+  resetOpencodeCache,
+  sandboxCleanupOpenworkContainers,
   opencodeMcpAuth,
+  designRender,
 };

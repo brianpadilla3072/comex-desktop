@@ -1,5 +1,6 @@
 "use client"
 
+import { AgentMark } from "./agent-mark";
 import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useEffect, useRef, useState } from "react"
 
@@ -168,7 +169,7 @@ export function SubagentRunLine({ part, className, parentActive = true }: Subage
     : stopped && !childRunning ? `${title} · Detenido`
     : isFailed || activity === "failed" ? `${title} · Falló`
     : inFlight ? `La actividad de ${title} ha comenzado` : `La actividad de ${title} ha finalizado`;
-  const lines = referenceFeedback ? <span className="flex min-w-0 items-center gap-2"><span aria-hidden className="text-purple-400">✣</span><span className="truncate">{referenceLabel}</span></span> : (
+  const lines = referenceFeedback ? <span className="flex min-w-0 items-center gap-2"><AgentMark id={part.toolCallId} /><span className="truncate">{referenceLabel}</span></span> : (
     <>
       <span className="flex min-w-0 items-center gap-2">
         <span className={cn("min-w-0 truncate", activity === "shimmer" && "ow-text-shimmer")}>
@@ -246,8 +247,8 @@ export function SubagentRunLine({ part, className, parentActive = true }: Subage
       </CollapsibleTrigger>
       <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-150 ease-out data-starting-style:h-0 data-ending-style:h-0 [&[hidden]:not([hidden='until-found'])]:hidden">
         <div className="mt-2 flex flex-col gap-2 rounded-lg bg-muted p-2 text-xs">
-          <span>{childSessionId ? "Child chat navigation is unavailable." : "The child chat is not available yet."}</span>
-          <span>{part.state === "output-available" ? "Task output received" : isFailed ? "Task reported an error" : "Waiting for task output"}</span>
+          <span>{childSessionId ? t("chat_ui.child_chat_navigation_unavailable") : t("chat_ui.child_chat_not_ready")}</span>
+          <span>{part.state === "output-available" ? t("chat_ui.task_output_received") : isFailed ? t("chat_ui.task_reported_error") : t("chat_ui.waiting_task_output")}</span>
         </div>
       </CollapsibleContent>
     </Collapsible>

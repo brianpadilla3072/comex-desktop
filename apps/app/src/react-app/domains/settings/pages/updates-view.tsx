@@ -29,9 +29,10 @@ import {
 } from "../settings-layout";
 import { Separator } from "@/components/ui/separator";
 
-const RELEASE_CHANNEL_OPTIONS: { label: string; value: ReleaseChannel }[] = [
-  { label: "Stable", value: "stable" },
-  { label: "Alpha", value: "alpha" },
+/** Release channels; the label is read at render time so it follows the language. */
+const releaseChannelOptions = (): { label: string; value: ReleaseChannel }[] => [
+  { label: t("secondary_ui.release.stable"), value: "stable" },
+  { label: t("secondary_ui.release.alpha"), value: "alpha" },
 ];
 
 type UpdateDownloadProgressProps = {
@@ -276,16 +277,16 @@ export function UpdatesView(props: UpdatesViewProps) {
         <>
         <Separator />
           {props.alphaChannelSupported && props.releaseChannel ? (
-            <LayoutSectionItem>
+            <LayoutSectionItem anchor="release-channel">
               <LayoutSectionItemHeader>
-                <LayoutSectionItemTitle>Release channel</LayoutSectionItemTitle>
+                <LayoutSectionItemTitle>{t("settings_ui.release_channel")}</LayoutSectionItemTitle>
                 <LayoutSectionItemDescription>
-                  Stable gets fully tested releases. Alpha includes the very latest changes but may be less polished (macOS only).
+                  {t("settings_ui.release_channel_desc")}
                 </LayoutSectionItemDescription>
                 <LayoutSectionItemHeaderActions>
                   <Select
                     value={props.releaseChannel}
-                    items={RELEASE_CHANNEL_OPTIONS}
+                    items={releaseChannelOptions()}
                     onValueChange={(value) => {
                       if (value === "stable" || value === "alpha") {
                         props.onReleaseChannelChange?.(value);
@@ -293,12 +294,12 @@ export function UpdatesView(props: UpdatesViewProps) {
                     }}
                     disabled={!props.onReleaseChannelChange}
                   >
-                    <SelectTrigger aria-label="Release channel" className="w-48">
+                    <SelectTrigger aria-label={t("settings_ui.release_channel")} className="w-48">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {RELEASE_CHANNEL_OPTIONS.map((option) => (
+                        {releaseChannelOptions().map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -311,7 +312,7 @@ export function UpdatesView(props: UpdatesViewProps) {
             </LayoutSectionItem>
           ) : null}
 
-            <LayoutSectionItem>
+            <LayoutSectionItem anchor="check-automatically">
               <LayoutSectionItemHeader>
                 <LayoutSectionItemTitle>{t("settings.background_checks_title")}</LayoutSectionItemTitle>
                 <LayoutSectionItemDescription>{t("settings.background_checks_desc")}</LayoutSectionItemDescription>
@@ -325,7 +326,7 @@ export function UpdatesView(props: UpdatesViewProps) {
               </LayoutSectionItemHeader>
             </LayoutSectionItem>
 
-            <LayoutSectionItem>
+            <LayoutSectionItem anchor="download-automatically">
               <LayoutSectionItemHeader>
                 <LayoutSectionItemTitle>{t("settings.auto_update_title")}</LayoutSectionItemTitle>
                 <LayoutSectionItemDescription>{t("settings.auto_update_desc")}</LayoutSectionItemDescription>

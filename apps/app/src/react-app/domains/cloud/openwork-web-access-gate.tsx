@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { t } from "@/i18n";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import {
@@ -60,7 +61,7 @@ export function OpenWorkWebAccessGateScreen(props: {
   const denied = props.state === "denied";
   const organizationName = props.organizationName || "this organization";
 
-  if (checking) return <WebStartupScreen message="Checking workspace access…" />;
+  if (checking) return <WebStartupScreen message={t("secondary_ui.cloud.web_access.checking")} />;
 
   return (
     <main
@@ -79,13 +80,13 @@ export function OpenWorkWebAccessGateScreen(props: {
             </p>
             <h1 className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.03em]">
               {denied
-                  ? "OpenWork Web access is required"
-                  : "OpenWork Web remains locked"}
+                  ? t("secondary_ui.cloud.web_access.required")
+                  : t("secondary_ui.cloud.web_access.locked")}
             </h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {denied
-                  ? `${organizationName} does not have an active OpenWork Web subscription or complimentary admin grant.`
-                  : `Den could not confirm OpenWork Web access for ${organizationName}. The workspace stays locked until it can.`}
+                  ? t("secondary_ui.cloud.web_access.denied", { name: organizationName })
+                  : t("secondary_ui.cloud.web_access.unconfirmed", { name: organizationName })}
             </p>
           </div>
         </div>
@@ -94,16 +95,16 @@ export function OpenWorkWebAccessGateScreen(props: {
           <div className="mt-7 flex flex-wrap items-center gap-2">
             {denied ? (
               <Button type="button" onClick={props.onManageAccess}>
-                Manage access in Den
+                {t("secondary_ui.cloud.web_access.manage")}
                 <ArrowUpRight className="size-4" aria-hidden="true" />
               </Button>
             ) : (
-              <Button type="button" onClick={props.onRetry}>Retry</Button>
+              <Button type="button" onClick={props.onRetry}>{t("common.retry")}</Button>
             )}
             {denied ? (
-              <Button type="button" variant="outline" onClick={props.onRetry}>Check again</Button>
+              <Button type="button" variant="outline" onClick={props.onRetry}>{t("secondary_ui.cloud.web_access.check_again")}</Button>
             ) : null}
-            <Button type="button" variant="ghost" onClick={props.onSignOut}>Sign out</Button>
+            <Button type="button" variant="ghost" onClick={props.onSignOut}>{t("den.sign_out")}</Button>
           </div>
         ) : null}
       </section>

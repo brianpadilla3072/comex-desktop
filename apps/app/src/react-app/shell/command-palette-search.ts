@@ -1,5 +1,7 @@
 import fuzzysort from "fuzzysort";
 
+import { t } from "@/i18n";
+
 import { ADVANCED_SETTINGS_SECTIONS } from "@/react-app/domains/settings/advanced-sections";
 
 export type PaletteGroup = "recent" | "actions" | "settings" | "sessions";
@@ -28,12 +30,15 @@ const GROUP_ORDER: PaletteGroup[] = ["recent", "actions", "settings", "sessions"
 // The empty palette previews only a few settings. Developer mode lists the Advanced
 // sections first, so the preview must be wide enough to show every one of them.
 const SETTINGS_PREVIEW_LIMIT = Math.max(6, ADVANCED_SETTINGS_SECTIONS.length);
-const GROUP_LABELS: Record<PaletteGroup, string> = {
-  recent: "Recent",
-  actions: "Actions",
-  settings: "Settings",
-  sessions: "Sessions",
-};
+/** Groups are compared by id; people read this label, translated when the results are built. */
+function groupLabel(group: PaletteGroup): string {
+  switch (group) {
+    case "recent": return t("secondary_ui.palette.group_recent");
+    case "actions": return t("secondary_ui.palette.group_actions");
+    case "settings": return t("secondary_ui.palette.group_settings");
+    case "sessions": return t("secondary_ui.palette.group_sessions");
+  }
+}
 
 function itemGroup(item: PaletteItem): PaletteGroup {
   return item.group ?? "actions";
@@ -49,12 +54,22 @@ function itemSearchText(item: PaletteItem) {
     .join(" ");
 }
 
+// A menu path copied from a chat or a result ("Ajustes › Avanzado › Dispositivos")
+// is searched by its words; the separators are not part of any name.
+const PATH_SEPARATORS = /[→›»>]/g;
+
 function normalizeSearchText(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value.replace(PATH_SEPARATORS, " ").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// "animacion" finds "Animación": Latin accents are ignored when matching whole words,
+// as fuzzysort already does for its letter match (other scripts are left alone).
+function withoutAccents(value: string) {
+  return value.replace(/\p{Script=Latin}+/gu, (match) => match.normalize("NFD")).replace(/[\u0300-\u036f]/g, "");
 }
 
 function resultGroup(value: PaletteGroup, items: PaletteItem[]): PaletteResultGroup {
-  return { value, label: GROUP_LABELS[value], items };
+  return { value, label: groupLabel(value), items };
 }
 
 export function rankPaletteItems(
@@ -93,13 +108,25 @@ export function rankPaletteItems(
   }
 
   const normalizedQuery = normalizeSearchText(searchQuery);
+  if (!normalizedQuery) return [];
   const tokens = normalizedQuery.split(" ");
-  const tokenMatchedItems = candidates.filter((item) => {
-    const text = itemSearchText(item);
-    return tokens.every((token) => fuzzysort.single(token, text) !== null);
+  const plainTokens = tokens.map(withoutAccents);
+  // Items that contain every typed word win outright. A looser match, the
+  // typed letters in order anywhere in an item, only counts when no item
+  // contains the words: typos still find something, and real matches are not
+  // buried under coincidences (port of different-ai/openwork#7415).
+  const wordMatchedItems = candidates.filter((item) => {
+    const text = withoutAccents(normalizeSearchText(itemSearchText(item)));
+    return plainTokens.every((token) => text.includes(token));
   });
+  const tokenMatchedItems = wordMatchedItems.length > 0
+    ? wordMatchedItems
+    : candidates.filter((item) => {
+        const text = itemSearchText(item);
+        return tokens.every((token) => fuzzysort.single(token, text) !== null);
+      });
   const recentIdSet = new Set(recentIds);
-  const ranked = fuzzysort.go(searchQuery, tokenMatchedItems, {
+  const ranked = fuzzysort.go(normalizedQuery, tokenMatchedItems, {
     keys: [
       (item) => item.title,
       (item) => itemKeywords(item),

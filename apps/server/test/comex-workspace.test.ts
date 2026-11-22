@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, symlink, access } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedComexPack, ensureComexWorkspace, ensureComexSession, readComexMemory, sessionMemoryPath } from "../src/comex/seed.js";
-import { comexWorkspaceEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../src/comex/features.js";
+import { comexWorkspaceEnabled, comexSpanishLocaleEnabled, conversationNavigatorEnabled, agentActivityMapEnabled } from "../src/comex/features.js";
 
 test("conversation navigation and agent map honor independent operator switches", () => {
   assert.equal(conversationNavigatorEnabled({ DEN_FEATURE_CONVERSATION_NAVIGATOR: "true" }), true);
@@ -75,6 +75,12 @@ test("operator kill switch wins and cloud is unavailable", () => {
   assert.equal(comexWorkspaceEnabled({ DEN_DEPLOYMENT: "cloud", DEN_FEATURE_COMEX_WORKSPACE: "true" }), false);
 });
 
+test("Spanish by default is on for Comex, can be switched off and is unavailable in cloud", () => {
+  assert.equal(comexSpanishLocaleEnabled({}), true);
+  assert.equal(comexSpanishLocaleEnabled({ DEN_FEATURE_COMEX_SPANISH_LOCALE: "false" }), false);
+  assert.equal(comexSpanishLocaleEnabled({ DEN_DEPLOYMENT: "cloud", DEN_FEATURE_COMEX_SPANISH_LOCALE: "true" }), false);
+});
+
 test("concurrent initialization is idempotent and preserves existing project instructions", async () => {
   const { root, pack } = await setup();
   await writeFile(join(root, "AGENTS.md"), "# Existing project rules\n");
@@ -121,4 +127,25 @@ test("Python runtime caches never enter the installed pack", async () => {
   await seedComexPack(root, pack);
   await assert.rejects(access(join(root, ".opencode/skills/example/script.pyc")));
   await assert.rejects(access(join(root, ".opencode/skills/example/__pycache__")));
+});
+
+test("opening a general workspace neither installs a specialty nor derives subject from a legacy directory", async () => {
+  const previous = process.env.DEN_FEATURE_COMEX_WORKSPACE;
+  process.env.DEN_FEATURE_COMEX_WORKSPACE = "true";
+  const { root } = await setup();
+  try {
+    assert.equal(await ensureComexWorkspace(root), false);
+    await assert.rejects(access(join(root, ".opencode/.comex-pack-hashes.json")));
+    const { generalProjectInstructions } = await import("../src/comex/general-instructions.js");
+    const general = generalProjectInstructions(root, "ses_fixture", {});
+    assert.match(general, /propósito general/);
+    assert.ok(general.includes("proyecto/estado.md"));
+    assert.ok(!general.includes("encuesta"));
+    await mkdir(join(root, "comex"));
+    const legacy = generalProjectInstructions(root, "ses_fixture", {});
+    assert.ok(legacy.includes("comex/estado.md"));
+    assert.ok(!legacy.includes("Comercio Exterior"));
+  } finally {
+    if (previous === undefined) delete process.env.DEN_FEATURE_COMEX_WORKSPACE; else process.env.DEN_FEATURE_COMEX_WORKSPACE = previous;
+  }
 });

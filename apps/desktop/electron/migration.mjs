@@ -1,9 +1,16 @@
 import { existsSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
 const MIGRATION_SNAPSHOT_FILENAME = "migration-snapshot.v1.json";
 const MIGRATION_SNAPSHOT_DONE_FILENAME = "migration-snapshot.v1.done.json";
+
+// The Tauri handoff file. The renderer copies matching `keys` into localStorage.
+const migrationSnapshotSchema = z.looseObject({
+  version: z.literal(1),
+  keys: z.record(z.string(), z.unknown()).optional().catch(undefined),
+});
 
 function migrationSnapshotPath(app, done = false) {
   return path.join(
@@ -23,11 +30,8 @@ export function registerMigrationIpc({ app, ipcMain }) {
     if (!existsSync(snapshotPath)) return null;
     try {
       const raw = await readFile(snapshotPath, "utf8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && parsed.version === 1) {
-        return parsed;
-      }
-      return null;
+      const parsed = migrationSnapshotSchema.safeParse(JSON.parse(raw));
+      return parsed.success ? parsed.data : null;
     } catch (error) {
       console.warn("[migration] failed to read snapshot", error);
       return null;

@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
+import { t } from "@/i18n";
 import { useEffect, useRef, type ReactNode } from "react";
 import { desktopPolicyKeys, type BrandAccentColor } from "@openwork/types/den/desktop-policies";
 
@@ -116,8 +117,8 @@ function DesktopPolicyNotificationEffect() {
     addNotification({
       kind: "cloud",
       severity: "info",
-      title: "Organization policies active",
-      body: "Some features and appearance settings are managed by your administrator.",
+      title: t("settings.desktop_policy_active_title"),
+      body: t("secondary_ui.cloud.policies.body"),
       dedupeKey: POLICY_NOTIFICATION_DEDUPE,
     });
   }, [config, addNotification]);

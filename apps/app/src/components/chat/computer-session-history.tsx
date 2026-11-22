@@ -6,6 +6,7 @@ import { ChevronRight, CodeXml, ExternalLink, FileText, FolderOpen, Monitor, Pap
 
 import { markFeatureUsed } from "@/app/lib/den"
 import { desktopBridge } from "@/app/lib/desktop"
+import { t } from "@/i18n"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Image } from "@/components/ui/image"
@@ -44,10 +45,10 @@ export function attachFileToComposer(sessionId: string, path: string) {
  */
 export function desktopSavedFileActions(sessionId: string): SavedFileActions {
   const show = (path: string, reveal: boolean) => void desktopBridge.computerOpenSavedFile({ sessionId, path, ...(reveal ? { reveal } : {}) }).then(result => {
-    if (!result.ok) toast.error(result.error || "Could not open this file.")
-    else if (result.action === "unavailable") toast.error("This file is no longer on this computer.")
-    else if (result.action === "revealed" && !reveal) toast.info("Shown in Finder: only files this chat made open directly.")
-  }, () => toast.error("Could not reach this file."))
+    if (!result.ok) toast.error(result.error || t("secondary_ui.computer.file_open_failed"))
+    else if (result.action === "unavailable") toast.error(t("secondary_ui.computer.file_gone"))
+    else if (result.action === "revealed" && !reveal) toast.info(t("secondary_ui.computer.file_revealed"))
+  }, () => toast.error(t("secondary_ui.computer.file_unreachable")))
   return { open: path => show(path, false), reveal: path => show(path, true), attach: path => attachFileToComposer(sessionId, path),
     list: () => desktopBridge.computerChatFiles({ sessionId }).then(result => result.files) }
 }
@@ -99,7 +100,7 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
   const currentFrameId = frame?.id
   const nextFrameId = frames[index + 1]?.id
   const unfinished = parts.some(isToolPartInFlight)
-  const title = unfinished ? active ? "Using computer" : "Computer status unavailable" : "Used computer"
+  const title = unfinished ? active ? t("secondary_ui.computer.history_using") : t("secondary_ui.computer.history_status_unavailable") : t("secondary_ui.computer.history_used")
   // With several apps in one session, each step says which one it ran in.
   const several = history.apps.length > 1
 
@@ -129,7 +130,7 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
     <Collapsible
       data-computer-session-history=""
       role="group"
-      aria-label="Computer session history"
+      aria-label={t("secondary_ui.computer.history_aria")}
       className="w-full min-w-0 overflow-hidden rounded-xl border border-border bg-background"
       open={open}
       onOpenChange={value => {
@@ -139,7 +140,7 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
       }}
     >
       <div className="flex min-w-0 items-center">
-        <CollapsibleTrigger render={<Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start gap-3 rounded-none p-3 text-left" />} aria-label="View computer session history">
+        <CollapsibleTrigger render={<Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start gap-3 rounded-none p-3 text-left" />} aria-label={t("secondary_ui.computer.history_view")}>
           <Monitor aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1">
             <span className={cn("block text-sm font-medium", unfinished && active && "animate-text-shimmer motion-reduce:animate-none")}>{title}</span>
@@ -147,7 +148,7 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
             {(unfinished && active ? history.latest : history.purpose ?? history.latest)
               ? <span data-computer-session-description="" className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">{unfinished && active ? history.latest : history.purpose ?? history.latest}</span> : null}
             <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-normal text-muted-foreground">
-              <span>{parts.length} {parts.length === 1 ? "action" : "actions"}</span>
+              <span>{parts.length === 1 ? t("secondary_ui.computer.actions_one") : t("secondary_ui.computer.actions_other", { n: parts.length })}</span>
               {several ? <span data-computer-session-apps="">{history.apps.join(", ")}</span> : null}
               {history.durationMs !== null ? <span>{formatToolCallDuration(history.durationMs)}</span> : null}
             </span>
@@ -156,20 +157,20 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
           <ChevronRight aria-hidden="true" className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none", open && "rotate-90")} />
         </CollapsibleTrigger>
         {live ? <Button variant="ghost" size="sm" className="mr-2 shrink-0" aria-pressed={live.watching} onClick={() => live.onWatch(!live.watching)}>
-          <PictureInPicture2 aria-hidden="true" />{live.watching ? "Hide live view" : "Watch live"}
+          <PictureInPicture2 aria-hidden="true" />{live.watching ? t("secondary_ui.computer.hide_live") : t("secondary_ui.computer.watch_live")}
         </Button> : null}
       </div>
       {crew ? <ComputerCrew members={crew.members} onOpen={crew.onOpen} /> : null}
       {/* What the session made for the person, without opening the card. */}
-      {handedBack.length > 0 ? <ul data-computer-saved-files="" aria-label="Saved files" className="space-y-1 border-t border-border px-3 py-2">
+      {handedBack.length > 0 ? <ul data-computer-saved-files="" aria-label={t("secondary_ui.computer.saved_files")} className="space-y-1 border-t border-border px-3 py-2">
         {handedBack.map(file => <li key={file.path} data-computer-saved-file="" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <FileText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate text-sm" title={file.path}>{file.name}</span>
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatFileSize(file.bytes)}</span>
           {fileActions ? <span className="flex shrink-0 items-center">
-            <Button variant="ghost" size="xs" aria-label={`Open ${file.name}`} onClick={() => fileActions.open(file.path)}><ExternalLink aria-hidden="true" />Open</Button>
-            <Button variant="ghost" size="xs" aria-label={`Show ${file.name} in Finder`} onClick={() => fileActions.reveal(file.path)}><FolderOpen aria-hidden="true" />Show in Finder</Button>
-            <Button variant="ghost" size="xs" aria-label={`Attach ${file.name} to chat`} onClick={() => fileActions.attach(file.path)}><Paperclip aria-hidden="true" />Attach to chat</Button>
+            <Button variant="ghost" size="xs" aria-label={t("secondary_ui.computer.file_open_aria", { name: file.name })} onClick={() => fileActions.open(file.path)}><ExternalLink aria-hidden="true" />{t("secondary_ui.computer.file_open")}</Button>
+            <Button variant="ghost" size="xs" aria-label={t("secondary_ui.computer.file_reveal_aria", { name: file.name })} onClick={() => fileActions.reveal(file.path)}><FolderOpen aria-hidden="true" />{t("secondary_ui.computer.file_reveal")}</Button>
+            <Button variant="ghost" size="xs" aria-label={t("secondary_ui.computer.file_attach_aria", { name: file.name })} onClick={() => fileActions.attach(file.path)}><Paperclip aria-hidden="true" />{t("secondary_ui.computer.file_attach")}</Button>
           </span> : null}
         </li>)}
       </ul> : null}
@@ -177,11 +178,11 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
         <div className="space-y-3 border-t border-border p-3">
           <Collapsible>
             {frame ? <>
-              {unavailable === frame.file.url ? <p className="py-6 text-sm text-muted-foreground" role="status">This view is unavailable. Choose another captured view.</p> : <div className="relative mx-auto w-fit max-w-full">
+              {unavailable === frame.file.url ? <p className="py-6 text-sm text-muted-foreground" role="status">{t("secondary_ui.computer.view_unavailable")}</p> : <div className="relative mx-auto w-fit max-w-full">
                 <Image
                   key={frame.id}
                   src={frame.file.url}
-                  alt={`Captured view ${index + 1}: ${several && frame.app ? `${frame.app}, ` : ""}${frame.label}`}
+                  alt={t("secondary_ui.computer.captured_view_alt", { n: index + 1, label: `${several && frame.app ? `${frame.app}, ` : ""}${frame.label}` })}
                   previewMaxHeight={0}
                   previewMaxWidth={0}
                   className="block h-auto max-h-80 w-auto max-w-full rounded-md bg-muted/30"
@@ -196,20 +197,20 @@ export function ComputerSessionHistory({ history, active, renderAction, live, fi
                 {frame.thinking ? <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-muted-foreground">{frame.thinking}</p> : null}
               </div>
               <div className="group flex min-w-0 items-center gap-3 pt-2">
-                <Button variant="ghost" size="icon-sm" aria-label={playing ? "Pause captured views" : "Play captured views"} disabled={frames.length < 2} onClick={() => {
+                <Button variant="ghost" size="icon-sm" aria-label={playing ? t("secondary_ui.computer.pause_views") : t("secondary_ui.computer.play_views")} disabled={frames.length < 2} onClick={() => {
                   if (playing) setPlaying(false)
                   else { if (index === frames.length - 1) setSelectedId(frames[0]!.id); setPlaying(true) }
                 }}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
                 {/* Native range: the shared UI has no slider primitive. Its end follows new captures. */}
-                <input type="range" min={0} max={frames.length - 1} step={1} value={index} disabled={frames.length < 2} aria-label="Browse captured views" aria-valuetext={`${index + 1} of ${frames.length}: ${frame.label}`} className="min-w-0 flex-1 accent-foreground" onInput={event => select(Number(event.currentTarget.value))} />
+                <input type="range" min={0} max={frames.length - 1} step={1} value={index} disabled={frames.length < 2} aria-label={t("secondary_ui.computer.browse_views")} aria-valuetext={t("secondary_ui.computer.view_position", { n: index + 1, total: frames.length, label: frame.label })} className="min-w-0 flex-1 accent-foreground" onInput={event => select(Number(event.currentTarget.value))} />
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground" data-computer-view-count="">{index + 1} / {frames.length}</span>
-                <Button variant="ghost" size="xs" className="shrink-0 tabular-nums text-muted-foreground" aria-label={`Playback speed ${speed}×`} disabled={frames.length < 2}
+                <Button variant="ghost" size="xs" className="shrink-0 tabular-nums text-muted-foreground" aria-label={t("secondary_ui.computer.playback_speed", { speed })} disabled={frames.length < 2}
                   onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]!)}>{speed}×</Button>
-                <CollapsibleTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100" />} aria-label="View computer actions"><CodeXml aria-hidden="true" /></CollapsibleTrigger>
+                <CollapsibleTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100" />} aria-label={t("secondary_ui.computer.view_actions_aria")}><CodeXml aria-hidden="true" /></CollapsibleTrigger>
               </div>
             </> : <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">No captured views in this session.</p>
-              <CollapsibleTrigger render={<Button variant="ghost" size="sm" />} aria-label="View computer actions">View actions</CollapsibleTrigger>
+              <p className="text-xs text-muted-foreground">{t("secondary_ui.computer.no_views")}</p>
+              <CollapsibleTrigger render={<Button variant="ghost" size="sm" />} aria-label={t("secondary_ui.computer.view_actions_aria")}>{t("secondary_ui.computer.view_actions")}</CollapsibleTrigger>
             </div>}
             <CollapsibleContent><div className="space-y-2 pt-3">{parts.map(part => <div key={part.toolCallId}>{renderAction(part)}</div>)}</div></CollapsibleContent>
           </Collapsible>

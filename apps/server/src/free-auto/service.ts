@@ -157,7 +157,8 @@ export class AnonymousInferenceService {
         const failure = memberCredentialFailure(response.status, bytes);
         throw new ApiError(failure.status, failure.code, "Signed-in OpenWork Free access could not be authorized.");
       }
-      const apiKey = parseMemberCredential(JSON.parse(new TextDecoder().decode(bytes)), this.settings.origin);
+      const credential: unknown = JSON.parse(new TextDecoder().decode(bytes));
+      const apiKey = parseMemberCredential(credential, this.settings.origin);
       await this.assertDispatchAllowed();
       signal.throwIfAborted();
       if (this.memberSession !== session) throw new Error("Desktop free access identity changed.");
@@ -420,8 +421,10 @@ export class AnonymousInferenceService {
       const body = await readBoundedBody(request.body, REQUEST_BODY_LIMIT, AbortSignal.any([signal, AbortSignal.timeout(REQUEST_BODY_TIMEOUT_MS)]));
       if (endpoint !== "models") {
         let payload: unknown;
-        try { payload = JSON.parse(new TextDecoder().decode(body)); }
-        catch { return jsonError(400, "invalid_request", "Expected a JSON request body."); }
+        try {
+          const parsed: unknown = JSON.parse(new TextDecoder().decode(body));
+          payload = parsed;
+        } catch { return jsonError(400, "invalid_request", "Expected a JSON request body."); }
         if (!isRecord(payload) || payload.model !== DESKTOP_FREE_MODEL_ID || "models" in payload || "route" in payload) {
           return jsonError(400, "anonymous_model_not_allowed", "Auto only supports the configured free model.");
         }

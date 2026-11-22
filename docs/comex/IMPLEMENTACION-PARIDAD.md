@@ -1,5 +1,7 @@
 # Implementación y evidencia de las mejoras Comex
 
+> Registro histórico de esa corrida. Para el alcance general y el estado vigente consultar [Estado de implementación](../ESTADO-IMPLEMENTACION.md). Las afirmaciones posteriores sobre ausencia de traslado de chats, memoria o tareas locales quedaron superadas por implementaciones nuevas; los resultados históricos de pruebas se conservan sin reetiquetarlos.
+
 La implementación local cubre continuidad estructurada, panel de proyecto/Git, runtime de entregables, evaluación por modelo y verificación secuencial. Esto no equivale a certificar paridad con Codex: la evidencia local y la aceptación externa se registran por separado.
 
 ## Verificación reproducible

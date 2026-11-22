@@ -128,9 +128,15 @@ export default defineConfig(({ command, isPreview }) => {
     server: {
       port: devPort,
       strictPort: true,
-      ...(allowedHosts.size > 0 || headlessBrowserHostSuffix
-        ? { allowedHosts: [...allowedHosts, ...(headlessBrowserHostSuffix ? [headlessBrowserHostSuffix] : [])] }
-        : {}),
+      watch: {
+        usePolling: true,
+        interval: 300,
+      },
+      ...(process.env.VITE_ALLOWED_HOSTS === "*" || process.env.VITE_ALLOWED_HOSTS === "true"
+        ? { allowedHosts: true }
+        : allowedHosts.size > 0 || headlessBrowserHostSuffix
+          ? { allowedHosts: [...allowedHosts, ...(headlessBrowserHostSuffix ? [headlessBrowserHostSuffix] : [])] }
+          : {}),
       proxy: {
         ...denProxy,
         ...openworkProxy,
@@ -141,6 +147,7 @@ export default defineConfig(({ command, isPreview }) => {
       rollupOptions: {
         input: {
           app: resolve(appRoot, "index.html"),
+          companion: resolve(appRoot, "companion.html"),
         },
       },
     },

@@ -7,7 +7,7 @@ import { isCollectibleArtifactTarget, type OpenTarget, type OpenTargetPreview } 
 
 export const PERSISTED_PANEL_TAB_STORE_KEY = "openwork:panel-tabs:v1";
 
-export type PanelTabType = "artifact" | "browser" | "app" | "mcp-app" | "remote-thread";
+export type PanelTabType = "artifact" | "browser" | "app" | "mcp-app" | "remote-thread" | "studio";
 
 export type { BrowserPanelTab } from "../../../../app/lib/desktop-types";
 import type { BrowserPanelTab } from "../../../../app/lib/desktop-types";
@@ -24,10 +24,20 @@ export type AppPanelTab = { id: string; type: "app"; label: string; appId: strin
 
 export type McpAppPanelTab = { id: string; type: "mcp-app"; label: string; appId: string; updating?: boolean; part: DynamicToolUIPart; origin: McpAppOrigin };
 
+/** A mini-Studio output opened as an artifact shell in the session panel. */
+export type StudioArtifactPanelTab = {
+  id: string;
+  type: "studio";
+  label: string;
+  artifactId: string;
+  appId: string;
+  workspaceId?: string;
+};
+
 /** A task running on another computer, opened from its row in the chat. */
 export type RemoteThreadPanelTab = { id: string; type: "remote-thread"; label: string; threadKey: string; owner: { workspaceId: string; sessionId: string } };
 
-export type PanelTab = BrowserPanelTab | ArtifactPanelTab | AppPanelTab | McpAppPanelTab | RemoteThreadPanelTab;
+export type PanelTab = BrowserPanelTab | ArtifactPanelTab | AppPanelTab | McpAppPanelTab | RemoteThreadPanelTab | StudioArtifactPanelTab;
 
 export type SessionPanelState = {
   tabs: PanelTab[];
@@ -37,6 +47,10 @@ export type SessionPanelState = {
 type PersistedPanelTabRef = {
   id: string;
   type: PanelTabType;
+  label?: string;
+  artifactId?: string;
+  appId?: string;
+  workspaceId?: string;
 };
 
 type PersistedSessionPanelState = {
@@ -161,6 +175,10 @@ function isSameTab(left: PanelTab, right: PanelTab) {
     return left.label === right.label && left.appId === right.appId && left.revisionId === right.revisionId && left.receiptId === right.receiptId;
   }
 
+  if (left.type === "studio" && right.type === "studio") {
+    return left.label === right.label && left.artifactId === right.artifactId && left.appId === right.appId && left.workspaceId === right.workspaceId;
+  }
+
   if (left.type === "browser" && right.type === "browser") {
     return (
       left.label === right.label &&
@@ -208,22 +226,33 @@ function mergePersistedSessions(
   const sessions: Record<string, SessionPanelState> = {};
 
   for (const [sessionId, session] of Object.entries(persisted.sessions)) {
-    const tabs = session.tabs
-      .filter(({ type }) => type === "browser")
-      .map(({ id }): PanelTab => ({
-        id,
-        type: "browser",
-        label: "New tab",
-        url: "",
-        favicon: null,
-        status: "ready",
-        canGoBack: false,
-        canGoForward: false,
-        ownerSessionId: sessionId,
-        siteToolCount: 0,
-        siteTools: [],
-        siteToolActivity: [],
-      }));
+    const tabs: PanelTab[] = session.tabs.flatMap((ref): PanelTab[] => {
+      if (ref.type === "browser") {
+        return [{
+          id: ref.id,
+          type: "browser",
+          label: "New tab",
+          url: "",
+          favicon: null,
+          status: "ready",
+          canGoBack: false,
+          canGoForward: false,
+          ownerSessionId: sessionId,
+          siteToolCount: 0,
+          siteTools: [],
+          siteToolActivity: [],
+        }];
+      }
+      // Studio tabs are references only: content stays in workspace files, so a reload is safe.
+      if (ref.type === "studio" && ref.artifactId && ref.appId) {
+        return [{
+          id: ref.id, type: "studio", label: ref.label ?? "Artefacto",
+          artifactId: ref.artifactId, appId: ref.appId,
+          ...(ref.workspaceId ? { workspaceId: ref.workspaceId } : {}),
+        }];
+      }
+      return [];
+    });
 
     sessions[sessionId] = {
       tabs,
@@ -409,8 +438,10 @@ export const usePanelTabStore = create<PanelTabStore>()(
         sessions: Object.fromEntries(
           Object.entries(state.sessions).map(([sessionId, session]) => {
             const tabs = session.tabs
-              .filter((tab) => tab.type === "browser")
-              .map(({ id, type }) => ({ id, type }));
+              .filter((tab) => tab.type === "browser" || tab.type === "studio")
+              .map((tab): PersistedPanelTabRef => tab.type === "studio"
+                ? { id: tab.id, type: tab.type, label: tab.label, artifactId: tab.artifactId, appId: tab.appId, ...(tab.workspaceId ? { workspaceId: tab.workspaceId } : {}) }
+                : { id: tab.id, type: tab.type });
 
             return [
               sessionId,

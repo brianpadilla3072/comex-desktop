@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { mkdtemp, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createInstalledOpencodeEngine, readInstalledOpencodeConnection } from "../src/comex/installed-opencode.js";
+import { BROWSER_BRIDGE_PENDING, createInstalledOpencodeEngine, readInstalledOpencodeConnection } from "../src/comex/installed-opencode.js";
 import { openworkPromotionsEnabled } from "../src/comex/features.js";
 
 test("installed service reuses native accounts without changing configuration or stopping the service", async () => {
@@ -78,4 +78,31 @@ test("promotions have a true/false operator flag and default to false", () => {
   assert.equal(openworkPromotionsEnabled({ DEN_FEATURE_OPENWORK_PROMOTIONS: "false" }), false);
   assert.equal(openworkPromotionsEnabled({ DEN_FEATURE_OPENWORK_PROMOTIONS: "true" }), true);
   assert.equal(openworkPromotionsEnabled({ DEN_FEATURE_OPENWORK_PROMOTIONS: "invalid" }), false);
+});
+
+// With the installed OpenCode, a browser plugin that was not active yet made every model and
+// provider request of the workspace answer 500, so the chat could not even list its models.
+test("a browser bridge that is not active yet is reported, never fails the workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "comex-browser-pending-"));
+  const server = createServer((request, response) => {
+    response.setHeader("content-type", "application/json");
+    const path = new URL(request.url!, "http://localhost").pathname;
+    if (path === "/api/info") { response.end(JSON.stringify({ version: "2.2.0", pid: 1234 })); return; }
+    if (path === "/api/plugin") { response.end(JSON.stringify({ data: [{ id: "comex.browser", state: { status: "loading" } }] })); return; }
+    response.end(JSON.stringify({ data: path === "/api/provider" ? [{ id: "native-provider" }] : [{ id: "fixture-model", providerID: "native-provider" }] }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const file = join(root, "service.json");
+  await writeFile(file, JSON.stringify({ url: `http://127.0.0.1:${address.port}`, password: "transport-fixture", pid: 1234 }));
+  const installs: string[] = [];
+  const engine = createInstalledOpencodeEngine(file, true, { install: async directory => { installs.push(directory); }, close: async () => {} });
+  try {
+    await engine.ensureWorkspaceReady("/fixture project");
+    assert.deepEqual(installs, ["/fixture project"]);
+    assert.equal(engine.status().running, true);
+    assert.equal(engine.status().lastWarning, BROWSER_BRIDGE_PENDING);
+    assert.ok(engine.connection());
+  } finally { await engine.stop(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, { recursive: true, force: true }); }
 });

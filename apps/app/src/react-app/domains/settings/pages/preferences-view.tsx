@@ -30,6 +30,7 @@ import {
   LayoutStack,
 } from "../settings-layout";
 import { DesktopIntegrationSection } from "../desktop-integration-section";
+import { useWebNotificationsAvailable, WebNotificationPermissionItem } from "../web-notification-permission";
 import { useDesktopFeature } from "@/react-app/domains/session/status/use-desktop-feature";
 import {
   AUTO_SETTLE_DAY_OPTIONS,
@@ -114,6 +115,7 @@ function AutoSettleSection() {
 }
 
 export function PreferencesView(props: PreferencesViewProps) {
+  const webNotifications = useWebNotificationsAvailable();
   const linkDestinationItems = [
     { value: "openwork", label: "OpenWork" },
     { value: "external", label: t("settings.links.external") },
@@ -132,7 +134,7 @@ export function PreferencesView(props: PreferencesViewProps) {
         </LayoutSectionHeader>
 
         {/* Show reasoning */}
-        <LayoutSectionItem>
+        <LayoutSectionItem anchor="show-model-reasoning">
           <LayoutSectionItemHeader>
             <LayoutSectionItemTitle>{t("settings.show_model_reasoning")}</LayoutSectionItemTitle>
             <LayoutSectionItemDescription>{t("settings.show_model_reasoning_desc")}</LayoutSectionItemDescription>
@@ -148,7 +150,7 @@ export function PreferencesView(props: PreferencesViewProps) {
         </LayoutSectionItem>
 
         {/* Auto context compaction */}
-        <LayoutSectionItem>
+        <LayoutSectionItem anchor="auto-compact">
           <LayoutSectionItemHeader>
             <LayoutSectionItemTitle>{t("settings.auto_compact")}</LayoutSectionItemTitle>
             <LayoutSectionItemDescription>{t("settings.auto_compact_desc")}</LayoutSectionItemDescription>
@@ -168,11 +170,11 @@ export function PreferencesView(props: PreferencesViewProps) {
 
       <LayoutSection>
         <LayoutSectionHeader>
-          <LayoutSectionTitle>{t("settings.desktop_notifications.title")}</LayoutSectionTitle>
-          <LayoutSectionDescription>{t("settings.desktop_notifications.section_desc")}</LayoutSectionDescription>
+          <LayoutSectionTitle>{t(webNotifications ? "web_notifications.section_title" : "settings.desktop_notifications.title")}</LayoutSectionTitle>
+          <LayoutSectionDescription>{t(webNotifications ? "web_notifications.section_desc" : "settings.desktop_notifications.section_desc")}</LayoutSectionDescription>
         </LayoutSectionHeader>
 
-        <LayoutSectionItem>
+        <LayoutSectionItem anchor="desktop-notifications">
           <LayoutSectionItemHeader>
             <LayoutSectionItemTitle>{t("settings.desktop_notifications.mode")}</LayoutSectionItemTitle>
             <LayoutSectionItemDescription>{t("settings.desktop_notifications.mode_desc")}</LayoutSectionItemDescription>
@@ -205,6 +207,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             </LayoutSectionItemHeaderActions>
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
+        {webNotifications ? <WebNotificationPermissionItem preferenceOff={props.desktopNotifications === "off"} /> : null}
       </LayoutSection>
 
       {isElectronRuntime() ? (
@@ -213,7 +216,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             <LayoutSectionTitle>{t("settings.power_title")}</LayoutSectionTitle>
           </LayoutSectionHeader>
 
-          <LayoutSectionItem>
+          <LayoutSectionItem anchor="keep-awake">
             <LayoutSectionItemHeader>
               <LayoutSectionItemTitle>{t("settings.keep_awake")}</LayoutSectionItemTitle>
               <LayoutSectionItemDescription>{t("settings.keep_awake_desc")}</LayoutSectionItemDescription>
@@ -239,7 +242,7 @@ export function PreferencesView(props: PreferencesViewProps) {
             <LayoutSectionDescription>{t("settings.browser_section_desc")}</LayoutSectionDescription>
           </LayoutSectionHeader>
 
-          <LayoutSectionItem>
+          <LayoutSectionItem anchor="open-links-in">
             <LayoutSectionItemHeader className="min-h-10 items-center">
               <LayoutSectionItemTitle>{t("settings.links.open_in")}</LayoutSectionItemTitle>
               <LayoutSectionItemDescription>{t("settings.links.open_in_desc")}</LayoutSectionItemDescription>
@@ -274,7 +277,7 @@ export function PreferencesView(props: PreferencesViewProps) {
           <LayoutSectionDescription>{t("settings.privacy_section_desc")}</LayoutSectionDescription>
         </LayoutSectionHeader>
 
-        <LayoutSectionItem>
+        <LayoutSectionItem anchor="usage-data">
           <LayoutSectionItemHeader>
             <LayoutSectionItemTitle>{t("settings.analytics_toggle")}</LayoutSectionItemTitle>
             <LayoutSectionItemDescription>{t("settings.analytics_toggle_desc")}</LayoutSectionItemDescription>

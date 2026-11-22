@@ -111,3 +111,25 @@ test("unlimited session listing still follows native cursors", async () => {
   });
   assert.deepEqual(await read("/workspace/ws_fixture/opencode/session"), [0, 1].map(index => ({ id: `ses_${index}`, location: { directory: "/fixture" }, directory: "/fixture" })));
 });
+
+test("a turn that ended empty with a retry error surfaces that error instead of silence", async () => {
+  const read = createV2ReadAdapter(async () => ({
+    data: [{
+      id: "msg_empty", type: "assistant", time: { created: 2 }, content: [],
+      retry: { attempt: 2, at: 3, error: { type: "provider.transport", message: "Timed out waiting for response headers" } },
+    }],
+    cursor: { next: undefined },
+  }));
+  const rows = await read(`${path}?limit=10`) as Array<{ info: { error?: unknown }; parts: unknown[] }>;
+  assert.equal(rows[0]!.parts.length, 0);
+  assert.deepEqual(rows[0]!.info.error, { type: "provider.transport", message: "Timed out waiting for response headers" });
+
+  // A retrying turn that already produced text keeps its content and no error marker.
+  const withText = createV2ReadAdapter(async () => ({
+    data: [{ id: "msg_ok", type: "assistant", time: { created: 3 }, content: [{ type: "text", text: "listo" }],
+      retry: { attempt: 1, at: 4, error: { type: "provider.transport", message: "retrying" } } }],
+    cursor: { next: undefined },
+  }));
+  const okRows = await withText(`${path}?limit=10`) as Array<{ info: { error?: unknown } }>;
+  assert.equal(okRows[0]!.info.error, undefined);
+});

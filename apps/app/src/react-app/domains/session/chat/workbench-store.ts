@@ -108,19 +108,31 @@ export function syncWorkbenchSnapshot(
     if (!available.has(key)) available.set(key, { ...session, workspaceTitle });
   }
   const archivedSessionIds = new Set(input.archivedSessionIds);
-  // An index only covers one engine. Absence is not evidence of deletion:
-  // retained tabs, like saved pairs, require an explicit close or archive.
-  let tabs = current.tabs
-    .filter((tab) => (
-      tab.workspaceId !== input.workspaceId
-      || !archivedSessionIds.has(tab.sessionId)
-      // Keep the routed archived primary viewable until navigation leaves it.
-      || tab.sessionId === input.primarySessionId
-    ))
-    .map((tab) => {
-      const fresh = available.get(workbenchSessionKey(tab));
-      return fresh ? { ...tab, ...fresh } : tab;
-    });
+  const primaryChanged = !isSameWorkbenchSession(
+    current.primary,
+    input.primarySessionId ? { workspaceId: input.workspaceId, sessionId: input.primarySessionId } : null,
+  );
+
+  // Al cambiar de sesión, se resetean las pestañas acumuladas: solo se muestran
+  // las pestañas de la sesión actual (no se arrastran las de sesiones anteriores).
+  let tabs: WorkbenchSessionTab[];
+  if (primaryChanged) {
+    tabs = [];
+  } else {
+    // An index only covers one engine. Absence is not evidence of deletion:
+    // retained tabs, like saved pairs, require an explicit close or archive.
+    tabs = current.tabs
+      .filter((tab) => (
+        tab.workspaceId !== input.workspaceId
+        || !archivedSessionIds.has(tab.sessionId)
+        // Keep the routed archived primary viewable until navigation leaves it.
+        || tab.sessionId === input.primarySessionId
+      ))
+      .map((tab) => {
+        const fresh = available.get(workbenchSessionKey(tab));
+        return fresh ? { ...tab, ...fresh } : tab;
+      });
+  }
 
   let primary: WorkbenchSessionTab | null = null;
   if (input.primarySessionId) {

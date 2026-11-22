@@ -6,8 +6,8 @@ import { CHAT_COMMANDS, chatCommandOptions, resolveChatCommand, appCommandForOpt
 import { shareTranscript, buildShareHtml } from "../src/react-app/domains/session/commands/share-snapshot";
 import { getSlashCommandQuery, parseSlashCommandInvocation } from "../src/react-app/domains/session/surface/composer/slash-command";
 
-test("command registry has eleven unique actions and native init remains a native command", () => {
-  assert.equal(CHAT_COMMANDS.length, 11); assert.equal(new Set(CHAT_COMMANDS.map(c => c.id)).size, 11);
+test("command registry has thirteen unique actions and native init remains a native command", () => {
+  assert.equal(CHAT_COMMANDS.length, 13); assert.equal(new Set(CHAT_COMMANDS.map(c => c.id)).size, 13);
   assert.equal(resolveChatCommand("/bifurcar")?.id, "fork"); assert.equal(resolveChatCommand("/fork")?.id, "fork");
   assert.equal(resolveChatCommand("/estado")?.id, "status"); assert.equal(resolveChatCommand("/status")?.id, "status");
   assert.equal(resolveChatCommand("/pin")?.id, "pin");
@@ -21,8 +21,8 @@ test("capabilities stay visible with reasons for empty, busy, secondary and unsu
   const base = { hasSession: true, busy: false, nativeV2: true, canArchive: true, canFork: true, canAttach: true, secondary: false };
   const ready = chatCommandOptions(base); assert.ok(ready.every(c => !c.disabledReason));
   assert.equal(chatCommandOptions({ ...base, pinned: true }).find(c => c.appCommand === "pin")?.label, "Quitar de fijados");
-  const empty = chatCommandOptions({ ...base, hasSession: false }); assert.equal(empty.length, 11); assert.ok(empty.find(c => c.appCommand === "archive")?.disabledReason); assert.ok(!empty.find(c => c.appCommand === "draw")?.disabledReason);
-  assert.ok(chatCommandOptions({ ...base, nativeV2: false }).find(c => c.appCommand === "compact")?.disabledReason);
+  const empty = chatCommandOptions({ ...base, hasSession: false }); assert.equal(empty.length, 13); assert.ok(empty.find(c => c.appCommand === "archive")?.disabledReason); assert.ok(!empty.find(c => c.appCommand === "draw")?.disabledReason);
+  assert.ok(!chatCommandOptions({ ...base, nativeV2: false }).find(c => c.appCommand === "compact")?.disabledReason);
   assert.ok(chatCommandOptions({ ...base, secondary: true }).find(c => c.appCommand === "side")?.disabledReason);
   assert.match(chatCommandOptions({ ...base, hasMessages: false }).find(c => c.appCommand === "fork")?.disabledReason ?? "", /mensajes/);
   const busy = chatCommandOptions({ ...base, busy: true }); assert.ok(!busy.find(c => c.appCommand === "compact")?.disabledReason); assert.ok(!busy.find(c => c.appCommand === "status")?.disabledReason);

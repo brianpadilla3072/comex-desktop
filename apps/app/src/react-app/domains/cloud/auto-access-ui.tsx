@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { t } from "@/i18n";
+import { subscribeToQueryCacheChanges } from "@/react-app/infra/query-cache-state";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TaskRecovery } from "@/components/chat/task-recovery";
@@ -53,7 +55,7 @@ export function openAutoSignIn(
   conversation?: { workspaceId?: string | null; sessionId?: string | null },
 ) {
   if (recovery && !beginRejectedTurnRecovery(recovery.owner, recovery.id)) {
-    toast.error("Your unsent message could not be prepared for sign-in. Copy it before continuing.");
+    toast.error(t("secondary_ui.cloud.free.draft_failed"));
     return;
   }
   if (recovery) suspendRejectedQueueForSignIn(recovery.owner);
@@ -72,7 +74,7 @@ export function useObservedAutoAccessSnapshot(override?: AutoAccessWorkspace) {
   const auth = useDenAuth();
   const client = useQueryClient();
   const queryKey = autoAccessStatusQueryKey(auth, workspace?.openworkServerClient?.baseUrl, workspace?.workspaceId);
-  const subscribe = useCallback((onChange: () => void) => client.getQueryCache().subscribe(onChange), [client]);
+  const subscribe = useCallback((onChange: () => void) => subscribeToQueryCacheChanges(client, onChange), [client]);
   return useSyncExternalStore(subscribe, () => client.getQueryState<DesktopFreeAccessStatus>(queryKey), () => undefined);
 }
 
@@ -110,11 +112,11 @@ export function AutoPickerRecovery({ state, code, resetsAt, onRetry, onReload, h
   const reload = reloadWorkspace ? async () => { await reloadWorkspace(); await retry(); } : undefined;
   if (state === "ready" || freeAutoSwitchedOff(observed)) return null;
   return <PickerNotice testId="auto-picker-recovery" action={<>
-    {copy.action === "Sign in" ? <Button size="sm" onClick={() => openAutoSignIn(undefined, signIn)}>Sign in</Button> : null}
-    {copy.action === "Update" ? <Button size="sm" onClick={openAutoUpdate}>Update</Button> : null}
-    {copy.action === "Retry" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(retry)}>Retry</Button> : null}
-    {copy.action === "Reload" ? <Button size="sm" variant="outline" disabled={!reload || busy || activeWork || checkRestriction({ restriction: "allowControlSettings" })} title={activeWork ? "Wait for this workspace’s active tasks to finish" : undefined} onClick={() => { if (reload) void run(reload); }}>Reload</Button> : null}
-  </>}>{failed ? "Couldn’t refresh OpenWork Free. Try again, or choose another model." : state === "unavailable" && !hasAlternatives ? "OpenWork Free is having trouble right now. Connect another provider to continue." : copy.detail}</PickerNotice>;
+    {copy.action === "Sign in" ? <Button size="sm" onClick={() => openAutoSignIn(undefined, signIn)}>{t("den.signin_button")}</Button> : null}
+    {copy.action === "Update" ? <Button size="sm" onClick={openAutoUpdate}>{t("extensions.update_button")}</Button> : null}
+    {copy.action === "Retry" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(retry)}>{t("common.retry")}</Button> : null}
+    {copy.action === "Reload" ? <Button size="sm" variant="outline" disabled={!reload || busy || activeWork || checkRestriction({ restriction: "allowControlSettings" })} title={activeWork ? t("secondary_ui.cloud.free.wait_tasks") : undefined} onClick={() => { if (reload) void run(reload); }}>{t("startup.reload")}</Button> : null}
+  </>}>{failed ? t("secondary_ui.cloud.free.refresh_failed") : state === "unavailable" && !hasAlternatives ? t("secondary_ui.cloud.free.trouble") : copy.detail}</PickerNotice>;
 }
 
 export function AutoAccessFooter(props: { available: boolean; syncing?: boolean }) {
@@ -152,11 +154,11 @@ function AutoAccessFooterContent({ available, syncing = false }: { available: bo
   const signIn = useCloudSignIn();
   if ((!available && !syncing) || freeAutoSwitchedOff(query.data) || autoQuietlyUnavailable(query.data)) return null;
   // Every other Auto state has its own notice above the picker footer (Paper "Availability and recovery").
-  const status = !syncing && query.data?.state === "ready" && auth.status === "signed_out" ? "OpenWork Free works on this device" : null;
+  const status = !syncing && query.data?.state === "ready" && auth.status === "signed_out" ? t("secondary_ui.cloud.free.works_here") : null;
   if (!status) return null;
   return <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
     <span role="status">{status}</span>
-    {auth.status === "signed_out" ? <Button size="sm" variant="ghost" onClick={() => openAutoSignIn(undefined, signIn)}>Sign in to sync</Button> : null}
+    {auth.status === "signed_out" ? <Button size="sm" variant="ghost" onClick={() => openAutoSignIn(undefined, signIn)}>{t("secondary_ui.cloud.free.sign_in_sync")}</Button> : null}
   </div>;
 }
 
@@ -167,8 +169,8 @@ function FreeAutoLimitCard({ wall, sessionId, workspaceId, recovery }: { wall: A
   const navigate = useUsageLimitNavigation(sessionId, viewer);
   const back = autoResetPhrase(wall.resetsAt);
   return <div data-testid="auto-access-wall" data-state={wall.state}>
-    <UsageLimitCard testId="usage-limit-card" kind="free_auto" title="You’ve used OpenWork Free for now"
-      reset={back && wall.resetsAt ? <time dateTime={wall.resetsAt} title={new Date(wall.resetsAt).toLocaleString()}>Back {back}</time> : null}
+    <UsageLimitCard testId="usage-limit-card" kind="free_auto" title={t("secondary_ui.cloud.free.used_up")}
+      reset={back && wall.resetsAt ? <time dateTime={wall.resetsAt} title={new Date(wall.resetsAt).toLocaleString()}>{t("secondary_ui.cloud.free.back", { when: back })}</time> : null}
       actions={<UsageLimitActions actions={usageLimitActions("free_auto", viewer)} onAction={(id) => navigate(id, () => openAutoSignIn(recovery, signIn, { workspaceId, sessionId }))} />} />
   </div>;
 }
@@ -188,8 +190,8 @@ function AutoAccessWallNotice({ wall, sessionId, workspaceId, recovery }: { wall
   return <div data-testid="auto-access-wall" data-state={wall.state}>
     <TaskRecovery compact state="paused" title={copy.title} description={copy.detail} technicalDetails={copy.technicalDetails}
       actions={<>
-        {offerSignIn ? <Button size="xs" variant="outline" onClick={() => openAutoSignIn(recovery, signIn, { workspaceId, sessionId })}>Sign in</Button> : null}
-        <Button size="xs" variant="ghost" onClick={() => openAlternativeModelPicker(sessionId)}>Choose a model</Button>
+        {offerSignIn ? <Button size="xs" variant="outline" onClick={() => openAutoSignIn(recovery, signIn, { workspaceId, sessionId })}>{t("den.signin_button")}</Button> : null}
+        <Button size="xs" variant="ghost" onClick={() => openAlternativeModelPicker(sessionId)}>{t("settings_ui.shortcut_choose_model")}</Button>
       </>} />
   </div>;
 }

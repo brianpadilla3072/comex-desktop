@@ -29,12 +29,13 @@ export function WindowSection(props: WindowSectionProps) {
         <LayoutSectionDescription>{t("settings.window_appearance_desc")}</LayoutSectionDescription>
       </LayoutSectionHeader>
 
-      <LayoutSectionItem>
+      <LayoutSectionItem anchor="hide-titlebar">
         <LayoutSectionItemHeader>
           <LayoutSectionItemTitle>{t("settings.hide_titlebar")}</LayoutSectionItemTitle>
           <LayoutSectionItemDescription>{t("settings.hide_titlebar_desc")}</LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
+              aria-label={t("settings.hide_titlebar")}
               checked={props.hideTitlebar}
               disabled={props.busy}
               onCheckedChange={props.toggleHideTitlebar}
@@ -43,13 +44,13 @@ export function WindowSection(props: WindowSectionProps) {
         </LayoutSectionItemHeader>
       </LayoutSectionItem>
 
-      <LayoutSectionItem className="hidden windows:flex linux:flex">
+      <LayoutSectionItem anchor="menu-bar" className="hidden windows:flex linux:flex">
         <LayoutSectionItemHeader>
-          <LayoutSectionItemTitle>Display menu bar</LayoutSectionItemTitle>
-          <LayoutSectionItemDescription>Show the native desktop menu bar.</LayoutSectionItemDescription>
+          <LayoutSectionItemTitle>{t("settings_ui.display_menu_bar")}</LayoutSectionItemTitle>
+          <LayoutSectionItemDescription>{t("settings_ui.display_menu_bar_desc")}</LayoutSectionItemDescription>
           <LayoutSectionItemHeaderActions>
             <Switch
-              aria-label="Display menu bar"
+              aria-label={t("settings_ui.display_menu_bar")}
               checked={applicationMenuVisible}
               disabled={props.busy}
               onCheckedChange={setApplicationMenuVisible}

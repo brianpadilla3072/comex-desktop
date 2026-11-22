@@ -1,5 +1,6 @@
 import { AUTO_ROUTER_PROVIDER_ID, autoRouterIdFromModel } from "@openwork/types/den/auto-router";
 import type { ModelOption, ModelRef } from "@/app/types";
+import { t } from "@/i18n";
 import type { CloudImportedProvider } from "@/app/cloud/import-state";
 import { modelRefKey, nextFavoriteModel } from "../session/models/model-collections-store";
 
@@ -17,10 +18,10 @@ export type RetainedModelSelection = {
 };
 export function retainedModelCopy(reason: RetainedModelSelection["reason"]) {
   switch (reason) {
-    case "policy": return { subtitle: "blocked by your organization", detail: "Your organization decides which providers are allowed here." };
-    case "disabled": return { subtitle: "disabled in AI providers", detail: "Turn this provider back on in AI providers, or choose another model." };
-    case "signed-out": return { subtitle: "sign in to verify access", detail: "Sign in to verify access to your saved model, or choose a connected provider." };
-    case "unavailable": return { subtitle: "no longer available here", detail: "Your saved model isn’t available here anymore." };
+    case "policy": return { subtitle: t("secondary_ui.models.retained_policy_subtitle"), detail: t("secondary_ui.models.retained_policy_detail") };
+    case "disabled": return { subtitle: t("secondary_ui.models.retained_disabled_subtitle"), detail: t("secondary_ui.models.retained_disabled_detail") };
+    case "signed-out": return { subtitle: t("secondary_ui.models.retained_signed_out_subtitle"), detail: t("secondary_ui.models.retained_signed_out_detail") };
+    case "unavailable": return { subtitle: t("secondary_ui.models.retained_unavailable_subtitle"), detail: t("secondary_ui.models.retained_unavailable_detail") };
   }
 }
 export function nonDefaultModelSummary(model: ModelRef, value: string | null, label: string) {
@@ -37,8 +38,20 @@ export const FREE_MODEL_NAME = "OpenWork Free";
 export const FREE_MODEL_ENGINE_TITLE = "GPT-6 Luna";
 /** `plainFreeModel`: the free model is named, marked and described like every other model. */
 export type ModelDisplayOptions = { plainFreeModel?: boolean };
+/**
+ * Stable ids of the picker groups that are not a provider. Logic compares these ids; people
+ * read `modelGroupLabel`, translated at render time. Provider groups use the provider's name.
+ */
+export const MODEL_GROUP_IDS = {
+  pinned: "pinned",
+  recent: "recent",
+  openwork: "openwork-models",
+  free: "free",
+  saved: "saved-selection",
+  search: "search-results",
+} as const;
 /** The picker group that holds only Smart Router models, above everything else, without a label. */
-export const AUTO_ROUTER_GROUP = "Smart";
+export const AUTO_ROUTER_GROUP = "smart";
 /** What a Smart Router model is called when the engine reports no name for it. */
 export const SMART_MODEL_FALLBACK_NAME = "Smart";
 
@@ -64,9 +77,11 @@ export function markExplicitModelChoice() {
   try { window.localStorage.setItem(EXPLICIT_MODEL_CHOICE_KEY, "1"); } catch {}
 }
 export type ModelSource = "gateway" | "local" | "organization";
-export const MODEL_SOURCE_LABELS: Record<ModelSource, string> = {
-  gateway: "OpenWork Gateway", local: "Local", organization: "Organization",
-};
+/** What people read for a model's source; OpenWork Gateway is a product name. */
+export function modelSourceLabel(source: ModelSource): string {
+  if (source === "gateway") return "OpenWork Gateway";
+  return source === "local" ? t("secondary_ui.models.source_local") : t("secondary_ui.models.source_organization");
+}
 
 /** Free Auto, as opposed to the same model served by an organization's OpenWork Models. */
 export function isFreeAutoModel(model: ModelRef | null | undefined) {
@@ -170,17 +185,17 @@ export function modelMakerId(model: ModelRef & { title?: string }): string | nul
 
 /** Only what is true about this model right now, without its provider (rows already show the logo and group). */
 export function modelStateLabel(model: ModelOption): string | null {
-  if (model.gatewayAuthorization) return "Sign-in required";
-  if (model.organizationPinOrder !== undefined) return "Pinned by your org";
+  if (model.gatewayAuthorization) return t("secondary_ui.models.sign_in_required");
+  if (model.organizationPinOrder !== undefined) return t("models_ui.pinned_by_org");
   return null;
 }
 
 export function modelSubtitle(model: ModelOption, exhausted = false, display: ModelDisplayOptions = {}) {
-  if (isAutoModel(model) && !display.plainFreeModel) return exhausted ? "Limit used up" : "Free with a usage limit";
-  if (isAutoRouterModel(model)) return "Picks the best model for each task";
+  if (isAutoModel(model) && !display.plainFreeModel) return exhausted ? t("secondary_ui.models.limit_used_up") : t("secondary_ui.models.free_with_limit");
+  if (isAutoRouterModel(model)) return t("secondary_ui.models.router_subtitle");
   // Gateway models assigned to the member that wait on their own provider sign-in.
-  if (model.gatewayAuthorization) return [model.description?.trim(), "Sign-in required"].filter(Boolean).join(" · ");
-  return [model.description?.trim(), model.organizationPinOrder !== undefined ? "pinned by your org" : null].filter(Boolean).join(" · ");
+  if (model.gatewayAuthorization) return [model.description?.trim(), t("secondary_ui.models.sign_in_required")].filter(Boolean).join(" · ");
+  return [model.description?.trim(), model.organizationPinOrder !== undefined ? t("secondary_ui.models.pinned_by_org_inline") : null].filter(Boolean).join(" · ");
 }
 
 export function withImportedModelMetadata(options: readonly ModelOption[], imports: Record<string, CloudImportedProvider>) {
@@ -235,7 +250,21 @@ export function nextModelSource(options: readonly ModelOption[], pins: readonly 
   return available.find((option) => modelSource(option) === next) ?? null;
 }
 
+/** `value` is the group's stable id (a `MODEL_GROUP_IDS` entry, `AUTO_ROUTER_GROUP` or the provider's name). */
 export type ModelGroup = { value: string; items: ModelOption[] };
+/** What people read above a group: fixed groups are translated; provider groups show the provider's name. */
+export function modelGroupLabel(value: string): string {
+  switch (value) {
+    case MODEL_GROUP_IDS.pinned: return t("secondary_ui.models.group_pinned");
+    case MODEL_GROUP_IDS.recent: return t("secondary_ui.models.group_recent");
+    case MODEL_GROUP_IDS.openwork: return "OpenWork Models";
+    case MODEL_GROUP_IDS.free: return t("secondary_ui.models.group_free");
+    case MODEL_GROUP_IDS.saved: return t("secondary_ui.models.group_saved");
+    case MODEL_GROUP_IDS.search: return t("secondary_ui.models.group_search");
+    case AUTO_ROUTER_GROUP: return SMART_MODEL_FALLBACK_NAME;
+    default: return value;
+  }
+}
 export function modelGroups(options: readonly ModelOption[], personal: readonly ModelRef[], recent: readonly ModelRef[], query = "", freeFirst = false): ModelGroup[] {
   const groups: ModelGroup[] = [];
   const shown = new Set<string>();
@@ -253,14 +282,14 @@ export function modelGroups(options: readonly ModelOption[], personal: readonly 
   };
   // Comex starts with the models explicitly reported at no cost. Claim them
   // once, including favorites/recent entries, so provider groups stay unique.
-  if (freeFirst) add("Gratis", available.filter(option => option.isFree)
+  if (freeFirst) add(MODEL_GROUP_IDS.free, available.filter(option => option.isFree)
     .sort((a, b) => modelTitle(a).localeCompare(modelTitle(b)) || a.providerID.localeCompare(b.providerID)));
   // Smart Routers stand alone at the top, by name, wherever else they would be listed.
   add(AUTO_ROUTER_GROUP, available.filter(isAutoRouterModel)
     .sort((a, b) => modelTitle(a).localeCompare(modelTitle(b)) || a.modelID.localeCompare(b.modelID)));
-  add("Pinned", orderedModelPins(available, personal));
-  add("Recent", recent.flatMap((model) => available.filter((option) => modelRefKey(option) === modelRefKey(model))), false);
-  add("OpenWork Models", available.filter((option) => option.providerID === "openwork" || option.providerID === AUTO_PROVIDER_ID));
+  add(MODEL_GROUP_IDS.pinned, orderedModelPins(available, personal));
+  add(MODEL_GROUP_IDS.recent, recent.flatMap((model) => available.filter((option) => modelRefKey(option) === modelRefKey(model))), false);
+  add(MODEL_GROUP_IDS.openwork, available.filter((option) => option.providerID === "openwork" || option.providerID === AUTO_PROVIDER_ID));
   const providers = [...new Set(available.map((option) => option.providerID))].sort((a, b) => {
     const name = (id: string) => available.find((option) => option.providerID === id)?.description || id;
     return name(a).localeCompare(name(b));
@@ -295,4 +324,25 @@ export function isPinModelShortcut(event: { key: string; shiftKey: boolean; ctrl
 
 export function isCycleModelSourceShortcut(event: { key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }) {
   return event.key.toLowerCase() === "m" && event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey;
+}
+
+/**
+ * Where a retired OpenCode Zen default (provider `opencode`) moves to. While
+ * policy blocks Zen, any Zen default moves. Comex keeps the provider allowed
+ * for Console accounts, so there a Zen default moves only once the connected
+ * catalog no longer has it; an empty catalog (still loading) moves nothing.
+ */
+export function retiredZenDefaultReplacement<T extends ModelRef & { disabled?: boolean }>(input: {
+  current: ModelRef | null | undefined;
+  available: readonly T[];
+  zenBlocked: boolean;
+}): T | undefined {
+  const { current, available, zenBlocked } = input;
+  if (current && current.providerID !== "opencode") return undefined;
+  if (!zenBlocked) {
+    if (!current || available.length === 0) return undefined;
+    if (available.some((option) => option.providerID === current.providerID && option.modelID === current.modelID && !option.disabled)) return undefined;
+  }
+  const usable = available.filter((option) => option.providerID !== "opencode");
+  return starterModel(usable) ?? usable[0];
 }

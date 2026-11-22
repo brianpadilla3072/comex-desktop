@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { t } from "@/i18n";
 import { useState } from "react";
 
 import {
@@ -33,35 +34,35 @@ type AttributionOption = {
   icon: typeof BotIcon;
 };
 
-const options: AttributionOption[] = [
+const attributionOptions = (): AttributionOption[] => [
   {
     source: "ai_assistant",
-    label: "An AI assistant",
+    label: t("onboarding_ui.source_ai_assistant"),
     description: "ChatGPT, Claude, Gemini, Perplexity...",
     icon: BotIcon,
   },
   {
     source: "search",
-    label: "Search",
+    label: t("onboarding_ui.source_search"),
     description: "Google, Bing, DuckDuckGo...",
     icon: SearchIcon,
   },
   {
     source: "social",
-    label: "Social media",
+    label: t("onboarding_ui.source_social"),
     description: "X, LinkedIn, YouTube, Reddit...",
     icon: MessageCircleIcon,
   },
   {
     source: "github",
-    label: "GitHub or open source community",
-    description: "Repos, stars, awesome lists...",
+    label: t("onboarding_ui.source_github"),
+    description: t("onboarding_ui.source_github_desc"),
     icon: GithubIcon,
   },
   {
     source: "friend_or_colleague",
-    label: "A friend or colleague",
-    description: "Someone recommended it directly.",
+    label: t("onboarding_ui.source_friend"),
+    description: t("onboarding_ui.source_friend_desc"),
     icon: UsersIcon,
   },
 ];
@@ -87,22 +88,22 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
 
       <div className="relative z-10 mx-6 w-full max-w-md rounded-3xl border border-border bg-background px-8 py-10">
         <PageHeader className="mb-8 text-center">
-          <PageTitle>How did you hear about OpenWork?</PageTitle>
+          <PageTitle>{t("onboarding_ui.attribution_title")}</PageTitle>
           <PageDescription>
-            One quick question — it helps us know where to show up.
+            {t("onboarding_ui.attribution_description")}
           </PageDescription>
         </PageHeader>
 
         {aiSelected ? (
           <div className="space-y-3">
             <div className="text-sm font-medium text-foreground">
-              What did you ask the AI?
+              {t("onboarding_ui.attribution_ai_prompt")}
             </div>
             <Textarea
               autoFocus
               value={aiPrompt}
               onChange={(event) => setAiPrompt(event.target.value)}
-              placeholder={'e.g. "best open source alternative to Claude Cowork"'}
+              placeholder={t("onboarding_ui.attribution_ai_placeholder")}
               rows={3}
             />
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -111,16 +112,16 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
                 size="sm"
                 onClick={() => onSubmit("ai_assistant")}
               >
-                Skip this part
+                {t("onboarding_ui.skip_this_part")}
               </Button>
               <Button size="sm" onClick={() => onSubmit("ai_assistant", aiPrompt)}>
-                Continue
+                {t("onboarding_ui.continue")}
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
-            {options.map((option) => (
+            {attributionOptions().map((option) => (
               <button
                 key={option.source}
                 type="button"
@@ -148,7 +149,7 @@ export function AttributionStep({ onSubmit, onSkip }: AttributionStepProps) {
             <div className="pt-1 text-center">
               <Button variant="ghost" size="sm" onClick={onSkip}>
                 <SkipForwardIcon className="mr-1.5 size-3.5" />
-                Skip
+                {t("onboarding_ui.skip")}
               </Button>
             </div>
           </div>

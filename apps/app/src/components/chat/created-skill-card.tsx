@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { t } from "@/i18n"
 import { BookOpenCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -55,8 +56,8 @@ export function CreatedSkillCard({ card }: { card: CreatedSkillCardModel }) {
           <Skeleton className="h-3 w-28 rounded-sm bg-slate-4" />
           <Skeleton className="h-2 w-44 rounded-sm bg-slate-4" />
         </div>
-        <span className="sr-only">Loading the saved skill</span>
-        <Button type="button" variant="outline" size="sm" className={OPEN_CLASS} disabled>Open</Button>
+        <span className="sr-only">{t("chat_ui.loading_saved_skill")}</span>
+        <Button type="button" variant="outline" size="sm" className={OPEN_CLASS} disabled>{t("chat_ui.open")}</Button>
       </div>
     )
   }
@@ -80,10 +81,10 @@ export function CreatedSkillCard({ card }: { card: CreatedSkillCardModel }) {
             variant="outline"
             size="sm"
             className={OPEN_CLASS}
-            aria-label={`Open ${card.name} in Library`}
+            aria-label={t("chat_ui.open_skill_in_library", { name: card.name })}
             onClick={() => onOpenSkill(createdSkillLibraryDetailId(card))}
           >
-            Open
+            {t("chat_ui.open")}
           </Button>
         ) : null}
       </div>

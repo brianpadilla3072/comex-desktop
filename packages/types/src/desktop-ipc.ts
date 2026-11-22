@@ -586,6 +586,10 @@ export type DesktopCommandMap = {
     args: [projectDir: string, sourceDir: string, options?: { overwrite?: boolean }];
     result: ExecResult;
   };
+  importSkillRepo: {
+    args: [projectDir: string, url: string];
+    result: { ok: boolean; status: number; stdout: string; stderr: string; imported: string[]; skipped: string[] };
+  };
   installSkillTemplate: {
     args: [projectDir: string, name: string, content: string, options?: { overwrite?: boolean }];
     result: ExecResult;
@@ -612,7 +616,12 @@ export type DesktopCommandMap = {
    * whether "onboarding" should preserve desktop workspace state.
    */
   resetOpenworkState: { args: [mode?: "onboarding" | "all"]; result: unknown };
+  resetOpencodeCache: { args: []; result: CacheResetResult };
+  sandboxCleanupOpenworkContainers: { args: []; result: OpenworkDockerCleanupResult };
   opencodeMcpAuth: { args: [action: string, name: string]; result: ExecResult };
+
+  // Design studio: render self-contained page documents to PDF/PNG (apps/desktop/electron/design-render.mjs)
+  designRender: { args: [request: DesignRenderRequest]; result: DesignRenderResult };
 
   // Window / OS utilities (dunder commands)
   __showContextMenu: { args: [request: NativeContextMenuRequest]; result: string | null };
@@ -635,6 +644,17 @@ export type DesktopCommandMap = {
   __setNativeTheme: { args: [theme: string]; result: unknown };
   __setApplicationMenuVisible: { args: [visible: boolean]; result: unknown };
 };
+
+/** Self-contained HTML pages (assets inlined as data: URLs) rendered offline by Electron. */
+export type DesignRenderRequest = {
+  format: "pdf" | "png";
+  pages: Array<{ html: string; width: number; height: number }>;
+};
+
+/** PDF: one file with a page per design page. PNG: one file per page, in order. */
+export type DesignRenderResult =
+  | { ok: true; files: Uint8Array[] }
+  | { ok: false; code: "invalid_request" | "render_timeout" | "render_failed"; message: string };
 
 /** Data-only context menu contract; callbacks and privileged Electron roles never cross IPC. */
 export type NativeContextMenuItem = { type: "separator" } | {

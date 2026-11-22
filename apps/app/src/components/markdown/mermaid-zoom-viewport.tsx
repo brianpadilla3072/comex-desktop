@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
+import { t } from "@/i18n";
 import { createPortal } from "react-dom";
 import { Maximize2Icon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
@@ -221,7 +222,7 @@ export function MermaidZoomViewport(props: {
             "opacity-0 transition-opacity duration-150 ease-out motion-reduce:transition-none group-hover/diagram:opacity-100 group-focus-within/diagram:opacity-100 group-data-[zoomed=true]/diagram:opacity-100 [@media(hover:none)]:opacity-100",
         )}
       >
-        <ToolbarButton label="Zoom out" chord="-" disabled={view.scale <= DIAGRAM_ZOOM.min} onClick={zoomOut}>
+        <ToolbarButton label={t("markdown_ui.zoom_out")} chord="-" disabled={view.scale <= DIAGRAM_ZOOM.min} onClick={zoomOut}>
           <ZoomOutIcon />
         </ToolbarButton>
         <Tooltip>
@@ -232,7 +233,7 @@ export function MermaidZoomViewport(props: {
                 variant="ghost"
                 size="xs"
                 className="min-w-12 rounded-md px-1.5 font-mono text-muted-foreground tabular-nums hover:bg-muted hover:text-foreground"
-                aria-label={`Reset zoom, currently ${percent}`}
+                aria-label={t("markdown_ui.reset_zoom_current", { percent })}
                 aria-keyshortcuts="0"
                 onClick={reset}
               >
@@ -241,15 +242,15 @@ export function MermaidZoomViewport(props: {
             )}
           />
           <TooltipContent>
-            Reset zoom
+            {t("markdown_ui.reset_zoom")}
             <kbd data-slot="kbd" className="font-sans opacity-70">0</kbd>
           </TooltipContent>
         </Tooltip>
-        <ToolbarButton label="Zoom in" chord="+" disabled={view.scale >= DIAGRAM_ZOOM.max} onClick={zoomIn}>
+        <ToolbarButton label={t("markdown_ui.zoom_in")} chord="+" disabled={view.scale >= DIAGRAM_ZOOM.max} onClick={zoomIn}>
           <ZoomInIcon />
         </ToolbarButton>
         {props.onOpenFullScreen ? (
-          <ToolbarButton label="Open full screen" onClick={props.onOpenFullScreen}>
+          <ToolbarButton label={t("markdown_ui.open_full_screen")} onClick={props.onOpenFullScreen}>
             <Maximize2Icon />
           </ToolbarButton>
         ) : null}
@@ -273,9 +274,9 @@ function MermaidZoomDiagramView(props: { svg: string }) {
           className="flex h-[92dvh] flex-col gap-0 p-0 lg:h-[min(88vh,960px)] lg:w-[calc(100%-4rem)] lg:max-w-6xl lg:rounded-[24px]"
         >
           <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border ps-4 pe-2">
-            <DialogTitle className="me-auto text-sm">Mermaid diagram</DialogTitle>
+            <DialogTitle className="me-auto text-sm">{t("markdown_ui.mermaid_diagram")}</DialogTitle>
             <DialogClose
-              render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Close full screen" aria-keyshortcuts="Escape" />}
+              render={<Button type="button" variant="ghost" size="icon-sm" aria-label={t("markdown_ui.close_full_screen")} aria-keyshortcuts="Escape" />}
             >
               <XIcon />
             </DialogClose>

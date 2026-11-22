@@ -22,7 +22,7 @@ export type ChatCommandTarget = {
   sessionId?: string; title?: string; secondary?: boolean; loadTranscript?: () => Promise<OpenworkSessionMessage[]>;
   fork?: () => Promise<void>; contextLimit?: number; messages?: readonly OpenworkSessionMessage[];
 };
-type Props = ChatCommandTarget & { busy: boolean; canAttach: boolean; model: ModelRef; onAttach: (files: File[]) => void; listMcp?: () => Promise<{ servers: McpServerEntry[]; statuses: McpStatusMap; status: string | null }> };
+type Props = ChatCommandTarget & { busy: boolean; canAttach: boolean; model: ModelRef; onAttach: (files: File[]) => void; listMcp?: () => Promise<{ servers: McpServerEntry[]; statuses: McpStatusMap; status: string | null }>; designStudioEnabled?: boolean; onOpenDesign?: () => void; onInsertPrompt?: (text: string) => void };
 const compactionReceipt = z.object({ data: z.object({ sessionID: z.string(), id: z.string(), type: z.literal("compaction") }) });
 const INITIAL = { kind: null, text: "" };
 export function useChatCommands(p: Props) {
@@ -37,7 +37,7 @@ export function useChatCommands(p: Props) {
   useEffect(() => { setDialog(INITIAL); setError(""); setConnections(null); }, [owner]);
   const hasSession = Boolean(p.sessionId?.startsWith("ses_")); const nativeV2 = isOpencodeV2BaseUrl(p.opencodeBaseUrl);
   const canArchive = Boolean(host && p.nativeClient); const canFork = Boolean(p.fork); const secondary = Boolean(p.secondary); const hasMessages = Boolean(p.messages?.length);
-  const options = useMemo(() => chatCommandOptions({ hasSession, busy: p.busy, nativeV2, canArchive, canFork, canAttach: p.canAttach, secondary, pending, pinned, hasMessages }), [hasSession, p.busy, nativeV2, canArchive, canFork, p.canAttach, secondary, pending, pinned, hasMessages]);
+  const options = useMemo(() => chatCommandOptions({ hasSession, busy: p.busy, nativeV2, canArchive, canFork, canAttach: p.canAttach, secondary, pending, pinned, hasMessages, designStudioEnabled: p.designStudioEnabled }), [hasSession, p.busy, nativeV2, canArchive, canFork, p.canAttach, secondary, pending, pinned, hasMessages, p.designStudioEnabled]);
   const work = async (job: () => Promise<void>) => {
     if (inFlight.current) return; inFlight.current = true; setPending(true); setError(""); const current = owner;
     try { await job(); } catch (e) { if (ownerRef.current === current) setError(e instanceof Error ? e.message : "No se pudo completar el comando."); }
@@ -50,6 +50,8 @@ export function useChatCommands(p: Props) {
     if (id === "init") return; // Composer inserts the engine's own /init command.
     if (id === "pin") { if (p.sessionId) pinStore.getState().togglePin(p.sessionId); return; }
     if (id === "pet") { useLocalPet.getState().toggle(); return; }
+  if (id === "design") { p.onOpenDesign?.(); return; }
+  if (id === "marca") { p.onInsertPrompt?.("/diseno-marca "); return; }
     if (id === "compact" || id === "draw" || id === "status") { setError(""); setDialog({ kind: id, text: "" }); return; }
     await work(async () => {
       const current = owner;
@@ -58,15 +60,15 @@ export function useChatCommands(p: Props) {
       if (id === "side" && p.nativeClient && p.sessionId) {
         const session = unwrap(await p.nativeClient.session.create({ title: "Chat lateral" }));
         if (!session?.id) throw new Error("El motor no devolvió el chat lateral.");
-        if (ownerRef.current !== current) { toast("Se creó Chat lateral. Lo podés abrir desde el proyecto."); return; }
+        if (ownerRef.current !== current) { toast("Se creó Chat lateral. Lo puedes abrir desde el proyecto."); return; }
         const workbench = useWorkbenchStore.getState();
         workbench.openTab({ workspaceId: p.workspaceId, sessionId: session.id, title: session.title ?? "Chat lateral" });
         workbench.setSideChat({ workspaceId: p.workspaceId, sessionId: p.sessionId, title: p.title ?? "Chat principal" }, { workspaceId: p.workspaceId, sessionId: session.id, title: session.title ?? "Chat lateral" }); return;
       }
       if (id === "share") {
-        if (!p.loadTranscript) throw new Error("No se pudo leer el historial completo. Volvé a abrir el chat.");
+        if (!p.loadTranscript) throw new Error("No se pudo leer el historial completo. Vuelve a abrir el chat.");
         const text = shareTranscript(await p.loadTranscript());
-        if (text.length > 2_000_000) throw new Error("El chat supera el límite de exportación. Exportá un tramo más corto.");
+        if (text.length > 2_000_000) throw new Error("El chat supera el límite de exportación. Exporta un tramo más corto.");
         if (ownerRef.current === current) setDialog({ kind: "share", text }); return;
       }
       if (id === "mcp") {
@@ -84,8 +86,8 @@ export function useChatCommands(p: Props) {
     {error && !dialog.kind && <p role="alert" className="px-2 py-1 text-xs text-destructive">{error}</p>}
     <SketchDialog open={enabled && dialog.kind === "draw"} onClose={close} onAttach={p.onAttach} />
     <Dialog open={enabled && dialog.kind !== null && dialog.kind !== "draw"} onOpenChange={value => { if (!value) close(); }}><DialogContent aria-describedby={undefined} className="max-h-[85dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{dialog.kind === "compact" ? "Compactar contexto" : dialog.kind === "share" ? "Compartir una copia del chat" : dialog.kind === "mcp" ? "Conexiones MCP" : "Estado del chat"}</DialogTitle></DialogHeader>
-      {dialog.kind === "compact" && <><p className="text-sm text-muted-foreground">OpenCode resumirá el contexto con el modelo actual. Puede consumir tokens y perder detalles; el historial se conserva. Si hay una tarea en curso, el motor decide cuándo ejecutarlo.</p><DialogFooter><Button variant="ghost" onClick={close}>Cancelar</Button><Button disabled={pending} onClick={() => void work(async () => { if (!p.client || !p.sessionId) return; const receipt = compactionReceipt.safeParse(await p.client.compactChat(p.workspaceId, p.sessionId)); if (!receipt.success || receipt.data.data.sessionID !== p.sessionId) throw new Error("El motor no confirmó la solicitud. Revisá el estado antes de reintentar."); setDialog(INITIAL); toast("OpenCode admitió la compactación; se verá en el chat cuando termine."); })}>Solicitar compactación</Button></DialogFooter></>}
-      {dialog.kind === "share" && <><p className="text-xs text-muted-foreground">Copia local del texto de usuario y asistente. Revisá datos privados antes de descargar. No incluye herramientas, razonamiento ni archivos adjuntos.</p><Textarea aria-label="Texto de la copia para compartir" className="min-h-64 text-xs" maxLength={2_000_000} value={dialog.text} onChange={event => setDialog({ ...dialog, text: event.target.value })} /><DialogFooter><Button variant="ghost" onClick={close}>Cancelar</Button><Button disabled={!dialog.text.trim()} onClick={() => { try { downloadShare(p.title ?? "Conversación", dialog.text); close(); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo exportar."); } }}>Descargar copia HTML</Button></DialogFooter></>}
+      {dialog.kind === "compact" && <><p className="text-sm text-muted-foreground">OpenCode resumirá el contexto con el modelo actual. Puede consumir tokens y perder detalles; el historial se conserva. Si hay una tarea en curso, el motor decide cuándo ejecutarlo.</p><DialogFooter><Button variant="ghost" onClick={close}>Cancelar</Button><Button disabled={pending} onClick={() => void work(async () => { if (!p.client || !p.sessionId) return; const receipt = compactionReceipt.safeParse(await p.client.compactChat(p.workspaceId, p.sessionId)); if (!receipt.success || receipt.data.data.sessionID !== p.sessionId) throw new Error("El motor no confirmó la solicitud. Revisa el estado antes de reintentar."); setDialog(INITIAL); toast("OpenCode admitió la compactación; se verá en el chat cuando termine."); })}>Solicitar compactación</Button></DialogFooter></>}
+      {dialog.kind === "share" && <><p className="text-xs text-muted-foreground">Copia local del texto de usuario y asistente. Revisa datos privados antes de descargar. No incluye herramientas, razonamiento ni archivos adjuntos.</p><Textarea aria-label="Texto de la copia para compartir" className="min-h-64 text-xs" maxLength={2_000_000} value={dialog.text} onChange={event => setDialog({ ...dialog, text: event.target.value })} /><DialogFooter><Button variant="ghost" onClick={close}>Cancelar</Button><Button disabled={!dialog.text.trim()} onClick={() => { try { downloadShare(p.title ?? "Conversación", dialog.text); close(); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo exportar."); } }}>Descargar copia HTML</Button></DialogFooter></>}
       {dialog.kind === "status" && <><dl className="space-y-3 text-sm">{[["Chat", p.sessionId], ["Modelo", `${p.model.providerID}/${p.model.modelID}`], ["Actividad", p.busy ? "En curso" : "En pausa"], ["Tokens de la última interacción", used === null ? "Sin datos" : used.toLocaleString()], ["Ventana del modelo", p.contextLimit ? `${p.contextLimit.toLocaleString()} tokens` : "Sin datos"]].map(([label, value]) => <div key={label} className="flex justify-between gap-4"><dt className="text-muted-foreground">{label}</dt><dd className="min-w-0 break-all text-right">{value}</dd></div>)}</dl><UsageLimits value={limits.data} pending={limits.isLoading} failed={limits.isError} /><p className="text-xs text-muted-foreground">Los tokens de una respuesta no equivalen al contexto total ocupado. Los límites solo se muestran cuando el proveedor los informa.</p></>}
       {dialog.kind === "mcp" && <div className="divide-y divide-border">{connections?.status && <p role="status" className="py-2 text-xs text-muted-foreground">{connections.status}</p>}{connections?.servers.length ? connections.servers.map(server => <div key={server.name} className="flex min-h-10 items-center justify-between gap-3 py-2 text-sm"><span className="min-w-0 truncate">{server.name}</span><span className="text-xs text-muted-foreground">{mcpStatusLabel(connections.statuses[server.name]?.status)}</span></div>) : <p className="py-2 text-sm text-muted-foreground">No hay conexiones configuradas.</p>}</div>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

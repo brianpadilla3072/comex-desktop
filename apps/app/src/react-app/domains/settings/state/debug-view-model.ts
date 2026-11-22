@@ -501,13 +501,13 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onClearDeveloperLog = useCallback(() => {
     setDeveloperLog([]);
-    setDeveloperLogStatus("Cleared developer log.");
+    setDeveloperLogStatus(t("secondary_ui.debug.log_cleared"));
   }, []);
 
   const onCopyDeveloperLog = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(developerLog.join("\n"));
-      setDeveloperLogStatus("Copied developer log to clipboard.");
+      setDeveloperLogStatus(t("secondary_ui.debug.log_copied"));
     } catch (error) {
       setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
@@ -520,7 +520,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
         developerLog.join("\n"),
         "text/plain",
       );
-      setDeveloperLogStatus("Exported developer log.");
+      setDeveloperLogStatus(t("secondary_ui.debug.log_exported"));
     } catch (error) {
       setDeveloperLogStatus(error instanceof Error ? error.message : safeStringify(error));
     }
@@ -599,16 +599,16 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onSetElectronAlphaUpdaterChannel = useCallback(async (channel: ReleaseChannel) => {
     if (!isElectronRuntime()) {
-      setElectronAlphaUpdaterStatus("Electron updater channels are available only in the Electron desktop app.");
+      setElectronAlphaUpdaterStatus(t("secondary_ui.debug.channels_desktop_only"));
       return;
     }
     if (channel === "alpha" && !isMacPlatform()) {
-      setElectronAlphaUpdaterStatus("Electron alpha updates are macOS-only for now.");
+      setElectronAlphaUpdaterStatus(t("secondary_ui.debug.alpha_macos_only"));
       return;
     }
     const bridge = window.__OPENWORK_ELECTRON__?.updater;
     if (!bridge?.setChannel) {
-      setElectronAlphaUpdaterStatus("Electron updater bridge is unavailable.");
+      setElectronAlphaUpdaterStatus(t("secondary_ui.debug.bridge_unavailable"));
       return;
     }
     setElectronAlphaUpdaterBusy(true);
@@ -617,7 +617,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       const state = await bridge.setChannel(channel);
       setElectronAlphaUpdaterChannel(state.channel ?? channel);
       setElectronAlphaUpdaterStatus(
-        `Subscribed Electron updater to ${state.channel ?? channel} (${state.feedUrl}).`,
+        t("secondary_ui.debug.subscribed", { channel: state.channel ?? channel, url: state.feedUrl }),
       );
       pushDeveloperLog(`set Electron updater channel=${state.channel ?? channel}`);
     } catch (error) {
@@ -629,12 +629,12 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const onCheckElectronAlphaUpdates = useCallback(async () => {
     if (!isElectronRuntime()) {
-      setElectronAlphaUpdaterStatus("Electron update checks are available only in the Electron desktop app.");
+      setElectronAlphaUpdaterStatus(t("secondary_ui.debug.checks_desktop_only"));
       return;
     }
     const bridge = window.__OPENWORK_ELECTRON__?.updater;
     if (!bridge?.check) {
-      setElectronAlphaUpdaterStatus("Electron updater bridge is unavailable.");
+      setElectronAlphaUpdaterStatus(t("secondary_ui.debug.bridge_unavailable"));
       return;
     }
     setElectronAlphaUpdaterBusy(true);
@@ -643,7 +643,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       const result = await bridge.check();
       if (result.channel) setElectronAlphaUpdaterChannel(result.channel);
       if (result.reason === "unavailable") {
-        setElectronAlphaUpdaterStatus("Electron updater is available only in packaged Electron builds.");
+        setElectronAlphaUpdaterStatus(t("secondary_ui.debug.packaged_only"));
         return;
       }
       if (result.reason) {
@@ -652,8 +652,8 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       }
       setElectronAlphaUpdaterStatus(
         result.available
-          ? `Update available: v${result.latestVersion ?? "unknown"} on ${result.channel ?? electronAlphaUpdaterChannel}. Use Settings → Updates to download and install.`
-          : `No Electron update available on ${result.channel ?? electronAlphaUpdaterChannel}.`,
+          ? t("secondary_ui.debug.update_available", { version: result.latestVersion ?? "?", channel: result.channel ?? electronAlphaUpdaterChannel })
+          : t("secondary_ui.debug.no_update", { channel: result.channel ?? electronAlphaUpdaterChannel }),
       );
     } catch (error) {
       setElectronAlphaUpdaterStatus(error instanceof Error ? error.message : safeStringify(error));
@@ -704,7 +704,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
     const workspacePath = optionsRef.current.selectedWorkspaceRoot.trim();
     if (!workspacePath) {
       throw new Error(
-        "Select a local workspace before starting the local server/engine.",
+        t("secondary_ui.debug.select_local_workspace"),
       );
     }
 
@@ -898,8 +898,8 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       if (!isDesktopRuntime()) return;
       const message =
         mode === "all"
-          ? "Reset ALL OpenWork app data? Open sessions and workspaces will be removed."
-          : "Reset onboarding state only?";
+          ? t("secondary_ui.debug.reset_all_confirm")
+          : t("secondary_ui.debug.reset_onboarding_confirm");
       if (typeof window !== "undefined" && !window.confirm(message)) {
         return;
       }
@@ -910,8 +910,8 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
           clearOpenworkLocalStorageForReset(mode);
           setResetStatus(
             mode === "all"
-              ? "Reset OpenWork state. Restart the app to see changes."
-              : "Reset onboarding state. Restart the app to see changes.",
+              ? t("secondary_ui.debug.reset_all_done")
+              : t("secondary_ui.debug.reset_onboarding_done"),
           );
           pushDeveloperLog(`reset_openwork_state mode=${mode}`);
         })
@@ -981,7 +981,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
 
   const [workspaceDebugEventsStatus, setWorkspaceDebugEventsStatus] = useState<string | null>(null);
   const onClearWorkspaceDebugEvents = useCallback(async () => {
-    setWorkspaceDebugEventsStatus("Workspace debug events are not retained in the React route yet.");
+    setWorkspaceDebugEventsStatus(t("secondary_ui.debug.events_not_retained"));
   }, []);
 
   const debugProps: DebugViewModelProps = useMemo(

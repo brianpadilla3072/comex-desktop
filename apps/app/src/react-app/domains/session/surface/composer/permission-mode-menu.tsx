@@ -47,9 +47,9 @@ export function PermissionModeMenu({ client, workspaceId, busy }: { client: Open
           <span className="min-w-0 flex-1"><span className={`block ${profile.id === "full" ? "text-orange-500" : ""}`}>{profile.name}</span><span className="block text-xs text-muted-foreground">{profile.description}</span></span>{active?.id === profile.id && <Check className="size-4" />}
         </DropdownMenuItem>)}
         {query.data?.pending && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">Guardado; el motor aún no confirmó la configuración. No asumas que el modo ya está activo.</p>}
-        {busy && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">Esperá a que terminen todas las tareas para cambiar permisos.</p>}
+        {busy && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">Espera a que terminen todas las tareas para cambiar permisos.</p>}
         {query.data?.reason && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{query.data.reason}</p>}
-        {query.isError && <p role="alert" className="px-2 text-xs">No se pudo actualizar la lista. Volvé a abrir el menú para reintentar.</p>}
+        {query.isError && <p role="alert" className="px-2 text-xs">No se pudo actualizar la lista. Vuelve a abrir el menú para reintentar.</p>}
         </DropdownMenuGroup><DropdownMenuSeparator />
 <DropdownMenuItem disabled={!query.data} onClick={() => { setOpen(false); setManage(true); }}><Settings2 className="size-4" />Personalizar modos</DropdownMenuItem>
       </DropdownMenuContent>
@@ -63,7 +63,7 @@ export function PermissionModeMenu({ client, workspaceId, busy }: { client: Open
       <div className="space-y-4"><div className="flex items-center justify-between gap-3"><Label htmlFor="permission-mode-enabled">Modo habilitado</Label><Switch id="permission-mode-enabled" checked={enabled} disabled={mutation.isPending} onCheckedChange={setEnabled} /></div>
       <p className="text-xs text-muted-foreground">{enabled ? "Visible en el selector de modos." : "Oculto del selector; se conserva en Personalizar modos."}</p>
       {editingActive && <div className="space-y-2"><p className="text-xs text-muted-foreground">Este modo está en uso. Ocultarlo del selector conserva los permisos actuales.</p><Button variant="outline" size="sm" disabled={locked} onClick={() => { setEditor(false); setError(null); setDeactivating(true); }}><Power className="size-4" />Desactivar modo activo</Button></div>}
-      {editingProfile?.builtin && <p className="text-xs text-muted-foreground">Podés habilitar o desactivar este modo inicial. Para cambiar sus permisos, duplicalo.</p>}
+      {editingProfile?.builtin && <p className="text-xs text-muted-foreground">Puedes habilitar o desactivar este modo inicial. Para cambiar sus permisos, duplicalo.</p>}
       <div className="space-y-1"><Label htmlFor="permission-mode-name">Nombre</Label><Input disabled={fixedFields} id="permission-mode-name" maxLength={60} value={name} onChange={event => setName(event.target.value)} /></div>
       <div className="space-y-1"><Label htmlFor="permission-mode-description">Descripción</Label><Textarea disabled={fixedFields} id="permission-mode-description" maxLength={240} value={description} onChange={event => setDescription(event.target.value)} /></div>
       {categories.map(category => <div key={category.key} className="flex items-center justify-between gap-3"><Label>{category.label}</Label><Select disabled={fixedFields} value={settings[category.key]} onValueChange={value => { const effect = permissionEffectSchema.safeParse(value); if (effect.success) setSettings(previous => ({ ...previous, [category.key]: effect.data })); }}><SelectTrigger aria-label={category.label} className="w-32"><SelectValue>{effectLabels[settings[category.key]]}</SelectValue></SelectTrigger><SelectContent>{Object.entries(effectLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>)}

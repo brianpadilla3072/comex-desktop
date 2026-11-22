@@ -48,7 +48,7 @@ export function createNativeProviderAuth(request: NativeRequest) {
           if (loaded.error !== undefined) return { error: loaded.error, request: loaded.request, response: loaded.response };
         }
         const method = methods.get(parameters.providerID)?.[parameters.method];
-        if (!method || method.type !== "oauth") throw new Error("El método de conexión no está disponible. Volvé a abrir el proveedor.");
+        if (!method || method.type !== "oauth") throw new Error("El método de conexión no está disponible. Vuelve a abrir el proveedor.");
         const endpoint = `/api/integration/${encodeURIComponent(parameters.providerID)}/connect/oauth`;
         const transport = await request("POST", endpoint, { methodID: method.id, answer: answer(method, parameters.inputs), label: null });
         const value = data(transport.payload);
@@ -56,12 +56,12 @@ export function createNativeProviderAuth(request: NativeRequest) {
         if (!record(value) || typeof value.attemptID !== "string" || typeof value.url !== "string" || (value.mode !== "auto" && value.mode !== "code")) return failure(transport, "El servidor no devolvió un inicio de sesión válido.");
         if (!/^https?:\/\//i.test(value.url)) return failure(transport, "El servidor devolvió una dirección de inicio de sesión no válida.");
         attempts.set(`${parameters.providerID}:${parameters.method}`, { id: value.attemptID, codeSubmitted: false });
-        return result(transport, { url: value.url, method: value.mode, instructions: typeof value.instructions === "string" ? value.instructions : "Completá el inicio de sesión en el navegador." });
+        return result(transport, { url: value.url, method: value.mode, instructions: typeof value.instructions === "string" ? value.instructions : "Completa el inicio de sesión en el navegador." });
       },
       callback: async (parameters: { providerID: string; method: number; code?: string }): Promise<FieldsResult<boolean>> => {
         const key = `${parameters.providerID}:${parameters.method}`;
         const attempt = attempts.get(key);
-        if (!attempt) throw new Error("La conexión venció. Iniciá sesión de nuevo.");
+        if (!attempt) throw new Error("La conexión venció. Inicia sesión de nuevo.");
         const endpoint = `/api/integration/${encodeURIComponent(parameters.providerID)}/connect/oauth/${encodeURIComponent(attempt.id)}`;
         if (parameters.code && !attempt.codeSubmitted) {
           const completed = await request("POST", `${endpoint}/complete`, { code: parameters.code });
@@ -72,14 +72,14 @@ export function createNativeProviderAuth(request: NativeRequest) {
         if (!transport.response.ok) return { error: transport.payload, request: transport.request, response: transport.response };
         const value = data(transport.payload);
         if (record(value) && value.status === "complete") { attempts.delete(key); return result(transport, true); }
-        if (record(value) && value.status === "pending") return failure(transport, "ProviderAuthOauthMissing: completá el inicio de sesión en el navegador.", "ProviderAuthOauthMissing");
+        if (record(value) && value.status === "pending") return failure(transport, "ProviderAuthOauthMissing: completa el inicio de sesión en el navegador.", "ProviderAuthOauthMissing");
         attempts.delete(key);
         return failure(transport, record(value) && typeof value.message === "string" ? value.message : "El inicio de sesión venció o fue cancelado.");
       },
     },
     credentials: {
       set: async (parameters: { providerID: string; auth: unknown }): Promise<FieldsResult<boolean>> => {
-        if (!record(parameters.auth) || parameters.auth.type !== "api" || typeof parameters.auth.key !== "string") throw new Error("Usá el inicio de sesión del proveedor o una API key válida.");
+        if (!record(parameters.auth) || parameters.auth.type !== "api" || typeof parameters.auth.key !== "string") throw new Error("Usa el inicio de sesión del proveedor o una API key válida.");
         const transport = await request("POST", `/api/integration/${encodeURIComponent(parameters.providerID)}/connect/key`, { key: parameters.auth.key, answer: null, label: null });
         if (!transport.response.ok) return result(transport, false);
         // A stored key is not necessarily usable. Honor a known native auth
@@ -89,7 +89,7 @@ export function createNativeProviderAuth(request: NativeRequest) {
         const integration = items(checked.payload).find(item => item.id === parameters.providerID);
         const connections = record(integration) && Array.isArray(integration.connections) ? integration.connections.filter(record) : [];
         if (connections.length && connections.every(connection => record(connection.status) && connection.status.status === "needs_auth")) {
-          return failure(checked, "La clave se guardó, pero OpenCode indica que no sirve para autenticar esta conexión. Generá una clave vigente para este proveedor.");
+          return failure(checked, "La clave se guardó, pero OpenCode indica que no sirve para autenticar esta conexión. Genera una clave vigente para este proveedor.");
         }
         return result(transport, true);
       },

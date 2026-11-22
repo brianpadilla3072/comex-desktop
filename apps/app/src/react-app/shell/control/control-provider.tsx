@@ -22,6 +22,7 @@ import {
 import type { OpenworkContextSnapshot } from "@openwork/types/openwork-context";
 import { undeclaredArgsError } from "./undeclared-args";
 import { useUiControlMailbox } from "./use-ui-control-mailbox";
+import { confirmDialog } from "@/components/ui/confirm-dialog";
 
 export type OpenworkControlSideEffect = "none" | "navigation" | "mutation" | "external";
 
@@ -427,7 +428,7 @@ export function OpenworkControlProvider({ children }: { children: ReactNode }) {
     }
 
     if (action.requiresConfirmation && isBrowser()) {
-      const confirmed = window.confirm(`Allow Control Mode to ${action.label}?`);
+      const confirmed = await confirmDialog({ title: `Allow Control Mode to ${action.label}?`, confirmLabel: "Allow" });
       if (!confirmed) return { ok: false, actionId, error: "User cancelled action." };
     }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "@/i18n";
 import { createDenClient, readDenSettings, writeDenSettings } from "@/app/lib/den";
 import { deepLinkBridgeEvent, type DeepLinkBridgeDetail } from "@/app/lib/deep-link-bridge";
 import { Button } from "@/components/ui/button";
@@ -36,16 +37,16 @@ export function DenReauthNotice({ onVerified, onCancel }: {
 
   async function finish(value: string) {
     if (exchanging.current || !active.current) return;
-    if (!user) { setError("Your account could not be confirmed. Cancel and try again."); return; }
+    if (!user) { setError(t("secondary_ui.cloud.reauth.account_unconfirmed")); return; }
     let returned: URL;
     try { returned = new URL(value.trim()); }
-    catch { setError("Paste the verification link from your browser."); return; }
+    catch { setError(t("secondary_ui.cloud.reauth.paste_link")); return; }
     if (returned.protocol !== "openwork:" || returned.hostname !== "den-reauth" || returned.searchParams.get("nonce") !== nonce) {
-      setError("This link belongs to another security check. Open verification again for a new link.");
+      setError(t("secondary_ui.cloud.reauth.other_check"));
       return;
     }
     const grant = returned.searchParams.get("grant");
-    if (!grant) { setError("This verification link is incomplete. Open verification again."); return; }
+    if (!grant) { setError(t("secondary_ui.cloud.reauth.incomplete")); return; }
     exchanging.current = true;
     setBusy(true);
     setError(null);
@@ -56,7 +57,7 @@ export function DenReauthNotice({ onVerified, onCancel }: {
     };
     const ensureCurrent = () => {
       if (!active.current || !isCurrentSession()) {
-        throw new Error("Your account or workspace changed. Cancel and start sharing again.");
+        throw new Error(t("secondary_ui.cloud.reauth.changed"));
       }
     };
     try {
@@ -64,11 +65,11 @@ export function DenReauthNotice({ onVerified, onCancel }: {
       // Never send a grant to a destination supplied by a link.
       const exchange = await createDenClient(settings).exchangeDesktopHandoff(grant);
       if (!exchange.token || exchange.user?.id !== user.id) {
-        throw new Error(`Sign in as ${user.email} to confirm this share.`);
+        throw new Error(t("secondary_ui.cloud.reauth.sign_in_as", { email: user.email }));
       }
       const client = createDenClient({ ...settings, token: exchange.token });
       const verifiedUser = await client.getSession();
-      if (verifiedUser.id !== user.id) throw new Error(`Sign in as ${user.email} to confirm this share.`);
+      if (verifiedUser.id !== user.id) throw new Error(t("secondary_ui.cloud.reauth.sign_in_as", { email: user.email }));
       ensureCurrent();
       // The resumed mutation still enforces freshness and resource permissions on the server.
       // Commit when the share dialog closes: settings changes reload deployment
@@ -77,7 +78,7 @@ export function DenReauthNotice({ onVerified, onCancel }: {
         if (isCurrentSession()) writeDenSettings({ ...settings, authToken: exchange.token }, { persistBootstrap: false });
       });
     } catch (cause) {
-      if (active.current) setError(cause instanceof Error ? cause.message : "Could not confirm your identity. Try again.");
+      if (active.current) setError(cause instanceof Error ? cause.message : t("secondary_ui.cloud.reauth.failed"));
     } finally {
       exchanging.current = false;
       if (active.current) setBusy(false);
@@ -103,26 +104,26 @@ export function DenReauthNotice({ onVerified, onCancel }: {
   }, [nonce]);
 
   return <div className="space-y-3 rounded-lg border p-4">
-    <p className="text-sm font-medium">Confirm your identity to share apps</p>
-    <p className="text-sm text-muted-foreground">Verify in your browser, then return here. Your selected apps and teammate’s email will be kept.</p>
+    <p className="text-sm font-medium">{t("secondary_ui.cloud.reauth.title")}</p>
+    <p className="text-sm text-muted-foreground">{t("secondary_ui.cloud.reauth.body")}</p>
     <Button type="button" disabled={busy || !user} onClick={() => {
       setError(null);
       void tryOpenBrowserAuthUrl(url.toString()).then((opened) => {
-        if (!opened) setError("Your browser could not open. Copy the verification address below into your browser.");
+        if (!opened) setError(t("secondary_ui.cloud.reauth.browser_failed"));
       });
-    }}>Verify in browser</Button>
+    }}>{t("secondary_ui.cloud.reauth.verify")}</Button>
     <details className="text-sm">
-      <summary className="cursor-pointer">Browser didn’t open?</summary>
-      <Input aria-label="Verification address" readOnly value={url.toString()} onFocus={(event) => event.target.select()} className="mt-2" />
+      <summary className="cursor-pointer">{t("secondary_ui.cloud.reauth.browser_didnt_open")}</summary>
+      <Input aria-label={t("secondary_ui.cloud.reauth.address")} readOnly value={url.toString()} onFocus={(event) => event.target.select()} className="mt-2" />
     </details>
     <label className="block space-y-2 text-sm">
-      <span>Or paste your verification link</span>
+      <span>{t("secondary_ui.cloud.reauth.or_paste")}</span>
       <Input value={link} onChange={(event) => setLink(event.target.value)} disabled={busy} autoComplete="off" />
     </label>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     <div className="flex justify-end gap-2">
-      <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>Cancel verification</Button>
-      <Button type="button" disabled={busy || !link.trim()} onClick={() => void finish(link)}>{busy ? "Confirming…" : "Confirm and share"}</Button>
+      <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>{t("secondary_ui.cloud.reauth.cancel")}</Button>
+      <Button type="button" disabled={busy || !link.trim()} onClick={() => void finish(link)}>{busy ? t("secondary_ui.cloud.reauth.confirming") : t("secondary_ui.cloud.reauth.confirm")}</Button>
     </div>
   </div>;
 }

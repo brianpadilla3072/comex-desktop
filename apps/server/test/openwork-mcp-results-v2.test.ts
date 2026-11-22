@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { nativeDiscoveryCode } from "../src/opencode-plugins/openwork-codemode-discovery-v2.js";
-import plugin, { PINNED_CONNECT_TOOL_IDS } from "../src/opencode-plugins/openwork-mcp-results-v2.js";
+import plugin, { directAppResult, PINNED_CONNECT_TOOL_IDS } from "../src/opencode-plugins/openwork-mcp-results-v2.js";
 import { mcpToolId } from "../src/opencode-v2-mcp-readiness.js";
 
 type Tool = { options?: Record<string, unknown>; execute(input: unknown, call: unknown): Promise<{ output?: unknown }> };
@@ -78,4 +78,66 @@ test("Code Mode keeps a server's own search tool and rewrites the missing one", 
   };
   assert.equal(run('await tools["openwork-cloud"].search({ query: "app" })'), 'await search({ query: "app" })');
   assert.equal(run('await tools.github.search({ q: "x" })'), 'await tools.github.search({ q: "x" })');
+});
+
+test("a direct first-party App call keeps its structured result in the metadata channel", async () => {
+  // v1 preserved every MCP result in tool.execute.after; v2 only wraps Code Mode calls. A direct
+  // call to a first-party App server (the panel App) must still reach the chat with its standard
+  // fields, or the card can never open.
+  const appTool = mcpToolId("openwork-panels", "dashboard_render");
+  const plainTool = mcpToolId("openwork-panels", "panel_list");
+  const native = engine([appTool, plainTool, "execute"]);
+  await plugin.setup(native.context as never);
+  const output = {
+    content: [{ type: "text", text: "Panel Cierres con 4 bloques." }],
+    structuredContent: { ok: true, panel: "cierres", blocks: [] },
+    _meta: { ui: { resourceUri: "ui://openwork/panel/v1" } },
+  };
+  const event = {
+    tool: appTool, messageID: "m", id: "c", status: "completed" as const, input: { panel: "cierres" },
+    result: { output } as { output?: unknown; metadata?: Record<string, unknown> },
+  };
+  native.hooks.get("execute.after")?.(event as never);
+  assert.deepEqual((event.result as { metadata?: Record<string, unknown> }).metadata?.openworkMcpResult, output);
+
+  // A tool of the same server that advertises no UI resource stays an ordinary result.
+  const plain = {
+    tool: plainTool, messageID: "m", id: "d", status: "completed" as const, input: {},
+    result: { output: { content: [], structuredContent: { panels: [] } } } as { output?: unknown; metadata?: Record<string, unknown> },
+  };
+  native.hooks.get("execute.after")?.(plain as never);
+  assert.equal((plain.result as { metadata?: Record<string, unknown> }).metadata, undefined);
+});
+
+test("direct App preservation only accepts a UI-bearing result from a first-party App server", () => {
+  const completed = (tool: string, output: unknown) => ({
+    tool, messageID: "m", id: "c", input: {}, status: "completed" as const,
+    result: { output },
+  });
+  const appOutput = { content: [{ type: "text", text: "ok" }], structuredContent: { ok: true }, _meta: { ui: { resourceUri: "ui://openwork/panel/v1" } } };
+  assert.ok(directAppResult(completed("openwork-panels_dashboard_render", appOutput)));
+  // Another server's tool never rides this channel.
+  assert.equal(directAppResult(completed("github_dashboard_render", appOutput)), null);
+  // Same server, no UI resource: an ordinary tool result.
+  assert.equal(directAppResult(completed("openwork-panels_panel_list", { content: [], structuredContent: {} })), null);
+  // Not a CallToolResult at all.
+  assert.equal(directAppResult(completed("openwork-panels_dashboard_render", "plain text")), null);
+  // A failed call is reported by the tool part, not preserved as a card.
+  assert.equal(directAppResult({ tool: "openwork-panels_dashboard_render", messageID: "m", id: "c", input: {}, status: "error" as const, error: "boom" } as never), null);
+});
+
+test("a Code Mode call to a first-party App server keeps its result as an App entry", async () => {
+  const appTool = mcpToolId("openwork-panels", "dashboard_render");
+  const native = engine([appTool, "execute"]);
+  await plugin.setup(native.context as never);
+  const outer = { tool: "execute", messageID: "m", id: "x", input: { code: "await tools['openwork-panels'].dashboard_render({ panel: 'cierres' })" } };
+  native.hooks.get("execute.before")?.(outer as never);
+  const output = { content: [{ type: "text", text: "ok" }], structuredContent: { ok: true }, _meta: { ui: { resourceUri: "ui://openwork/panel/v1" } } };
+  native.hooks.get("execute.after")?.({ tool: appTool, messageID: "m", id: "x", input: { panel: "cierres" }, status: "completed", result: { output } } as never);
+  const done = { tool: "execute", messageID: "m", id: "x", status: "completed" as const, result: { output: "script ok", metadata: {} as Record<string, unknown> } };
+  native.hooks.get("execute.after")?.(done as never);
+  const entries = done.result.metadata.openworkMcpResults as Array<{ tool: string; output: unknown }>;
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]!.tool, appTool);
+  assert.deepEqual(entries[0]!.output, output);
 });

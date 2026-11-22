@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
+import { t } from "@/i18n";
 import { MoreHorizontal, RefreshCw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -43,8 +44,8 @@ export function DashboardTileShell({ title, entryId, subtitle, badge, onRefresh,
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`Refresh ${title}`}
-              title="Refresh"
+              aria-label={t("secondary_ui.dashboard.refresh_named", { name: title })}
+              title={t("common.refresh")}
               onClick={onRefresh}
               disabled={refreshing}
             >
@@ -58,7 +59,7 @@ export function DashboardTileShell({ title, entryId, subtitle, badge, onRefresh,
       {actionsPlacement !== "header" && (renderActions || (compact && onRefresh)) ? (
         <div className={cn("absolute right-1 top-1 z-10", compact && "opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/tile:opacity-100 focus-within:opacity-100")}>
           {renderActions ? renderActions({ onRefresh, refreshing, badge }) : <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="size-7 bg-background/90" aria-label={`Artifact options for ${title}`} title={`Artifact options for ${title}`} />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="size-7 bg-background/90" aria-label={t("secondary_ui.dashboard.options_named", { name: title })} title={t("secondary_ui.dashboard.options_named", { name: title })} />}>
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -67,8 +68,8 @@ export function DashboardTileShell({ title, entryId, subtitle, badge, onRefresh,
                   <span className="block">{title}</span>
                   {badge}
                 </DropdownMenuLabel>
-                <DropdownMenuItem onClick={onRefresh} disabled={refreshing} aria-label={`Refresh ${title}`}>
-                  <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+                <DropdownMenuItem onClick={onRefresh} disabled={refreshing} aria-label={t("secondary_ui.dashboard.refresh_named", { name: title })}>
+                  <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} /> {t("common.refresh")}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>

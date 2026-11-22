@@ -1,0 +1,34 @@
+{
+ "contract": "openwork.folder-browser",
+ "version": 1,
+ "routes": "GET /folders/browse?path=&hidden=, POST /folders/browse { parent, name }",
+ "folderNames": [
+  { "name": "Proyecto nuevo", "problem": null },
+  { "name": "año-2026", "problem": null },
+  { "name": ".config", "problem": null },
+  { "name": "", "problem": "folder_name_invalid" },
+  { "name": "   ", "problem": "folder_name_invalid" },
+  { "name": " padded", "problem": "folder_name_invalid" },
+  { "name": ".", "problem": "folder_name_invalid" },
+  { "name": "..", "problem": "folder_name_invalid" },
+  { "name": "a/b", "problem": "folder_name_invalid" },
+  { "name": "..\\up", "problem": "folder_name_invalid" },
+  { "name": "tab\tname", "problem": "folder_name_invalid" },
+  { "name": "ñññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññññ", "problem": "folder_name_too_long" }
+ ],
+ "containment": [
+  { "candidate": "/srv/home", "roots": ["/srv/home"], "root": "/srv/home" },
+  { "candidate": "/srv/home/projects/a", "roots": ["/srv/home"], "root": "/srv/home" },
+  { "candidate": "/srv/homework", "roots": ["/srv/home"], "root": null },
+  { "candidate": "/srv", "roots": ["/srv/home"], "root": null },
+  { "candidate": "/data/work", "roots": ["/srv/home", "/data"], "root": "/data" },
+  { "candidate": "/anything", "roots": ["/"], "root": "/" }
+ ],
+ "collapse": [
+  { "roots": ["/srv/home", "/srv/home/projects/a", "/data", "/data"], "expect": ["/srv/home", "/data"] }
+ ],
+ "visible": [
+  { "names": ["zeta", ".git", "Alpha", "beta", "item10", "item9"], "showHidden": false, "max": 10, "expect": ["Alpha", "beta", "item9", "item10", "zeta"], "truncated": false },
+  { "names": ["b", ".hidden", "a"], "showHidden": true, "max": 2, "expect": [".hidden", "a"], "truncated": true }
+ ]
+}

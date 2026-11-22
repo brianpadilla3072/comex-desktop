@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { applyActivityMotion } from "@/app/lib/activity-motion";
 import * as React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import { bootstrapTheme } from "./app/theme";
 import { isDesktopRuntime } from "./app/utils";
 import { initLocale } from "./i18n";
 import { getReactQueryClient } from "./react-app/infra/query-client";
+import { startReactDevMeasureTrim } from "./react-app/infra/react-dev-measure-trim";
 import {
   createDefaultPlatform,
   PlatformProvider,
@@ -27,6 +29,9 @@ import "./styles/comex-shell.css";
 
 const root = document.getElementById("root");
 
+// Development builds only: React logs every render to the User Timing buffer.
+if (import.meta.env.DEV) startReactDevMeasureTrim();
+
 if (!root) {
   throw new Error("Root element not found");
 }
@@ -37,6 +42,8 @@ const startup = Promise.resolve().then(async () => {
   startWebErrorMonitoring();
   bootstrapTheme();
   initLocale();
+  // Before the first paint: a frozen activity mark never flashes animated.
+  applyActivityMotion();
   startDeepLinkBridge();
   await initializeDenBootstrapConfig();
 

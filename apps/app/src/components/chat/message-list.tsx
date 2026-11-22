@@ -148,7 +148,7 @@ import {
 import type { ThreadStatus } from "@/lib/messages"
 import { useShallow } from "zustand/react/shallow"
 import { useSessionActivityStore, type SessionActivityStatus, type WaitInterval } from "@/react-app/domains/session/status/session-activity-store"
-import { activeDelegatedTasks, hasNoNewActivity, lastTaskProgressAt } from "@/react-app/domains/session/status/session-progress"
+import { activeDelegatedTasks, hasNoNewActivity, lastTaskProgressAt, NO_NEW_ACTIVITY_AFTER_MS } from "@/react-app/domains/session/status/session-progress"
 import { revalidateWorkspaceSessionSync } from "@/react-app/domains/session/sync/session-sync"
 import { useWorkspaceMaybe } from "@/react-app/shell/workspace-provider"
 import { formatElapsedSeconds, formatToolCallDuration } from "@/lib/tool-call-duration"
@@ -557,7 +557,7 @@ function FileMessage({ part, tone }: FileMessageProps) {
         {canReveal ? (
           <DropdownMenuItem onClick={handleReveal}>
             <FolderOpen />
-            Reveal in Finder
+            {t("workspace_list.reveal_finder")}
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -648,11 +648,11 @@ function CopyMessageButton({ messages }: CopyMessageButtonProps) {
   }
 
   return (
-    <MessageAction tooltip={copied ? "Copied!" : "Copy"}>
+    <MessageAction tooltip={copied ? t("chat_ui.copied_exclaim") : t("chat_ui.copy")}>
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Copy message"
+        aria-label={t("chat_ui.copy_message")}
         onClick={() => void onCopy()}
       >
         {copied ? <Check /> : <Copy />}
@@ -1078,7 +1078,7 @@ const UserMessage = React.memo(
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="Edit message"
+                          aria-label={t("chat_ui.edit_message")}
                           disabled={readOnly}
                           onClick={editMessage}
                         >
@@ -1235,6 +1235,83 @@ const LoadingMessage = React.memo(({ elapsedSeconds, starting, backgroundShells 
 
 LoadingMessage.displayName = "LoadingMessage"
 
+/**
+ * The run's working-time clock. The transcript owns the anchor (so switching
+ * which line shows the time keeps it), and only the line that shows the time
+ * ticks: the transcript itself must not re-render every second while a run waits.
+ */
+type RunClockAnchor = { startedAt: number | null; seconds: number }
+type RunClock = {
+  anchor: React.RefObject<RunClockAnchor>
+  activityActive: boolean
+  runStartedAt: number | null
+  syncDegraded: boolean
+  runWaits: WaitInterval[][]
+}
+
+/** Moves the anchor to the run that is active now; false when no run is active. */
+function syncRunClockAnchor(anchor: RunClockAnchor, activityActive: boolean, runStartedAt: number | null): boolean {
+  if (!activityActive) {
+    anchor.startedAt = null
+    anchor.seconds = 0
+    return false
+  }
+  if (runStartedAt !== null) anchor.startedAt = runStartedAt
+  else if (anchor.startedAt === null) anchor.startedAt = Date.now()
+  return true
+}
+
+function useRunElapsedSeconds({ anchor, activityActive, runStartedAt, syncDegraded, runWaits }: RunClock): number {
+  const [seconds, setSeconds] = React.useState(() => anchor.current.seconds)
+  React.useEffect(() => {
+    const clock = anchor.current
+    if (!syncRunClockAnchor(clock, activityActive, runStartedAt)) {
+      setSeconds(0)
+      return
+    }
+    // While liveness is unconfirmed the counter must not tick: elapsed time
+    // is only presented as work while something is validating that work is
+    // still happening. The anchor is kept, so a confirmed recovery resumes
+    // the true task age instead of restarting at zero.
+    if (syncDegraded) return
+    const waits = runWaits.flat()
+    const updateElapsed = () => {
+      const startedAt = clock.startedAt
+      if (startedAt === null) return
+      // Time spent waiting for the person's approval or answer is not work.
+      const now = Date.now()
+      clock.seconds = Math.max(0, Math.floor((now - startedAt - getWaitedMs(waits, startedAt, now)) / 1000))
+      setSeconds(clock.seconds)
+    }
+    updateElapsed()
+    const interval = window.setInterval(updateElapsed, 1000)
+    return () => window.clearInterval(interval)
+  }, [anchor, activityActive, runStartedAt, syncDegraded, runWaits])
+  return seconds
+}
+
+const LiveLoadingMessage = React.memo(({ clock, ...props }: Omit<React.ComponentProps<typeof LoadingMessage>, "elapsedSeconds"> & { clock: RunClock }) => (
+  <LoadingMessage elapsedSeconds={useRunElapsedSeconds(clock)} {...props} />
+))
+LiveLoadingMessage.displayName = "LiveLoadingMessage"
+
+const LiveExecutionRunHeader = React.memo(({ clock, ...props }: Omit<React.ComponentProps<typeof ExecutionRunHeader>, "seconds"> & { clock: RunClock }) => (
+  <ExecutionRunHeader seconds={useRunElapsedSeconds(clock)} {...props} />
+))
+LiveExecutionRunHeader.displayName = "LiveExecutionRunHeader"
+
+/** Re-renders once when `at` (epoch ms) passes, instead of polling the clock. */
+function useRerenderAt(at: number | null) {
+  const [, setPassed] = React.useState(0)
+  React.useEffect(() => {
+    if (at === null) return
+    const delay = at - Date.now()
+    if (delay < 0) return
+    const timer = window.setTimeout(() => setPassed((count) => count + 1), delay + 1)
+    return () => window.clearTimeout(timer)
+  }, [at])
+}
+
 // Show when the run was last validated once the gap is long enough to matter;
 // a short blip needs no timestamp archaeology.
 const RECONNECTING_LAST_CONFIRMED_AFTER_MS = 120_000
@@ -1324,7 +1401,7 @@ function ErrorMessage({ error, description, showDescriptionOnResume, resumePromp
           Choose group and credential set
         </Button> : null}
         {changeModel && !gatewaySelectionRequired && !selection ? <Button variant="ghost" size="xs"
-          onClick={() => openAlternativeModelPicker(sessionId)}>Change model</Button> : null}
+          onClick={() => openAlternativeModelPicker(sessionId)}>{t("session.change_model")}</Button> : null}
         {gatewayConnectUrl !== undefined ? <Button variant="ghost" size="xs" data-testid="session-error-gateway-connect"
           onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>Connect</Button> : null}
       </> : null} />
@@ -1353,8 +1430,8 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
   }, [status])
 
   const info = seconds > 0
-    ? `Retrying in ${seconds}s · attempt ${status.attempt}`
-    : `Retrying · attempt ${status.attempt}`
+    ? t("session_retry.info_countdown", { seconds, attempt: status.attempt })
+    : t("session_retry.info", { attempt: status.attempt })
   const action = status.action
   const freeModelLimit = action?.reason === "free_tier_limit"
   const presentation = presentOpencodeSessionError({ name: "APIError", data: { message: status.message } })
@@ -1362,16 +1439,16 @@ const RetryMessage = React.memo(({ status }: RetryMessageProps) => {
   // and show progress instead of echoing the raw fetch error.
   const reconnecting = !freeModelLimit && !action
     && ["network-unavailable", "provider-unreachable", "provider-connection-dropped"].includes(presentation.kind)
-  const progress = seconds > 0 ? `Attempt ${status.attempt}, next try in ${seconds}s` : `Attempt ${status.attempt}`
+  const progress = seconds > 0 ? t("session_retry.progress_countdown", { seconds, attempt: status.attempt }) : t("session_retry.progress", { attempt: status.attempt })
 
   return (
     <TaskRecovery state="retrying" testId="session-retrying"
-      title={reconnecting ? "Reconnecting to the model"
-        : `${(freeModelLimit ? "The free starter model is busy right now" : action?.title ?? presentation.title).replace(/[.!?…]+$/, "")}. Retrying…`}
-      description={freeModelLimit ? "To keep working now, connect your own model provider." : reconnecting ? progress : action?.message}
+      title={reconnecting ? t("session_retry.reconnecting")
+        : t("session_retry.title", { reason: (freeModelLimit ? t("session_error.title.free-model-limit") : action?.title ?? presentation.title).replace(/[.!?…]+$/, "") })}
+      description={freeModelLimit ? t("session_retry.free_limit_body") : reconnecting ? progress : action?.message}
       technicalDetails={[info, presentation.technicalDetails].join("\n")}
       actions={freeModelLimit ? <Button variant="ghost" size="xs"
-        onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>Connect a model provider</Button>
+        onClick={() => dispatchAction({ target: "settings", action: "open", section: "providers" })}>{t("session_retry.connect_provider")}</Button>
         : action?.link ? <Button variant="ghost" size="xs" onClick={openDesktopUrl.bind(null, action.link)}>{action.label}</Button> : null} />
   )
 })
@@ -1609,7 +1686,7 @@ function MessageGroup({
       { type: "item", id: "copy", label: "Copy", icon: <Copy className="size-4" />, onSelect: () => navigator.clipboard.writeText(replyText) },
     )
     if (lastRealItem && onForkAtMessage) replyMenuActions.push(
-      { type: "item", id: "branch", label: forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat", icon: <Split className="size-4 rotate-90" />, disabled: Boolean(forkingMessageId), onSelect: () => onForkAtMessage(lastRealItem.message.id) },
+      { type: "item", id: "branch", label: forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat"), icon: <Split className="size-4 rotate-90" />, disabled: Boolean(forkingMessageId), onSelect: () => onForkAtMessage(lastRealItem.message.id) },
     )
   }
   // Native turns can end with a metadata-free completion marker. Keep the
@@ -1649,7 +1726,7 @@ function MessageGroup({
       className="mx-auto flex w-full max-w-3xl flex-col px-2 empty:hidden md:px-10"
     >
       {builtMcpAppId(part) && !newestAppCalls.has(part.toolCallId)
-        ? <p className="mt-2 text-xs text-muted-foreground">This App has a newer version below.</p>
+        ? <p className="mt-2 text-xs text-muted-foreground">{t("chat_ui.app_newer_version_below")}</p>
         : builtAppSummary(part) ? null : <McpAppFrame part={part} />}
     </Message>
   )
@@ -1848,11 +1925,11 @@ function MessageGroup({
             <CopyMessageButton messages={renderableItems.map((item) => item.message)} />
             {lastRealItem && onForkAtMessage ? (
               <>
-                <MessageAction tooltip={forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat"}>
+                <MessageAction tooltip={forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat")}>
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={forkingMessageId === lastRealItem.message.id ? "Branching..." : "Branch in new chat"}
+                    aria-label={forkingMessageId === lastRealItem.message.id ? t("chat_ui.branching") : t("chat_ui.branch_in_new_chat")}
                     aria-busy={forkingMessageId === lastRealItem.message.id || undefined}
                     disabled={Boolean(forkingMessageId)}
                     onClick={() => onForkAtMessage(lastRealItem.message.id)}
@@ -1872,7 +1949,7 @@ function MessageGroup({
             data-testid="reply-model"
             className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground dark:text-foreground/70 opacity-0 transition-opacity duration-150 ease-out motion-reduce:transition-none group-hover/message-group:opacity-100 group-focus-within/message-group:opacity-100 pointer-coarse:opacity-100"
           >
-            <span className="sr-only">Replied with </span>
+            <span className="sr-only">{t("session.replied_with")} </span>
             <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
               {replyModelProviderId ? <ProviderIcon providerId={replyModelProviderId} size={12} /> : null}
             </span>
@@ -2007,38 +2084,18 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
   const appPanelLive = React.useMemo(() => (appRunActive || status === "submitted") && appBuildInProgress(messages), [appRunActive, status, messages])
   const syncDegraded = syncHealth?.degraded === true
   const activityActive = runActive || tasks.length > 0
-  const runStartedAtRef = React.useRef<number | null>(null)
-  const [runElapsedSeconds, setRunElapsedSeconds] = React.useState(0)
+  const runClockAnchor = React.useRef<RunClockAnchor>({ startedAt: null, seconds: 0 })
   // Anchor the counter to the user message that started the run (server
   // timestamp), so switching sessions and back doesn't reset it to 0 on
   // remount, and a follow-up sent mid-run doesn't restart it. Optimistic
   // messages without metadata fall back to first-mount wall clock.
   const runStartedAt = React.useMemo(() => runActive ? getRunStartedAt(messages) : null, [messages, runActive])
-  React.useEffect(() => {
-    if (!activityActive) {
-      runStartedAtRef.current = null
-      setRunElapsedSeconds(0)
-      return
-    }
-    if (runStartedAt !== null) runStartedAtRef.current = runStartedAt
-    else if (runStartedAtRef.current === null) runStartedAtRef.current = Date.now()
-    // While liveness is unconfirmed the counter must not tick: elapsed time
-    // is only presented as work while something is validating that work is
-    // still happening. The anchor is kept, so a confirmed recovery resumes
-    // the true task age instead of restarting at zero.
-    if (syncDegraded) return
-    const waits = runWaits.flat()
-    const updateElapsed = () => {
-      const startedAt = runStartedAtRef.current
-      if (startedAt === null) return
-      // Time spent waiting for the person's approval or answer is not work.
-      const now = Date.now()
-      setRunElapsedSeconds(Math.max(0, Math.floor((now - startedAt - getWaitedMs(waits, startedAt, now)) / 1000)))
-    }
-    updateElapsed()
-    const interval = window.setInterval(updateElapsed, 1000)
-    return () => window.clearInterval(interval)
-  }, [activityActive, runStartedAt, syncDegraded, runWaits])
+  // Keeps the anchor current while no line shows the time; the line that does ticks on its own.
+  React.useEffect(() => { syncRunClockAnchor(runClockAnchor.current, activityActive, runStartedAt) }, [activityActive, runStartedAt])
+  const runClock = React.useMemo<RunClock>(
+    () => ({ anchor: runClockAnchor, activityActive, runStartedAt, syncDegraded, runWaits }),
+    [activityActive, runStartedAt, syncDegraded, runWaits],
+  )
   const latestUserMessageId = React.useMemo(() => messages.findLast((message) => message.role === "user")?.id, [messages])
   // Steps that render nothing are removed before layout, so they leave no gap.
   const visibleMessages = React.useMemo(() => dedupeRenderedTurnErrors(withoutSilentSteps(messages)), [messages]);
@@ -2059,6 +2116,8 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
     active: activityActive && activityStatus !== "error", waiting, retrying: status === "retrying" || Boolean(retryStatus),
     disconnected: syncDegraded, lastProgressAt, now: Date.now(),
   })
+  // Silence is judged against the clock: wake once when it would begin rather than re-rendering every second.
+  useRerenderAt(activityActive && !noNewActivity ? lastProgressAt + NO_NEW_ACTIVITY_AFTER_MS : null)
   // Silence alone never hides the line: a slow first token or a quiet tool is
   // still a busy run. The effect below re-checks status in the background, and
   // Reconnecting takes over only when the run can no longer be confirmed.
@@ -2079,7 +2138,7 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
     return native && typeof native === "object" && Reflect.get(native, "contextCompacted") === true && (getMessageCreated(message) ?? 0) >= lastUserAt;
   });
   const liveGroupExists = items.some(item => isMessageGroup(item) && item.messages.at(-1)?.index === lastVisibleIndex);
-  const feedbackHeader = referenceFeedback && (appRunActive || status === "submitted") && !appPanelLive ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ExecutionRunHeader seconds={runElapsedSeconds} disconnected={syncDegraded} waiting={activityStatus === "waiting"} retrying={status === "retrying"} /></div> : null;
+  const feedbackHeader = referenceFeedback && (appRunActive || status === "submitted") && !appPanelLive ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><LiveExecutionRunHeader clock={runClock} disconnected={syncDegraded} waiting={activityStatus === "waiting"} retrying={status === "retrying"} /></div> : null;
   const currentToolCallIds = React.useMemo(
     () => new Set(latestAssistantToolParts.map((part) => part.toolCallId)),
     [latestAssistantToolParts],
@@ -2160,7 +2219,7 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
             runs, the count joins its Working line; otherwise it takes that
             line's place on its own. One line either way, so the chat does not
             move when the turn ends and the count stays. */}
-        {!referenceFeedback && showLoading && !appPanelLive && <LoadingMessage elapsedSeconds={runElapsedSeconds} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
+        {!referenceFeedback && showLoading && !appPanelLive && <LiveLoadingMessage clock={runClock} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
         {!liveGroupExists ? feedbackHeader : null}
         {referenceFeedback && (activityStatus === "compacting" || compactedAt >= lastUserAt || compactedInHistory) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} /></div> : null}
         {showReconnecting && (!referenceFeedback || !feedbackHeader) && <ReconnectingMessage lastConfirmedAt={syncHealth?.lastConfirmedAt ?? null} />}

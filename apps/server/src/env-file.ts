@@ -2,6 +2,7 @@ import { platform } from "node:os";
 import { chmod, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { openworkEnvStorePath } from "@openwork/paths";
+import { z } from "zod";
 
 import { ensureDir, exists } from "./utils.js";
 
@@ -38,6 +39,13 @@ type EnvStoreFile = {
   updatedAt: number;
   variables: EnvRecord[];
 };
+
+/** Outer shape of the env store file; each variable is then checked by `parseRecord`. */
+const envStoreFileSchema = z.object({
+  schemaVersion: z.unknown().optional(),
+  updatedAt: z.unknown().optional(),
+  variables: z.array(z.unknown()),
+});
 
 export function isValidEnvKey(key: string): boolean {
   return ENV_KEY_PATTERN.test(key);
@@ -95,18 +103,21 @@ async function readStore(
     throw new EnvStoreReadError("Environment variable store could not be read");
   }
 
-  let parsed: Partial<EnvStoreFile>;
+  let value: unknown;
   try {
-    parsed = JSON.parse(raw) as Partial<EnvStoreFile>;
+    const decoded: unknown = JSON.parse(raw);
+    value = decoded;
   } catch {
     if (options.tolerateInvalid) return emptyStore();
     throw new EnvStoreReadError("Environment variable store is invalid JSON");
   }
 
-  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.variables)) {
+  const shape = envStoreFileSchema.safeParse(value);
+  if (!shape.success) {
     if (options.tolerateInvalid) return emptyStore();
     throw new EnvStoreReadError("Environment variable store has an invalid format");
   }
+  const parsed = shape.data;
 
   const variables = parsed.variables
     .map(parseRecord)

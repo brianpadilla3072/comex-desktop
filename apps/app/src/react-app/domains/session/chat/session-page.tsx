@@ -15,7 +15,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import { DesktopUpdateButton } from "../../settings/state/desktop-updater-provider";
-import { ArrowLeft, CheckCheck, Cloud, Columns2, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
+import { ArrowLeft, Brain, CheckCheck, Cloud, Columns2, FileText, Globe, Maximize2, MoreHorizontal, PanelRight, TextSearch, Undo2, X, Zap } from "lucide-react";
 
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { t } from "../../../../i18n";
@@ -55,9 +55,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScopedMemoryPanel } from "@/react-app/domains/session/comex/scoped-memory-panel";
+import { useConsolidateMemoryStore } from "@/react-app/domains/session/comex/consolidate-memory-store";
+import { useComposerStateStore } from "@/react-app/domains/session/surface/composer-state-store";
+import { markComposerAutoSend } from "@/react-app/domains/session/surface/composer-auto-send";
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useDenAuth } from "../../cloud/den-auth-provider";
+import { sessionPagePanelSessionFor } from "./workbench-panel-session";
+import { PanelSessionProvider } from "@/react-app/kernel/panel-session-context";
 import { WorkbenchPanelGroup, PRIMARY_PANEL_ID, SECONDARY_PANEL_ID } from "./workbench-panel-group";
 import ProviderAuthModal, { type ProviderAuthModalProps } from "../../connections/provider-auth/provider-auth-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
@@ -114,6 +120,9 @@ import { useSteadyLiveTurnStore } from "@/components/chat/steady-live-turn-store
 import { useComputerEndTurn } from "../computer/computer-store";
 import { TerminalDock } from "../terminal/terminal-dock";
 import { useActivePanelTab, usePanelTabStore, useSessionPanelState } from "../panel/panel-tab-store";
+import { useComexArtifactsFeature } from "../comex/use-comex-feature";
+import type { SidebarDesign, SidebarProjects } from "../../projects/projects-sidebar";
+import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { cn } from "@/lib/utils";
@@ -210,6 +219,16 @@ export type SessionPageSidebarProps = {
   automationsActive?: boolean;
   automationsNeedAttention?: boolean;
   onOpenAutomations?: () => void;
+  commandCenterActive?: boolean;
+  onOpenCommandCenter?: () => void;
+  resultsInboxActive?: boolean;
+  /** Unread results for the badge; null while unknown. */
+  resultsInboxUnread?: number | null;
+  onOpenResultsInbox?: () => void;
+  /** Projects experience (`projectsExperience`): Proyectos entry and "Fijados". */
+  projects?: SidebarProjects;
+  /** Design studio (`designStudio`): the "Diseño" entry. */
+  design?: SidebarDesign;
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
@@ -410,6 +429,38 @@ function SplitSessionSurface({ metadataCallbacks, ...props }: SessionSurfaceProp
   </>;
 }
 
+/**
+ * One conversation outside the workbench (the chat beside a design): the same surface as the
+ * side pane, fed by a pane runtime the route resolved for the session.
+ */
+export function EmbeddedSessionSurface({ runtime, sessionId, title, metadataCallbacks }: {
+  runtime: SessionPagePaneRuntime;
+  sessionId: string;
+  title?: string;
+  metadataCallbacks?: SessionMetadataCallbacks;
+}) {
+  if (runtime.status !== "ready") {
+    return <div role="status" data-embedded-session-unavailable className="flex min-h-0 flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">{runtime.message}</div>;
+  }
+  return <div className="min-h-0 flex-1" data-embedded-session={sessionId}>
+    <SplitSessionSurface
+      {...runtime.surface}
+      metadataCallbacks={metadataCallbacks}
+      client={runtime.client}
+      environmentClient={runtime.environmentClient}
+      workspaceId={runtime.runtimeWorkspaceId}
+      workspaceRoot={runtime.workspaceRoot}
+      sandboxBackend={runtime.sandboxBackend}
+      sessionId={sessionId}
+      isControlTarget
+      chatPane="secondary"
+      opencodeBaseUrl={runtime.opencodeBaseUrl}
+      openworkToken={runtime.openworkToken}
+      sessionTitle={title}
+    />
+  </div>;
+}
+
 function UnavailableWorkbenchPane(props: {
   workspaceTitle: string;
   message: string;
@@ -424,12 +475,12 @@ function UnavailableWorkbenchPane(props: {
     >
       <div className="flex max-w-sm flex-col gap-3 text-center">
         <div>
-          <h2 className="text-sm font-medium text-foreground">{props.workspaceTitle} is unavailable</h2>
+          <h2 className="text-sm font-medium text-foreground">{t("session_ui.workspace_unavailable", { name: props.workspaceTitle })}</h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{props.message}</p>
         </div>
         <div className="flex justify-center gap-2">
-          <Button variant="outline" size="sm" onClick={props.onRetry}>Retry connection</Button>
-          <Button variant="ghost" size="sm" onClick={props.onClose}>Close pane</Button>
+          <Button variant="outline" size="sm" onClick={props.onRetry}>{t("session_ui.retry_connection")}</Button>
+          <Button variant="ghost" size="sm" onClick={props.onClose}>{t("session_ui.close_pane")}</Button>
         </div>
       </div>
     </div>
@@ -492,7 +543,7 @@ export function SessionPage(props: SessionPageProps) {
   const referenceLayout = workspaceTabsEnabled && !isMobile;
   const workspaceResourceScope = resourceScope(props.openworkServerClient?.baseUrl, props.selectedWorkspaceId, props.newTaskComposer?.draftScope);
   const resourceWorkspace = useResourceWorkspace(workspaceResourceScope);
-  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.extensionsActive;
+  const resourceVisible = referenceLayout && Boolean(resourceWorkspace.activeId) && !props.sidebar.automationsActive && !props.sidebar.commandCenterActive && !props.sidebar.resultsInboxActive && !props.sidebar.projects?.active && !props.sidebar.design?.active && !props.extensionsActive;
   const [resourceAssistantOpen, setResourceAssistantOpen] = useState(false);
   // Split keeps the conversation visible on one side while a tab occupies the
   // other side; the shared tab bar picks which page goes on that side.
@@ -561,6 +612,9 @@ export function SessionPage(props: SessionPageProps) {
   ));
   const sessionPanelState = useSessionPanelState(sidePanelSessionKey);
   const activePanelTab = useActivePanelTab(sidePanelSessionKey);
+  const artifactsEnabled = useComexArtifactsFeature(props.openworkServerClient);
+  const studioActive = artifactsEnabled && activePanelTab?.type === "studio";
+  const artifactFocusMode = useArtifactUiStore(state => state.focusMode);
   const [hiddenTargetRevision, setHiddenTargetRevision] = useState(0);
   const hiddenAccessibleTargetIds = useMemo(
     () => readHiddenAccessibleTargetIds(props.selectedWorkspaceId, props.selectedSessionId),
@@ -595,6 +649,58 @@ export function SessionPage(props: SessionPageProps) {
     hasSurface: Boolean(props.surface),
     workspaceCount: props.workspaces.length,
   });
+
+  const consolidateMemoryStore = useConsolidateMemoryStore();
+  const memoryOpen = consolidateMemoryStore.open && consolidateMemoryStore.sessionId === (props.selectedSessionId ?? "");
+  const setMemoryOpen = (value: boolean) => {
+    if (!value) consolidateMemoryStore.close();
+  };
+  const [memoryDiff, setMemoryDiff] = useState<{ open: boolean; scope: "conversation"; revision: number; current: string; proposed: string } | null>(null);
+  const sessionClient = useMemo(() => {
+    const url = props.opencodeBaseUrl?.trim();
+    if (!url) return null;
+    return isOpencodeV2BaseUrl(url)
+      ? createClientV2(url, props.selectedWorkspaceRoot ?? "", { token: props.openworkServerToken ?? "" })
+      : createClient(url, props.selectedWorkspaceRoot ?? "", { token: props.openworkServerToken ?? "", mode: "openwork" });
+  }, [props.opencodeBaseUrl, props.selectedWorkspaceRoot, props.openworkServerToken]);
+  const saveLastAssistantSummary = async () => {
+    if (!sessionClient || !props.selectedSessionId || !props.openworkServerClient) {
+      toast.error("No hay conexión para guardar el resumen.");
+      return;
+    }
+    try {
+      const result = await sessionClient.session.messages({ sessionID: props.selectedSessionId });
+      const messages = Array.isArray(result?.data) ? result.data : [];
+      let text = "";
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const message = messages[i] as { info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> };
+        if (message?.info?.role !== "assistant") continue;
+        const parts = Array.isArray(message.parts) ? message.parts : [];
+        text = parts.filter((part) => part?.type === "text" && typeof part.text === "string").map((part) => part.text as string).join("\n").trim();
+        if (text) break;
+      }
+      if (!text) {
+        toast.error("Todavía no hay respuesta del asistente para guardar.");
+        return;
+      }
+      const scope = "conversation";
+      const snapshot = await props.openworkServerClient.getScopedMemory(props.selectedWorkspaceId, props.selectedSessionId, scope);
+      const current = (snapshot.notes ?? []).map((note: { text?: string }) => note.text ?? "").filter(Boolean).join("\n\n");
+      setMemoryDiff({ open: true, scope, revision: snapshot.revision, current, proposed: text });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el resumen.");
+    }
+  };
+  const applyMemoryDiff = async () => {
+    if (!memoryDiff || !props.openworkServerClient || !props.selectedSessionId) return;
+    try {
+      await props.openworkServerClient.saveScopedMemory(props.selectedWorkspaceId, props.selectedSessionId, memoryDiff.scope, memoryDiff.revision, memoryDiff.proposed);
+      toast.success("Resumen guardado en la memoria de la conversación.");
+      setMemoryDiff(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el resumen.");
+    }
+  };
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
@@ -829,6 +935,16 @@ export function SessionPage(props: SessionPageProps) {
     return target.value;
   }, []);
   const createBrowserTab = useCreateTab();
+  // Items opened from a chat (files, app previews) go to the panel on screen.
+  const panelSessionForItemFrom = useMemo(() => sessionPagePanelSessionFor({
+    selectedSessionId: props.selectedSessionId ?? null,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    split: splitSession,
+  }), [props.selectedSessionId, props.selectedWorkspaceId, splitSession]);
+  const panelSessionForChat = useCallback(
+    (chatSessionId: string) => panelSessionForItemFrom(chatSessionId) ?? chatSessionId,
+    [panelSessionForItemFrom],
+  );
   const openTargetForRuntime = useCallback((runtime: {
     client: OpenworkServerClient | null;
     runtimeWorkspaceId: string | null;
@@ -912,15 +1028,18 @@ export function SessionPage(props: SessionPageProps) {
         resources.record(workspaceResourceScope, { kind: "artifact", title: fileTarget.name, value: fileTarget.value, fileScope: fileTarget.fileScope ?? "workspace", ownerSessionId: sessionId });
         return;
       }
-      if (!sessionId) return;
-      openTab(sessionId, {
+      // In a split view the panel on screen is the main chat's, so a file from
+      // the split chat goes there instead of a panel nobody sees.
+      const tabSessionId = panelSessionForItemFrom(sessionId ?? null);
+      if (!tabSessionId) return;
+      openTab(tabSessionId, {
         id: fileTarget.id,
         type: "artifact",
         label: fileTarget.name,
         preview: fileTarget.preview,
         target: fileTarget,
       });
-      setCurrentSidePanel("panel");
+      openOwnerSidePanel(tabSessionId);
     };
 
     // One decision for every chat file reference: see planFileOpen.
@@ -948,7 +1067,7 @@ export function SessionPage(props: SessionPageProps) {
       }
       await openNative(plan.path, plan.action);
     })().catch(reportOpenError);
-  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, setCurrentSidePanel]);
+  }, [browserUrlForTarget, createBrowserTab, openOwnerSidePanel, openTab, props.selectedSessionId, props.selectedWorkspaceId, props.runtimeWorkspaceId, referenceLayout, workspaceResourceScope, panelSessionForItemFrom]);
   const openTarget = useCallback((target: OpenTarget, options?: OpenTargetOptions, sourceSessionId?: string) => {
     openTargetForRuntime({
       client: props.openworkServerClient,
@@ -1664,6 +1783,7 @@ export function SessionPage(props: SessionPageProps) {
       isReferenceCurrent={props.isSessionReferenceCurrent}
       onOpenReference={handleOpenSessionReference}
     >
+    <PanelSessionProvider value={panelSessionForChat}>
     <div data-chat-viewport className="flex h-full min-h-0 flex-col bg-[radial-gradient(circle_at_top,rgba(74,111,255,0.12),transparent_42%),var(--app-bg,#0b1020)] text-dls-text max-lg:fixed max-lg:inset-x-0 max-lg:top-[var(--chat-viewport-top,0px)] max-lg:h-[var(--chat-viewport-height,100dvh)] max-lg:overflow-hidden max-lg:pt-[env(safe-area-inset-top)] mac:bg-transparent">
       {referenceLayout ? <WorkspaceNavigationBar
         canGoBack={canGoBackInConversationHistory} canGoForward={canGoForwardInConversationHistory} onHistory={navigateConversationHistory}
@@ -1728,6 +1848,13 @@ export function SessionPage(props: SessionPageProps) {
           automationsActive={props.sidebar.automationsActive}
           automationsNeedAttention={props.sidebar.automationsNeedAttention}
           onOpenAutomations={props.sidebar.onOpenAutomations}
+          commandCenterActive={props.sidebar.commandCenterActive}
+          onOpenCommandCenter={props.sidebar.onOpenCommandCenter}
+          resultsInboxActive={props.sidebar.resultsInboxActive}
+          resultsInboxUnread={props.sidebar.resultsInboxUnread}
+          onOpenResultsInbox={props.sidebar.onOpenResultsInbox}
+          projects={props.sidebar.projects}
+          design={props.sidebar.design}
           dashboardActive={props.sidebar.dashboardActive}
           dashboardLabel={props.sidebar.dashboardLabel}
           onOpenDashboard={props.sidebar.onOpenDashboard}
@@ -1823,7 +1950,7 @@ export function SessionPage(props: SessionPageProps) {
                       </Button>
                     }
                   />
-                  <TooltipContent>Back to parent chat</TooltipContent>
+                  <TooltipContent>{t("session_ui.back_to_parent_chat")}</TooltipContent>
                 </Tooltip>
               ) : null}
               {(props.primaryHeader && !hasMainContentTakeover) || (referenceLayout && !props.primarySlot && !hasMainContentTakeover) ? null : <>
@@ -1872,14 +1999,14 @@ export function SessionPage(props: SessionPageProps) {
                         variant="ghost"
                         size="icon-sm"
                         className="hidden rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:inline-flex"
-                        aria-label="Find in conversation"
+                        aria-label={t("session_ui.find_in_conversation")}
                         onClick={() => useSessionFindStore.getState().openFind({ sessionId: findButtonSessionId })}
                       >
                         <TextSearch size={16} />
                       </Button>
                     }
                   />
-                  <TooltipContent>Find in conversation ({isMacPlatform() ? "⌘F" : "Ctrl+F"})</TooltipContent>
+                  <TooltipContent>{t("session_ui.find_in_conversation")} ({isMacPlatform() ? "⌘F" : "Ctrl+F"})</TooltipContent>
                 </Tooltip>
               ) : null}
               {showSettleButton && currentSessionSettle ? (
@@ -1922,7 +2049,7 @@ export function SessionPage(props: SessionPageProps) {
                       variant="ghost"
                       size="icon-sm"
                       className="rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-                      aria-label="More actions"
+                      aria-label={t("session_ui.more_actions")}
                     >
                       <MoreHorizontal size={18} />
                     </Button>
@@ -1934,7 +2061,7 @@ export function SessionPage(props: SessionPageProps) {
                       onClick={() => useSessionFindStore.getState().openFind({ sessionId: findButtonSessionId })}
                     >
                       <TextSearch className="size-4" />
-                      Find in conversation
+                      {t("session_ui.find_in_conversation")}
                     </DropdownMenuItem>
                   ) : null}
                   {showSettleButton && currentSessionSettle ? (
@@ -1945,7 +2072,11 @@ export function SessionPage(props: SessionPageProps) {
                   ) : null}
                   <DropdownMenuItem onClick={openArtifactRailPane}>
                     <FileText className="size-4" />
-                    Files{artifactTargetCount > 0 ? ` (${artifactTargetCount})` : ""}
+                    {t("session_ui.files")}{artifactTargetCount > 0 ? ` (${artifactTargetCount})` : ""}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMemoryOpen(true)}>
+                    <Brain className="size-4" />
+                    Consolidar memoria
                   </DropdownMenuItem>
                   {showCloudSignIn ? (
                     <DropdownMenuItem onClick={openCloudSignIn}>
@@ -1989,7 +2120,7 @@ export function SessionPage(props: SessionPageProps) {
                         "hidden rounded-xl text-gray-10 transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
                         sidePanelOpen && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                       )}
-                      aria-label={sidePanelOpen ? "Close side panel" : "Open side panel"}
+                      aria-label={sidePanelOpen ? t("session.close_side_panel") : t("session.open_side_panel")}
                       aria-pressed={sidePanelOpen}
                       onClick={() => {
                         if (sidePanelOpen) {
@@ -2003,7 +2134,7 @@ export function SessionPage(props: SessionPageProps) {
                     </Button>
                   }
                 />
-                <TooltipContent>{sidePanelOpen ? "Close side panel" : "Open side panel"}</TooltipContent>
+                <TooltipContent>{sidePanelOpen ? t("session.close_side_panel") : t("session.open_side_panel")}</TooltipContent>
               </Tooltip>
               )}
             </div>}
@@ -2015,6 +2146,7 @@ export function SessionPage(props: SessionPageProps) {
             onLayoutChanged={sidePanelOpen ? commitBrowserPanelWidth : undefined}
             className={cn("min-h-0 flex-1 max-lg:rounded-none", !referenceLayout && props.primarySurface !== "flat" && "lg:rounded-[14px]")}
           >
+            {!(studioActive && artifactFocusMode) ? (
             <ResizablePanel minSize={isMobile ? "0px" : "360px"} className="min-w-0">
               <main data-session-pane className={cn("flex h-full min-w-0 flex-col overflow-hidden bg-dls-surface", !referenceLayout && props.primarySurface !== "flat" && "max-lg:rounded-none max-lg:border-0 max-lg:shadow-none lg:rounded-[14px] lg:border lg:border-border lg:shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:lg:shadow-[0_10px_30px_rgba(0,0,0,0.45)] mac:bg-dls-surface/85 mac:backdrop-blur-2xl mac:backdrop-saturate-150")}>
           {showNarrowPaneSwitcher ? (
@@ -2238,7 +2370,7 @@ export function SessionPage(props: SessionPageProps) {
                   {props.notFoundMessage ? (
                     <div className="px-6 py-16 text-center">
                       <div className="mx-auto max-w-md rounded-2xl border border-dls-border bg-dls-card px-5 py-6 shadow-[var(--dls-card-shadow)]">
-                        <h3 className="text-base font-medium text-dls-text">Workspace or session not found</h3>
+                        <h3 className="text-base font-medium text-dls-text">{t("session_ui.workspace_or_session_not_found")}</h3>
                         <p className="mt-2 text-sm leading-6 text-dls-secondary">{props.notFoundMessage}</p>
                       </div>
                     </div>
@@ -2301,14 +2433,15 @@ export function SessionPage(props: SessionPageProps) {
 
               </main>
             </ResizablePanel>
+            ) : null}
               {sidePanelOpen && !isMobile ? (
               <>
                 {/* Discoverable: a grip shows on hover and keyboard focus, so a narrow artifact can be widened. */}
                 <ResizableHandle withHandle aria-label="Resize side panel" className="hidden bg-transparent transition-colors hover:bg-border focus-visible:bg-border lg:flex [&>div]:opacity-0 [&>div]:transition-opacity hover:[&>div]:opacity-100 focus-visible:[&>div]:opacity-100" />
                 <ResizablePanel
                   panelRef={browserPanelRef}
-                  defaultSize={`${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
-                  minSize={activeSidePanel === "extensions" ? "420px" : "320px"}
+                  defaultSize={studioActive ? "58%" : `${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
+                  minSize={studioActive ? "40%" : activeSidePanel === "extensions" ? "420px" : "320px"}
                   maxSize="70%"
                   className="min-h-0 overflow-hidden pl-2 lg:flex lg:flex-col"
                 >
@@ -2443,9 +2576,47 @@ export function SessionPage(props: SessionPageProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Consolidar memoria</DialogTitle>
+          </DialogHeader>
+          {props.openworkServerClient ? <ScopedMemoryPanel client={props.openworkServerClient} workspaceId={props.selectedWorkspaceId} sessionId={props.selectedSessionId ?? ""} /> : <p className="text-sm text-muted-foreground">No hay servidor OpenWork disponible.</p>}
+          {props.selectedSessionId ? <div className="mt-3 flex justify-end gap-3">
+            <button type="button" className="text-sm text-primary hover:underline" onClick={() => void saveLastAssistantSummary()}>Guardar último resumen del asistente</button>
+            <button type="button" className="text-sm text-primary hover:underline" onClick={() => {
+              const prompt = "Consolida la memoria de esta sesión: resume lo importante, pregúntame qué quiero recordar y actualiza las notas existentes si algo cambió.";
+              useComposerStateStore.getState().setDraft(props.selectedSessionId ?? "", prompt);
+              markComposerAutoSend(props.selectedSessionId ?? "");
+              setMemoryOpen(false);
+            }}>Generar resumen con IA</button>
+          </div> : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(memoryDiff?.open)} onOpenChange={(value) => { if (!value) setMemoryDiff(null); }}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
+          <DialogHeader><DialogTitle>Aplicar resumen a la memoria</DialogTitle></DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Actual</p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{memoryDiff?.current || "Sin notas previas."}</pre>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Propuesto</p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{memoryDiff?.proposed}</pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMemoryDiff(null)}>Descartar</Button>
+            <Button onClick={() => void applyMemoryDiff()}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cloud provider notifications are now handled globally by CloudProvidersToast in app-root.tsx */}
     </div>
+    </PanelSessionProvider>
     </SessionReferenceProvider>
   );
 }

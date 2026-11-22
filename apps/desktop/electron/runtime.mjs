@@ -9,6 +9,7 @@ import path from "node:path";
 import tls from "node:tls";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
+import { z } from "zod";
 import {
   deleteEnv,
   desktopBootstrapPath,
@@ -28,6 +29,25 @@ import {
 } from "./system-ca.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+
+// `openwork-server-tokens.json`: an object; migrateOpenworkServerTokenStore reads its fields.
+const serverTokenStoreSchema = z.record(z.string(), z.unknown());
+// `openwork-server-state.json`: preferred ports. A non-numeric port is dropped.
+const serverPortStateSchema = z.looseObject({
+  workspacePorts: z.record(z.string(), z.unknown()).catch({})
+    .transform((ports) => Object.fromEntries(Object.entries(ports).filter(([, port]) => typeof port === "number"))),
+  preferredPort: z.number().nullable().catch(null),
+});
+// The user env store (`env.json`, written by openwork-server). Entries are filtered below.
+const userEnvFileSchema = z.object({ variables: z.array(z.unknown()) });
+const userEnvEntrySchema = z.object({ key: z.string(), value: z.string() });
+// The bootstrap file's enterprise activation, written once the desktop is activated.
+const enterpriseBootstrapSchema = z.object({
+  enterpriseActivation: z.object({
+    activatedAt: z.string().refine((value) => value.trim().length > 0),
+    denBaseUrl: z.unknown().optional(),
+  }),
+});
 
 const DIRECT_RUNTIME = "direct";
 const OPENWORK_SERVER_PORT_RANGE_START = 48_000;
@@ -578,10 +598,12 @@ async function fileExists(targetPath) {
   }
 }
 
-async function readJsonFile(targetPath, fallback) {
+/** Reads a JSON file through `schema`; a missing, unreadable or invalid file is `fallback`. */
+async function readJsonFile(targetPath, schema, fallback) {
   try {
     const raw = await readFile(targetPath, "utf8");
-    return JSON.parse(raw);
+    const parsed = schema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : fallback;
   } catch {
     return fallback;
   }
@@ -789,13 +811,13 @@ export function isReservedUserEnvKey(key, platform = process.platform) {
 function loadUserEnvFile(env = process.env) {
   try {
     const raw = readFileSync(resolveUserEnvFilePath(env), "utf8");
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.variables)) return {};
+    const parsed = userEnvFileSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return {};
     const out = {};
-    for (const entry of parsed.variables) {
-      if (!entry || typeof entry !== "object") continue;
-      const { key, value } = entry;
-      if (typeof key !== "string" || typeof value !== "string") continue;
+    for (const variable of parsed.data.variables) {
+      const entry = userEnvEntrySchema.safeParse(variable);
+      if (!entry.success) continue;
+      const { key, value } = entry.data;
       if (!USER_ENV_KEY_PATTERN.test(key)) continue;
       if (isReservedUserEnvKey(key)) continue;
       out[key] = value;
@@ -846,12 +868,9 @@ async function readActivatedEnterpriseOrigin(filePath) {
     if (!fileStat.isFile() || fileStat.size > MAX_BOOTSTRAP_BYTES) return null;
     const raw = await readFile(filePath, "utf8");
     if (Buffer.byteLength(raw, "utf8") > MAX_BOOTSTRAP_BYTES) return null;
-    const data = JSON.parse(raw);
-    if (!isPlainObject(data)) return null;
-    const activation = isPlainObject(data.enterpriseActivation) ? data.enterpriseActivation : null;
-    if (!activation) return null;
-    if (typeof activation.activatedAt !== "string" || !activation.activatedAt.trim()) return null;
-    return exactEnterpriseOrigin(activation.denBaseUrl);
+    const data = enterpriseBootstrapSchema.safeParse(JSON.parse(raw));
+    if (!data.success) return null;
+    return exactEnterpriseOrigin(data.data.enterpriseActivation.denBaseUrl);
   } catch {
     return null;
   }
@@ -1434,6 +1453,8 @@ export function createRuntimeManager({
   listLocalWorkspacePaths,
   localManagedMcpVaultKey,
   driveFileApproval = undefined,
+  delegationApproval = undefined,
+  delegationPty = undefined,
   anonymousInference = undefined,
   workspaceMkdir = mkdir,
   workspacePlatform = process.platform,
@@ -1507,7 +1528,7 @@ export function createRuntimeManager({
   }
 
   async function loadTokenStore() {
-    const stored = await readJsonFile(openworkServerTokenStorePath(), { version: 1, workspaces: {} });
+    const stored = await readJsonFile(openworkServerTokenStorePath(), serverTokenStoreSchema, { version: 1, workspaces: {} });
     const migrated = migrateOpenworkServerTokenStore(stored);
     if (JSON.stringify(stored) !== JSON.stringify(migrated)) {
       await saveTokenStore(migrated);
@@ -1522,7 +1543,7 @@ export function createRuntimeManager({
   }
 
   async function loadPortState() {
-    return readJsonFile(openworkServerStatePath(), {
+    return readJsonFile(openworkServerStatePath(), serverPortStateSchema, {
       version: 4,
       workspacePorts: {},
       preferredPort: null,
@@ -1994,6 +2015,8 @@ export function createRuntimeManager({
       corsOrigins: ["*"],
       approvalMode: "auto",
       driveFileApproval,
+      delegationApproval,
+      delegationPty,
       configPath: serverConfigPath,
       workspaces: workspacePaths,
       token: tokens.clientToken,

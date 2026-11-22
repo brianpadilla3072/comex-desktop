@@ -931,6 +931,8 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
     enabled: () => browserControlEnabled,
     allowed: browserTaskAllowed,
     openTab: openBrowserTab,
+    // The agent may close only tabs its conversation owns (enforced in the task host).
+    closeTab: async (tab) => { closeBrowserTab(tab.tabId); },
     navigate: (tab, url) => tab.view.webContents.loadURL(url),
     // Pages get files through the intercepted chooser, never the system picker. Run only
     // after the person approved these exact paths: each must be its own real path (no link

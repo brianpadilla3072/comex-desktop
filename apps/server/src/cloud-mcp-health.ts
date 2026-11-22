@@ -1202,7 +1202,8 @@ async function withCloudEndpointProbeTimeout(task: (signal: AbortSignal) => Prom
 
 function parseJsonOrText(raw: string): unknown {
   try {
-    return JSON.parse(raw);
+    const value: unknown = JSON.parse(raw);
+    return value;
   } catch {
     return sanitizeDiagnosticString(raw);
   }

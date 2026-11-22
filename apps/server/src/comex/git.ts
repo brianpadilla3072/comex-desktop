@@ -11,7 +11,7 @@ function gitEnvironment() {
   return { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("GIT_"))), GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" };
 }
 const gitOptions = ["-c", "core.fsmonitor=false", "-c", "core.quotePath=false", "-c", "submodule.recurse=false"];
-const unavailable = () => new ApiError(422, "git_unavailable", "No pude completar la operación Git. Verificá el repositorio y la instalación de Git.");
+const unavailable = () => new ApiError(422, "git_unavailable", "No pude completar la operación Git. Verifica el repositorio y la instalación de Git.");
 
 /** Status/diff also run clean filters, so disable drivers before every operation. */
 async function disabledFilters(root: string) {
@@ -71,7 +71,7 @@ export async function reviewGitWorkspace(directory: string, options: { codeOnly?
   const canonical = await realpath(directory);
   const root = (await git(canonical, ["rev-parse", "--show-toplevel"])).replace(/\r?\n$/, "");
   // Never expose the enclosing repository when a registered project is a subfolder.
-  if (await realpath(root) !== canonical) throw new ApiError(422, "git_root_required", "Abrí la carpeta raíz del repositorio para revisar sus cambios.");
+  if (await realpath(root) !== canonical) throw new ApiError(422, "git_root_required", "Abre la carpeta raíz del repositorio para revisar sus cambios.");
   const status = await git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=normal", "--ignore-submodules=dirty"]);
   let head: string | null = null;
   try { head = (await git(root, ["rev-parse", "--verify", "HEAD"])).trim(); } catch { /* An empty repository has no committed base. */ }
@@ -81,7 +81,7 @@ export async function reviewGitWorkspace(directory: string, options: { codeOnly?
   const staged = await diffPreview(root, [...args, "--cached", ...paths]);
   let currentHead: string | null = null;
   try { currentHead = (await git(root, ["rev-parse", "--verify", "HEAD"])).trim(); } catch { /* Unborn repository. */ }
-  if (currentHead !== head) throw new ApiError(409, "git_head_changed", "Cambió el commit durante la revisión. Volvé a revisar el proyecto.");
+  if (currentHead !== head) throw new ApiError(409, "git_head_changed", "Cambió el commit durante la revisión. Vuelve a revisar el proyecto.");
   const max = 160_000;
   const fullDiff = [staged.text && `Cambios preparados\n${staged.text}`, unstaged.text && `Cambios sin preparar\n${unstaged.text}`].filter(Boolean).join("\n");
   const entries = status.split("\0").filter(Boolean);
@@ -110,8 +110,8 @@ async function privateDirectory(directory: string) {
 /** Snapshot committed HEAD only: uncommitted changes remain in the source. */
 export async function createGitWorktree(directory: string, runtimeDirectory: string, expectedHead: string) {
   const review = await reviewGitWorkspace(directory);
-  if (!review.head) throw new ApiError(422, "git_commit_required", "Guardá un primer commit antes de crear un trabajo aislado.");
-  if (expectedHead !== review.head) throw new ApiError(409, "git_head_changed", "Cambió el commit del proyecto. Volvé a revisar los cambios antes de crear el trabajo aislado.");
+  if (!review.head) throw new ApiError(422, "git_commit_required", "Guarda un primer commit antes de crear un trabajo aislado.");
+  if (expectedHead !== review.head) throw new ApiError(409, "git_head_changed", "Cambió el commit del proyecto. Vuelve a revisar los cambios antes de crear el trabajo aislado.");
   const parent = join(runtimeDirectory, "comex-worktrees", createHash("sha256").update(review.root).digest("hex").slice(0, 24));
   await privateDirectory(parent);
   const path = join(parent, randomUUID());
@@ -155,6 +155,16 @@ export async function listGitWorktrees(root: string) {
       head: fields.find(x => x.startsWith("HEAD "))?.slice(5) ?? "",
       locked: fields.some(x => x === "locked" || x.startsWith("locked ")) };
   });
+}
+
+/** Remove a task-review worktree whose changes the person already accepted or discarded
+ *  (docs/features/task-isolation-review). Only a listed, unlocked worktree other than the
+ *  project itself; the caller owns the path. */
+export async function removeReviewedGitWorktree(root: string, path: string) {
+  const listed = await listGitWorktrees(root);
+  const entry = listed.find(w => w.path === path);
+  if (!entry || entry.locked || await realpath(root) === await realpath(path)) throw new ApiError(409, "worktree_unavailable", "El trabajo aislado no se puede retirar.");
+  await git(root, ["worktree", "remove", "--force", "--", path]);
 }
 
 /** Only remove a clean, unlocked worktree whose commit is retained by the source. */

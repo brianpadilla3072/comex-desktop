@@ -91,8 +91,15 @@ export function createV2ReadAdapter(read: Read): Read {
     // messages sharing a timestamp also keep chronological timeline order.
     return rows.reverse().filter(row => row.type === "user" || row.type === "assistant")
       .sort((a, b) => Number(isRecord(a.time) ? a.time.created : 0) - Number(isRecord(b.time) ? b.time.created : 0))
-      .map(row => ({ info: { id: row.id, role: row.type, time: row.time, ...(row.error ? { error: row.error } : {}) },
-        parts: Array.isArray(row.content) ? row.content.filter(part => isRecord(part) && part.type === "text") : typeof row.text === "string" ? [{ type: "text", text: row.text }] : [] }));
+      .map(row => {
+        const parts = Array.isArray(row.content) ? row.content.filter(part => isRecord(part) && part.type === "text") : typeof row.text === "string" ? [{ type: "text", text: row.text }] : [];
+        // v2 keeps a provider failure that produced no text in `retry.error` (a retired or
+        // unreachable model ends as an empty turn). Without this the chat showed silence.
+        const retry = isRecord(row.retry) ? row.retry : null;
+        const retryError = retry && isRecord(retry.error) ? retry.error : null;
+        const error = row.error ?? (retryError && parts.length === 0 ? retryError : null);
+        return { info: { id: row.id, role: row.type, time: row.time, ...(error ? { error } : {}) }, parts };
+      });
   };
 }
 

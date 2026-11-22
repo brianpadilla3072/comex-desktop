@@ -9,7 +9,7 @@ const neverProbed = async () => {
 };
 
 describe("packaged app", () => {
-  for (const requested of [undefined, "", "  ", "0", "not-a-port", "-1"]) {
+  for (const requested of [undefined, "", "  ", "0", "not-a-port", "-1", "65536", "9223oops", "9.5"]) {
     it(`stays closed when the launch asks for ${JSON.stringify(requested)}`, async () => {
       assert.equal(await resolveRemoteDebugPort({ packaged: true, requested, isFree: neverProbed }), 0);
     });

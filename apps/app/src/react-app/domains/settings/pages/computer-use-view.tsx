@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { t } from "@/i18n";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ComputerPermission, ComputerStatus, DesktopCommandResult } from "@openwork/types/desktop-ipc";
 import { denSessionUpdatedEvent, denSettingsChangedEvent } from "@/app/lib/den-session-events";
@@ -25,9 +26,10 @@ import {
 
 type Busy = "choose" | "reset" | ComputerPermission | null;
 
-const PERMISSIONS: Array<{ id: ComputerPermission; title: string; purpose: string }> = [
-  { id: "accessibility", title: "Accessibility", purpose: "Use app controls, the mouse and the keyboard in Mac apps." },
-  { id: "screenRecording", title: "Screen Recording", purpose: "See app windows. macOS may call it Screen & System Audio Recording." },
+/** Locale keys; the macOS pane names are translated as macOS shows them in each language. */
+const PERMISSIONS: Array<{ id: ComputerPermission; titleKey: string; purposeKey: string }> = [
+  { id: "accessibility", titleKey: "secondary_ui.computer.perm_accessibility", purposeKey: "secondary_ui.computer.perm_accessibility_purpose" },
+  { id: "screenRecording", titleKey: "secondary_ui.computer.perm_screen", purposeKey: "secondary_ui.computer.perm_screen_purpose" },
 ];
 // After opening a pane, give macOS a moment before offering the stale-entry fix.
 const STUCK_AFTER_MS = 15_000;
@@ -37,13 +39,13 @@ const message = (cause: unknown) => cause instanceof Error ? cause.message : Str
 function statusLabel(readiness: ComputerStatus["readiness"]) {
   switch (readiness) {
     case "ready":
-      return "Ready";
+      return t("settings_ui.computer_ready");
     case "setup-required":
-      return "Setup needed";
+      return t("settings_ui.computer_setup_needed");
     case "unsupported":
-      return "Not supported";
+      return t("settings_ui.computer_not_supported");
     default:
-      return "Unavailable";
+      return t("settings_ui.computer_unavailable");
   }
 }
 
@@ -133,8 +135,8 @@ export function ComputerUseView() {
       <LayoutStack>
         <LayoutSection>
           <LayoutSectionHeader>
-            <LayoutSectionTitle>Not turned on</LayoutSectionTitle>
-            <LayoutSectionDescription>Computer use isn't turned on in this app.</LayoutSectionDescription>
+            <LayoutSectionTitle>{t("settings_ui.computer_not_turned_on")}</LayoutSectionTitle>
+            <LayoutSectionDescription>{t("settings_ui.computer_not_turned_on_desc")}</LayoutSectionDescription>
           </LayoutSectionHeader>
         </LayoutSection>
         <RememberedFileSharing />
@@ -143,7 +145,7 @@ export function ComputerUseView() {
   }
 
   const targets = status?.targets ?? [];
-  const computer = targets.find((target) => target.id === status?.targetId)?.label ?? "This computer";
+  const computer = targets.find((target) => target.id === status?.targetId)?.label ?? t("settings_ui.computer_this_computer");
   const entry = status?.entry.name ?? "OpenWork";
   const verified = readError ? undefined : status?.permissions;
   const nextPermission = PERMISSIONS.find((permission) => verified?.[permission.id] !== true)?.id;
@@ -155,16 +157,16 @@ export function ComputerUseView() {
     <LayoutStack>
       <LayoutSection>
         <LayoutSectionHeader>
-          <LayoutSectionTitle>Setup</LayoutSectionTitle>
+          <LayoutSectionTitle>{t("settings_ui.computer_setup")}</LayoutSectionTitle>
           <LayoutSectionDescription>
-            The agent uses apps on your computer when a task needs one. Set it up once here and every chat can use it. While it works, the chat shows a live view with Take over and Stop.
+            {t("settings_ui.computer_setup_desc")}
           </LayoutSectionDescription>
         </LayoutSectionHeader>
 
         <LayoutSectionItem>
           <LayoutSectionItemHeader className="min-h-10 items-center">
-            <LayoutSectionItemTitle>Computer</LayoutSectionItemTitle>
-            <LayoutSectionItemDescription>Where the agent works.</LayoutSectionItemDescription>
+            <LayoutSectionItemTitle>{t("settings_ui.computer_computer")}</LayoutSectionItemTitle>
+            <LayoutSectionItemDescription>{t("settings_ui.computer_where")}</LayoutSectionItemDescription>
             <LayoutSectionItemHeaderActions className="self-center">
               {targets.length > 1 ? (
                 <Select
@@ -175,7 +177,7 @@ export function ComputerUseView() {
                     if (value && value !== status?.targetId) void act("choose", () => desktopBridge.computerChoose(value));
                   }}
                 >
-                  <SelectTrigger className="w-44" aria-label="Computer" data-testid="settings-computer-target">
+                  <SelectTrigger className="w-44" aria-label={t("settings_ui.computer_computer")} data-testid="settings-computer-target">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -191,12 +193,12 @@ export function ComputerUseView() {
 
         <LayoutSectionItem>
           <LayoutSectionItemHeader>
-            <LayoutSectionItemTitle>Status</LayoutSectionItemTitle>
+            <LayoutSectionItemTitle>{t("settings_ui.computer_status")}</LayoutSectionItemTitle>
             <LayoutSectionItemDescription>
-              {readError ? `Couldn't check this computer. ${readError}`
+              {readError ? t("settings_ui.computer_check_failed", { error: readError })
                 // The helper's own detail points at a setup screen; this page is that screen.
-                : showPermissions && status.readiness === "setup-required" ? "Turn on both macOS permissions below."
-                  : status?.detail ?? "Checking…"}
+                : showPermissions && status.readiness === "setup-required" ? t("settings_ui.computer_turn_on_mac")
+                  : status?.detail ?? t("settings_ui.computer_checking_detail")}
             </LayoutSectionItemDescription>
             <LayoutSectionItemHeaderActions>
               <span
@@ -205,7 +207,7 @@ export function ComputerUseView() {
                 data-state={state ?? "checking"}
                 className={cn("text-sm", state === "ready" ? "text-green-11" : state === "setup-required" ? "text-amber-11" : "text-muted-foreground")}
               >
-                {state ? statusLabel(state) : "Checking"}
+                {state ? statusLabel(state) : t("settings_ui.computer_checking")}
               </span>
             </LayoutSectionItemHeaderActions>
           </LayoutSectionItemHeader>
@@ -216,9 +218,9 @@ export function ComputerUseView() {
       {showPermissions ? (
         <LayoutSection>
           <LayoutSectionHeader>
-            <LayoutSectionTitle>macOS permissions</LayoutSectionTitle>
+            <LayoutSectionTitle>{t("secondary_ui.computer.perm_title")}</LayoutSectionTitle>
             <LayoutSectionDescription>
-              In System Settings, turn on <span className="font-medium text-foreground" data-testid="settings-computer-entry">{entry}</span> for both permissions. This page updates on its own.
+              {t("secondary_ui.computer.perm_desc_before")}<span className="font-medium text-foreground" data-testid="settings-computer-entry">{entry}</span>{t("secondary_ui.computer.perm_desc_after")}
             </LayoutSectionDescription>
           </LayoutSectionHeader>
 
@@ -230,33 +232,33 @@ export function ComputerUseView() {
             return (
               <LayoutSectionItem key={permission.id}>
                 <LayoutSectionItemHeader>
-                  <LayoutSectionItemTitle>{permission.title}</LayoutSectionItemTitle>
-                  <LayoutSectionItemDescription>{permission.purpose}</LayoutSectionItemDescription>
+                  <LayoutSectionItemTitle>{t(permission.titleKey)}</LayoutSectionItemTitle>
+                  <LayoutSectionItemDescription>{t(permission.purposeKey)}</LayoutSectionItemDescription>
                   <LayoutSectionItemHeaderActions>
                     <span
                       data-testid={`settings-computer-permission-${permission.id}`}
                       data-state={on ? "done" : waiting ? "waiting" : "todo"}
                       className={cn("text-sm", on ? "text-green-11" : waiting ? "text-amber-11" : "text-muted-foreground")}
                     >
-                      {on ? "On" : waiting ? "Waiting for macOS" : "Off"}
+                      {on ? t("secondary_ui.computer.perm_on") : waiting ? t("secondary_ui.computer.perm_waiting") : t("secondary_ui.computer.perm_off")}
                     </span>
                     {!on ? (
                       <Button size="sm" variant={nextPermission === permission.id ? "default" : "outline"} disabled={busy !== null || !verified} aria-busy={busy === permission.id} onClick={() => openPermission(permission.id)}>
-                        Open {permission.title}
+                        {t("secondary_ui.computer.perm_open", { permission: t(permission.titleKey) })}
                       </Button>
                     ) : null}
                   </LayoutSectionItemHeaderActions>
                 </LayoutSectionItemHeader>
                 {stuck ? (status?.entry.ours
-                  ? <div><Button size="sm" variant="ghost" disabled={busy !== null} aria-busy={busy === "reset"} data-testid={`settings-computer-reset-${permission.id}`} onClick={() => void act("reset", () => desktopBridge.computerResetPermission(permission.id))}>Already on? Reset and ask again</Button></div>
-                  : <LayoutSectionItemFootnote>Already on? Remove {entry} from the list with the minus button, then add it again.</LayoutSectionItemFootnote>) : null}
+                  ? <div><Button size="sm" variant="ghost" disabled={busy !== null} aria-busy={busy === "reset"} data-testid={`settings-computer-reset-${permission.id}`} onClick={() => void act("reset", () => desktopBridge.computerResetPermission(permission.id))}>{t("secondary_ui.computer.perm_reset")}</Button></div>
+                  : <LayoutSectionItemFootnote>{t("secondary_ui.computer.perm_remove", { entry })}</LayoutSectionItemFootnote>) : null}
               </LayoutSectionItem>
             );
           })}
 
           <LayoutSectionItem>
             <LayoutSectionItemFootnote>
-              macOS lists them under {entry}, the helper OpenWork uses for computer use. The agent still sees the app window it is using, and its content goes to your AI model provider. If macOS offers Quit &amp; Reopen, either choice is fine: OpenWork stays open and this page checks again on its own.
+              {t("secondary_ui.computer.perm_footnote", { entry })}
             </LayoutSectionItemFootnote>
           </LayoutSectionItem>
         </LayoutSection>
@@ -284,7 +286,7 @@ export function RememberedFileSharing() {
       const next = await desktopBridge.computerListFileGrants();
       if (current === generation.current) setState(next);
     } catch (cause) {
-      if (current === generation.current) setError(`Couldn't check remembered file sharing. Try again. ${message(cause)}`);
+      if (current === generation.current) setError(t("settings_ui.file_sharing_check_failed", { error: message(cause) }));
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -315,10 +317,10 @@ export function RememberedFileSharing() {
     setError("");
     try {
       const result = await desktopBridge.computerRemoveFileGrant(id);
-      if (!result.ok) throw new Error("Permission wasn't removed.");
+      if (!result.ok) throw new Error(t("settings_ui.file_sharing_not_removed"));
       if (current === generation.current) await refresh();
     } catch (cause) {
-      if (current === generation.current) setError(`Couldn't remove permission. Try again. ${message(cause)}`);
+      if (current === generation.current) setError(t("settings_ui.file_sharing_remove_failed", { error: message(cause) }));
     } finally {
       setRemoving(null);
     }
@@ -328,22 +330,22 @@ export function RememberedFileSharing() {
   return (
     <LayoutSection id="remembered-file-sharing">
       <LayoutSectionHeader>
-        <LayoutSectionTitle>Remembered file sharing</LayoutSectionTitle>
+        <LayoutSectionTitle>{t("settings_ui.file_sharing_title")}</LayoutSectionTitle>
       </LayoutSectionHeader>
-      {loading ? <LayoutSectionItem><div aria-label="Checking remembered file sharing" className="h-10 animate-pulse rounded bg-muted motion-reduce:animate-none" /></LayoutSectionItem>
+      {loading ? <LayoutSectionItem><div aria-label={t("settings_ui.file_sharing_checking")} className="h-10 animate-pulse rounded bg-muted motion-reduce:animate-none" /></LayoutSectionItem>
         : (state?.grants ?? []).map((grant) => (
           <LayoutSectionItem key={grant.id} className="border-b border-border pb-2">
             <LayoutSectionItemHeader className="min-h-10 items-center">
-              <LayoutSectionItemTitle className="flex-wrap break-all"><span dir="ltr" className="font-mono">{grant.origin}</span>{grant.blocked ? <span role="status" className="text-xs font-normal text-muted-foreground">Blocked by your organization</span> : null}</LayoutSectionItemTitle>
+              <LayoutSectionItemTitle className="flex-wrap break-all"><span dir="ltr" className="font-mono">{grant.origin}</span>{grant.blocked ? <span role="status" className="text-xs font-normal text-muted-foreground">{t("settings_ui.file_sharing_blocked")}</span> : null}</LayoutSectionItemTitle>
               <LayoutSectionItemDescription className="break-all font-mono"><span dir="ltr">{grant.folder}</span></LayoutSectionItemDescription>
               <LayoutSectionItemHeaderActions>
-                <Button size="sm" variant="outline" disabled={removing !== null} aria-busy={removing === grant.id} aria-label={`Remove file sharing with ${grant.origin} from ${grant.folder}`} onClick={() => void remove(grant.id)}>Remove</Button>
+                <Button size="sm" variant="outline" disabled={removing !== null} aria-busy={removing === grant.id} aria-label={t("settings_ui.file_sharing_remove_aria", { origin: grant.origin, folder: grant.folder })} onClick={() => void remove(grant.id)}>{t("settings_ui.file_sharing_remove")}</Button>
               </LayoutSectionItemHeaderActions>
             </LayoutSectionItemHeader>
           </LayoutSectionItem>
         ))}
-      {!loading && !error && state?.enabled && !state.grants.length ? <LayoutSectionItem><LayoutSectionItemFootnote>No folders shared automatically. Choose a folder when approving a browser upload to remember it.</LayoutSectionItemFootnote></LayoutSectionItem> : null}
-      {error ? <LayoutSectionItem><div role="alert" className="text-sm text-red-11">{error}</div><div><Button size="sm" variant="ghost" onClick={() => void refresh()}>Try again</Button></div></LayoutSectionItem> : null}
+      {!loading && !error && state?.enabled && !state.grants.length ? <LayoutSectionItem><LayoutSectionItemFootnote>{t("settings_ui.file_sharing_empty")}</LayoutSectionItemFootnote></LayoutSectionItem> : null}
+      {error ? <LayoutSectionItem><div role="alert" className="text-sm text-red-11">{error}</div><div><Button size="sm" variant="ghost" onClick={() => void refresh()}>{t("settings_ui.file_sharing_try_again")}</Button></div></LayoutSectionItem> : null}
     </LayoutSection>
   );
 }

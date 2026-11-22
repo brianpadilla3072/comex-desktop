@@ -51,9 +51,12 @@ const FAMILIES: Record<string, readonly string[]> = {
 
 const normalize = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
 
+/** Separators between the words of a model name, shared by names and typed queries. */
+const NAME_SEPARATORS = /[\s/_:()[\],]+|-(?!\d)|(?<=[a-z])-(?=\d)/;
+
 /** Words of a name: "Claude Opus 4.5" → claude, opus, 4.5; "gpt-5.1-mini" → gpt, 5.1, mini; "gpt5" → gpt5, gpt, 5. */
 export function nameWords(value: string): string[] {
-  return normalize(value).split(/[\s/_:()[\],]+|-(?!\d)|(?<=[a-z])-(?=\d)/).flatMap((word) => {
+  return normalize(value).split(NAME_SEPARATORS).flatMap((word) => {
     const trimmed = word.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
     if (!trimmed) return [];
     const parts = trimmed.match(/[a-z]+|\d+(?:\.\d+)*/g) ?? [];
@@ -144,7 +147,9 @@ function matchProvider(word: string, hints: readonly ProviderHint[]): ProviderHi
 }
 
 export function searchModels(options: readonly ModelOption[], query: string): ModelSearchResult {
-  const typed = normalize(query).split(/[\s,]+/).map((word) => word.replace(/^[^a-z0-9]+|[^a-z0-9.]+$/g, "")).filter(Boolean);
+  // Split the query exactly like model names (nameWords): "http-500", "gpt-6" and
+  // "mid-stream-reset" were single words that matched nothing.
+  const typed = normalize(query).split(NAME_SEPARATORS).map((word) => word.replace(/^[^a-z0-9]+|[^a-z0-9.]+$/g, "")).filter(Boolean);
   const indexed = options.filter((option) => !option.disabled).map((option) => {
     const title = modelTitle(option);
     return { option, title, words: new Set([...nameWords(title), ...nameWords(option.modelID)]) };

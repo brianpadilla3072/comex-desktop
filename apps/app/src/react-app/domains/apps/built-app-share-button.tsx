@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "@/i18n";
 import { Blocks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,7 @@ export function BuiltAppShareButton({
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Share
+        {t("extensions.add_plugin_share")}
       </Button>
       <BuiltAppShareDialog pluginId={pluginId} title={title} open={open} onOpenChange={setOpen} />
     </>
@@ -47,7 +48,7 @@ export function BuiltAppShareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="sr-only">
-          <DialogTitle>Share {title}</DialogTitle>
+          <DialogTitle>{t("secondary_ui.dashboard.share_named", { name: title })}</DialogTitle>
         </DialogHeader>
         {context.client && context.orgId && context.identityVerified ? (
           <AppSharing
@@ -59,7 +60,7 @@ export function BuiltAppShareDialog({
           />
         ) : (
           <p role="status" className="text-sm">
-            Sign in to share this artifact.
+            {t("secondary_ui.dashboard.share_artifact.sign_in")}
           </p>
         )}
       </DialogContent>
@@ -80,7 +81,7 @@ function AppSharing({
 }) {
   // The caller verifies these before mounting. Avoid retaining another member's grants.
   if (!context.client || !context.orgId)
-    throw new Error("Sign in to share this artifact.");
+    throw new Error(t("secondary_ui.dashboard.share_artifact.sign_in"));
   const library = useLibraryCloud({
     client: context.client,
     organizationId: context.orgId,
@@ -91,16 +92,16 @@ function AppSharing({
     return (
       <div className="flex items-center gap-2">
         <p role="alert" className="text-sm">
-          Sharing could not be loaded.
+          {t("secondary_ui.dashboard.share_artifact.load_failed")}
         </p>
         <Button variant="outline" onClick={() => void library.refresh()}>
-          Try again
+          {t("session.remote_task_retry")}
         </Button>
       </div>
     );
   if (!library.ready || !library.directory)
     return (
-      <div role="status" aria-label="Checking sharing">
+      <div role="status" aria-label={t("secondary_ui.dashboard.share_artifact.checking")}>
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="mt-4 h-40 w-full" />
       </div>
@@ -109,7 +110,7 @@ function AppSharing({
   if (!plugin || !library.ownedPluginIds.has(pluginId))
     return (
       <p role="status" className="text-sm">
-        Only this artifact's owner can share it. Ask them for access.
+        {t("secondary_ui.dashboard.share_artifact.owner_only")}
       </p>
     );
   if (!library.grantsReadyFor(pluginId))

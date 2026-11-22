@@ -22,6 +22,17 @@ import { markCloudCredentialRefreshed } from "../src/react-app/domains/connectio
 
 // happy-dom 21 loads no iframe page by default, so frames would have no window to talk to.
 GlobalRegistrator.register({ url: "https://web.example/", settings: { enableIframePageLoading: true } })
+// happy-dom's IntersectionObserver never fires, but an App rendered in a chat (or a dashboard)
+// is on screen: report intersection immediately so the visibility gate behaves like a browser.
+// A test that needs the "no observer at all" path sets the global to undefined itself.
+class VisibleImmediately {
+  constructor(private readonly callback: (entries: Array<{ isIntersecting: boolean; target: Element }>) => void) {}
+  observe(target: Element) { this.callback([{ isIntersecting: true, target }]) }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return [] }
+}
+Reflect.set(globalThis, "IntersectionObserver", VisibleImmediately)
 afterAll(() => GlobalRegistrator.unregister())
 const { MessageListProvider } = await import("../src/components/chat/message-list-provider")
 const { WorkspaceProvider } = await import("../src/react-app/shell/workspace-provider")
@@ -286,8 +297,10 @@ describe("MCP App startup scheduling", () => {
     const releaseSpy = spyOn(host.client, "releaseMcpApp").mockResolvedValue({ released: true })
     const actionContext = { requestId: 1, signal: new AbortController().signal,
       sendNotification: async () => {}, sendRequest: async () => { throw new Error("Unexpected request") } }
+    // Generous budget: under a loaded machine the cached view needs more turns to mount, and a
+    // short loop made this scenario flake (Missing iframe 0) without any product difference.
     const settle = async (done: () => boolean) => {
-      for (let turn = 0; turn < 50 && !done(); turn += 1) await act(async () => { await new Promise(resolve => setImmediate(resolve)) })
+      for (let turn = 0; turn < 400 && !done(); turn += 1) await act(async () => { await new Promise(resolve => setImmediate(resolve)) })
     }
     const part: DynamicToolUIPart = {
       type: "dynamic-tool", toolName: "render-0", toolCallId: "preview-launch", state: "output-available", input: {}, output: "ok",

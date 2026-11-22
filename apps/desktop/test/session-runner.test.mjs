@@ -650,3 +650,30 @@ test("native observation reports the step the current turn ran last, only while 
   assert.equal(done.status, "idle")
   assert.equal(done.latestStep, null)
 })
+
+test("an unset Automation variant is omitted in the native model payload", async (t) => {
+  const root = await privateDirectory(t)
+  const native = nativeFixture()
+  native.autoReply = true
+  const den = runnerFixture(native, {
+    kind: "automation_run", runId: "run_fixture", automationName: "Fixture schedule", attempt: 1,
+    instructions: "scheduled turn", model: { providerId: "fixture", modelId: "fixture-model", variant: null }, timeoutMs: 10_000,
+    workspaceId: "workspace_fixture",
+  })
+  // Scheduled runs preflight their model's availability before creation.
+  const originalFetch = den.fetchImpl
+  den.fetchImpl = async (input, init) => String(input).endsWith("/opencode2/api/model")
+    ? new Response(JSON.stringify({ data: [{ providerID: "fixture", id: "fixture-model" }] }), { status: 200 })
+    : originalFetch(input, init)
+  const runner = desktopRunner(native, den, root)
+  t.after(() => runner.stop())
+  configure(runner, recoveryCapabilities)
+  await eventually(() => den.calls.some((call) => call.path === "/v1/automation-runs/run_fixture/complete"))
+  const complete = den.calls.find((call) => call.path === "/v1/automation-runs/run_fixture/complete")
+  assert.equal(complete.body.status, "succeeded")
+  const selected = native.calls.find(call => call.path.endsWith(`/session/${native.sessionId}/model`))
+  assert.deepEqual(selected.body.model, { providerID: "fixture", id: "fixture-model" })
+  assert.equal(native.calls.find((call) => call.path.endsWith("/prompt")).body.id, undefined)
+  const disk = JSON.parse(await readFile(join(root, desktopSessionRunnerPartition(denBaseUrl, account), "journal.json"), "utf8").catch(() => "{\"commands\":[],\"requests\":[]}"))
+  assert.deepEqual(disk.commands, [])
+})

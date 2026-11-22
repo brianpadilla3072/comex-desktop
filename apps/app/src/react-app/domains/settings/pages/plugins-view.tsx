@@ -212,7 +212,7 @@ export function PluginsView(props: PluginsViewProps) {
                           ) : null}
                           {step.url ? (
                             <div className="text-xs text-gray-10">
-                              Open:{" "}
+                              {t("settings_ui.plugin_open_url")}{" "}
                               <span className="font-mono text-gray-11">
                                 {step.url}
                               </span>
@@ -255,8 +255,8 @@ export function PluginsView(props: PluginsViewProps) {
                   {!plugin.removable ? (
                     <div className="mt-1 text-xs text-gray-10">
                       {plugin.source === "dir.global"
-                        ? "Discovered from a global plugin folder."
-                        : "Discovered from the workspace plugin folder."}
+                        ? t("settings_ui.plugin_global_folder")
+                        : t("settings_ui.plugin_workspace_folder")}
                     </div>
                   ) : null}
                 </div>

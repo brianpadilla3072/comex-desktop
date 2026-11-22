@@ -1,6 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { openworkConfigDir } from "@openwork/paths";
+import { z } from "zod";
 
 import type { ServerConfig, TokenScope } from "./types.js";
 import { ensureDir, exists, hashToken, shortId } from "./utils.js";
@@ -19,10 +20,21 @@ type TokenStoreFile = {
   tokens: TokenRecord[];
 };
 
-function normalizeScope(value: unknown): TokenScope | null {
-  if (value === "owner" || value === "collaborator" || value === "viewer") return value;
-  return null;
-}
+/** `tokens.json` as read. A wrong-typed field falls back to its default. */
+const tokenStoreFileSchema = z.object({
+  schemaVersion: z.number().optional().catch(undefined),
+  updatedAt: z.number().optional().catch(undefined),
+  tokens: z.array(z.unknown()).catch([]),
+});
+
+/** One stored token; an entry without id, hash or a known scope is skipped. */
+const storedTokenSchema = z.object({
+  id: z.string().min(1),
+  hash: z.string().min(1),
+  scope: z.enum(["owner", "collaborator", "viewer"]),
+  createdAt: z.number().optional().catch(undefined),
+  label: z.string().optional().catch(undefined),
+});
 
 function resolveTokenStorePath(config: ServerConfig): string {
   const override = (process.env.OPENWORK_TOKEN_STORE ?? "").trim();
@@ -39,31 +51,19 @@ async function readTokenStore(path: string): Promise<TokenStoreFile> {
   }
   try {
     const raw = await readFile(path, "utf8");
-    const parsed = JSON.parse(raw) as Partial<TokenStoreFile>;
-    const tokens = Array.isArray(parsed.tokens)
-      ? parsed.tokens
-        .map((token) => {
-          const record = token as Partial<TokenRecord>;
-          const id = typeof record.id === "string" ? record.id : "";
-          const hash = typeof record.hash === "string" ? record.hash : "";
-          const scope = normalizeScope(record.scope);
-          const createdAt = typeof record.createdAt === "number" ? record.createdAt : Date.now();
-          const label = typeof record.label === "string" ? record.label : undefined;
-          if (!id || !hash || !scope) return null;
-          const parsedRecord: TokenRecord = {
-            id,
-            hash,
-            scope,
-            createdAt,
-            ...(label ? { label } : {}),
-          };
-          return parsedRecord;
-        })
-        .filter((token): token is TokenRecord => Boolean(token))
-      : [];
+    const store = tokenStoreFileSchema.safeParse(JSON.parse(raw));
+    if (!store.success) return { schemaVersion: 1, updatedAt: Date.now(), tokens: [] };
+    const parsed = store.data;
+    const tokens = parsed.tokens.flatMap((token): TokenRecord[] => {
+      // A malformed entry is skipped; the other tokens stay valid.
+      const entry = storedTokenSchema.safeParse(token);
+      if (!entry.success) return [];
+      const { id, hash, scope, createdAt, label } = entry.data;
+      return [{ id, hash, scope, createdAt: createdAt ?? Date.now(), ...(label ? { label } : {}) }];
+    });
     return {
-      schemaVersion: typeof parsed.schemaVersion === "number" ? parsed.schemaVersion : 1,
-      updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
+      schemaVersion: parsed.schemaVersion ?? 1,
+      updatedAt: parsed.updatedAt ?? Date.now(),
       tokens,
     };
   } catch {
@@ -136,6 +136,17 @@ export class TokenService {
     }
     await writeTokenStore(this.path, this.tokens);
     return true;
+  }
+
+  /** The stored record (never the config's own client token), for checks that need the label. */
+  async recordForToken(token: string): Promise<Omit<TokenRecord, "hash"> | null> {
+    const trimmed = token.trim();
+    if (!trimmed || trimmed === this.config.token) return null;
+    await this.ensureLoaded();
+    const found = this.byHash.get(hashToken(trimmed));
+    if (!found) return null;
+    const { hash: _hash, ...rest } = found;
+    return rest;
   }
 
   async scopeForToken(token: string): Promise<TokenScope | null> {

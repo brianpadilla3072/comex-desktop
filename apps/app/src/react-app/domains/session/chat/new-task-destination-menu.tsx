@@ -19,6 +19,7 @@ import {
   destinationWorkspaces,
   type DestinationOption,
 } from "./new-task-destination-options";
+import { t } from "@/i18n";
 
 type Named = { id: string; label: string };
 
@@ -73,7 +74,7 @@ export function NewTaskDestinationMenu(props: Props) {
         <PopoverTrigger
           render={<Button variant="ghost" size="xs" />}
           disabled={props.disabled}
-          aria-label={`Where this task goes: ${label}`}
+          aria-label={t("composer.task_destination_aria", { label })}
           title={label}
           data-new-task-destination=""
         >
@@ -100,10 +101,10 @@ export function NewTaskDestinationMenu(props: Props) {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
               {props.workspaceChangeBlocked && canChooseWorkspace ? (
-                <p className="px-3.5 pt-2.5 text-xs text-gray-10">Remove workspace files to move this draft to another workspace.</p>
+                <p className="px-3.5 pt-2.5 text-xs text-gray-10">{t("session_ui.remove_files_to_move_draft")}</p>
               ) : null}
               {options.length === 0 ? (
-                <p role="status" className="px-3.5 pb-1 pt-3 text-[13px] text-gray-10">No workspace or group matches.</p>
+                <p role="status" className="px-3.5 pb-1 pt-3 text-[13px] text-gray-10">{t("session_ui.no_workspace_or_group_matches")}</p>
               ) : null}
               <CommandList className="not-empty:p-1.5">
                 {options.map((option) => (

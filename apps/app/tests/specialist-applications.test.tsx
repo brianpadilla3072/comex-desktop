@@ -68,3 +68,82 @@ test("a rejected pack keeps the local user's draft and exposes the validation er
   expect(button("Crear aplicación").disabled).toBe(false);
   expect(posted).toBe(null);
 });
+
+// Portability (feature: specialistAppPortability). Comercio Exterior used to be preselected for the
+// first application, so people chose it without meaning to.
+test("with portability on, the first application starts with nothing preselected and offers an import", async () => {
+  server = { enabled: true, portabilityEnabled: true, user: null, applications: [] };
+  await render();
+  expect(document.querySelector<HTMLInputElement>("#specialist-name")?.value).toBe("");
+  expect(document.querySelector<HTMLInputElement>("#specialist-specialty")?.value).toBe("");
+  expect(button("Otra especialidad").getAttribute("aria-pressed")).toBe("true");
+  expect(button("Comercio Exterior").getAttribute("aria-pressed")).toBe("false");
+  expect([...document.querySelectorAll("button")].some(element => element.textContent?.includes("Importar aplicación"))).toBe(true);
+});
+test("with portability off, the first application keeps its previous Comercio Exterior defaults", async () => {
+  await render();
+  expect(document.querySelector<HTMLInputElement>("#specialist-name")?.value).toBe("Comex");
+  expect(button("Comercio Exterior").getAttribute("aria-pressed")).toBe("true");
+  expect([...document.querySelectorAll("button")].some(element => element.textContent?.includes("Importar aplicación"))).toBe(false);
+});
+test("deleting asks first and only calls the server after confirming", async () => {
+  const { DeleteApplicationDialog } = await import("../src/react-app/domains/specialists/portability");
+  const { createOpenworkServerClient } = await import("../src/app/lib/openwork-server");
+  const deletes: string[] = [];
+  restoreFetch();
+  const spy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init);
+    if (request.method === "DELETE") { deletes.push(new URL(request.url).pathname); return Response.json({ removedWorkspaceIds: [], keptWorkspaceIds: [], catalog: { enabled: true, applications: [] } }); }
+    return Response.json({});
+  });
+  restoreFetch = () => spy.mockRestore();
+  const app = { id: "app_fixture", name: "Comex", specialty: "Comercio", personality: "", template: "comex" as const, agentCount: 0, skillCount: 0, createdAt: 1, workspaceIds: [] };
+  let closed = 0; let deleted = 0;
+  const client = createOpenworkServerClient({ baseUrl: "http://localhost:8787", token: "fixture-owner", hostToken: "fixture-host" });
+  await act(async () => root.render(<DeleteApplicationDialog app={app} client={client} onClose={() => { closed += 1; }} onDeleted={async () => { deleted += 1; }} />));
+  expect(document.body.textContent).toContain("Eliminar Comex");
+  await click("Cancelar");
+  expect([closed, deletes.length]).toEqual([1, 0]);
+  await click("Eliminar aplicación");
+  expect(deletes).toEqual(["/specialist-applications/app_fixture"]);
+  expect(deleted).toBe(1);
+});
+test("exported files get a safe, recognizable name and imports report what was skipped", async () => {
+  const { bundleFileName, importNotice } = await import("../src/react-app/domains/specialists/portability");
+  expect(bundleFileName("Comercio Exterior: Ñandú / Prueba", new Date("2026-11-19T10:00:00Z"))).toBe("comercio-exterior-nandu-prueba-2026-11-19.openwork-app.json");
+  expect(bundleFileName("???", new Date("2026-11-19T10:00:00Z"))).toBe("aplicacion-2026-11-19.openwork-app.json");
+  expect(importNotice({ skippedSections: [], warnings: [] })).toBe("");
+  expect(importNotice({ skippedSections: ["future"], warnings: ["No se importó la tarea \"x\"."] })).toBe("No se importó la tarea \"x\". Se omitieron partes que esta versión no reconoce: future.");
+});
+// A browser session only holds a collaborator token: the server rejects every write, so the
+// first-application form must not open by itself.
+test("a read-only connection never opens the first-application form by itself", async () => {
+  server = { enabled: true, writable: false, portabilityEnabled: true, user: null, applications: [] };
+  await render();
+  expect(document.querySelector("#specialist-name")).toBe(null);
+  expect(document.body.textContent).not.toContain("Crea tu primera aplicación");
+});
+// The catalog refetches every 15 s. An unchanged answer must keep the same client and context,
+// or everything under the provider re-renders while chats only wait (renderer CPU).
+test("an unchanged catalog refetch keeps the client and does not re-render consumers", async () => {
+  server = { enabled: true, user: { id: "local", displayName: "Usuario de prueba" }, activeApplicationId: "app_fixture",
+    applications: [{ id: "app_fixture", name: "Taller", specialty: "Diseño", personality: "Clara", template: "custom", agentCount: 0, skillCount: 0, createdAt: 1, workspaceIds: ["ws_legacy"] }] };
+  let renders = 0;
+  const clients = new Set<unknown>();
+  function CountingProbe() {
+    const specialist = useSpecialistApplications();
+    renders += 1;
+    if (specialist?.client) clients.add(specialist.client);
+    return <output>{specialist?.active?.name ?? ""}</output>;
+  }
+  await act(async () => root.render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/workspace/ws_legacy/session"]}><SpecialistApplicationsProvider><CountingProbe /></SpecialistApplicationsProvider></MemoryRouter></QueryClientProvider>));
+  await flush();
+  expect(host.querySelector("output")?.textContent).toBe("Taller");
+  const before = renders;
+  for (let index = 0; index < 3; index += 1) {
+    await act(async () => { await cache.refetchQueries({ queryKey: ["specialist-applications"] }); });
+    await flush();
+  }
+  expect(clients.size).toBe(1);
+  expect(renders).toBe(before);
+});

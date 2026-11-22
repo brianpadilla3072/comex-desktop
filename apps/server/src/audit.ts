@@ -1,8 +1,35 @@
 import { dirname, join } from "node:path";
 import { appendFile, readFile } from "node:fs/promises";
 import { openworkServerDataDir } from "@openwork/paths";
+import { z } from "zod";
 import type { AuditEntry } from "./types.js";
 import { ensureDir, exists } from "./utils.js";
+
+/** One line of an audit `.jsonl` log. Extra keys are kept as written. */
+const auditEntrySchema = z.looseObject({
+  id: z.string(),
+  workspaceId: z.string(),
+  actor: z.looseObject({
+    type: z.enum(["remote", "host"]),
+    clientId: z.string().optional(),
+    tokenHash: z.string().optional(),
+    scope: z.enum(["owner", "collaborator", "viewer"]).optional(),
+  }),
+  action: z.string(),
+  target: z.string(),
+  summary: z.string(),
+  timestamp: z.number(),
+}) satisfies z.ZodType<AuditEntry>;
+
+/** A malformed or foreign line is `null`, never a half-typed entry. */
+function parseAuditLine(line: string): AuditEntry | null {
+  try {
+    const parsed = auditEntrySchema.safeParse(JSON.parse(line));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 function resolveOpenworkDataDir(): string {
   return openworkServerDataDir();
@@ -51,11 +78,7 @@ export async function readLastAudit(workspaceRoot: string, workspaceId: string):
   const lines = content.trim().split("\n");
   const last = lines[lines.length - 1];
   if (!last) return null;
-  try {
-    return JSON.parse(last) as AuditEntry;
-  } catch {
-    return null;
-  }
+  return parseAuditLine(last);
 }
 
 export async function readAuditEntries(
@@ -71,11 +94,8 @@ export async function readAuditEntries(
   const slice = rawLines.slice(-Math.max(1, limit));
   const entries: AuditEntry[] = [];
   for (let i = slice.length - 1; i >= 0; i -= 1) {
-    try {
-      entries.push(JSON.parse(slice[i]) as AuditEntry);
-    } catch {
-      // ignore malformed entry
-    }
+    const entry = parseAuditLine(slice[i]);
+    if (entry) entries.push(entry); // a malformed entry is skipped
   }
   return entries;
 }

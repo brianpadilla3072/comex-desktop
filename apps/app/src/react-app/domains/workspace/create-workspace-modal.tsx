@@ -256,6 +256,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
           />
         ) : null}
 
+        {props.pickerDialog}
       </DialogContent>
     </Dialog>
   );

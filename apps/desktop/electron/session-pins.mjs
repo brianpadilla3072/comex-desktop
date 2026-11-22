@@ -1,5 +1,12 @@
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { z } from "zod";
+
+// `session-pins.v1.json` and its backup. Same limits as pins() below.
+const sessionPinsFileSchema = z.object({
+  version: z.literal(1),
+  pinnedIds: z.array(z.string().min(1).max(512)).max(100_000),
+});
 
 function pins(value) {
   if (!Array.isArray(value) || value.length > 100_000 || value.some(id => typeof id !== "string" || !id || id.length > 512)) {
@@ -16,9 +23,8 @@ export function createSessionPins(directory) {
     let failed = false;
     for (const candidate of [file, backup]) {
       try {
-        const value = JSON.parse(readFileSync(candidate, "utf8"));
-        if (value.version !== 1) throw new Error("Invalid session pin version");
-        return pins(value.pinnedIds);
+        const value = sessionPinsFileSchema.parse(JSON.parse(readFileSync(candidate, "utf8")));
+        return [...new Set(value.pinnedIds)];
       } catch (error) {
         if (error?.code !== "ENOENT") failed = true;
       }

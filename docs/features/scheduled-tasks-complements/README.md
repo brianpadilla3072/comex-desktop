@@ -17,3 +17,7 @@ Se reutilizan Button, Input, ExtensionCard, LibraryInventory y los formularios e
 ![Tareas programadas](tareas-programadas.png)
 
 ![Complementos con filas de muestra](complementos.png)
+
+## Tareas locales (11 de noviembre de 2026)
+
+La entrada general ahora reutiliza el planificador local de la aplicación activa, detrás de comexWorkspace y scheduledTasks. No exige cuenta de Den; Ver tareas de Den conserva el flujo conectado aparte. Las nuevas tareas del formulario omiten horarios perdidos por defecto y permiten recuperar una vez al retomar. Las existentes conservan su política y pueden cambiarla. No hay otro motor: cada corrida es un chat OpenCode con permisos del proyecto. Ver [consolidación](../local-consolidation/README.md).

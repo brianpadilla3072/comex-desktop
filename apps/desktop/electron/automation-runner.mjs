@@ -5,6 +5,7 @@ import {
   isHeadlessModelAccessError,
 } from "@openwork/headless-threads"
 import { desktopEngineForcePolicy } from "./engine-force-policy.mjs"
+import { z } from "zod"
 
 const EMPTY_USAGE = { inputTokens: null, outputTokens: null, costMicros: null }
 const RUNNER_WORK_POLL_MS = 60_000
@@ -1149,6 +1150,16 @@ export function normalizeRunnerBaseUrl(value) {
   return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, "")
 }
 
+/** Payload of a Den runner token: version, audience (v2), account ids and capabilities. */
+const runnerTokenPayloadSchema = z.object({
+  v: z.union([z.literal(1), z.literal(2)]),
+  a: z.string().optional().catch(undefined),
+  o: z.string().optional().catch(undefined),
+  m: z.string().optional().catch(undefined),
+  r: z.string().optional().catch(undefined),
+  c: z.array(z.unknown()).optional().catch(undefined),
+})
+
 /**
  * Runner credentials are opaque to the renderer but carry a server-signed
  * audience in their payload. The main process does not need the Den signing
@@ -1159,14 +1170,16 @@ function runnerTokenBinding(token) {
   try {
     const [payload, signature, extra] = String(token).split(".")
     if (!payload || !signature || extra) return null
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
-    const account = [decoded?.o, decoded?.m, decoded?.r].every((value) => typeof value === "string" && value.trim())
+    const parsed = runnerTokenPayloadSchema.safeParse(JSON.parse(Buffer.from(payload, "base64url").toString("utf8")))
+    if (!parsed.success) return null
+    const decoded = parsed.data
+    const account = [decoded.o, decoded.m, decoded.r].every((value) => typeof value === "string" && value.trim())
       ? { organizationId: decoded.o, memberId: decoded.m, runnerId: decoded.r }
       : null
     // Den signs the capabilities it accepted at registration into the token.
-    const capabilities = Array.isArray(decoded?.c) ? decoded.c.filter((value) => typeof value === "string") : []
-    if (decoded?.v === 1) return { version: 1, audience: null, account, capabilities }
-    if (decoded?.v !== 2 || typeof decoded.a !== "string") return null
+    const capabilities = (decoded.c ?? []).filter((value) => typeof value === "string")
+    if (decoded.v === 1) return { version: 1, audience: null, account, capabilities }
+    if (typeof decoded.a !== "string") return null
     const audience = normalizeRunnerBaseUrl(decoded.a)
     return audience ? { version: 2, audience, account, capabilities } : null
   } catch {

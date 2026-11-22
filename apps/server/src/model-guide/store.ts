@@ -58,7 +58,8 @@ export async function openModelGuideStore(path: string, options: { bundled?: Mod
     observations: sql.all("SELECT data, first_seen, last_seen, available FROM model_guide_observations WHERE scope=? ORDER BY provider_id, model_id", [hashScope(scope)]).flatMap(row => {
       if (!row || typeof row !== "object" || !("data" in row) || typeof row.data !== "string") return [];
       try {
-        const parsed = rowSchema.safeParse({ ...JSON.parse(row.data), firstSeen: "first_seen" in row ? row.first_seen : null, lastSeen: "last_seen" in row ? row.last_seen : null, available: "available" in row && row.available === 1 });
+        const data: unknown = JSON.parse(row.data);
+        const parsed = rowSchema.safeParse({ ...(typeof data === "object" && data !== null ? data : {}), firstSeen: "first_seen" in row ? row.first_seen : null, lastSeen: "last_seen" in row ? row.last_seen : null, available: "available" in row && row.available === 1 });
         return parsed.success ? [parsed.data] : [];
       } catch { return []; }
     }),
@@ -91,7 +92,7 @@ export async function openModelGuideStore(path: string, options: { bundled?: Mod
       const next = modelGuideCatalogSchema.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
       if (new Date(next.publishedAt).getTime() > now() + DAY) throw new Error("La fecha del catálogo es inválida.");
       if (next.revision < catalog.revision) throw new Error("Se conservó el catálogo más reciente.");
-      if (next.revision === catalog.revision && JSON.stringify(next) !== JSON.stringify(catalog)) throw new Error("Incrementá la revisión para publicar cambios.");
+      if (next.revision === catalog.revision && JSON.stringify(next) !== JSON.stringify(catalog)) throw new Error("Incrementa la revisión para publicar cambios.");
       if (next.revision > catalog.revision) {
         transaction(() => { set("catalog", JSON.stringify(next)); set("source", "remote"); set("updatedAt", checked); sql.run("INSERT INTO model_guide_catalog_versions VALUES (?, ?, ?, ?)", [next.revision, JSON.stringify(next), "remote", checked]); });
         catalog = next;

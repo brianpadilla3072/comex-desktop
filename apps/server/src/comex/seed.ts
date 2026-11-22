@@ -2,10 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { comexContinuityEnabled, comexWorkspaceEnabled } from "./features.js";
 import { readComexCheckpoint, redactMemorySecrets } from "./continuity.js";
+import { resolveDataDir } from "../specialists/project-data.js";
 
 const queues = new Map<string, Promise<boolean>>();
+/** `.opencode/.comex-pack-hashes.json`: relative pack path to the sha256 of the copy we installed. */
+const packHashesSchema = z.record(z.string(), z.string());
 const sha = (text: string | Uint8Array) => createHash("sha256").update(text).digest("hex");
 export const PROJECT_MEMORY_PATH = "comex/estado.md";
 export const INITIAL_MEMORY = "# Memoria del proyecto\n\n## Consigna y alcance\nPendiente de confirmar.\n\n## Productos y destinos\nPendientes de decisión de la estudiante.\n\n## Decisiones y supuestos\nSin decisiones registradas.\n\n## Fuentes y evidencia\nVer fuentes.md y cumplimiento.md cuando existan.\n\n## Trabajo de campo\nEncuesta pendiente; no hay respuestas reales registradas.\n\n## Próximos pasos\nConfirmar alcance, productos y destinos.\n";
@@ -61,9 +65,14 @@ export async function seedComexPack(root: string, pack: string): Promise<boolean
   const sourceFiles = [...await files(pack, "skills"), ...await files(pack, "agents"), ...installedRuntime];
   const markerName = ".opencode/.comex-pack-hashes.json";
   const marker = await safePath(root, markerName);
-  const raw: unknown = await info(marker) ? JSON.parse(await readFile(marker, "utf8")) : {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || Object.values(raw).some(value => typeof value !== "string")) throw new Error("Registro del pack inválido; no se sobrescribieron archivos");
-  const previous = new Map(Object.entries(raw));
+  let raw: unknown = {};
+  if (await info(marker)) {
+    const stored: unknown = JSON.parse(await readFile(marker, "utf8"));
+    raw = stored;
+  }
+  const hashes = packHashesSchema.safeParse(raw);
+  if (!hashes.success) throw new Error("Registro del pack inválido; no se sobrescribieron archivos");
+  const previous = new Map(Object.entries(hashes.data));
   const next: Record<string, string> = {};
   let changed = false;
   for (const name of sourceFiles) {
@@ -102,13 +111,27 @@ export function sessionMemoryPath(sessionId: string): string {
 export async function ensureComexSession(root: string, sessionId: string, specialist = false): Promise<void> {
   if (!comexWorkspaceEnabled() && !specialist) return;
   const canonical = await realpath(root);
-  await createIfMissing(canonical, sessionMemoryPath(sessionId), "# Notas de esta sesión\n\n## Objetivo\nPendiente.\n\n## Avances y decisiones\nSin notas guardadas.\n\n## Próximo paso\nPendiente.\n");
+  await createIfMissing(canonical, sessionMemoryPathFor(canonical, sessionId), "# Notas de esta sesión\n\n## Objetivo\nPendiente.\n\n## Avances y decisiones\nSin notas guardadas.\n\n## Próximo paso\nPendiente.\n");
 }
 
-export async function ensureComexWorkspace(root: string, packOverride?: string): Promise<boolean> {
+/** Session notes live in the project's data folder (proyecto/ in new projects, comex/ in
+ *  Comercio Exterior and older ones). */
+export function sessionMemoryPathFor(root: string, sessionId: string): string {
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(sessionId)) throw new Error("Identificador de sesión inválido");
+  return `${resolveDataDir(root)}/sesiones/${sessionId}.md`;
+}
+
+export function projectMemoryPathFor(root: string): string {
+  return `${resolveDataDir(root)}/estado.md`;
+}
+
+export async function ensureComexWorkspace(root: string, packOverride?: string, options: { install?: boolean } = {}): Promise<boolean> {
   // A specialist project owns its pack, even when its management UI is disabled.
   if (await info(await safePath(root, ".opencode/specialist-application.json"))) return false;
   if (!comexWorkspaceEnabled()) return false;
+  // Opening an ordinary project does not select an academic pack. Explicit installation
+  // and updates of already-installed packs retain their previous behavior.
+  if (!packOverride && !options.install && !await info(await safePath(root, ".opencode/.comex-pack-hashes.json"))) return false;
   const canonical = await realpath(root);
   const previous = queues.get(canonical) ?? Promise.resolve(false);
   const operation = previous.catch(() => false).then(async () => {
@@ -136,6 +159,6 @@ export async function readComexMemory(root: string, sessionId: string) {
     const text = await readFile(path, "utf8");
     return { path, text: comexContinuityEnabled() ? redactMemorySecrets(text.slice(0, limit)) : text.slice(0, limit), truncated: text.length > limit };
   };
-  return { project: await load(PROJECT_MEMORY_PATH, 12_000), session: await load(sessionMemoryPath(sessionId), 6_000),
+  return { project: await load(projectMemoryPathFor(canonical), 12_000), session: await load(sessionMemoryPathFor(canonical, sessionId), 6_000),
     ...(comexContinuityEnabled() ? { continuity: await readComexCheckpoint(canonical, sessionId) } : {}) };
 }

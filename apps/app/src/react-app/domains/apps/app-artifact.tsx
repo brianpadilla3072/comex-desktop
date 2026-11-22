@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { AppActionsMenu, getAppUpdatePrompt } from "./app-actions-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Copy, Loader2, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,12 +37,17 @@ export function AppArtifact({ appId, revisionId, receiptId, onClose, onAsk, fall
     finally { setAsking(false); }
   };
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string | undefined>(revisionId);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
   const query = useQuery({
-    queryKey: ["app-preview", ...scope, appId, revisionId, receiptId, timeZone, viewerLocalDate(timeZone, now)],
+    queryKey: ["app-preview", ...scope, appId, selectedRevisionId, receiptId, timeZone, viewerLocalDate(timeZone, now)],
     enabled: Boolean(client && orgId),
     queryFn: () => {
       if (!client || !orgId) throw new Error("Sign in to open this artifact.");
-      return loadSavedAppForDisplay(client, orgId, appId, { revisionId, receiptId, timeZone });
+      return loadSavedAppForDisplay(client, orgId, appId, { revisionId: selectedRevisionId, receiptId, timeZone });
     },
   });
   const app = query.isError ? undefined : query.data;
@@ -84,7 +90,14 @@ export function AppArtifact({ appId, revisionId, receiptId, onClose, onAsk, fall
         {canManage && app.canManage && !saved ? <Button size="sm" disabled={!revision || revision.buildStatus !== "ready"} onClick={() => {
           setName(app.view.title); setUseInWorkflow(app.view.activeRevisionId ? app.view.useInWorkflow !== false : true); setSaveOpen(true); save.reset();
         }}>{app.view.activeRevisionId ? "Save changes" : "Save"}</Button> : null}
-        <AppActionsMenu appId={appId} title={app.view.title} canManage={app.canManage} canDelete={app.canManage && app.view.status !== "retired"}
+         {Array.isArray(app.view.revisions) && app.view.revisions.length > 1 ? (<Select value={selectedRevisionId ?? (app.view.activeRevisionId ?? undefined) ?? ""} onValueChange={(v) => setSelectedRevisionId(v ?? undefined)}><SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Versión" /></SelectTrigger><SelectContent>{app.view.revisions.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.id === app.view.activeRevisionId ? "Actual" : String(r.id).slice(0,8)}</SelectItem>)}</SelectContent></Select>) : null}
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Compartir" aria-label="Compartir artefacto" onClick={() => { setShareError(null); setShareOpen(true); }}>
+            <Share2 className="size-4" />
+         </Button>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Copiar" aria-label="Copiar artefacto" onClick={() => { if (app.html) void navigator.clipboard?.writeText(app.html); }}>
+            <Copy className="size-4" />
+         </Button>
+         <AppActionsMenu appId={appId} title={app.view.title} canManage={app.canManage} canDelete={app.canManage && app.view.status !== "retired"}
           busy={asking} onUpdate={onUpdate} onDeleted={onClose ?? (() => navigate("/dashboard"))}
           onRun={onAsk && saved ? () => void ask(`Run my saved app “${app.view.title}” with fresh data and show the new results in the saved app.`) : undefined}
           onEdit={onAsk ? () => void ask(`Help me improve my saved app “${app.view.title}”. Read its existing app source, ask what I want to change, and show a draft preview for me to save.`) : undefined} />
@@ -116,5 +129,24 @@ export function AppArtifact({ appId, revisionId, receiptId, onClose, onAsk, fall
         </form>
       </DialogContent>
     </Dialog>
+  <Dialog open={shareOpen} onOpenChange={(o) => { if (!shareBusy) setShareOpen(o); }}>
+      <DialogContent className="sm:max-w-md">
+         <DialogHeader><DialogTitle>Compartir artefacto</DialogTitle><DialogDescription>Invita a alguien por correo para ver este artefacto.</DialogDescription></DialogHeader>
+         <div className="space-y-3 py-2">
+            <Input type="email" placeholder="correo@ejemplo.com" value={shareEmail} onChange={(e) => setShareEmail(e.target.value)} disabled={shareBusy} />
+            {shareError ? <p role="alert" className="text-sm text-destructive">{shareError}</p> : null}
+         </div>
+         <DialogFooter>
+            <Button variant="ghost" disabled={shareBusy} onClick={() => setShareOpen(false)}>Cancelar</Button>
+            <Button disabled={shareBusy || !shareEmail.trim()} onClick={async () => {
+               if (!client || !orgId) return;
+               setShareBusy(true); setShareError(null);
+               try { await client.shareSavedApp(orgId, appId, shareEmail.trim()); setShareOpen(false); setShareEmail(""); setConfirmation("Artefacto compartido."); }
+               catch (e) { setShareError(e instanceof Error ? e.message : "No se pudo compartir."); }
+               finally { setShareBusy(false); }
+            }}>{shareBusy ? "Compartiendo…" : "Compartir"}</Button>
+         </DialogFooter>
+      </DialogContent>
+   </Dialog>
   </section>;
 }

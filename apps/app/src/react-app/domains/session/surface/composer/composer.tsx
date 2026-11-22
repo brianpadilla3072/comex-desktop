@@ -1,3 +1,4 @@
+import { EngineIdentity } from "./engine-identity";
 import { cn } from "@/lib/utils";
 import { indexSlashOptions, searchSlashOptions } from "../../commands/search-index";
 import { CHAT_COMMAND_ICONS } from "../../commands/icons";
@@ -17,6 +18,7 @@ import fuzzysort from "fuzzysort";
 import { toast } from "@/components/ui/sonner";
 import type { CloudImportedPlugin, CloudImportedPluginFile } from "@/app/cloud/import-state";
 import type { ComposerAttachment, McpServerEntry, McpStatus, McpStatusMap, ModelOption, ModelRef, SkillCard, SlashCommandOption } from "@/app/types";
+import { useDesignStudioAvailability } from "@/react-app/domains/design/use-designs";
 import { t } from "@/i18n";
 import { useComposerStateStore } from "../composer-state-store";
 import {
@@ -299,6 +301,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   // Chrome, and Safari: event.isComposing, event.keyCode === 229, and the
   // compositionstart/compositionend events below.
   const imeComposingRef = useRef(false);
+  const designStudio = useDesignStudioAvailability();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const compactComposer = useComexWorkspaceEnabled();
   const workspaceForCommands = useWorkspaceMaybe();
@@ -306,6 +309,9 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
     ...(props.chatCommandTarget ?? { client: workspaceForCommands?.openworkServerClient ?? null, nativeClient: workspaceForCommands?.client ?? null,
       workspaceId: workspaceForCommands?.workspaceId ?? "", opencodeBaseUrl: workspaceForCommands?.opencodeBaseUrl ?? "", sessionId: props.sessionId }),
     busy: props.busy || props.submissionPreparing, canAttach: props.attachmentsEnabled, model: props.selectedModel, onAttach: props.onAttachFiles, listMcp: props.listMcp,
+    designStudioEnabled: designStudio.enabled,
+    onOpenDesign: () => { window.dispatchEvent(new CustomEvent("openwork-open-design")); },
+    onInsertPrompt: (text: string) => props.onDraftChange(text),
   });
   const tryAppCommand = () => {
     if (!chatCommands.enabled) return false;
@@ -1300,7 +1306,11 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
           {slashFiltered.map((command, index) => {
             const appId = chatCommands.enabled ? appCommandForOption(command) : null;
             const CommandIcon = appId ? CHAT_COMMAND_ICONS[appId] : Terminal;
-            return <button
+            const prevGroup = index > 0 ? slashFiltered[index - 1]?.group : undefined;
+            const showGroup = Boolean(command.group) && command.group !== prevGroup;
+            return <>
+              {showGroup ? <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{command.group}</div> : null}
+              <button
               key={command.id}
               ref={(element) => {
                 menuItemRefs.current[index] = element;
@@ -1336,7 +1346,8 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                 </span>
                 {command.description ? <span className="block truncate text-xs text-muted-foreground">{command.description}</span> : null}
               </span>}
-            </button>;
+            </button>
+            </>;
           })}
         </div>
       ) : (
@@ -1671,6 +1682,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   </DropdownMenu>
                 </div>
 
+                {compactComposer && <EngineIdentity model={props.selectedModel} option={props.modelOptions?.find(option => option.providerID === props.selectedModel.providerID && option.modelID === props.selectedModel.modelID)} />}
                 <ModelSelect
                   compact={compactComposer}
                   open={props.modelPickerOpen}

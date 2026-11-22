@@ -9,7 +9,7 @@ export function MobileChatNavigation() {
   return (
     <SidebarTrigger
       data-mobile-chat-navigation
-      aria-label="Open sidebar"
+      aria-label={t("session_ui.open_sidebar")}
       aria-expanded={openMobile}
       className="ms-[max(0.5rem,env(safe-area-inset-left))] mt-[env(safe-area-inset-top)] size-11 shrink-0 self-start motion-reduce:transition-none"
     />
@@ -36,13 +36,13 @@ export function MobileChatActions(props: MobileChatActionsProps) {
       <DropdownMenu>
         <DropdownMenuTrigger render={<SidebarMenuButton />}>
           <MoreHorizontal />
-          <span>Chat actions</span>
+          <span>{t("session_ui.chat_actions")}</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuGroup>
-            {props.onParent ? <DropdownMenuItem onClick={select(props.onParent)}><ArrowLeft />Back to parent chat</DropdownMenuItem> : null}
-            {props.onFind ? <DropdownMenuItem onClick={select(props.onFind)}><TextSearch />Find in conversation</DropdownMenuItem> : null}
-            <DropdownMenuItem onClick={select(props.onFiles)}><FileText />Files{props.fileCount > 0 ? ` (${props.fileCount})` : ""}</DropdownMenuItem>
+            {props.onParent ? <DropdownMenuItem onClick={select(props.onParent)}><ArrowLeft />{t("session_ui.back_to_parent_chat")}</DropdownMenuItem> : null}
+            {props.onFind ? <DropdownMenuItem onClick={select(props.onFind)}><TextSearch />{t("session_ui.find_in_conversation")}</DropdownMenuItem> : null}
+            <DropdownMenuItem onClick={select(props.onFiles)}><FileText />{t("session_ui.files")}{props.fileCount > 0 ? ` (${props.fileCount})` : ""}</DropdownMenuItem>
             {props.onSignIn ? <DropdownMenuItem onClick={select(props.onSignIn)}><Cloud />{t("den.signin_button")}</DropdownMenuItem> : null}
           </DropdownMenuGroup>
         </DropdownMenuContent>

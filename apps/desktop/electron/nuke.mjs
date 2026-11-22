@@ -5,6 +5,7 @@ import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import {
   desktopBootstrapPath as resolveDesktopBootstrapPath,
   globalOpencodeConfigDir,
@@ -113,7 +114,7 @@ function normalizePlatform(value) {
   return value === "win32" || value === "darwin" || value === "linux" ? value : "linux";
 }
 
-function resolveNukeEnvironment({ env = {}, homedir, platform, userDataPath }) {
+export function resolveNukeEnvironment({ env = {}, homedir, platform, userDataPath }) {
   const normalizedPlatform = normalizePlatform(platform);
   const paths = pathApi(normalizedPlatform);
   /** @type {Record<string, string | undefined>} */
@@ -500,11 +501,21 @@ export function sanitizeDesktopBootstrapConfig(input, writtenAt = new Date().toI
   };
 }
 
-async function readJsonIfPresent(targetPath) {
+// A desktop bootstrap file: an object; sanitizeDesktopBootstrapConfig keeps only known fields.
+const bootstrapFileSchema = z.record(z.string(), z.unknown());
+// The pending-cleanup sentinel. Any JSON is accepted (a bad shape just means nothing to retry).
+const pendingNukeFileSchema = z.looseObject({
+  preserveBootstrap: z.unknown().optional(),
+  paths: z.array(z.unknown()).optional().catch(undefined),
+  createdAt: z.unknown().optional(),
+}).catch({});
+
+/** Reads a JSON file through `schema`; `ok` is false when it is unreadable or does not match. */
+async function readJsonIfPresent(targetPath, schema) {
   try {
     const raw = await readFile(targetPath, "utf8");
     const content = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
-    return { exists: true, ok: true, value: JSON.parse(content) };
+    return { exists: true, ok: true, value: schema.parse(JSON.parse(content)) };
   } catch (error) {
     if (errorCode(error) === "ENOENT") return { exists: false, ok: false, value: null };
     return { exists: true, ok: false, value: null };
@@ -517,8 +528,8 @@ async function writeJsonFile(targetPath, value) {
 }
 
 export async function sanitizeDesktopBootstrapFiles({ canonicalPath, legacyPath }) {
-  const canonical = await readJsonIfPresent(canonicalPath);
-  const legacy = legacyPath ? await readJsonIfPresent(legacyPath) : { exists: false, ok: false, value: null };
+  const canonical = await readJsonIfPresent(canonicalPath, bootstrapFileSchema);
+  const legacy = legacyPath ? await readJsonIfPresent(legacyPath, bootstrapFileSchema) : { exists: false, ok: false, value: null };
   const canonicalSanitized = canonical.ok ? sanitizeDesktopBootstrapConfig(canonical.value) : null;
   const legacySanitized = legacy.ok ? sanitizeDesktopBootstrapConfig(legacy.value) : null;
   const sanitized = canonicalSanitized ?? legacySanitized;
@@ -769,7 +780,7 @@ function preservePathsWithoutBootstrap(plan) {
 
 export async function runPendingNukeCleanup(input, options = {}) {
   const initialPlan = resolveNukePlan(input);
-  const pendingFile = await readJsonIfPresent(initialPlan.pendingPath);
+  const pendingFile = await readJsonIfPresent(initialPlan.pendingPath, pendingNukeFileSchema);
   if (!pendingFile.exists) return pendingCleanupResult({ ran: false });
   if (!pendingFile.ok) {
     await rm(initialPlan.pendingPath, { force: true });

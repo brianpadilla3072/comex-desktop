@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { setOpenworkPromotionsEnabled } from "./openwork-promotions-flag";
+import { applyDefaultLanguageHint } from "@/i18n";
 import {
   createContext,
   useCallback,
@@ -47,6 +48,11 @@ import {
   type ConnectPolicyTarget,
 } from "./connect-policy-reconciler";
 import { useDenAuth } from "./den-auth-provider";
+import { setWebNotificationsFeatureEnabled } from "../../shell/web-notifications";
+import { setExternalDelegatesFeatureEnabled } from "@/app/lib/external-delegates";
+import { rememberStartupScreenPolish } from "@/app/lib/startup-screen-flag";
+import { rememberActivityAnimationsToggle } from "@/app/lib/activity-motion";
+import { setPaletteSettingSearchEnabled } from "@/react-app/domains/settings/settings-search-index";
 import {
   bootstrapBrandingFromDesktopConfig,
   bootstrapBrandingNeedsSync,
@@ -284,7 +290,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); }
+          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
@@ -294,8 +300,21 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           setConversationNavigator(feature.conversationNavigator === true);
           setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
+          setWebNotificationsFeatureEnabled(feature.webNotifications === true);
+          // Permisos › "Agentes externos" (flag externalDelegates, default off).
+          setExternalDelegatesFeatureEnabled(feature.externalDelegates === true);
+          // index.html reads this on the next start, before any bundle loads.
+          // An older server without the field keeps the default (on).
+          rememberStartupScreenPolish(feature.startupScreenPolish !== false);
+          // Settings › Apariencia › "Animaciones de actividad"; an older server keeps the default (on).
+          rememberActivityAnimationsToggle(feature.activityAnimationsToggle !== false);
+          // Cmd/Ctrl+K finds individual settings; an older server keeps the default (on).
+          setPaletteSettingSearchEnabled(feature.paletteSettingSearch !== false);
+          // Comex screens are in Spanish: suggest Spanish unless the person
+          // chose a language. Reload once so every screen switches together.
+          if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();
         }
-      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); } }
+      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);

@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
+import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { specialistApplicationsEnabled, specialistIntegrationsEnabled } from "../../comex/features.js";
 import { specialistDirectory, specialistStore } from "../store.js";
@@ -21,7 +21,8 @@ export async function syncResearchPlugin(config: Pick<ServerConfig, "configPath"
   const value = JSON.stringify({ directory: canonical, provider: "tavily", enabled, ...await adapter.runtime() });
   let before: string | undefined;
   try { before = await readFile(descriptor, "utf8"); } catch {}
-  if (before !== value) await writeFile(descriptor, value, { mode: 0o600 });
+  // Atomic, like the library descriptor: the engine's plugin may read it while it changes.
+  if (before !== value) { const temporary = `${descriptor}.${randomBytes(6).toString("hex")}.tmp`; await writeFile(temporary, value, { mode: 0o600 }); await rename(temporary, descriptor); }
   let folder = canonical;
   for (const part of [".opencode", "plugins", "comex-research"]) {
     folder = join(folder, part); await mkdir(folder, { recursive: true });

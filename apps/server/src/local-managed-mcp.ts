@@ -956,7 +956,8 @@ async function verifyAuthorizationState(config: ServerConfig, state: string): Pr
   }
   let value: unknown;
   try {
-    value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+    const parsed: unknown = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+    value = parsed;
   } catch {
     throw new ApiError(400, "managed_mcp_oauth_state_invalid", "OAuth state is invalid");
   }

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { DevicesSection } from "./devices-section";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { useLocation } from "react-router";
@@ -122,15 +123,15 @@ export function AdvancedView(props: AdvancedViewProps) {
   })();
 
   const clientDetailLines = props.clientConnected
-    ? ["Chat and task creation can use the OpenCode engine for this workspace."]
+    ? [t("secondary_ui.advanced.client_ready")]
     : [
-        "Chat and task creation may fail until OpenCode restarts.",
-        "OpenWork server config sources below can still be inspected.",
+        t("secondary_ui.advanced.client_may_fail"),
+        t("secondary_ui.advanced.client_sources_inspectable"),
       ];
 
   const openworkDetailLines = props.openworkServerStatus === "connected"
-    ? ["Runtime DB, workspace config, and migration diagnostics are available."]
-    : ["Runtime config diagnostics need the OpenWork server connection."];
+    ? [t("secondary_ui.advanced.server_ready")]
+    : [t("secondary_ui.advanced.server_needed")];
 
   const submitDebugDeepLink = async () => {
     const rawUrl = debugDeepLinkInput.trim();
@@ -163,7 +164,7 @@ export function AdvancedView(props: AdvancedViewProps) {
     try {
       setConfigStatus(await props.getRuntimeConfigStatus());
     } catch (error) {
-      setConfigStatusError(error instanceof Error ? error.message : "Failed to load runtime config status.");
+      setConfigStatusError(error instanceof Error ? error.message : t("secondary_ui.advanced.config_status_failed"));
     } finally {
       setConfigStatusBusy(false);
     }
@@ -212,6 +213,8 @@ export function AdvancedView(props: AdvancedViewProps) {
           configStatusError={configStatusError}
           onRefresh={refreshRuntimeConfigStatus}
         />
+
+        <DevicesSection client={props.engineClient} />
 
         <AdvancedEngineV2PreviewSection client={props.engineClient} />
 

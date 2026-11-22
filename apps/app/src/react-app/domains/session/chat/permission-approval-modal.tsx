@@ -151,7 +151,7 @@ function stringifyMetadata(metadata: Record<string, unknown>, safeStringify?: (v
   }
 }
 
-function describePermissionRequest(permission: PendingPermission): PermissionPresentation {
+export function describePermissionRequest(permission: PendingPermission): PermissionPresentation {
   const patterns = permission.patterns.filter((pattern) => pattern.trim().length > 0);
   if (permission.permission === "doom_loop") {
     const tool =

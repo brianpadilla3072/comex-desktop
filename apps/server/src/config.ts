@@ -1,8 +1,10 @@
 import { dirname, resolve } from "node:path";
 import { openworkServerConfigPath } from "@openwork/paths";
+import { z } from "zod";
 import type { ApprovalMode, ApprovalConfig, ServerConfig, WorkspaceConfig, LogFormat } from "./types.js";
 import { buildWorkspaceInfos, hasExternalOpencode } from "./workspaces.js";
 import { parseList, readJsonFile, shortId } from "./utils.js";
+import { webApprovalsEnabled } from "./comex/features.js";
 
 export interface CliArgs {
   configPath?: string;
@@ -33,28 +35,71 @@ export interface CliArgs {
   bootstrapToken?: boolean;
 }
 
-interface FileConfig {
-  host?: string;
-  port?: number;
-  token?: string;
-  hostToken?: string;
-  approval?: Partial<ApprovalConfig>;
-  workspaces?: WorkspaceConfig[];
-  corsOrigins?: string[];
-  allowedHosts?: string[];
-  authorizedRoots?: string[];
-  readOnly?: boolean;
-  opencodeBaseUrl?: string;
-  opencodeDirectory?: string;
-  opencodeUsername?: string;
-  opencodePassword?: string;
-  logFormat?: LogFormat;
-  logRequests?: boolean;
-}
+// A field with the wrong type is dropped (as if absent); the rest of the file still applies.
+const optionalString = z.string().optional().catch(undefined);
+const optionalStrings = z.array(z.string()).optional().catch(undefined);
+
+const workspaceConfigSchema = z.object({
+  id: z.string().optional(),
+  path: z.string(),
+  name: z.string().optional(),
+  preset: z.string().optional(),
+  workspaceType: z.literal("local").optional(),
+  baseUrl: z.string().optional(),
+  directory: z.string().optional(),
+  displayName: z.string().optional(),
+  sandboxBackend: z.string().optional(),
+  sandboxRunId: z.string().optional(),
+  sandboxContainerName: z.string().optional(),
+  opencodeUsername: z.string().optional(),
+  opencodePassword: z.string().optional(),
+}) satisfies z.ZodType<WorkspaceConfig>;
+
+/** `openwork-server` config file (`server.json`). */
+const fileConfigSchema = z.object({
+  host: optionalString,
+  port: z.number().optional().catch(undefined),
+  token: optionalString,
+  hostToken: optionalString,
+  approval: z.object({
+    mode: z.enum(["manual", "auto"]).optional().catch(undefined),
+    timeoutMs: z.number().optional().catch(undefined),
+    responderWindowMs: z.number().optional().catch(undefined),
+  }).optional().catch(undefined),
+  workspaces: z.array(workspaceConfigSchema).optional().catch(undefined),
+  corsOrigins: optionalStrings,
+  allowedHosts: optionalStrings,
+  authorizedRoots: optionalStrings,
+  readOnly: z.boolean().optional().catch(undefined),
+  opencodeBaseUrl: optionalString,
+  opencodeDirectory: optionalString,
+  opencodeUsername: optionalString,
+  opencodePassword: optionalString,
+  // Free text: normalizeLogFormat accepts aliases such as "text".
+  logFormat: optionalString,
+  logRequests: z.boolean().optional().catch(undefined),
+});
+
+type FileConfig = z.infer<typeof fileConfigSchema>;
 
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_TIMEOUT_MS = 30000;
+/** Web approvals: a person reads the change on their screen, so give them time. */
+const WEB_APPROVAL_TIMEOUT_MS = 120_000;
+/** Web approvals: the app polls every few seconds; past this nobody is answering. */
+export const WEB_APPROVAL_RESPONDER_WINDOW_MS = 15_000;
+
+/**
+ * `openwork-server web` without the `webApprovals` feature has no responder,
+ * so it approves gated writes automatically unless manual mode is asked for.
+ * With the feature on, nothing is forced here and manual stays the default.
+ * `--approval` and OPENWORK_APPROVAL_MODE keep working either way.
+ */
+export function applyWebApprovalDefault(args: CliArgs, env: NodeJS.ProcessEnv = process.env): void {
+  if (!args.web || webApprovalsEnabled(env)) return;
+  args.approvalMode ??= env.OPENWORK_APPROVAL_MODE === "manual" ? "manual" : "auto";
+}
 const DEFAULT_LOG_FORMAT: LogFormat = "pretty";
 const DEFAULT_LOG_REQUESTS = true;
 
@@ -205,8 +250,10 @@ export function printHelp(): void {
     "Commands:",
     "  web                      Serve the OpenWork web UI + API on one origin with a",
     "                           managed OpenCode engine (downloaded on first run).",
-    "                           Defaults: --host 127.0.0.1, --approval auto, workspace = cwd,",
-    "                           answering only loopback, IP and --host names.",
+    "                           Defaults: --host 127.0.0.1, workspace = cwd, answering only",
+    "                           loopback, IP and --host names. Approvals stay manual and",
+    "                           the web app answers them (owner access); --approval auto",
+    "                           approves every change instead.",
     "    --open                 Open the browser once listening",
     "    --no-bootstrap-token   Require pasting the client token instead of auto sign-in",
     "",
@@ -236,7 +283,7 @@ export function printHelp(): void {
 }
 
 async function loadFileConfig(configPath: string): Promise<FileConfig> {
-  const parsed = await readJsonFile<FileConfig>(configPath);
+  const parsed = await readJsonFile(configPath, fileConfigSchema);
   return parsed ?? {};
 }
 
@@ -307,15 +354,20 @@ export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
     fileConfig.approval?.mode ??
     "manual";
 
+  // The web app answers approvals itself, so web mode waits only while it is open.
+  const webResponder = cli.web === true && approvalMode !== "auto" && webApprovalsEnabled(process.env);
+  const defaultTimeoutMs = webResponder ? WEB_APPROVAL_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+
   const approvalTimeoutMs =
     cli.approvalTimeoutMs ??
     (process.env.OPENWORK_APPROVAL_TIMEOUT_MS ? Number(process.env.OPENWORK_APPROVAL_TIMEOUT_MS) : undefined) ??
     fileConfig.approval?.timeoutMs ??
-    DEFAULT_TIMEOUT_MS;
+    defaultTimeoutMs;
 
   const approval: ApprovalConfig = {
     mode: approvalMode === "auto" ? "auto" : "manual",
-    timeoutMs: Number.isNaN(approvalTimeoutMs) ? DEFAULT_TIMEOUT_MS : approvalTimeoutMs,
+    timeoutMs: Number.isNaN(approvalTimeoutMs) ? defaultTimeoutMs : approvalTimeoutMs,
+    ...(webResponder ? { responderWindowMs: WEB_APPROVAL_RESPONDER_WINDOW_MS } : {}),
   };
 
   const envCorsOrigins = process.env.OPENWORK_CORS_ORIGINS;

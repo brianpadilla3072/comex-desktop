@@ -70,7 +70,7 @@ test("memory routes gate feature, session ownership, identity, scope, readonly a
   const saved = await (await call("POST", { expectedRevision: 0, text: "Nueva nota" })).json(); assert.equal(saved.revision, 1);
   await assert.rejects(call("POST", { expectedRevision: 0, text: "Conflicto" }), /cambió/);
   await assert.rejects(call("GET", undefined, "/workspace/ws_one/memory/ses_other/application"), /No encontrada/);
-  await assert.rejects(call("GET", undefined, `/workspace/ws_one/memory/${context.sessionId}/system`), /Elegí/);
+  await assert.rejects(call("GET", undefined, `/workspace/ws_one/memory/${context.sessionId}/system`), /Elige/);
   actor = { ...actor, scope: "viewer" }; assert.equal((await (await call("GET")).json()).writable, false); await assert.rejects(call("DELETE", { expectedRevision: 1, id: saved.notes[0].id }), /no puede/);
   actor = { ...actor, scope: "collaborator" }; config.readOnly = true; await assert.rejects(call("POST", { expectedRevision: 1, text: "No guardar" }), /no puede/); config.readOnly = false;
   const removed = await (await call("DELETE", { expectedRevision: 1, id: saved.notes[0].id })).json(); assert.equal(removed.notes.length, 0);

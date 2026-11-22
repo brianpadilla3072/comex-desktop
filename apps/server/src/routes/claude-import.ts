@@ -168,7 +168,12 @@ export function createNativeClaudeImportEngine(
       });
       const text = await response.text();
       let parsed: unknown = undefined;
-      try { parsed = text ? JSON.parse(text) : undefined; } catch { parsed = undefined; }
+      try {
+        if (text) {
+          const value: unknown = JSON.parse(text);
+          parsed = value;
+        }
+      } catch { parsed = undefined; }
       return { status: response.status, body: parsed };
     },
   };

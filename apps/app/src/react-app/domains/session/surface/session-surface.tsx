@@ -9,7 +9,7 @@ import { verifyChildTarget } from "@/lib/verify-child-target";
 import { isTaskToolPart, taskChildSessionId } from "@/lib/build-in-tools";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { UIMessage } from "ai";
+import { isToolUIPart, type UIMessage } from "ai";
 import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SessionStatus } from "@opencode-ai/sdk/v2/client";
 import { Check, Minimize2 } from "lucide-react";
@@ -90,6 +90,9 @@ import {
   subscribeQueuedDrain,
 } from "./queued-drain-machine";
 import { DevProfiler } from "@/react-app/shell/dev-profiler";
+import { companionMessages, latestCompanionResponseTime } from "@/react-app/domains/desktop-companion/snapshot-projection";
+import { useCompanionHost } from "@/react-app/domains/desktop-companion/use-companion-host";
+import { describePermissionRequest } from "../chat/permission-approval-modal";
 import { PaperGrainGradient } from "@openwork/ui/react";
 import { useShellConfig } from "@/react-app/shell/shell-config";
 import { useReactRenderWatchdog } from "@/react-app/shell/react-render-watchdog";
@@ -1050,10 +1053,10 @@ function SessionErrorCard({ error, developerMode, onDismiss, onChangeModel, onOp
       actions={<>
         {error.kind === "model-not-found" ? <>
           {error.suggestions?.map((suggestion) => <Button key={`${suggestion.providerID}/${suggestion.modelID}`} variant="ghost" size="xs"
-            onClick={() => { onChangeModel?.(suggestion); onDismiss(); }}>Use {suggestion.providerID}/{suggestion.modelID}</Button>)}
-          <Button variant="ghost" size="xs" onClick={() => { onOpenModelPicker?.(); onDismiss(); }}>Change model</Button>
+            onClick={() => { onChangeModel?.(suggestion); onDismiss(); }}>{t("session_ui.use_model", { model: `${suggestion.providerID}/${suggestion.modelID}` })}</Button>)}
+          <Button variant="ghost" size="xs" onClick={() => { onOpenModelPicker?.(); onDismiss(); }}>{t("session.change_model")}</Button>
         </> : null}
-        <Button variant="ghost" size="xs" aria-label="Dismiss error" onClick={onDismiss}>Dismiss</Button>
+        <Button variant="ghost" size="xs" aria-label={t("session_ui.dismiss_error")} onClick={onDismiss}>{t("session_ui.dismiss")}</Button>
       </>} />
   );
 }
@@ -1158,7 +1161,11 @@ function hiddenMessageCount(snapshot: OpenworkSessionHistory, revertMessageId: s
 
 /** The server's reason when v2 cannot open a v1 chat that has not been copied yet. */
 function uncopiedChatReason(error: unknown): string | undefined {
-  return error instanceof Error && "code" in error && error.code === "engine_chat_not_copied" ? error.message : undefined;
+  if (!(error instanceof Error)) return undefined;
+  if ("code" in error && error.code === "engine_chat_not_copied") return error.message;
+  // A deleted or mistyped conversation: say so instead of a generic "could not be loaded".
+  if ("status" in error && error.status === 404) return t("session_history.not_found");
+  return undefined;
 }
 
 export function SessionSurface(props: SessionSurfaceProps) {
@@ -3106,6 +3113,62 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setComposerDraft,
   ]);
 
+  const companionResponseAt = props.isControlTarget && isDesktopRuntime() ? latestCompanionResponseTime(renderedMessages) : 0;
+  useCompanionHost({
+    active: props.isControlTarget && isDesktopRuntime() && props.draftScope !== null, owner: sessionOwner, scope: props.draftScope ?? "local",
+    urgentKey: JSON.stringify([composerBusy, runSyncHealth.degraded, Boolean(error), archived, archiveStateKnown, props.modelUnavailable, props.activePermission?.id, props.permissionReplyBusy, props.activeQuestion?.id, props.questionReplyBusy, companionResponseAt]),
+    snapshot: detail => ({
+      sessionId: props.sessionId, workspaceId: props.workspaceId, title: props.sessionTitle ?? "Conversación", project: props.workspaceRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? "Proyecto",
+      responseAt: companionResponseAt,
+      model: sessionModel.modelLabel,
+      state: runSyncHealth.degraded ? "offline" : props.activePermission || props.activeQuestion ? "waiting" : error ? "error" : composerBusy ? "working" : "idle",
+      canSend: !archived && archiveStateKnown && !composerBusy && !runSyncHealth.degraded && !props.activePermission && !props.activeQuestion && !props.modelUnavailable,
+      messages: detail ? companionMessages(renderedMessages) : [],
+      activity: detail ? renderedMessages.slice(-4).flatMap(message => message.parts.filter(isToolUIPart).map(part =>
+        part.state === "output-available" ? "Herramienta completada" : part.state === "output-error" ? "Falló una herramienta" : "Usando una herramienta")).slice(-12) : [],
+      permission: props.activePermission ? {
+        id: props.activePermission.id, title: describePermissionRequest(props.activePermission).title,
+        detail: [describePermissionRequest(props.activePermission).message, describePermissionRequest(props.activePermission).scopeValue,
+          typeof props.activePermission.metadata?.command === "string" ? props.activePermission.metadata.command : ""].filter(Boolean).join("\n"),
+        busy: props.permissionReplyBusy === true,
+      } : null,
+      question: props.activeQuestion ? { id: props.activeQuestion.id, busy: props.questionReplyBusy === true,
+        questions: props.activeQuestion.questions.map(question => ({ text: question.question, multiple: question.multiple === true, custom: question.custom !== false, options: question.options.map(option => option.label) })) } : null,
+    }),
+    execute: async action => {
+      if (action.kind === "permission") {
+        if (!props.respondPermission || props.activePermission?.id !== action.requestId || props.permissionReplyBusy) return { ok: false, error: "La solicitud ya cambió." };
+        props.respondPermission(action.requestId, action.reply); return { ok: true };
+      }
+      if (action.kind === "question") {
+        if (!props.respondQuestion || props.activeQuestion?.id !== action.requestId || props.questionReplyBusy) return { ok: false, error: "La pregunta ya cambió." };
+        if (action.answers !== null && (action.answers.length !== props.activeQuestion.questions.length || action.answers.some((answers, index) => {
+          const question = props.activeQuestion!.questions[index];
+          return !answers.length || (!question.multiple && answers.length !== 1)
+            || (question.custom === false && answers.some(answer => !question.options.some(option => option.label === answer)));
+        }))) return { ok: false, error: "Revisa las respuestas en el chat completo." };
+        await props.respondQuestion(action.requestId, action.answers); return { ok: true };
+      }
+      if (action.kind === "stop") { await handleAbort(); return { ok: true }; }
+      if (archived || !archiveStateKnown || composerBusy || props.modelUnavailable || runSyncHealth.degraded || props.activePermission || props.activeQuestion
+        || sessionWorkHeld(props.opencodeBaseUrl, props.sessionId)) return { ok: false, error: "El chat no está disponible para enviar." };
+      if (action.files.length && !props.attachmentsEnabled) return { ok: false, error: props.attachmentsDisabledReason ?? "Los adjuntos no están disponibles." };
+      const files: ComposerAttachment[] = action.files.map(item => {
+        const bytes = Uint8Array.from(atob(item.data), char => char.charCodeAt(0));
+        const file = new File([bytes], item.name, { type: item.type });
+        const metadata = resolveAttachmentFileMetadata(file);
+        return { id: `att-${crypto.randomUUID()}`, name: file.name, mimeType: metadata.mime, size: file.size, kind: metadata.kind, file };
+      });
+      const messageId = createPromptMessageID();
+      dispatchQueuedDrain(props.sessionId, { type: "user_retry" });
+      if (!claimQueuedSend(props.sessionId, messageId, true)) return { ok: false, error: "Hay un envío pendiente en este chat." };
+      const next = { ...buildDraft(action.text, files, { draft: action.text, attachments: files, mentions: {}, pasteParts: [], revertMessageId: null }), messageId };
+      const result = await sendDraft(next, messageId);
+      if (result.outcome === "sent" || result.outcome === "accepted") return { ok: true };
+      return { ok: false, uncertain: result.outcome === "unknown", error: result.outcome === "unknown" ? "No se pudo confirmar el envío. Revisa el chat antes de reenviar." : "El mensaje no se envió. Revisa el chat en la app." };
+    },
+  });
+
   const handleRemoveAttachment = useCallback((id: string) => {
     const target = attachments.find((item) => item.id === id);
     if (target?.previewUrl) {
@@ -3856,7 +3919,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         </div>
       ) : null}
       <div className={cn("flex h-full min-h-0 flex-col", props.resourceCardEnabled && "@min-[1100px]:pr-[316px]")}>
-      <SessionHistoryStatus key={sessionOwner} complete={hasFullHistory && !openingHistory.openingError} pending={pendingSessionLoad}
+      <SessionHistoryStatus key={`${sessionOwner}:history`} complete={hasFullHistory && !openingHistory.openingError} pending={pendingSessionLoad}
          failedReason={uncopiedChatReason(openingHistory.openingError) ?? uncopiedChatReason(snapshotQuery.error)}
          loading={openingHistory.openingLoading || snapshotQuery.isFetching && openingHistory.partial || openingHistory.pages.loading}
          failed={Boolean(openingHistory.openingError) || snapshotQuery.isError && !snapshotQuery.isFetching || openingHistory.pages.failed}
@@ -3894,11 +3957,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
                  shift under the reader and the saved reading anchor go stale. */}
             {findOwned ? <div aria-hidden className="h-12" /> : null}
             {queuedDrainState.phase.kind === "admission_unknown" ? (
-              <TaskRecovery state="paused" title="Couldn’t confirm your message was received"
-                description="It may already be running. Check before sending again."
+              <TaskRecovery state="paused" title={t("session_ui.admission_unknown_title")}
+                description={t("session_ui.admission_unknown_body")}
                 actions={<>
-                  <Button variant="ghost" size="xs" onClick={() => void checkUnknownAdmission(true)}>Check status</Button>
-                  <Button variant="ghost" size="xs" onClick={() => void handleAbort()}>Stop</Button>
+                  <Button variant="ghost" size="xs" onClick={() => void checkUnknownAdmission(true)}>{t("session_ui.check_status")}</Button>
+                  <Button variant="ghost" size="xs" onClick={() => void handleAbort()}>{t("session_ui.stop")}</Button>
                 </>} />
             ) : null}
             {revertMessageId ? (
@@ -4013,7 +4076,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             ) : null}
           </div>
         </div>
-        {conversationNavigatorEnabled ? <ConversationNavigator key={sessionOwner} messages={visibleMessages} scrollRef={scrollRef}
+        {conversationNavigatorEnabled ? <ConversationNavigator key={`${sessionOwner}:navigator`} messages={visibleMessages} scrollRef={scrollRef}
           historyComplete={hasFullHistory} onLoadHistory={openingHistory.ensureFullSnapshot}
           onNavigate={messageId => { sessionScroll.markScrollGesture(scrollRef.current); setConversationNavigation(current => ({ owner: sessionOwner, messageId, request: (current?.request ?? 0) + 1 })); }} /> : null}
         <SessionScrollOverlay
@@ -4025,7 +4088,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           onJumpToStartOfMessage={sessionScroll.jumpToStartOfMessage}
         />
         <SessionFindBar
-          key={sessionOwner}
+          key={`${sessionOwner}:find`}
           sessionId={props.sessionId}
           scrollRef={scrollRef}
           historyComplete={hasFullHistory}
@@ -4043,16 +4106,16 @@ export function SessionSurface(props: SessionSurfaceProps) {
             className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-dls-border bg-dls-hover px-3 py-2 text-left text-xs text-dls-text transition-colors hover:bg-dls-active"
             onClick={() => props.onOpenSettingsSection?.("providers")}
           >
-            <span className="font-medium">No AI model connected.</span>
-            <span className="text-dls-secondary">Add a provider to run tasks.</span>
+            <span className="font-medium">{t("session_ui.no_model_connected")}</span>
+            <span className="text-dls-secondary">{t("session_ui.add_provider_to_run")}</span>
           </button>
         ) : null}
         {props.cloudMcpSubmissionState.status === "failed" ? (
           <TaskRecovery testId="cloud-mcp-submission-failure"
-            title={props.cloudMcpSubmissionState.issue?.message ?? "Connected service tools could not be prepared."}
+            title={props.cloudMcpSubmissionState.issue?.message ?? t("session_ui.connected_tools_failed")}
             description={props.cloudMcpSubmissionState.issue?.recommendedAction}
             onRetry={props.cloudMcpSubmissionState.issue?.retryable !== false ? handleRetryCloudSubmission : undefined}
-            actions={<Button variant="ghost" size="xs" onClick={props.onOpenConnect}>Open Connect</Button>} />
+            actions={<Button variant="ghost" size="xs" onClick={props.onOpenConnect}>{t("session_ui.open_connect")}</Button>} />
         ) : null}
         {archived ? (
           <Alert data-testid="archived-session">
@@ -4070,7 +4133,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
         ) : <>
         {failedDraft ? (
           <div className="mx-3 mb-2 flex items-center gap-3 text-xs text-dls-secondary">
-            <span>Your unsent message is saved. Clear the current draft to restore it.</span>
+            <span>{t("session_ui.unsent_message_saved")}</span>
             <button type="button" disabled={Boolean(draft || attachments.length)} className="font-medium disabled:opacity-50" onClick={() => {
               const state = useComposerStateStore.getState();
               if (getComposerDraft(state, props.sessionId) || getComposerAttachments(state, props.sessionId).length) return;
@@ -4080,11 +4143,11 @@ export function SessionSurface(props: SessionSurfaceProps) {
                 sessions: { ...state.sessions, [props.sessionId]: failedDraft },
                 failedDrafts,
               });
-            }}>Restore unsent message</button>
+            }}>{t("session_ui.restore_unsent_message")}</button>
           </div>
         ) : null}
         {attachmentsUploading ? <div role="status" className="mx-3 mb-2 text-xs text-muted-foreground" data-attachment-status="uploading">
-          Preparing attachments...
+          {t("session_ui.preparing_attachments")}
         </div> : null}
         <SignInHandoffNotice workspaceId={props.workspaceId} sessionId={props.sessionId} hasDraft={Boolean(persistableComposerDraftText(draft).trim())} />
         <ReactSessionComposer
@@ -4101,7 +4164,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
             fork: props.onForkAtMessage ? async () => { await props.onForkAtMessage?.(null, props.sessionId, () => branchOwnerRef.current?.owner === sessionOwner); } : undefined,
           }}
           runModeControl={<WorkspaceRunModeMenu client={props.client} workspaceId={props.workspaceId} busy={composerBusy || preparingCloudTools || Boolean(props.activePermission || props.activeQuestion)} />}
-          agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={sessionOwner} messages={visibleMessages} workspaceId={props.workspaceId}
+          agentActivityControl={agentActivityMapEnabled ? <AgentActivityMap key={`${sessionOwner}:activity`} messages={visibleMessages} workspaceId={props.workspaceId}
             owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive}
             syncDegraded={runSyncHealth.degraded} readChild={readAgentMessages} onOpenChild={openChild} /> : null}
           draft={autoSendPayload ? draft : autoSending ? "" : draft}

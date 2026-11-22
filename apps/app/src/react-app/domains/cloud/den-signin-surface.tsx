@@ -246,7 +246,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
 
             <div className="mt-10 flex flex-col gap-2.5 sm:mt-14">
               <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.03em] text-foreground sm:text-[38px] sm:leading-[46px]">
-                Welcome to {appName}
+                {t("secondary_ui.cloud.signin.welcome", { name: appName })}
               </h1>
               <p className="text-[15px] leading-[23px] text-muted-foreground">
                 {t("welcome.subtitle")}
@@ -264,7 +264,7 @@ export function DenSignInSurface(props: DenSignInSurfaceProps) {
                 onClick={() => props.onOpenBrowserAuth("sign-up")}
                 disabled={props.authBusy || props.sessionBusy}
               >
-                Sign in to {appName}
+                {t("ai_providers.sign_in_to", { name: appName })}
                 <ArrowUpRight size={15} />
               </Button>
 

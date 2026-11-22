@@ -9,6 +9,11 @@ import ca from "./locales/ca";
 import es from "./locales/es";
 import ru from "./locales/ru";
 export const LANGUAGE_PREF_KEY = "openwork.language";
+/**
+ * A language the app suggests when the person has not chosen one (Comex sets
+ * Spanish). It never overrides LANGUAGE_PREF_KEY, the person's own choice.
+ */
+export const DEFAULT_LANGUAGE_HINT_KEY = "openwork.language.default";
 
 /**
  * Supported languages
@@ -210,13 +215,40 @@ export const initLocale = (): Language => {
       }
       return stored;
     }
+    const hint = window.localStorage.getItem(DEFAULT_LANGUAGE_HINT_KEY);
+    if (isLanguage(hint)) {
+      localeValue = hint;
+      if (typeof document !== "undefined") {
+        document.documentElement.setAttribute("lang", hint);
+      }
+      return hint;
+    }
   } catch (e) {
     console.warn("Failed to read language preference:", e);
   }
 
+  localeValue = "en";
   if (typeof document !== "undefined") {
     document.documentElement.setAttribute("lang", "en");
   }
 
   return "en";
+};
+
+/**
+ * Store (or clear, with null) the suggested default language. Returns true
+ * when the language on screen should change, so the caller reloads once: only
+ * when there is no explicit preference and the hint differs from the locale
+ * currently rendered.
+ */
+export const applyDefaultLanguageHint = (hint: Language | null): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    if (hint) window.localStorage.setItem(DEFAULT_LANGUAGE_HINT_KEY, hint);
+    else window.localStorage.removeItem(DEFAULT_LANGUAGE_HINT_KEY);
+    if (isLanguage(window.localStorage.getItem(LANGUAGE_PREF_KEY))) return false;
+  } catch {
+    return false;
+  }
+  return (hint ?? "en") !== localeValue;
 };

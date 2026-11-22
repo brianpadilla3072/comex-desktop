@@ -7,11 +7,28 @@ import { existsSync } from "node:fs";
 import { release } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
 const defaultAppRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const helperName = "OpenWork Computer Use.app";
 const helperExecutable = path.join("Contents", "MacOS", "ComputerUse");
 const protocolVersion = "openwork.computer-use/1";
+// `--check` reply: the protocol is compared first so an old helper reads as incompatible.
+const helperReplySchema = z.looseObject({ protocolVersion: z.unknown().optional() });
+const helperPermissionStatusSchema = z.object({
+  ok: z.boolean(),
+  supported: z.boolean(),
+  accessibility: z.boolean(),
+  screenRecording: z.boolean(),
+});
+// One line from the setup window. Each event carries exactly these keys.
+const setupEventSchema = z.discriminatedUnion("event", [
+  z.strictObject({ event: z.literal("ready") }),
+  z.strictObject({ event: z.literal("requested"), permission: z.enum(["accessibility", "screenRecording"]) }),
+  z.strictObject({ event: z.literal("refresh") }),
+  z.strictObject({ event: z.literal("visibility"), visible: z.boolean() }),
+  z.strictObject({ event: z.literal("return") }),
+]);
 // Exactly the native helper's tools in mcp-embedded mode. The handshake rejects
 // any other list, so a new or missing tool cannot drift out of the contract.
 const toolNames = new Set([
@@ -121,7 +138,10 @@ export function createLocalComputerAdapter({
 
   async function probe() {
     // Darwin 23 is macOS 14. Never start a newer native binary on an older OS.
-    if (platform !== "darwin" || Number.parseInt(osRelease, 10) < 23 || !/^\d+\./.test(osRelease)) {
+    if (platform !== "darwin") {
+      return { readiness: "unsupported", detail: "Computer Use is only available on macOS." };
+    }
+    if (Number.parseInt(osRelease, 10) < 23 || !/^\d+\./.test(osRelease)) {
       return { readiness: "unsupported", detail: "This Mac requires macOS 14 or later for Computer Use." };
     }
     const found = helperCandidates().find((candidate) => candidate && fileExists(candidate));
@@ -162,13 +182,13 @@ export function createLocalComputerAdapter({
         return { readiness: "unavailable", detail: "The Computer Use permission check timed out." };
       }
       if (failed || code !== 0) throw new Error("Helper check failed.");
-      const state = JSON.parse(stdout);
-      if (state?.protocolVersion !== protocolVersion) {
+      const reply = helperReplySchema.safeParse(JSON.parse(stdout));
+      if (!reply.success || reply.data.protocolVersion !== protocolVersion) {
         return { readiness: "unavailable", detail: "The Computer Use helper protocol is incompatible. Rebuild or reinstall OpenWork." };
       }
-      if (![state.ok, state.supported, state.accessibility, state.screenRecording].every((value) => typeof value === "boolean")) {
-        throw new Error("Invalid permission status.");
-      }
+      const status = helperPermissionStatusSchema.safeParse(reply.data);
+      if (!status.success) throw new Error("Invalid permission status.");
+      const state = status.data;
       if (!state.supported) return { readiness: "unsupported", detail: "Computer Use is not supported on this Mac." };
       const permissions = { accessibility: state.accessibility, screenRecording: state.screenRecording };
       if (!state.accessibility || !state.screenRecording) {
@@ -307,20 +327,19 @@ export function createLocalComputerAdapter({
           const line = pending.slice(0, newline);
           pending = pending.slice(newline + 1);
           if (Buffer.byteLength(line) > 4_096 || ++lines > 2_048) { fail(); return; }
-          let event;
-          try { event = JSON.parse(line); } catch { fail(); return; }
-          if (!event || typeof event !== "object" || Array.isArray(event)) { fail(); return; }
-          const keys = event.event === "requested" ? ["event", "permission"] : event.event === "visibility" ? ["event", "visible"] : ["event"];
-          if (Object.keys(event).some((key) => !keys.includes(key))) { fail(); return; }
+          let parsed;
+          try { parsed = setupEventSchema.safeParse(JSON.parse(line)); } catch { fail(); return; }
+          if (!parsed.success) { fail(); return; }
+          const event = parsed.data;
           if (!record.ready) {
             if (event.event !== "ready") { fail(); return; }
             record.ready = true;
             acceptReady();
           } else if (event.event === "requested") {
-            if (!["accessibility", "screenRecording"].includes(event.permission)) { fail(); return; }
+            // The permission name is already checked by the schema.
           } else if (event.event === "refresh") {
             void refreshSetup(record);
-          } else if (event.event === "visibility" && typeof event.visible === "boolean") {
+          } else if (event.event === "visibility") {
             record.visible = event.visible;
             scheduleSetupPoll(record);
           } else if (event.event === "return") {

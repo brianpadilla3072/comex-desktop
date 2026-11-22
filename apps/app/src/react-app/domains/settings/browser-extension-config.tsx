@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { t } from "@/i18n";
 import { MonitorSmartphone } from "lucide-react";
 
 import { surfaceCardClass } from "../workspace/modal-styles";
@@ -15,9 +16,9 @@ function OpenWorkBrowserConfig() {
       <div className="flex items-start gap-3">
         <MonitorSmartphone className="mt-0.5 size-4 shrink-0 text-blue-11" />
         <div className="space-y-1 text-[13px] leading-relaxed text-dls-secondary">
-          <div className="font-medium text-dls-text">Ready by default</div>
-          <div>Each conversation uses its own tabs in the built-in browser. The session can navigate, read, click, type and use website tools without asking. Choose Take over to pause the agent and sign in; Resume browser hands control back.</div>
-          <div>Sign in directly in the built-in browser; your session stays available across browser tasks. Your regular browser profile stays separate. Site tools support the imperative WebMCP document API; declarative forms and external browser control are not supported yet.</div>
+          <div className="font-medium text-dls-text">{t("settings_ui.browser_ready")}</div>
+          <div>{t("settings_ui.browser_tabs_desc")}</div>
+          <div>{t("settings_ui.browser_sign_in_desc")}</div>
         </div>
       </div>
     </div>

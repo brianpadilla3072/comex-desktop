@@ -2,7 +2,7 @@ import { createContext, use, useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type UseMutateFunction } from "@tanstack/react-query";
 import { toast } from "@/components/ui/sonner";
 
-import type { OpenworkServerClient } from "@/app/lib/openwork-server";
+import { OpenworkServerError, type OpenworkServerClient } from "@/app/lib/openwork-server";
 import { t } from "@/i18n";
 import { clearOpenworkEnvSystemContextCache } from "@/react-app/domains/session/sync/env-context";
 import type { EnvironmentVariableItem } from "./environment-variable-table";
@@ -43,6 +43,14 @@ type UseEnvironmentVariableListOptions = {
   runtimeKey?: string | null;
 };
 
+/** The connection may not manage environment variables (the web app's collaborator token gets 401
+ *  on every /env route): say so once instead of retrying and showing a false empty state. */
+export function isEnvironmentAccessDenied(error: unknown): boolean {
+  return error instanceof OpenworkServerError && (error.status === 401 || error.status === 403);
+}
+
+const retryUnlessDenied = (failures: number, error: Error) => !isEnvironmentAccessDenied(error) && failures < 3;
+
 export function environmentUserEnvQueryKey(runtimeKey?: string | null) {
   return ["settings", "environment", "user-env", runtimeKey];
 }
@@ -58,6 +66,7 @@ export function useEnvironmentVariableList(options: UseEnvironmentVariableListOp
       return options.client.listUserEnv();
     },
     enabled: options.client !== null,
+    retry: retryUnlessDenied,
     refetchOnWindowFocus: false,
   });
 }
@@ -108,6 +117,7 @@ export function EnvironmentVariableProvider({ children, client, runtimeKey, onAp
       return (await client.getUserEnvStatus(runtimeKey)).pendingChanges;
     },
     staleTime: 10_000,
+    retry: retryUnlessDenied,
     refetchOnWindowFocus: false,
   });
   

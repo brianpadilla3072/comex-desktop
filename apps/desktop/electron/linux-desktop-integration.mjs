@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { z } from "zod";
 
 /** @typedef {import("@openwork/types/desktop-ipc").DesktopIntegrationIssue} DesktopIntegrationIssue */
 /** @typedef {import("@openwork/types/desktop-ipc").DesktopIntegrationResult} DesktopIntegrationResult */
@@ -106,19 +107,16 @@ function emptyState() {
   };
 }
 
+/** `openwork/desktop-integration.json`. A bad field falls back to its empty value. */
+const integrationStateSchema = z.object({
+  dismissedAppImages: z.array(z.unknown()).catch([]).transform((items) => items.filter((item) => typeof item === "string")),
+  previousProtocolHandler: z.unknown().optional().transform((value) =>
+    typeof value === "string" && value.trim() ? value.trim() : null),
+}).transform((state) => ({ version: INTEGRATION_STATE_VERSION, ...state }));
+
 function normalizeState(value) {
-  if (!value || typeof value !== "object") return emptyState();
-  const dismissed = Array.isArray(value.dismissedAppImages)
-    ? value.dismissedAppImages.filter((item) => typeof item === "string")
-    : [];
-  return {
-    version: INTEGRATION_STATE_VERSION,
-    dismissedAppImages: dismissed,
-    previousProtocolHandler:
-      typeof value.previousProtocolHandler === "string" && value.previousProtocolHandler.trim()
-        ? value.previousProtocolHandler.trim()
-        : null,
-  };
+  const parsed = integrationStateSchema.safeParse(value);
+  return parsed.success ? parsed.data : emptyState();
 }
 
 async function fileExists(target) {
@@ -235,7 +233,8 @@ export function createLinuxDesktopIntegration({
     const raw = await readFile(statePath, "utf8").catch(() => null);
     if (raw == null) return emptyState();
     try {
-      return normalizeState(JSON.parse(raw));
+      const parsed = integrationStateSchema.safeParse(JSON.parse(raw));
+      return parsed.success ? parsed.data : emptyState();
     } catch {
       return emptyState();
     }

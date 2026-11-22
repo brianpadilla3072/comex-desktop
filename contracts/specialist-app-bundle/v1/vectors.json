@@ -1,0 +1,385 @@
+{
+ "contract": "openwork.specialist-application",
+ "version": 1,
+ "route": "POST /specialist-applications/import",
+ "body": "{ bundle, userName }",
+ "vectors": [
+  {
+   "name": "minimal bundle without sections",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {}
+   },
+   "expect": {
+    "status": 201,
+    "projects": 1
+   }
+  },
+  {
+   "name": "context, paused task and a project with memory and a session summary",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "context": {
+      "content": "Citar siempre la fuente."
+     },
+     "tasks": {
+      "tasks": [
+       {
+        "name": "semanal",
+        "prompt": "Revisá precios.",
+        "schedule": {
+         "kind": "interval",
+         "everyMinutes": 60
+        }
+       }
+      ]
+     },
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "estado.md",
+          "encoding": "utf8",
+          "content": "# Memoria\n"
+         },
+         {
+          "path": "sesiones/ses_1.md",
+          "encoding": "utf8",
+          "content": "# Notas\n"
+         },
+         {
+          "path": "datos.bin",
+          "encoding": "base64",
+          "content": "AP8B/g=="
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 201,
+    "projects": 1,
+    "files": {
+     "estado.md": "# Memoria\n",
+     "sesiones/ses_1.md": "# Notas\n"
+    },
+    "pausedTasks": [
+     "semanal"
+    ]
+   }
+  },
+  {
+   "name": "unknown sections are skipped and reported",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "future-family": {
+      "x": 1
+     }
+    }
+   },
+   "expect": {
+    "status": 201,
+    "skippedSections": [
+     "future-family"
+    ]
+   }
+  },
+  {
+   "name": "not an OpenWork bundle",
+   "bundle": {
+    "hello": "world"
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "newer major version",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 99,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {}
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "parent path traversal",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "../escape.md",
+          "encoding": "utf8",
+          "content": "x"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "absolute path",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "/etc/passwd",
+          "encoding": "utf8",
+          "content": "x"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "hidden path segment",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": ".env",
+          "encoding": "utf8",
+          "content": "x"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "windows path separators",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "a\\b.md",
+          "encoding": "utf8",
+          "content": "x"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "same path twice",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "a.md",
+          "encoding": "utf8",
+          "content": "x"
+         },
+         {
+          "path": "a.md",
+          "encoding": "utf8",
+          "content": "y"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "a path used as file and folder",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "projects": {
+      "projects": [
+       {
+        "name": "Principal",
+        "dataDir": "proyecto",
+        "files": [
+         {
+          "path": "a",
+          "encoding": "utf8",
+          "content": "x"
+         },
+         {
+          "path": "a/b",
+          "encoding": "utf8",
+          "content": "y"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422,
+    "code": "invalid_application_bundle"
+   }
+  },
+  {
+   "name": "library agent without frontmatter",
+   "bundle": {
+    "format": "openwork.specialist-application",
+    "version": 1,
+    "application": {
+     "name": "Contrato",
+     "specialty": "Pruebas de contrato",
+     "personality": "",
+     "template": "custom"
+    },
+    "sections": {
+     "library": {
+      "files": [
+       {
+        "path": "agents/x.md",
+        "encoding": "utf8",
+        "content": "sin encabezado"
+       }
+      ]
+     }
+    }
+   },
+   "expect": {
+    "status": 422
+   }
+  }
+ ]
+}

@@ -1,5 +1,6 @@
 import { ChatCommandHost } from "@/react-app/domains/session/commands/host";
 /** @jsxImportSource react */
+import { workspaceRenameFailure } from "@/react-app/shell/workspace-rename-error";
 import { useSpecialistApplications } from "@/react-app/domains/specialists/provider";
 import { freeAutoSwitchedOff, modelForNewTask, openComposerModelPickerEvent } from "@/app/lib/inference-access";
 import { useAutoAccess, useObservedAutoAccessSnapshot } from "@/react-app/domains/cloud/auto-access-ui";
@@ -38,6 +39,7 @@ import { settleWorkspaceIds, useSessionSettleState } from "@/react-app/domains/s
 import { getDisplaySessionTitle } from "@/app/lib/session-title";
 import { getSessionDescendantIds } from "@/react-app/domains/session/sidebar/utils";
 import { buildOpenworkWorkspaceBaseUrl } from "@/app/lib/openwork-server";
+import { workspaceCreateError } from "./workspace-create-error";
 import {
   resolveEngineRootEndpoint,
   resolveWorkspaceEndpoint,
@@ -108,15 +110,35 @@ import { reloadEngineWithDesktopFallback } from "@/react-app/shell/engine-reload
 import { useLocal } from "@/react-app/kernel/local-provider";
 import { usePlatform } from "@/react-app/kernel/platform";
 import {
+  EmbeddedSessionSurface,
   SessionPage,
   type OpenSessionTab,
   type SessionPagePaneRuntime,
 } from "@/react-app/domains/session/chat/session-page";
 import { ActivityPage } from "@/react-app/domains/activity/activity-page";
+import { CommandCenterPage } from "@/react-app/domains/command-center/command-center-page";
+import { ProjectComposer } from "@/react-app/domains/projects/project-composer";
+import { ProjectPage } from "@/react-app/domains/projects/project-page";
+import { projectRouteWorkspaceId } from "@/react-app/domains/projects/project-page-model";
+import { useCommandCenterAvailability } from "@/react-app/domains/command-center/use-command-center";
+import { ResultsInboxPage } from "@/react-app/domains/results-inbox/results-inbox-page";
+import { flaggedDestinationHandler, flaggedDestinationReachable } from "@/react-app/shell/flagged-destination";
+import { useResultsInboxAvailability, useResultsInboxUnread } from "@/react-app/domains/results-inbox/use-results-inbox";
+import { ProjectsPage } from "@/react-app/domains/projects/projects-list-page";
+import { PROJECTS_ROUTE, isProjectsPath, pinnedProjects, projectIdFromPath, projectPageRoute } from "@/react-app/domains/projects/projects-list-model";
+import { useProjectsAvailability, useSidebarProjects } from "@/react-app/domains/projects/use-projects-list";
+import { DESIGN_ROUTE, designRouteFromPath, isDesignPath } from "@/app/lib/designs";
+import { DesignGalleryPage } from "@/react-app/domains/design/design-gallery";
+import { DesignPage } from "@/react-app/domains/design/design-page";
+import type { DesignChatHost } from "@/react-app/domains/design/design-chat-panel";
+import { DesignChatStarter } from "@/react-app/domains/design/design-chat-starter";
+import { useDesignStudioAvailability } from "@/react-app/domains/design/use-designs";
 import type { ActivityResource } from "@/react-app/kernel/activity-types";
 import { encodeConnectSkillToken } from "@/react-app/domains/session/surface/composer/connect-skill-token";
 import { AutomationsPage } from "@/react-app/domains/automations/automations-page";
 import { automationProviderCatalog } from "@/react-app/domains/automations/automation-model-options";
+import { confirmDialog } from "@/components/ui/confirm-dialog";
+import { specialistErrorMessage } from "@/react-app/domains/specialists/error-message";
 import { useDesktopFeature } from "@/react-app/domains/session/status/use-desktop-feature";
 import { remoteThreadAttentionBySession, useRemoteThreadAttentionKey } from "@/react-app/domains/session/remote-threads/remote-thread-store";
 import { RemoteSessionHeader, RemoteSessionSurface } from "@/react-app/domains/session/remote-threads/remote-session-surface";
@@ -177,6 +199,7 @@ import {
 import { sendWithRevertRollback } from "@/react-app/domains/session/surface/safe-edit-resend";
 import { assertQueuedSendCurrent, getQueuedSendGeneration } from "@/react-app/domains/session/surface/queued-drain-machine";
 import { CreateWorkspaceModal } from "@/react-app/domains/workspace/create-workspace-modal";
+import { useWebFolderPicker } from "@/react-app/domains/workspace/folder-browser-dialog";
 import type { CreateWorkspaceOptions } from "@/react-app/domains/workspace/types";
 import {
   connectGatewayProvider,
@@ -191,7 +214,7 @@ import {
 import { assignedModelOptions, mergeModelOptions } from "@/react-app/domains/connections/provider-auth/assigned-model-options";
 import { runtimeModelOptions } from "@/react-app/domains/models/catalog";
 import { pickerFallbackModels } from "@/react-app/domains/connections/provider-auth/live-provider-sync";
-import { withImportedModelMetadata, isAutoModel, shouldSelectInitialAuto, starterModel, openWorkModelsLunaReplacement, EXPLICIT_MODEL_CHOICE_KEY } from "@/react-app/domains/models/model-catalog";
+import { withImportedModelMetadata, isAutoModel, shouldSelectInitialAuto, starterModel, openWorkModelsLunaReplacement, retiredZenDefaultReplacement, EXPLICIT_MODEL_CHOICE_KEY } from "@/react-app/domains/models/model-catalog";
 import {
   filterEntitledModelOptions,
   keylessProviderIds,
@@ -417,13 +440,49 @@ function focusedWorkbenchPaneOwner() {
 }
 
 export function SessionRoute() {
-  const specialistApplicationId = useSpecialistApplications()?.active?.id;
+  // Only bind a newly created workspace to the specialist app when we are
+  // actually inside that app's workspace. On dashboard/home routes the active
+  // app is just a fallback (often the first one, e.g. Comex), so binding to
+  // it would silently switch the whole app to that specialist.
+  const specialistApplications = useSpecialistApplications();
   const navigate = useNavigate();
   const location = useLocation();
+  const inWorkspaceRoute = /^\/workspace\/[^/]+/.test(location.pathname);
+  const specialistApplicationId = inWorkspaceRoute ? specialistApplications?.active?.id : undefined;
   const appsRouteActive = /^(?:\/apps|\/dashboard\/apps)(?:\/|$)/.test(location.pathname);
   const automationsRouteRequested = /^\/automations(?:\/|$)/.test(location.pathname);
   const dashboardRouteRequested = /^\/dashboard(?:\/|$)/.test(location.pathname);
   const activityRouteRequested = location.pathname === "/activity";
+  const commandCenterRouteRequested = location.pathname === "/command-center";
+  const commandCenter = useCommandCenterAvailability();
+  const commandCenterRouteActive = flaggedDestinationReachable(commandCenter) && commandCenterRouteRequested;
+  const resultsInboxRouteRequested = location.pathname === "/inbox";
+  const resultsInbox = useResultsInboxAvailability();
+  const resultsInboxRouteActive = flaggedDestinationReachable(resultsInbox) && resultsInboxRouteRequested;
+  const resultsInboxUnread = useResultsInboxUnread(resultsInbox.enabled);
+  const projectsRouteRequested = location.pathname === PROJECTS_ROUTE;
+  const projects = useProjectsAvailability();
+  const projectsRouteActive = flaggedDestinationReachable(projects) && projectsRouteRequested;
+  const sidebarProjectList = useSidebarProjects(projects.enabled);
+  const projectRouteWorkspace = projectRouteWorkspaceId(location.pathname);
+  const projectRouteActive = flaggedDestinationReachable(projects) && projectRouteWorkspace !== null;
+  // Design studio (designStudio): `/design` (gallery) and `/design/:workspaceId/:designId`.
+  const designStudio = useDesignStudioAvailability();
+  const designGalleryRequested = location.pathname === DESIGN_ROUTE;
+  const designRoute = designRouteFromPath(location.pathname);
+  const designGalleryActive = flaggedDestinationReachable(designStudio) && designGalleryRequested;
+  const designPageActive = flaggedDestinationReachable(designStudio) && designRoute !== null;
+  // The chat beside an open design: its session borrows the route's session surface.
+  const [designChatSessionId, setDesignChatSessionId] = useState<string | null>(null);
+  // `/design` slash command → open the Design studio (gated by the designStudio flag).
+  useEffect(() => {
+    const handler = () => {
+      if (!flaggedDestinationReachable(designStudio)) return;
+      navigate(DESIGN_ROUTE);
+    };
+    window.addEventListener("openwork-open-design", handler);
+    return () => window.removeEventListener("openwork-open-design", handler);
+  }, [designStudio, navigate]);
   const {
     enabled: mcpAppsDashboardEnabled,
     loading: dashboardAvailabilityLoading,
@@ -465,6 +524,26 @@ export function SessionRoute() {
   useEffect(() => {
     if (activityRouteRequested && !shellConfig.notifications) navigate("/", { replace: true });
   }, [activityRouteRequested, navigate, shellConfig.notifications]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (commandCenterRouteRequested && commandCenter.known && !commandCenter.enabled) navigate("/", { replace: true });
+  }, [commandCenter.enabled, commandCenter.known, commandCenterRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (resultsInboxRouteRequested && resultsInbox.known && !resultsInbox.enabled) navigate("/", { replace: true });
+  }, [resultsInbox.enabled, resultsInbox.known, resultsInboxRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (projectsRouteRequested && projects.known && !projects.enabled) navigate("/", { replace: true });
+  }, [projects.enabled, projects.known, projectsRouteRequested, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if (projectRouteWorkspace !== null && projects.known && !projects.enabled) navigate("/", { replace: true });
+  }, [projects.enabled, projects.known, projectRouteWorkspace, navigate]);
+  useEffect(() => {
+    // Leave only once the server said the flag is off; a slow read never redirects.
+    if ((designGalleryRequested || designRoute !== null) && designStudio.known && !designStudio.enabled) navigate("/", { replace: true });
+  }, [designStudio.enabled, designStudio.known, designGalleryRequested, designRoute, navigate]);
   useEffect(() => {
     if (!automationsRouteRequested || denAuthChecking || automationsSurfaceAvailable) return;
     navigate("/", { replace: true });
@@ -551,8 +630,8 @@ export function SessionRoute() {
     legacySelectedWorkspaceId,
     setLegacySelectedWorkspaceId,
     retryingWorkspaceIds,
-    setRetryingWorkspaceIds,
     sessionListErrorsByWorkspaceId,
+    setRetryingWorkspaceIds,
     startupRetryTimerRef,
     selectedWorkspaceId,
     selectedWorkspace,
@@ -576,7 +655,7 @@ export function SessionRoute() {
   } = useWorkspaceRouteState({
     preservePendingConversationRoute: Boolean(requestedPendingId && pendingConversations[requestedPendingId]?.scope === sessionDraftScope),
     developerMode,
-    workspaceRoute: activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
+    workspaceRoute: designPageActive ? "design-page" : designGalleryActive ? "design" : projectRouteActive ? "project" : commandCenterRouteActive ? "command-center" : resultsInboxRouteActive ? "results-inbox" : projectsRouteActive ? "projects" : activityRouteActive ? "activity" : appsRouteActive ? "apps" : automationsRouteActive ? "automations" : dashboardWorkspaceRoute ? "dashboard" : "session",
     onServerSettingsChanged: () => undefined,
     onHostInfo: setOpenworkServerHostInfoState,
   });
@@ -740,6 +819,8 @@ export function SessionRoute() {
   // One-way latch for "a refreshRouteState is currently running"; prevents
   // overlapping route refreshes from queueing up when the user clicks fast.
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  // Web runtime: owners browse the server's folders instead of a native picker (docs/features/web-folder-browser).
+  const webFolderPicker = useWebFolderPicker(client, !platform.capabilities.nativeFilePicker);
   const [createWorkspaceBusy, setCreateWorkspaceBusy] = useState(false);
   const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
   const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(null);
@@ -872,6 +953,7 @@ export function SessionRoute() {
   const pendingConversation = pendingConversationForRoute(pendingConversations, requestedPendingId, sessionDraftScope, selectedWorkspaceId, location.pathname === "/session");
   const workspaceSessionGroups = useMemo(() => {
     const lists = withPendingSessionPublication(sessionsByWorkspaceId, pendingConversations, sessionDraftScope);
+    // Session-list failures already land in errorsByWorkspaceId; there is no second map here.
     return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds), sessionListErrorsByWorkspaceId);
   }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionListErrorsByWorkspaceId, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
   useEffect(() => {
@@ -1252,12 +1334,7 @@ export function SessionRoute() {
     });
   }, [opencodeZenBlocked, providerAuthClient, selectedWorkspaceId, selectedWorkspaceRoot, sessionProviderAuthStore]);
   useEffect(() => {
-    if (!opencodeZenBlocked) return;
-    const current = local.prefs.defaultModel;
-    if (current && current.providerID !== "opencode") return;
-    // Already filtered by policy, so Zen is gone from it while blocked.
-    const usable = entitledModelOptions.filter((option) => option.providerID !== "opencode");
-    const replacement = starterModel(usable) ?? usable[0];
+    const replacement = retiredZenDefaultReplacement({ current: local.prefs.defaultModel, available: entitledModelOptions, zenBlocked: opencodeZenBlocked });
     if (replacement) local.setPrefs((previous) => ({ ...previous, defaultModel: { providerID: replacement.providerID, modelID: replacement.modelID }, modelVariant: null }));
   }, [opencodeZenBlocked, entitledModelOptions, local]);
   const openWorkModelsAvailable = hasOpenWorkModelsAvailable({
@@ -1684,8 +1761,10 @@ export function SessionRoute() {
     navigateToWorkspaceSession(selectedWorkspaceId, remoteSessionRouteId(threadKey));
   }, [navigateToWorkspaceSession, selectedWorkspaceId]);
 
+  // A design page has no session in its URL; its side chat lends the surface its session.
+  const surfaceSessionId = selectedSessionId ?? (designPageActive ? designChatSessionId : null);
   const surfaceProps = useMemo(() => {
-    if (!client || !selectedWorkspaceId || !selectedSessionId || !opencodeBaseUrl || !token || !opencodeClient) {
+    if (!client || !selectedWorkspaceId || !surfaceSessionId || !opencodeBaseUrl || !token || !opencodeClient) {
       return null;
     }
 
@@ -1698,7 +1777,7 @@ export function SessionRoute() {
     let sessionOwnedByOtherWorkspace = false;
     for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspaceId)) {
       if (workspaceId === selectedWorkspaceId) continue;
-      if ((sessions ?? []).some((session) => session?.id === selectedSessionId)) {
+      if ((sessions ?? []).some((session) => session?.id === surfaceSessionId)) {
         sessionOwnedByOtherWorkspace = true;
         break;
       }
@@ -1759,7 +1838,7 @@ export function SessionRoute() {
       // Library detail ids hold ":" and "/", so they travel as one encoded segment.
       onOpenLibraryDetail: (detailId: string) => handleOpenExtensions(encodeURIComponent(detailId)),
       onSendDraft: async (draft: ComposerDraft, sessionId: string, onPrepared?: (text?: string) => void, agent?: string | null): Promise<CloudMcpSubmissionResult> => {
-        const targetSessionId = sessionId.trim() || selectedSessionId;
+        const targetSessionId = sessionId.trim() || surfaceSessionId;
         if (!targetSessionId) return { outcome: "cancelled", reason: "context_changed" };
         const generation = getQueuedSendGeneration(targetSessionId);
         const assertCurrent = () => {
@@ -2064,6 +2143,7 @@ export function SessionRoute() {
     newTaskAgent,
     setNewTaskAgent,
     selectedSessionId,
+    surfaceSessionId,
     sessionDraftScope,
     selectedModelUnavailable,
     selectedWorkspace,
@@ -2615,9 +2695,8 @@ export function SessionRoute() {
       setRenameWorkspaceTitle("");
       await refreshRouteState();
     } catch (error) {
-      toast.error("Workspace rename failed", {
-        description: describeRouteError(error),
-      });
+      const failure = workspaceRenameFailure(error, describeRouteError);
+      toast.error(failure.title, { description: failure.description });
     } finally {
       setRenameWorkspaceBusy(false);
     }
@@ -2636,16 +2715,13 @@ export function SessionRoute() {
 
   const handleForgetWorkspace = useCallback(
     async (workspaceId: string) => {
-      if (typeof window !== "undefined") {
-        const message =
-          t("workspace_list.remove_confirm") ||
-          "Remove this workspace from the sidebar?";
-        if (!window.confirm(message)) return;
-      }
+      if (!(await confirmDialog({ title: t("workspace_list.remove_confirm"), destructive: true }))) return;
       // Remove from both stores so the next refresh can't resurrect the row
-      // from whichever list wins the merge.
+      // from whichever list wins the merge. A failed server delete (the web
+      // connection cannot remove workspaces) must not look like a removal.
       if (client) {
-        await client.deleteWorkspace(workspaceId).catch(() => undefined);
+        const failure = await client.deleteWorkspace(workspaceId).then(() => null, (error: unknown) => error);
+        if (failure && !isDesktopRuntime()) { toast.error(specialistErrorMessage(failure, t("workspace_list.remove_failed"))); return; }
       }
       if (isDesktopRuntime()) {
         await workspaceForget(workspaceId).catch(() => undefined);
@@ -3678,6 +3754,7 @@ export function SessionRoute() {
       const workspaceName = folderNameFromPath(folder);
       let list: WorkspaceList | null = null;
       let createdOnServer = false;
+      let createFailure: unknown = null;
       if (client) {
         list = await client
           .createLocalWorkspace({ folderPath: folder, name: workspaceName, preset, applicationId: specialistApplicationId })
@@ -3685,11 +3762,12 @@ export function SessionRoute() {
             createdOnServer = true;
             return serverList;
           })
-          .catch(() => null);
+          .catch((error: unknown) => {
+            createFailure = error;
+            return null;
+          });
       }
-      if (!list) {
-        throw new Error("OpenWork server is unavailable. Start or reconnect the server before creating a workspace.");
-      }
+      if (!list) throw workspaceCreateError(createFailure);
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       let targetWorkspaceId = createdId;
       let targetWorkspace = list.workspaces.find((workspace: WorkspaceInfo) => workspace.id === createdId) ?? null;
@@ -3897,6 +3975,76 @@ export function SessionRoute() {
     focusPromptSoon();
   };
 
+  // Creates a session in a workspace from a composer's first message (sidebar, hero, project page).
+  const handleCreateTaskWithPrompt = async (
+    workspaceId: string,
+    prompt: string,
+    attachments?: ComposerAttachment[],
+    handoff?: NewTaskComposerHandoff,
+  ) => {
+    const destination = handoff?.destination ?? { workspaceId };
+    workspaceId = destination.workspaceId;
+    const agent = newTaskAgent;
+    const pending = beginPendingConversation({
+      scope: sessionDraftScope, destination,
+      submitted: handoff?.submitted ?? { draft: prompt, attachments: attachments ?? [], mentions: {}, pasteParts: [], revertMessageId: null },
+    });
+    handoff?.consume?.();
+    if (destination.parent) {
+      const workbench = useWorkbenchStore.getState();
+      const tab = { workspaceId, sessionId: newSessionDraftSlot(destination), title: prompt.trim() || "New session", draftDestination: destination, pendingConversationId: pending.id };
+      workbench.openTab(tab);
+      workbench.setSideChat(destination.parent, tab);
+    } else {
+      const query = new URLSearchParams({ pendingConversation: pending.id });
+      if (destination.groupId) query.set("draftGroup", destination.groupId);
+      navigate(`${workspaceSessionRoute(workspaceId)}?${query}`);
+    }
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    void createPendingConversation(pending.id, async () => {
+      const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
+      if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
+      const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
+      if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
+      return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
+    }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
+  };
+
+  // The chat beside an open design (`/design/:workspaceId/:designId`): a regular session of the
+  // design's project, created and fed like any other, shown with the side pane's surface. The
+  // design page binds it to the design so the server adds the design guidance to its prompts.
+  const designChatWorkspaceId = designPageActive && designRoute && selectedWorkspace?.id === designRoute.workspaceId ? designRoute.workspaceId : null;
+  const designChatHost: DesignChatHost | null = designChatWorkspaceId ? {
+    renderSession: (sessionId) => <EmbeddedSessionSurface runtime={resolvePaneRuntime({ workspaceId: designChatWorkspaceId, sessionId })} sessionId={sessionId} />,
+    onSessionChange: setDesignChatSessionId,
+    startChat: async (prompt) => {
+      const workspaceId = designChatWorkspaceId;
+      const agent = newTaskAgent;
+      const pending = beginPendingConversation({ scope: sessionDraftScope, destination: { workspaceId },
+        submitted: { draft: prompt, attachments: [], mentions: {}, pasteParts: [], revertMessageId: null } });
+      const workspace = workspaces.find((item) => item.id === workspaceId);
+      await createPendingConversation(pending.id, async () => {
+        const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
+        if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
+        const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
+        if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
+        return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
+      }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
+      const entry = usePendingConversationStore.getState().conversations[pending.id];
+      if (!entry?.sessionId) throw entry?.error instanceof Error ? entry.error : new Error("The chat could not be started. Try again.");
+      return entry.sessionId;
+    },
+    sendMessage: async (sessionId, text) => {
+      const runtime = resolvePaneRuntime({ workspaceId: designChatWorkspaceId, sessionId });
+      if (runtime.status !== "ready") throw new Error(runtime.message);
+      await runtime.surface.onSendDraft({ mode: "prompt", parts: [{ type: "text", text }], attachments: [], text }, sessionId);
+    },
+    renderStarter: newTaskComposerContext ? (start, busy) => (
+      <DesignChatStarter key={`${designChatWorkspaceId}:${designRoute?.designId ?? ""}`} workspaceId={designChatWorkspaceId}
+        designId={designRoute?.designId ?? ""} context={newTaskComposerContext} busy={busy} onStart={start} />
+    ) : undefined,
+  } : null;
+
   return (
     <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
     <WorkspaceProvider
@@ -4048,7 +4196,30 @@ export function SessionRoute() {
           />
         </WorkspaceProvider>,
       } : undefined}
-      primarySlot={activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
+      primarySlot={designPageActive && designRoute !== null ? (
+        <DesignPage key={`${designRoute.workspaceId}/${designRoute.designId}`} workspaceId={designRoute.workspaceId} designId={designRoute.designId}
+          chat={designChatHost} onBack={() => navigate(DESIGN_ROUTE)} />
+      ) : designGalleryActive ? (
+        <DesignGalleryPage currentWorkspaceId={selectedWorkspaceId || null} />
+      ) : projectRouteActive && projectRouteWorkspace !== null ? (
+        <ProjectPage
+          key={projectRouteWorkspace}
+          workspaceId={projectRouteWorkspace}
+          composer={newTaskComposerContext && selectedWorkspace?.id === projectRouteWorkspace ? (
+            <ProjectComposer
+              workspaceId={projectRouteWorkspace}
+              context={newTaskComposerContext}
+              onRunTask={(prompt, attachments, handoff) => handleCreateTaskWithPrompt(projectRouteWorkspace, prompt, attachments, handoff)}
+            />
+          ) : null}
+          onOpenSession={(workspaceId, sessionId) => {
+            setLegacySelectedWorkspaceId(workspaceId);
+            writeActiveWorkspaceId(workspaceId || null);
+            writeLastSessionFor(workspaceId, sessionId);
+            navigateToWorkspaceSession(workspaceId, sessionId);
+          }}
+        />
+      ) : commandCenterRouteActive ? <CommandCenterPage /> : resultsInboxRouteActive ? <ResultsInboxPage /> : projectsRouteActive ? <ProjectsPage /> : activityRouteActive ? <ActivityPage onTrySkill={trySkillInNewSession} /> : remoteTaskRouteActive && remoteThreadKey ? (
         <RemoteSessionSurface key={remoteThreadKey} threadKey={remoteThreadKey} navigation={remoteHelperNavigation} />
       ) : pendingConversation ? <PendingConversationView conversation={pendingConversation} composer={newTaskComposerContext} /> : appsRouteActive ? (
         <WorkspaceProvider
@@ -4105,6 +4276,22 @@ export function SessionRoute() {
         sidebarHydratedFromCache: Object.values(sessionsByWorkspaceId).some((list) => list.length > 0),
         startupPhase: effectiveLoading ? "nativeInit" : "ready",
         automationsActive: automationsRouteActive,
+        commandCenterActive: commandCenterRouteActive,
+        onOpenCommandCenter: flaggedDestinationHandler(commandCenter, () => navigate("/command-center")),
+        resultsInboxActive: resultsInboxRouteActive,
+        resultsInboxUnread,
+        onOpenResultsInbox: flaggedDestinationHandler(resultsInbox, () => navigate("/inbox")),
+        projects: flaggedDestinationReachable(projects) ? {
+          active: isProjectsPath(location.pathname),
+          activeProjectId: projectIdFromPath(location.pathname),
+          pinned: sidebarProjectList ? pinnedProjects(sidebarProjectList.projects) : [],
+          onOpen: () => navigate(PROJECTS_ROUTE),
+          onOpenProject: (workspaceId) => navigate(projectPageRoute(workspaceId)),
+        } : undefined,
+        design: flaggedDestinationReachable(designStudio) ? {
+          active: isDesignPath(location.pathname),
+          onOpen: () => navigate(DESIGN_ROUTE),
+        } : undefined,
         automationsNeedAttention,
         onOpenAutomations: automationsSurfaceAvailable
           ? () => {
@@ -4155,39 +4342,7 @@ export function SessionRoute() {
         onCreateSplitTaskInWorkspace: (workspaceId) => {
           void handleCreateSplitTaskInWorkspace(workspaceId);
         },
-        onCreateTaskWithPrompt: async (
-          workspaceId,
-          prompt,
-          attachments,
-          handoff?: NewTaskComposerHandoff,
-        ) => {
-          const destination = handoff?.destination ?? { workspaceId };
-          workspaceId = destination.workspaceId;
-          const agent = newTaskAgent;
-          const pending = beginPendingConversation({
-            scope: sessionDraftScope, destination,
-            submitted: handoff?.submitted ?? { draft: prompt, attachments: attachments ?? [], mentions: {}, pasteParts: [], revertMessageId: null },
-          });
-          handoff?.consume?.();
-          if (destination.parent) {
-            const workbench = useWorkbenchStore.getState();
-            const tab = { workspaceId, sessionId: newSessionDraftSlot(destination), title: prompt.trim() || "New session", draftDestination: destination, pendingConversationId: pending.id };
-            workbench.openTab(tab);
-            workbench.setSideChat(destination.parent, tab);
-          } else {
-            const query = new URLSearchParams({ pendingConversation: pending.id });
-            if (destination.groupId) query.set("draftGroup", destination.groupId);
-            navigate(`${workspaceSessionRoute(workspaceId)}?${query}`);
-          }
-          const workspace = workspaces.find((item) => item.id === workspaceId);
-          void createPendingConversation(pending.id, async () => {
-            const currentWorkspace = workspacesRef.current.find((item) => item.id === workspaceId) ?? workspace;
-            if (!currentWorkspace) throw new Error("Workspace is unavailable. Try again.");
-            const workspaceEndpoint = endpointForWorkspace(currentWorkspace);
-            if (!workspaceEndpoint?.token) throw new Error("Workspace is disconnected. Reconnect and try again.");
-            return createRouteSessionOnEngine(workspaceEndpoint, currentWorkspace.path?.trim() || undefined);
-          }, (created) => publishCreatedConversation(pending, created, agent, workspace?.displayNameResolved));
-        },
+        onCreateTaskWithPrompt: handleCreateTaskWithPrompt,
         onOpenRenameWorkspace: handleOpenRenameWorkspace,
         onRevealWorkspace: (id) => void handleRevealWorkspace(id),
         onRetryWorkspace: (workspaceId) => reloadWorkspaceSessions(workspaceId),
@@ -4261,7 +4416,13 @@ export function SessionRoute() {
           />
         ) : cloudWorkspaceMainContentTakeover
       }
-      mainContentTitle={extensionsMainOpen ? t("settings.tab_extensions") : cloudWorkspaceMainContentTakeover ? "Cloud workspace" : undefined}
+      // Full-page screens name themselves; without a title the bar fell back to "Nueva sesión · …".
+      mainContentTitle={extensionsMainOpen ? t("settings.tab_extensions") : cloudWorkspaceMainContentTakeover ? "Cloud workspace"
+        : designGalleryActive || designPageActive ? t("design_ui.studio.title")
+        : projectsRouteActive || projectRouteActive ? t("projects_ui.title")
+        : commandCenterRouteActive ? t("command_center.title")
+        : resultsInboxRouteActive ? t("results_inbox.title")
+        : undefined}
       mainContentHeaderActionsRef={extensionsMainOpen ? setLibraryHeaderActionsTarget
         : cloudWorkspaceMainContentTakeover ? undefined
         : dashboardRouteActive ? setDashboardHeaderActionsTarget
@@ -4277,15 +4438,20 @@ export function SessionRoute() {
         setCreateWorkspaceError(null);
       }}
       onConfirm={handleCreateWorkspace}
-      onPickFolder={async () => singlePickedDirectory(await pickDirectory({ title: t("onboarding.authorize_folder") }))}
+      onPickFolder={async () => platform.capabilities.nativeFilePicker
+        ? singlePickedDirectory(await pickDirectory({ title: t("onboarding.authorize_folder") }))
+        : webFolderPicker.pick()}
       submitting={createWorkspaceBusy}
       localError={createWorkspaceError}
-      localDisabled={!platform.capabilities.nativeFilePicker}
+      localDisabled={!platform.capabilities.nativeFilePicker && webFolderPicker.availability !== "available"}
       localDisabledReason={
-        platform.capabilities.nativeFilePicker
+        platform.capabilities.nativeFilePicker || webFolderPicker.availability === "available"
           ? undefined
-          : t("app.local_disabled_reason")
+          : webFolderPicker.availability === "needs_owner"
+            ? t("web_folder_browser.needs_owner")
+            : t("app.local_disabled_reason")
       }
+      pickerDialog={webFolderPicker.dialog}
     />
     <RenameWorkspaceModal
       open={renameWorkspaceId !== null}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { t } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import fuzzysort from "fuzzysort";
 import { Blocks, Check, Minus, MoreHorizontal, Plus, RefreshCw, Share2 } from "lucide-react";
@@ -57,7 +58,7 @@ export function useBuiltDashboardApps() {
     ),
     queryFn: async () => {
       if (!context.client || !context.orgId)
-        throw new Error("Sign in to browse artifacts.");
+        throw new Error(t("secondary_ui.dashboard.sign_in_to_browse"));
       try {
         return await context.client.listBuiltMcpApps(context.orgId);
       } catch (error) {
@@ -126,12 +127,12 @@ export function BuiltAppPicker({
       onValueChange={setSearch}
     >
       <CommandInput
-        aria-label="Search artifacts"
-        placeholder="Search artifacts by name or tool"
+        aria-label={t("secondary_ui.dashboard.search_artifacts")}
+        placeholder={t("secondary_ui.dashboard.search_by_name_tool")}
         className="h-14 border-b! pr-10"
       />
-      <p className="px-4 pt-3 text-xs text-muted-foreground">{search.trim() ? "Matches" : "Artifacts available to you"} <span className="ml-1 tabular-nums">{matching.length}</span></p>
-      <CommandEmpty>No artifacts match your search.</CommandEmpty>
+      <p className="px-4 pt-3 text-xs text-muted-foreground">{search.trim() ? t("secondary_ui.dashboard.matches") : t("secondary_ui.dashboard.available_to_you")} <span className="ml-1 tabular-nums">{matching.length}</span></p>
+      <CommandEmpty>{t("secondary_ui.dashboard.no_match")}</CommandEmpty>
       {/* Long catalogs scroll here so the search field and footer stay in the dialog. */}
       <CommandPanel className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-width:thin] [&>[data-slot=scroll-area]]:h-auto">
         <CommandList>
@@ -143,7 +144,7 @@ export function BuiltAppPicker({
               disabled={built.ids.includes(app.connectionId)}
               onClick={() => {
                 built.setAdded(app.connectionId, true);
-                toast(`Added ${app.title}`, { id: "personal-dashboard-placement", action: { label: "Undo", onClick: () => built.setAdded(app.connectionId, false) } });
+                toast(t("secondary_ui.dashboard.added_named", { name: app.title }), { id: "personal-dashboard-placement", action: { label: t("common.undo"), onClick: () => built.setAdded(app.connectionId, false) } });
                 onAdded();
               }}
             >
@@ -151,7 +152,7 @@ export function BuiltAppPicker({
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{app.title}</span><span className="block truncate text-xs text-muted-foreground">{app.pluginName}</span></span>
               <span className="text-xs text-muted-foreground">
                 {built.ids.includes(app.connectionId) ? (
-                  <Check className="size-4" aria-label="Added" />
+                  <Check className="size-4" aria-label={t("extensions.connector_added")} />
                 ) : (
                   "Add"
                 )}
@@ -160,7 +161,7 @@ export function BuiltAppPicker({
           )}
         </CommandList>
       </CommandPanel>
-      <div className="flex justify-between gap-3 border-t px-4 py-3 text-xs text-muted-foreground"><span>Only artifacts you can open show here.</span><span aria-hidden="true">↑↓ to move · ↵ to add</span></div>
+      <div className="flex justify-between gap-3 border-t px-4 py-3 text-xs text-muted-foreground"><span>{t("secondary_ui.dashboard.only_openable")}</span><span aria-hidden="true">{t("secondary_ui.dashboard.keys_hint")}</span></div>
     </Command>
   );
 }
@@ -183,20 +184,20 @@ export function BuiltDashboardTiles({
     return (
       <div className="mb-4 flex items-center gap-2">
         <p role="alert" className="text-sm">
-          Shared artifacts could not be loaded.
+          {t("secondary_ui.dashboard.shared_failed")}
         </p>
         <Button
           variant="outline"
           size="sm"
           onClick={() => void built.query.refetch()}
         >
-          Try again
+          {t("session.remote_task_retry")}
         </Button>
       </div>
     );
   if (!personal.length) return null;
   return (
-    <section className="mb-8" aria-label="Artifacts added by you">
+    <section className="mb-8" aria-label={t("secondary_ui.dashboard.added_by_you_aria")}>
       <DashboardMasonry>
         {personal.map((app) => (
           <McpAppTile
@@ -218,13 +219,13 @@ export function BuiltDashboardTiles({
                 refreshing={refreshing}
                 onRemove={() => {
                   built.setAdded(app.connectionId, false);
-                  toast(`Removed ${app.title}`, { id: "personal-dashboard-placement", action: { label: "Undo", onClick: () => built.setAdded(app.connectionId, true) } });
+                  toast(t("secondary_ui.dashboard.removed_named", { name: app.title }), { id: "personal-dashboard-placement", action: { label: t("common.undo"), onClick: () => built.setAdded(app.connectionId, true) } });
                 }}
               />
             )}
           />
         ))}
-        {onAdd ? <button type="button" onClick={onAdd} className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed text-sm text-muted-foreground hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-ring"><Plus className="size-5" />Add an artifact{built.apps.length > personal.length ? <span className="text-xs">{built.apps.length - personal.length} more available to you</span> : null}</button> : null}
+        {onAdd ? <button type="button" onClick={onAdd} className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed text-sm text-muted-foreground hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-ring"><Plus className="size-5" />{t("secondary_ui.dashboard.add_artifact")}{built.apps.length > personal.length ? <span className="text-xs">{t("secondary_ui.dashboard.more_available", { count: built.apps.length - personal.length })}</span> : null}</button> : null}
       </DashboardMasonry>
     </section>
   );
@@ -257,9 +258,9 @@ function BuiltDashboardTileMenu({
               <span className="block">{app.title}</span>
               {badge}
             </DropdownMenuLabel>
-            {onRefresh ? <DropdownMenuItem disabled={refreshing} aria-label={`Refresh ${app.title}`} onClick={onRefresh}><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />Refresh</DropdownMenuItem> : null}
-            <DropdownMenuItem aria-label={`Share ${app.title}`} onClick={() => setSharing(true)}><Share2 className="size-4" />Share</DropdownMenuItem>
-            <DropdownMenuItem aria-label={`Remove ${app.title} from dashboard`} onClick={onRemove}><Minus className="size-4" />Remove from dashboard</DropdownMenuItem>
+            {onRefresh ? <DropdownMenuItem disabled={refreshing} aria-label={t("secondary_ui.dashboard.refresh_named", { name: app.title })} onClick={onRefresh}><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />{t("common.refresh")}</DropdownMenuItem> : null}
+            <DropdownMenuItem aria-label={t("secondary_ui.dashboard.share_named", { name: app.title })} onClick={() => setSharing(true)}><Share2 className="size-4" />{t("extensions.add_plugin_share")}</DropdownMenuItem>
+            <DropdownMenuItem aria-label={t("secondary_ui.dashboard.remove_named", { name: app.title })} onClick={onRemove}><Minus className="size-4" />{t("secondary_ui.dashboard.remove_from_dashboard")}</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
