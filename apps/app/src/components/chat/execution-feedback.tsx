@@ -54,6 +54,7 @@ export function ExecutionRunHeader({ seconds, disconnected = false, waiting = fa
   </div>;
 }
 
-export function ContextCompactionLine({ active }: { active: boolean }) {
-  return <div data-context-compaction={active ? "running" : "done"} role={active ? "status" : undefined} className="flex items-center gap-2 py-2 text-sm text-muted-foreground"><Minimize2 className="size-3.5 shrink-0" />{active ? "Compactando el contexto · Esto puede tardar unos minutos" : "Contexto compactado"}</div>;
+export function ContextCompactionLine({ active, text }: { active: boolean; text?: string }) {
+  const summary = text?.trim();
+  return <div data-context-compaction={active ? "running" : "done"} role={active ? "status" : undefined} className="flex items-start gap-2 py-2 text-sm text-muted-foreground"><Minimize2 className="mt-0.5 size-3.5 shrink-0" />{active ? "Compactando el contexto · Esto puede tardar unos minutos" : (summary || "Contexto compactado")}</div>;
 }

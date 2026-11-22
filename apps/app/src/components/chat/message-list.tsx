@@ -2098,7 +2098,16 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
   )
   const latestUserMessageId = React.useMemo(() => messages.findLast((message) => message.role === "user")?.id, [messages])
   // Steps that render nothing are removed before layout, so they leave no gap.
-  const visibleMessages = React.useMemo(() => dedupeRenderedTurnErrors(withoutSilentSteps(messages)), [messages]);
+  const visibleMessages = React.useMemo(() => {
+    // Compaction summaries are surfaced through the ContextCompactionLine below,
+    // so they do not also render as a separate assistant bubble (Claude-like).
+    const withoutCompactionSummaries = messages.filter((message) => {
+      const metadata = message.metadata;
+      const native = metadata && typeof metadata === "object" ? Reflect.get(metadata, "opencode") : null;
+      return !(native && typeof native === "object" && Reflect.get(native, "contextCompacted") === true);
+    });
+    return dedupeRenderedTurnErrors(withoutSilentSteps(withoutCompactionSummaries));
+  }, [messages]);
   const items = React.useMemo(() => groupMessages(visibleMessages, status), [visibleMessages, status]);
   // groupMessages indexes the visible transcript. Comparing those positions
   // with the unfiltered transcript marks the live turn historical as soon as
@@ -2137,6 +2146,14 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
     const native = metadata && typeof metadata === "object" ? Reflect.get(metadata, "opencode") : null;
     return native && typeof native === "object" && Reflect.get(native, "contextCompacted") === true && (getMessageCreated(message) ?? 0) >= lastUserAt;
   });
+  const compactionSummaryText = React.useMemo(() => {
+    const summaryMessage = messages.findLast(message => {
+      const metadata = message.metadata;
+      const native = metadata && typeof metadata === "object" ? Reflect.get(metadata, "opencode") : null;
+      return native && typeof native === "object" && Reflect.get(native, "contextCompacted") === true && (getMessageCreated(message) ?? 0) >= lastUserAt;
+    });
+    return summaryMessage ? getMessagesText([summaryMessage]) : "";
+  }, [messages, lastUserAt]);
   const liveGroupExists = items.some(item => isMessageGroup(item) && item.messages.at(-1)?.index === lastVisibleIndex);
   const feedbackHeader = referenceFeedback && (appRunActive || status === "submitted") && !appPanelLive ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><LiveExecutionRunHeader clock={runClock} disconnected={syncDegraded} waiting={activityStatus === "waiting"} retrying={status === "retrying"} /></div> : null;
   const currentToolCallIds = React.useMemo(
@@ -2221,7 +2238,7 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
             move when the turn ends and the count stays. */}
         {!referenceFeedback && showLoading && !appPanelLive && <LiveLoadingMessage clock={runClock} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
         {!liveGroupExists ? feedbackHeader : null}
-        {(activityStatus === "compacting" || (referenceFeedback && (compactedAt >= lastUserAt || compactedInHistory))) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} /></div> : null}
+        {(activityStatus === "compacting" || (referenceFeedback && (compactedAt >= lastUserAt || compactedInHistory))) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} text={compactionSummaryText} /></div> : null}
         {showReconnecting && (!referenceFeedback || !feedbackHeader) && <ReconnectingMessage lastConfirmedAt={syncHealth?.lastConfirmedAt ?? null} />}
         {(!showLoading || referenceFeedback) && backgroundShells.length > 0 && <BackgroundTasksMessage shells={backgroundShells} stale={syncDegraded} />}
         {retryStatus ? <RetryMessage status={retryStatus} /> : null}
