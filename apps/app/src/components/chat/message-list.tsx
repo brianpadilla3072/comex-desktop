@@ -2221,7 +2221,7 @@ export function MessageList({ messages, messageIdReplacements, status, activityS
             move when the turn ends and the count stays. */}
         {!referenceFeedback && showLoading && !appPanelLive && <LiveLoadingMessage clock={runClock} starting={status === "submitted"} backgroundShells={backgroundShells} backgroundStale={syncDegraded} model={workingModel} />}
         {!liveGroupExists ? feedbackHeader : null}
-        {referenceFeedback && (activityStatus === "compacting" || compactedAt >= lastUserAt || compactedInHistory) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} /></div> : null}
+        {(activityStatus === "compacting" || (referenceFeedback && (compactedAt >= lastUserAt || compactedInHistory))) ? <div className="mx-auto w-full max-w-3xl px-2 md:px-10"><ContextCompactionLine active={activityStatus === "compacting"} /></div> : null}
         {showReconnecting && (!referenceFeedback || !feedbackHeader) && <ReconnectingMessage lastConfirmedAt={syncHealth?.lastConfirmedAt ?? null} />}
         {(!showLoading || referenceFeedback) && backgroundShells.length > 0 && <BackgroundTasksMessage shells={backgroundShells} stale={syncDegraded} />}
         {retryStatus ? <RetryMessage status={retryStatus} /> : null}
