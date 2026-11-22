@@ -133,6 +133,8 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline --filter "@openwork/features"
       - name: Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Build the feature registry
+        run: pnpm --filter @openwork/features build
       - name: Test the feature resolver
         run: pnpm --filter @openwork/features test
       - name: Check the feature registry, Helm chart and guard rules
