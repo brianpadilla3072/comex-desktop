@@ -2,6 +2,9 @@ import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import type { ArtifactRecord } from "../types";
 import { DocView } from "../views/doc-view";
 import { DataView } from "../views/data-view";
+import { SlidesView } from "../views/slides-view";
+import { SheetView } from "../views/sheet-view";
+import { BoardView } from "../views/board-view";
 
 /** Fail loud: an unimplemented renderer says so, it never shows a blank canvas. */
 interface ArtifactBodyProps {
@@ -18,6 +21,15 @@ export function ArtifactBody({ artifact, client, appId, workspaceId }: ArtifactB
     const narrative = typeof parsed === "object" && parsed !== null && "narrative" in parsed && typeof Reflect.get(parsed, "narrative") === "string"
       ? Reflect.get(parsed, "narrative") as string : undefined;
     return <DataView client={client} appId={appId} artifactId={artifact.meta.id} workspaceId={workspaceId} narrative={narrative} />;
+  }
+  if (artifact.meta.type === "slides") {
+    return <SlidesView content={artifact.content} />;
+  }
+  if (artifact.meta.type === "sheet") {
+    return <SheetView content={artifact.content} />;
+  }
+  if (artifact.meta.type === "board") {
+    return <BoardView content={artifact.content} />;
   }
   return (
     <div className="p-6 text-sm text-muted-foreground" role="status">
