@@ -39,6 +39,7 @@ export function ConnectorsSection(props: ConnectorsSectionProps) {
     void hook.disconnect(connection.id);
   };
 
+   if (!loading && connections.length === 0 && !error) return null;
   return (
     <section data-testid="connectors-section" className={props.className ?? "space-y-4"}>
       <div className="flex items-start justify-between gap-4">
@@ -69,11 +70,7 @@ export function ConnectorsSection(props: ConnectorsSectionProps) {
         </div>
       ) : null}
 
-      {!loading && connections.length === 0 ? (
-        <div className="rounded-xl border border-dls-border bg-dls-surface/40 p-4 text-sm text-dls-secondary">
-          {"No connectors available."}
-        </div>
-      ) : null}
+      {!loading && connections.length === 0 && !error ? null : null}
 
       <div className="grid gap-2">
         {connections.map((connection) => {
