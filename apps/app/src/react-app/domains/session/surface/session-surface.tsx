@@ -1702,6 +1702,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     useCallback(() => sessionNeedsStop(props.opencodeBaseUrl, props.sessionId), [props.opencodeBaseUrl, props.sessionId]),
   );
   const chatStreaming = needsStop || sending || liveStatus.type === "busy" || liveStatus.type === "retry";
+  const isCompacting = sessionActivityStatus === "compacting";
   const archiveHeld = useSyncExternalStore(
     useCallback((listener) => subscribeSessionInterruption(props.opencodeBaseUrl, props.sessionId, listener), [props.opencodeBaseUrl, props.sessionId]),
     useCallback(() => sessionWorkHeld(props.opencodeBaseUrl, props.sessionId), [props.opencodeBaseUrl, props.sessionId]),
@@ -2272,7 +2273,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
     return "ready";
   }, [admissionOutcome, admissionOutcomeUnresolved, autoSending, evalThreadStatus, liveStatus, queuedDrainState.phase.kind, sending]);
-  const composerBusy = chatStreaming || status === "submitted";
+  const composerBusy = chatStreaming || status === "submitted" || isCompacting;
   // Sub-agents of the current turn, attached to the composer (OpenCode v2 only).
   const subagentTrackerParentActive = status === "streaming" || status === "retrying" || status === "submitted";
   const agentActivityMapEnabled = useAgentActivityMapEnabled();
