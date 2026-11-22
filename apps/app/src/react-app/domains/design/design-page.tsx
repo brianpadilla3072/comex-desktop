@@ -17,7 +17,8 @@ import { DesignClientContext, designErrorText, designQueryKeys, type DesignClien
 import { registerDesktopThumbnailCapturer, useDesignThumbnailRefresh } from "./design-thumbnail";
 import { exportPdf, exportPng, exportPptx } from "./editors/slides-export";
 import { DESIGN_EDITORS, type DesignEditorProps } from "./editors";
-import { useDesignConnection } from "./use-designs";
+import { designSystemChoices, followedSystem, systemIdPatch } from "./editors/system-model";
+import { useDesignConnection, useDesignList } from "./use-designs";
 
 /**
  * An export format beyond HTML (PDF, PPTX, PNG…), provided by the part that renders it. The
@@ -94,6 +95,9 @@ export function DesignPagePanel({ client, workspaceId, designId, chat, exportSlo
   const [presentSignal, setPresentSignal] = useState(0);
   const toggleChat = useCallback(() => setChatOpen(open => !open), []);
   const design = detail.data?.design ?? null;
+  const designsQuery = useDesignList(client);
+  const systemChoices = design ? designSystemChoices(designsQuery.data?.designs ?? [], workspaceId, design.id) : [];
+  const followed = design ? followedSystem(design, systemChoices) : null;
   const writable = detail.data?.writable === true;
   const revision = detail.data?.revision ?? 0;
   const sessionId = freshChat ? startedSession : startedSession ?? chats.data?.[0] ?? null;
@@ -174,6 +178,27 @@ export function DesignPagePanel({ client, workspaceId, designId, chat, exportSlo
         <DesignTitle key={design.id} title={design.title} writable={writable}
           onSave={async title => { await client.updateDesign(workspaceId, design.id, { title }); refresh(); }} />
         <span className="hidden truncate text-xs text-muted-foreground sm:inline">{designKindLabel(design.kind)}</span>
+        {design && design.kind !== "system" ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-design-system-trigger aria-label={t("design_ui.studio.system_label")} title={t("design_ui.studio.system_label")} disabled={!writable} />}>
+              <span className="text-xs" data-design-system-current>{followed ? followed.system.title : t("design_ui.studio.system_none")}</span>
+              <ChevronDown className="size-3.5" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem data-design-system-choice="auto" onClick={() => void (async () => { try { await client.updateDesign(workspaceId, design.id, systemIdPatch(null, systemChoices)); refresh(); } catch (cause) { setChatError(designErrorText(cause)); } })()}>
+                {t("design_ui.studio.system_auto")}
+              </DropdownMenuItem>
+              {systemChoices.map(choice => (
+                <DropdownMenuItem key={choice.id} data-design-system-choice={choice.id} onClick={() => void (async () => { try { await client.updateDesign(workspaceId, design.id, systemIdPatch(choice.id, systemChoices)); refresh(); } catch (cause) { setChatError(designErrorText(cause)); } })()}>
+                  {choice.title}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem data-design-system-choice="none" onClick={() => void (async () => { try { await client.updateDesign(workspaceId, design.id, { systemId: null }); refresh(); } catch (cause) { setChatError(designErrorText(cause)); } })()}>
+                {t("design_ui.studio.system_none")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
         <span className="ml-auto flex items-center gap-1">
           {design.kind === "slides" ? <Button variant="ghost" size="sm" data-design-present onClick={() => setPresentSignal(value => value + 1)}>
             <Play className="size-4" aria-hidden />{t("design_ui.studio.present")}
