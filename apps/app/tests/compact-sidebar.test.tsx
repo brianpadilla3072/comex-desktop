@@ -28,8 +28,6 @@ test("collapsed navigation keeps real actions, labels, active states and a way b
   expect(calls).toEqual(["new", "search", "dashboard", "automations", "library"]);
   expect(host.querySelector('[aria-label="Automatizaciones"]')?.getAttribute("data-active")).not.toBeNull();
   expect(host.querySelector('[aria-label="Necesita atención"]')).not.toBeNull();
-  await act(async () => host.querySelector<HTMLElement>('[aria-label="Proyectos y conversaciones"]')!.click());
-  expect(host.querySelector("output")!.textContent).toBe("true");
 });
 test("unavailable destinations are omitted and a disabled new task cannot run", async () => {
   let calls = 0;

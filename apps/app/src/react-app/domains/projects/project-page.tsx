@@ -80,6 +80,10 @@ export function ProjectPagePanel({ client, workspaceId, composer, onOpenSession 
           {composer ?? <p className="text-sm text-muted-foreground">{t("projects_ui.page.composer_unavailable")}</p>}
         </section>
         <ProjectRecents project={project} onOpenSession={sessionId => onOpenSession(project.workspaceId, sessionId)} onRetry={() => void query.refetch()} retrying={query.isFetching} />
+        <section aria-labelledby={`${project.workspaceId}-artifacts`} data-project-artifacts className="grid gap-2">
+          <h2 id={`${project.workspaceId}-artifacts`} className="text-sm font-medium">{t("projects_ui.nav_artifacts")}</h2>
+          <p data-project-artifacts-empty className="text-sm text-muted-foreground">Sin artefactos aún</p>
+        </section>
       </div>
       <ProjectSideRows project={project} onOpen={setDialog} />
     </div>

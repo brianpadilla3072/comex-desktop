@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   BookOpen,
+  Brain,
   ChevronDown,
   ChevronUp,
   LogOut,
@@ -24,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { UserMemoryDialog } from "../../session/memory/user-memory-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -226,6 +228,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
   const pasteBusy = manualCode.busy;
   const pasteError = manualCode.error;
   const [manualAuthOpen, setManualAuthOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [initializing, setInitializing] = useState(
     () => Date.now() - BOOT_STARTED_AT < INITIALIZING_MS,
   );
@@ -494,6 +497,10 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
         ) : null}
         {(connectNeedsAttention && !controlSettingsBlocked) || promoVisible ? <DropdownMenuSeparator /> : null}
 
+        <DropdownMenuItem onClick={() => setMemoryOpen(true)}>
+            <Brain className="size-3.5" />
+            Memoria global
+         </DropdownMenuItem>
         {props.showSettingsButton !== false ? (
           <DropdownMenuItem onClick={openSettings}>
             <Settings className="size-3.5" />
@@ -588,6 +595,7 @@ export function AccountStatusMenu(props: AccountStatusMenuProps) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    <UserMemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />
     </div>
   );
 }

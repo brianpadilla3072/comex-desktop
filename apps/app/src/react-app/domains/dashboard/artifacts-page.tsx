@@ -58,6 +58,8 @@ export function ArtifactsPage({ onCreateApp, fallbackEndpoints, headerActionsTar
   const [showDetail, setShowDetail] = useState(true);
   const [search, setSearch] = useState("");
   const [chromeSlot, setChromeSlot] = useState<HTMLElement | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const artifactTemplates = ["Docs", "Slides", "Design"];
   const searchInput = useRef<HTMLInputElement>(null);
   const detailPane = useRef<HTMLElement>(null);
   const rows = useMemo(() => artifactRows(built.apps, built.ids,
@@ -97,10 +99,13 @@ export function ArtifactsPage({ onCreateApp, fallbackEndpoints, headerActionsTar
       requestAnimationFrame(() => detailPane.current?.focus({ preventScroll: true }));
     }
   };
-  const controls = <Button size="sm" disabled={create.isPending || !built.identityVerified} onClick={() => create.mutate()}><Plus className="size-4" />{t("secondary_ui.dashboard.new_artifact")}</Button>;
+  const controls = <div className="flex items-center gap-2">
+    <Button size="sm" disabled={create.isPending || !built.identityVerified} onClick={() => create.mutate()}><Plus className="size-4" />{t("secondary_ui.dashboard.new_artifact")}</Button>
+    <Button size="sm" variant="outline" aria-label="Nuevo desde plantilla" disabled={!built.identityVerified} onClick={() => setTemplateOpen(true)}>{t("secondary_ui.dashboard.new_from_template")}</Button>
+  </div>;
   const loading = built.identityVerified && built.query.isPending;
   const matching = groups.some((group) => group.rows.length > 0);
-  return <div className="flex h-full min-h-0 flex-col" data-artifacts-workspace>
+  return <> <div className="flex h-full min-h-0 flex-col" data-artifacts-workspace>
     {headerActionsTarget ? createPortal(controls, headerActionsTarget) : headerActionsTarget === undefined ? <div className="mb-5 flex justify-end">{controls}</div> : null}
     {discuss.isError ? <p role="alert" className="m-5 text-sm text-destructive">{t("secondary_ui.dashboard.discuss_failed")}</p> : null}
     {create.isError ? <p role="alert" className="mb-4 text-sm text-destructive">{t("secondary_ui.dashboard.create_failed")}</p> : null}
@@ -163,7 +168,23 @@ export function ArtifactsPage({ onCreateApp, fallbackEndpoints, headerActionsTar
         </div>
       </section> : <div className="hidden min-w-0 flex-1 items-center justify-center p-6 md:flex"><p className="text-sm text-muted-foreground">{t("secondary_ui.dashboard.select_artifact")}</p></div>}
     </div>
-  </div>;
+  </div>
+    <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("secondary_ui.dashboard.choose_template")}</DialogTitle>
+          <DialogDescription>{t("secondary_ui.dashboard.template_desc")}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2 py-2">
+          {artifactTemplates.map((template) => (
+            <button key={template} type="button" className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/50" onClick={() => { setTemplateOpen(false); void onCreateApp(`Crea un artefacto tipo ${template}...`); }}>
+              <span>{template}</span>
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>;
 }
 
 function ArtifactDelete({ title, active, onDelete }: { title: string; active: boolean; onDelete: () => Promise<void> }) {

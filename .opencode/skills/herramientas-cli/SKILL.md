@@ -18,23 +18,71 @@ que vemos roto lo arreglamos.**
   `--auto` auto-aprueba permisos no denegados explícitamente. Sin cuota, ideal para tareas largas.
 
 **Otros:**
-- `devin` — agente rápido, terminal + cloud. ⚠️ Tiene modelo gratis (SWE-2 Flash Medium, 262K, Free) pero la cuenta está sin cuota (out_of_quota / billing error) → no puede crear blueprint ni hacer trabajo real. Además, en `-p` rechaza tool calls con confirmación → no edita. Verificar `devin auth status` y cuota antes de usar.
-- `claude` — Claude Code (CLI). Autenticado. `claude -p --dangerously-skip-permissions "<prompt>"`.
-- `codex` — OpenAI Codex CLI. `codex exec "<prompt>"`.
+- `devin` — agente rápido, terminal + cloud. Tiene modelo gratis (SWE-2 Flash Medium, 262K, Free). En `-p` rechaza tool calls con confirmación a menos que se use `--permission-mode dangerous` (ahí sí edita, probado). La cuenta tiene cuota limitada (out_of_quota en tareas pesadas): para tareas largas preferir OpenCode; Devin sirve para tareas cortas/medianas. Verificar `devin auth status` antes de usar.
+- `codex` — OpenAI Codex CLI. `codex exec "<prompt>"`. Con cuota limitada.
+- `gemini` — Gemini CLI (v0.70.0). ⚠️ Cuota excedida (429) en free tier → no usable ahora (retry en ~6h). Requiere `--skip-trust` en headless y `rg` en PATH. Probe guardado en `.opencode/cli-capabilities/gemini.md`.
+
+**Nunca usar Claude Code** (`claude`). Reservar para casos donde no haya alternativa y con confirmación explícita.
 
 Antes de invocar, confirmá que el binario existe y está autenticado.
+
+## Probe de capacidades (solo cuando el usuario lo pide)
+
+El probe se hace **solo cuando el usuario dice explícitamente** "quiero configurar el CLI de X"
+(o similar). No se hace automáticamente ni en cada uso.
+
+**Dónde se guarda:** `.opencode/cli-capabilities/<cli>.md` (y opcionalmente en `proyecto/estado.md`).
+Antes de usar un CLI, leer el probe guardado. Si no existe, **no probar por iniciativa propia**:
+preguntar al usuario si quiere configurarlo, o usar un CLI que ya tenga probe.
+
+**Después del probe:** el alcance queda guardado. En usos futuros, si una tarea es acorde a las
+capacidades de un CLI disponible (según su probe), se delega automáticamente a ese CLI
+(sin re-probar). No es necesario que el usuario lo pida de nuevo.
+
+**Nunca usar Claude Code** (`claude`), salvo pedido explícito del usuario.
+
+**Probe (una sola vez por CLI):**
+1. `which <cli>` y `<cli> --version` / `<cli> --help` → confirmar que existe.
+2. `<cli> auth status` / `<cli> doctor` → confirmar autenticación y cuota.
+3. Probe de lectura: `<cli> -p "lee <archivo> y reporta su contenido"` (o equivalente).
+4. Probe de escritura: `<cli> --permission-mode dangerous -p "crea /tmp/opencode/probe.txt con 'ok' y léelo"` (o equivalente).
+5. Registrar el resultado en `.opencode/cli-capabilities/<cli>.md` (y opcionalmente en `proyecto/estado.md`): qué puede hacer, qué no, modos de permiso, cuota, límites.
+
+**Uso posterior:** leer el probe guardado para saber el alcance; no re-probar salvo que el
+CLI falle o cambie de versión.
+
+**Nunca asumir** que un CLI puede hacer algo: probarlo la primera vez. Lo que vemos roto
+lo arreglamos / cambiamos de herramienta.
+
+## Matriz de decisión (para no gastar tokens)
+
+Antes de ejecutar una tarea, leer el probe guardado (`.opencode/cli-capabilities/<cli>.md`):
+
+| Tarea | CLI puede hacerla (según probe) | Acción |
+|---|---|---|
+| Análisis/razonamiento | Sí (gratis) | Delegar al CLI, nosotros aplicamos |
+| Edición de archivos | Solo si tiene tools + permisos | Delegar si `--auto`/`dangerous` funciona; si no, nosotros editamos |
+| Tarea larga/pesada | Solo si tiene cuota | Delegar si hay cuota; si no, partir o hacer a mano |
+| Lectura de archivos | Sí (siempre) | Delegar (ahorra tokens) |
+| Verificación (typecheck/tests) | Sí | Delegar o hacer nosotros (barato) |
+
+**Regla:** si el probe dice que el CLI no puede hacer la tarea (sin cuota, sin tools, sin permisos),
+no gastar tokens intentándolo: hacerla nosotros o cambiar de CLI.
 
 ## Invocación
 
 **Devin (no interactivo):**
 ```
-devin --permission-mode accept-edits --prompt-file <archivo.md> -p
+devin --permission-mode dangerous --prompt-file <archivo.md> -p
 ```
-- `--permission-mode`: `auto` (solo lectura), `accept-edits` (ediciones en workspace),
-  `smart` (+ acciones seguras), `dangerous` (todo). Para trabajo real en el repo: `accept-edits`.
+- `--permission-mode`: en `-p` (print mode), `accept-edits`/`auto` rechazan tool calls que requieren
+  confirmación → usar `dangerous` para auto-aprobar todo. (`auto` solo lectura, `accept-edits`
+  ediciones, `smart` + acciones seguras, `dangerous` todo.)
 - `--prompt-file`: archivo con el prompt completo (mejor que inline para prompts largos).
 - `-p` / `--print`: no interactivo, imprime y sale.
 - Pasar el path del repo como argumento posicional si hace falta.
+- ⚠️ La cuenta tiene cuota limitada (`out_of_quota`): tareas pesadas (blueprint, trabajo largo)
+  pueden fallar. Para tareas largas, preferir OpenCode (gratis). Devin sirve para tareas cortas/medianas.
 
 **Claude Code:**
 ```

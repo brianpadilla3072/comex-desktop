@@ -4,6 +4,9 @@ import { Cpu } from "lucide-react";
 
 import type { ExtensionInventoryFilter, ExtensionInventoryState } from "../extension-taxonomy";
 import { PluginsView, type PluginsExtensionsStore } from "./plugins-view";
+import { ConnectorsSection } from "./connectors-section";
+
+export { ConnectorsSection } from "./connectors-section";
 
 export type ExtensionsSection =
   | "all"
@@ -151,7 +154,8 @@ export function ExtensionsView(props: ExtensionsViewProps) {
   };
 
   return (
-    <section className="w-full animate-in fade-in duration-300">
+    <section className="w-full animate-in fade-in duration-300 space-y-6">
+      <ConnectorsSection />
       {props.mcpView(mcpRouting)}
     </section>
   );
