@@ -133,3 +133,25 @@ halt respetado. Ver `docs/features/approval-gate/README.md` para el mapeo al gat
 
 Convertir el need bus / índice / board a código real (SQLite + API) si el volumen lo
 justifica. El approval gate **no** se convierte: ya existe en el producto.
+
+## Verificación (issue #9)
+
+Comandos de validación para otra sesión:
+
+```bash
+cd "/home/brian/Proyectos/build agents and skils/comex-desktop"
+pnpm --filter openwork-server typecheck
+pnpm --filter @openwork/app typecheck
+DEN_FEATURE_AGENT_ECOSYSTEM=true bun test --isolate \
+  apps/server/test/agent-ecosystem-routes.test.ts \
+  apps/server/test/agent-ecosystem-tools.test.ts \
+  apps/server/test/agent-ecosystem-e2e.test.ts
+bun test packages/features/src/resolve.test.ts
+```
+
+Estado esperado: typecheck limpio, 6 tests del ecosistema (7 tools expuestos, incluyendo `ecosystem_halt`) + 26 de features, 0 fallos.
+
+### Tool `ecosystem_halt`
+
+El coordinador puede detener/reanudar el ecosistema desde un tool (no solo desde la UI):
+`ecosystem_halt({ workspaceId, halted: true|false, by })` → `POST /workspace/:id/agent-ecosystem/halt`.

@@ -30,7 +30,7 @@ test("agent ecosystem plugin exposes tools only when the feature flag is on", as
   const on = setup("true");
   await ecosystemPlugin.setup(on.context as never);
   assert.deepEqual(on.added.sort(), [
-    "ecosystem_board", "ecosystem_claim", "ecosystem_index",
+    "ecosystem_board", "ecosystem_claim", "ecosystem_halt", "ecosystem_index",
     "ecosystem_publish", "ecosystem_resolve", "ecosystem_state",
   ]);
   for (const tool of on.tools) {

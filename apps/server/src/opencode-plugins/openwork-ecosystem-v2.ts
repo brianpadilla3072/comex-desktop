@@ -138,6 +138,22 @@ export default {
         method: "POST",
         path: i => `${ws(i.workspaceId)}/board`,
       },
+      {
+        name: "ecosystem_halt",
+        description: "Halt or resume the agent ecosystem. When halted, new claims are rejected and workers stop. Use as the coordinator's red line when something goes wrong or the human asks to stop. Pass halted=true to stop, halted=false to resume.",
+        input: {
+          type: "object",
+          properties: {
+            workspaceId: { type: "string", minLength: 1 },
+            halted: { type: "boolean" },
+            by: { type: "string", minLength: 1 },
+          },
+          required: ["workspaceId", "halted", "by"],
+          additionalProperties: false,
+        },
+        method: "POST",
+        path: i => `${ws(i.workspaceId)}/halt`,
+      },
     ];
 
     return context.tool.transform(editor => {
