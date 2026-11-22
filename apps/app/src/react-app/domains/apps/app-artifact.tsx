@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { AppActionsMenu, getAppUpdatePrompt } from "./app-actions-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Download, Loader2, Share2, X } from "lucide-react";
+import { Check, Copy, Loader2, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -96,17 +96,6 @@ export function AppArtifact({ appId, revisionId, receiptId, onClose, onAsk, fall
          </Button>
         <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Copiar" aria-label="Copiar artefacto" onClick={() => { if (app.html) void navigator.clipboard?.writeText(app.html); }}>
             <Copy className="size-4" />
-         </Button>
-         <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Descargar" aria-label="Descargar artefacto" onClick={() => {
-            if (!app.html) return;
-            const blob = new Blob([app.html], { type: "text/html" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `${app.view.title || "artifact"}.html`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-         }}>
-            <Download className="size-4" />
          </Button>
          <AppActionsMenu appId={appId} title={app.view.title} canManage={app.canManage} canDelete={app.canManage && app.view.status !== "retired"}
           busy={asking} onUpdate={onUpdate} onDeleted={onClose ?? (() => navigate("/dashboard"))}
