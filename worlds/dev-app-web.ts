@@ -57,6 +57,7 @@ export async function bootDevHeadless(
     replace: options.replace,
     keepTokens: options.keepTokens,
     rotateTokens: options.rotateTokens,
+    v2Only: ["1", "true", "yes", "on"].includes((process.env.OPENWORK_DEV_V2_ONLY ?? "").trim().toLowerCase()),
   });
   return stack.adopt(handle, (headless) => headless.stop());
 }

@@ -197,7 +197,7 @@ function isInside(parent: string, child: string): boolean {
 /** Which shared store, if any, made engine v1 exit. Project config errors are not ours to move. */
 function foreignStorageExit(error: unknown, env: NodeJS.ProcessEnv): ForeignStorage | null {
   if (!(error instanceof ManagedOpencodeExitError) || error.exitCode !== 1) return null;
-  if (!env.OPENCODE_DB?.trim() && FOREIGN_DATABASE_EXIT.test(error.message)) return "database";
+  if (FOREIGN_DATABASE_EXIT.test(error.message)) return "database";
   const config = error.message.match(FOREIGN_CONFIG_EXIT)?.[1]?.trim();
   if (config && isInside(globalOpencodeConfigDir(env), config)) return "config";
   return null;

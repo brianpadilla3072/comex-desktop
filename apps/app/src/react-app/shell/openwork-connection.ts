@@ -105,10 +105,7 @@ export async function resolveOpenworkConnection(): Promise<ResolvedOpenworkConne
       ? normalizeOpenworkServerUrl(window.location.origin) ?? ""
       : "";
   const resolvedToken = settings.token?.trim() ?? "";
-  const resolvedHostToken =
-    normalizedBaseUrl && isLoopbackOpenworkServerUrl(normalizedBaseUrl)
-      ? settings.hostToken?.trim() ?? ""
-      : "";
+  const resolvedHostToken = settings.hostToken?.trim() ?? "";
   const storedConnectionIsStaleDesktopRuntime = isStaleStoredDesktopConnection({
     desktopRuntime: isDesktopRuntime(),
     desktopServerReportedNotReady,

@@ -869,7 +869,9 @@ export async function launchHeadlessWeb(options: HeadlessWebLaunchOptions): Prom
     VITE_OPENWORK_URL: clientConnection.url,
     VITE_OPENWORK_PORT: clientConnection.port,
     VITE_OPENWORK_TOKEN: clientConnection.token,
+    VITE_OPENWORK_HOST_TOKEN: resolvedTokens.hostToken,
     VITE_OPENWORK_FORCE_ENV_SETTINGS: "1",
+    ...(publicHost ? { VITE_ALLOWED_HOSTS: publicHost } : {}),
     VITE_OPENWORK_DEPLOYMENT: env.VITE_OPENWORK_DEPLOYMENT ?? "web",
     ...browserEnv,
     ...(denTarget && denApiUrl ? {
@@ -937,7 +939,8 @@ export async function launchHeadlessWeb(options: HeadlessWebLaunchOptions): Prom
       host,
       port: openworkPort,
       configPath: serverConfigPath,
-      corsOrigins: buildHeadlessCorsOrigins({ webUrl, webPort }),
+      corsOrigins: buildHeadlessCorsOrigins({ webUrl, webPort, publicHost }),
+      allowedHosts: publicHost ? [publicHost, "*"] : undefined,
     }));
     const serverProcess = spawnLogged(serverLaunch.command, serverLaunch.args, headlessLogPath, repoRoot, headlessEnv);
     acquiredChildren.push(serverProcess);

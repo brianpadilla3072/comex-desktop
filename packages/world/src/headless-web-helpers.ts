@@ -140,12 +140,21 @@ export function resolveHeadlessTokens(input: {
 export function buildHeadlessCorsOrigins(input: {
   webUrl: string;
   webPort: number;
+  publicHost?: string | null;
 }): string[] {
-  return Array.from(new Set([
+  const origins = new Set<string>([
     new URL(input.webUrl).origin,
     `http://127.0.0.1:${input.webPort}`,
     `http://localhost:${input.webPort}`,
-  ]));
+  ]);
+  const host = input.publicHost?.trim();
+  if (host) {
+    origins.add(`http://${host}:${input.webPort}`);
+    origins.add(`https://${host}:${input.webPort}`);
+    origins.add(`http://${host}`);
+    origins.add(`https://${host}`);
+  }
+  return Array.from(origins);
 }
 
 export function buildOpenworkServerArgs(input: {
@@ -153,8 +162,9 @@ export function buildOpenworkServerArgs(input: {
   port: number;
   configPath: string;
   corsOrigins: string[];
+  allowedHosts?: string[];
 }): string[] {
-  return [
+  const args = [
     "--config",
     input.configPath,
     "--host",
@@ -167,6 +177,10 @@ export function buildOpenworkServerArgs(input: {
     input.corsOrigins.join(","),
     "--verbose",
   ];
+  if (input.allowedHosts && input.allowedHosts.length > 0) {
+    args.splice(args.length - 1, 0, "--allowed-hosts", input.allowedHosts.join(","));
+  }
+  return args;
 }
 
 export function buildHeadlessRuntimeManifest(input: {
