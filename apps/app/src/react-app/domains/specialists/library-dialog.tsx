@@ -680,7 +680,7 @@ export function PanelResolutionBlocks({ resolution, spec }: { resolution: Specia
           return <div key={index} className="grid gap-1 text-xs">
             <p className="font-medium">{block.title ?? block.y.join(", ")}</p>
             <svg viewBox={`0 0 300 80`} className="h-20 w-full" role="img" aria-label={`Gráfico de líneas: ${block.title ?? block.y.join(", ")}`}>
-              {lineMin < 0 && lineMax > 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="#9ca3af" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
+              {lineMin < 0 && lineMax > 0 ? <line x1="0" x2="300" y1={yFor(0)} y2={yFor(0)} stroke="var(--muted-foreground)" strokeWidth="0.5" strokeDasharray="3 3" /> : null}
               {series.map((entry, seriesIndex) => {
                 const color = comexDefaultTheme.chartSeries[seriesIndex % 4];
                 const coords = entry.values.map((value, pointIndex) => value === null ? null : { x: (pointIndex / Math.max(1, entry.values.length - 1)) * 300, y: yFor(value) });
