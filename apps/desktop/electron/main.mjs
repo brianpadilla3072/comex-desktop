@@ -2103,6 +2103,24 @@ const desktopCommandHandlers = {
   "__startSpeechDictation": async (event, requestId, language) => speechDictation.start(event, mainWindow, requestId, language),
   "__stopSpeechDictation": async (event, requestId) => speechDictation.stop(event, requestId),
   "__abortSpeechDictation": async (event, requestId) => speechDictation.abort(event, requestId),
+  openWebInBrowser: async () => {
+    let url = null;
+    try {
+      const current = mainWindow?.webContents?.getURL?.() ?? "";
+      // In dev the UI is served by Vite (http://localhost:<port>); in packaged
+      // builds it is served by openwork-server itself (baseUrl).
+      if (/^https?:\/\//i.test(current)) url = current;
+    } catch {}
+    if (!url) {
+      const info = await runtimeRef.current?.openworkServerInfo?.();
+      url = typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
+    }
+    if (!url) return { ok: false, error: "El servidor local todavía no está listo." };
+    const result = await openExternalUrl(url);
+    return result.ok === true
+      ? { ok: true, url }
+      : { ok: false, url, error: result.error ?? "No se pudo abrir el navegador." };
+  },
   "workspaceBootstrap": async (event, ...args) => {
       return workspaceStore.readWorkspaceState();
   },
@@ -3218,6 +3236,10 @@ ipcMain.on("openwork:window-fullscreen-sync", (event) => {
   event.returnValue = BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false;
 });
 ipcMain.handle("openwork:desktop", handleDesktopInvoke);
+ipcMain.handle("openwork:web-url", async () => {
+  const info = await runtimeRef.current?.openworkServerInfo?.();
+  return typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
+});
 ipcMain.handle("openwork:shell:openExternal", async (_event, url) => {
   if (typeof url !== "string" || url.trim().length === 0) {
     return { ok: false, error: "empty url" };

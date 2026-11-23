@@ -2,6 +2,7 @@
 import { useEffect, useRef, type ReactNode } from "react"
 import { Bot, ArrowLeft, ArrowRight, FileText, FolderOpen, Globe, Link, PanelLeft, Plus, TerminalSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePlatform } from "../../../kernel/platform"
 import type { WorkspaceResourceTab } from "./workspace-resource-store"
@@ -14,6 +15,20 @@ export function WorkspaceNavigationBar(props: {
   onNewChat: () => void; onSettings: () => void; onFind?: () => void
 }) {
   const platform = usePlatform()
+  const openWeb = async () => {
+    const invokeDesktop = window.__OPENWORK_ELECTRON__?.invokeDesktop;
+    if (typeof invokeDesktop !== "function") {
+      toast.error("Esta opción solo funciona en la app de escritorio.");
+      return;
+    }
+    try {
+      const result = await invokeDesktop("openWebInBrowser") as { ok: boolean; url?: string; error?: string };
+      if (result?.ok) toast.success(`Web abierta en el navegador: ${result.url ?? ""}`);
+      else toast.error(result?.error ?? "No se pudo abrir el navegador.");
+    } catch {
+      toast.error("No se pudo abrir el navegador.");
+    }
+  };
   return <div data-workspace-menu-bar className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-sidebar px-2 text-muted-foreground max-md:hidden electron:titlebar-drag electron:pr-32 mac:mac-window-controls-inset">
     <Button variant="ghost" size="icon-sm" aria-label="Atrás" disabled={!props.canGoBack} onClick={() => props.onHistory("back")} className="titlebar-no-drag"><ArrowLeft className="size-4" /></Button>
     <Button variant="ghost" size="icon-sm" aria-label="Adelante" disabled={!props.canGoForward} onClick={() => props.onHistory("forward")} className="titlebar-no-drag"><ArrowRight className="size-4" /></Button>
@@ -27,7 +42,7 @@ export function WorkspaceNavigationBar(props: {
         <DropdownMenuItem disabled={!props.onFind} onClick={props.onFind}>Buscar en la conversación</DropdownMenuItem>
       </DropdownMenuContent></DropdownMenu>
       <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="font-normal titlebar-no-drag">Ver</Button>} /><DropdownMenuContent align="start">
-        <DropdownMenuItem onClick={props.onToggleSidebar}>Mostrar u ocultar panel lateral</DropdownMenuItem><DropdownMenuItem disabled={!props.onTogglePanel} onClick={props.onTogglePanel}>Mostrar u ocultar panel derecho</DropdownMenuItem>
+        <DropdownMenuItem onClick={props.onToggleSidebar}>Mostrar u ocultar panel lateral</DropdownMenuItem><DropdownMenuItem disabled={!props.onTogglePanel} onClick={props.onTogglePanel}>Mostrar u ocultar panel derecho</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => void openWeb()}>Ir a web</DropdownMenuItem>
       </DropdownMenuContent></DropdownMenu>
       <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="font-normal titlebar-no-drag">Ayuda</Button>} /><DropdownMenuContent align="start">
         <DropdownMenuItem onClick={() => platform.openLink("https://openworklabs.com/docs")}>Documentación de OpenWork</DropdownMenuItem>

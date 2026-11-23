@@ -228,6 +228,9 @@ contextBridge.exposeInMainWorld("__OPENWORK_ELECTRON__", {
     openExternal(url) {
       return ipcRenderer.invoke("openwork:shell:openExternal", url);
     },
+    getWebUrl() {
+      return ipcRenderer.invoke("openwork:web-url");
+    },
     relaunch() {
       return ipcRenderer.invoke("openwork:shell:relaunch");
     },

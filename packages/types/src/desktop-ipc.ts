@@ -643,6 +643,7 @@ export type DesktopCommandMap = {
   __setZoomFactor: { args: [factor: number]; result: boolean };
   __setNativeTheme: { args: [theme: string]; result: unknown };
   __setApplicationMenuVisible: { args: [visible: boolean]; result: unknown };
+  openWebInBrowser: { args: []; result: { ok: boolean; url?: string; error?: string } };
 };
 
 /** Self-contained HTML pages (assets inlined as data: URLs) rendered offline by Electron. */

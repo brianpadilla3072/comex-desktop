@@ -114,6 +114,7 @@ declare global {
       };
       shell?: {
         openExternal?: (url: string) => Promise<{ ok: boolean; pending?: boolean; error?: string } | void>;
+        getWebUrl?: () => Promise<string | null>;
         relaunch?: () => Promise<void>;
       };
       system?: {
