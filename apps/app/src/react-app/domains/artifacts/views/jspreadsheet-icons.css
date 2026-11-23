@@ -80,8 +80,53 @@
   font-size: 0.75rem;
 }
 
-.sheet-editor__menubar span {
-  cursor: default;
+.sheet-editor__menu-trigger {
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sheet-editor__menu-trigger:hover,
+.sheet-editor__menu-trigger[aria-expanded="true"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.sheet-editor__prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+.sheet-editor__prompt input {
+  width: 160px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.sheet-editor__prompt button {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+}
+
+.sheet-editor__notice {
+  margin-inline-start: auto;
+  color: var(--muted-foreground, var(--foreground));
+  white-space: nowrap;
 }
 
 .sheet-editor__grid {
@@ -89,6 +134,14 @@
   min-height: 0;
   overflow: auto;
   padding: 0;
+}
+
+.sheet-editor__grid--no-lines .jss_worksheet > tbody > tr > td {
+  border-color: transparent;
+}
+
+.sheet-editor__grid > div {
+  zoom: var(--sheet-zoom, 1);
 }
 
 .sheet-editor .jss_spreadsheet {
@@ -171,46 +224,6 @@
 .sheet-editor__tabs-menu-btn:hover {
   background: var(--muted);
   color: var(--foreground);
-}
-
-/* "All sheets" navigation menu, opened by the ≡ button. */
-.sheet-editor__tabs-menu {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 4px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
-}
-
-.sheet-editor__tabs-menu button {
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--foreground);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.sheet-editor__tabs-menu button:hover {
-  background: var(--muted);
-}
-
-.sheet-editor__tabs-menu button.is-active {
-  background: color-mix(in srgb, var(--primary) 12%, var(--background));
-  font-weight: 500;
 }
 
 .sheet-editor .jtoolbar .jtoolbar-item {

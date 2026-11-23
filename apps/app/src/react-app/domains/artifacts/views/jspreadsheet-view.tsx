@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import jspreadsheet, { type WorksheetInstance } from "jspreadsheet-ce";
 
@@ -7,6 +7,16 @@ import "jspreadsheet-ce/dist/jspreadsheet.css";
 import "jsuites/dist/jsuites.css";
 import "./jspreadsheet-icons.css";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { parseSheets, type Sheet } from "./sheet-view";
 import { resolveExtensionIconSrc } from "../../../design-system/extension-icon-src";
 
@@ -27,6 +37,51 @@ const INITIAL_ROWS = 60;
 const SPARE_ROWS = 20;
 const SPARE_COLUMNS = 8;
 const SCROLL_THRESHOLD = 120;
+const ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.25, 1.5];
+const DEFAULT_ZOOM_INDEX = 2;
+
+type MenuEntry =
+  | { label: string; action: () => void; shortcut?: string; separator?: false }
+  | { separator: true };
+
+type SheetActions = {
+  save: () => void;
+  newSheet: () => void;
+  renameSheet: () => void;
+  downloadCsv: () => void;
+  undo: () => void;
+  redo: () => void;
+  cut: () => void;
+  copy: () => void;
+  paste: () => void | Promise<void>;
+  deleteRow: () => void;
+  deleteColumn: () => void;
+  search: () => void;
+  selectAll: () => void;
+  goToCell: () => void;
+  toggleGridLines: () => void;
+  toggleFormulaBar: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomReset: () => void;
+  insertRowsBefore: () => void;
+  insertRowsAfter: () => void;
+  insertColumnsBefore: () => void;
+  insertColumnsAfter: () => void;
+  toggleBold: () => void;
+  toggleItalic: () => void;
+  toggleUnderline: () => void;
+  alignLeft: () => void;
+  alignCenter: () => void;
+  alignRight: () => void;
+  clearFormat: () => void;
+  sortAscending: () => void;
+  sortDescending: () => void;
+  clearFilters: () => void;
+  clearSearch: () => void;
+  copyCsv: () => void | Promise<void>;
+  downloadJson: () => void;
+};
 
 function columnLabel(index: number): string {
   let label = "";
@@ -44,6 +99,48 @@ function cellCoords(ref: string): { col: number; row: number } {
   let col = 0;
   for (const ch of letters) col = col * 26 + (ch.charCodeAt(0) - 64);
   return { col: col - 1, row: row - 1 };
+}
+
+/** The selected range, expressed as the coordinates jspreadsheet expects plus
+ *  the cell names its style API needs. Falls back to A1 before the first click. */
+function selectionOn(instance: WorksheetInstance): { x: number; y: number; cells: string[] } {
+  const range = instance.getSelection?.();
+  if (range && range.length >= 2) {
+    const [x1, y1, x2 = x1, y2 = y1] = range;
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    const top = Math.min(y1, y2);
+    const bottom = Math.max(y1, y2);
+    const cells: string[] = [];
+    for (let row = top; row <= bottom; row += 1) {
+      for (let col = left; col <= right; col += 1) cells.push(`${columnLabel(col)}${row + 1}`);
+    }
+    return { x: x1, y: y1, cells };
+  }
+  return { x: 0, y: 0, cells: ["A1"] };
+}
+
+function csvFromData(data: unknown[][]): string {
+  const escape = (value: unknown) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  };
+  return data.map(row => row.map(escape).join(",")).join("\r\n");
+}
+
+function safeFileName(name: string): string {
+  return name.replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-|-$/g, "") || "hoja";
+}
+
+function downloadText(filename: string, text: string, mime: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /** Turn the artifact's sheets into the array-of-rows format Jspreadsheet CE expects. */
@@ -117,16 +214,44 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
   const activeInstanceRef = useRef<WorksheetInstance | null>(null);
   const addSheetRef = useRef<() => void>(() => undefined);
   const selectSheetRef = useRef<(index: number) => void>(() => undefined);
+  const emitRef = useRef<() => void>(() => undefined);
+  const actionsRef = useRef<SheetActions | null>(null);
+  const syncFormulaRef = useRef<(instance: WorksheetInstance, x: number, y: number) => void>(() => undefined);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeCell, setActiveCell] = useState("A1");
   const [formula, setFormula] = useState("");
   const [formulaSlot, setFormulaSlot] = useState<HTMLElement | null>(null);
   const [tabsSlot, setTabsSlot] = useState<HTMLElement | null>(null);
-  const [sheetMenu, setSheetMenu] = useState<{ items: Array<{ index: number; name: string }>; active: number } | null>(null);
+  const [sheetTabs, setSheetTabs] = useState<Array<{ index: number; name: string; active: boolean }>>([]);
+  const [showGridLines, setShowGridLines] = useState(true);
+  const [showFormulaBar, setShowFormulaBar] = useState(true);
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const [promptKind, setPromptKind] = useState<"search" | "goto" | null>(null);
+  const [promptValue, setPromptValue] = useState("");
+  const [notice, setNotice] = useState("");
+  const noticeTimerRef = useRef<number | null>(null);
 
   const resolvedTitle = title ?? DEFAULT_TITLE;
   const [displayName, setDisplayName] = useState(resolvedTitle);
+  const displayNameRef = useRef(displayName);
+  displayNameRef.current = displayName;
   useEffect(() => setDisplayName(resolvedTitle), [resolvedTitle]);
+
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+  }, []);
+
+  const currentInstance = () => activeInstanceRef.current ?? instancesRef.current[0];
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice("");
+      noticeTimerRef.current = null;
+    }, 2500);
+  };
 
   useEffect(() => {
     const root = rootRef.current;
@@ -141,6 +266,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       lastEmittedRef.current = serialized;
       callback(serialized);
     };
+    emitRef.current = emit;
 
     // jSuites fires selection events while rows/columns are being inserted.
     // Without this guard a selection near the edge re-enters `expand` forever.
@@ -184,6 +310,43 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       setActiveCell(`${columnLabel(x)}${y + 1}`);
       const value = instance.getValueFromCoords(x, y, false);
       setFormula(value === null || value === undefined ? "" : String(value));
+    };
+    syncFormulaRef.current = syncFormula;
+
+    const adjustDimensions = (instance: WorksheetInstance, rows: number, cols: number) => {
+      const index = instancesRef.current.indexOf(instance);
+      const dimensions = dimensionsRef.current[index >= 0 ? index : 0];
+      if (!dimensions) return;
+      dimensions.rows = Math.max(1, dimensions.rows + rows);
+      dimensions.cols = Math.max(1, dimensions.cols + cols);
+    };
+
+    const withSelection = (
+      action: (instance: WorksheetInstance, x: number, y: number, cells: string[]) => void,
+    ) => {
+      const instance = currentInstance();
+      if (!instance) return;
+      const { x, y, cells } = selectionOn(instance);
+      action(instance, x, y, cells);
+      emit();
+    };
+
+    const setCellStyle = (
+      properties: Array<[string, string]>,
+      toggle?: { key: string; on: string; off: string },
+    ) => {
+      withSelection((instance, _x, _y, cells) => {
+        let toggleValue = "";
+        if (toggle) {
+          const current = instance.getStyle(cells[0], toggle.key);
+          toggleValue = String(current).trim() === toggle.on ? toggle.off : toggle.on;
+        }
+        const styles: Record<string, string[]> = {};
+        for (const cell of cells) {
+          styles[cell] = properties.map(([key, value]) => `${key}: ${toggle && key === toggle.key ? toggleValue : value}`);
+        }
+        instance.setStyle(styles);
+      });
     };
 
     const worksheets = sheets.map((sheet) => {
@@ -279,6 +442,127 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       target.updateSelectionFromCoords(0, 0);
     };
 
+    actionsRef.current = {
+      save: () => emit(),
+      newSheet: () => addSheetRef.current(),
+      renameSheet: () => {
+        // Base UI returns focus to the trigger when the menu closes. Deferring
+        // one tick lets the name field win that race.
+        window.setTimeout(() => {
+          nameInputRef.current?.focus();
+          nameInputRef.current?.select();
+        }, 0);
+      },
+      downloadCsv: () => {
+        const instance = currentInstance();
+        if (!instance) return;
+        downloadText(
+          `${safeFileName(displayNameRef.current)}.csv`,
+          csvFromData(instance.getData(false, true)),
+          "text/csv;charset=utf-8",
+        );
+      },
+      undo: () => {
+        currentInstance()?.undo();
+        emit();
+      },
+      redo: () => {
+        currentInstance()?.redo();
+        emit();
+      },
+      cut: () => withSelection(instance => { instance.copy(true); }),
+      copy: () => withSelection(instance => { instance.copy(false); }),
+      paste: async () => {
+        if (!navigator.clipboard?.readText) {
+          showNotice("Portapapeles no disponible");
+          return;
+        }
+        try {
+          const text = await navigator.clipboard.readText();
+          if (!text) return;
+          withSelection((instance, x, y) => { instance.paste(x, y, text); });
+        } catch {
+          showNotice("No se pudo pegar");
+        }
+      },
+      deleteRow: () => withSelection((instance, _x, y) => {
+        instance.deleteRow(y, 1);
+        adjustDimensions(instance, -1, 0);
+      }),
+      deleteColumn: () => withSelection((instance, x) => {
+        instance.deleteColumn(x, 1);
+        adjustDimensions(instance, 0, -1);
+      }),
+      search: () => {
+        setPromptValue("");
+        setPromptKind("search");
+      },
+      selectAll: () => withSelection(instance => { instance.selectAll(); }),
+      goToCell: () => {
+        setPromptValue("");
+        setPromptKind("goto");
+      },
+      toggleGridLines: () => setShowGridLines(value => !value),
+      toggleFormulaBar: () => setShowFormulaBar(value => !value),
+      zoomIn: () => setZoomIndex(index => Math.min(ZOOM_STEPS.length - 1, index + 1)),
+      zoomOut: () => setZoomIndex(index => Math.max(0, index - 1)),
+      zoomReset: () => setZoomIndex(DEFAULT_ZOOM_INDEX),
+      insertRowsBefore: () => withSelection((instance, _x, y) => {
+        instance.insertRow(1, y, 1);
+        adjustDimensions(instance, 1, 0);
+      }),
+      insertRowsAfter: () => withSelection((instance, _x, y) => {
+        instance.insertRow(1, y, 0);
+        adjustDimensions(instance, 1, 0);
+      }),
+      insertColumnsBefore: () => withSelection((instance, x) => {
+        instance.insertColumn(1, x, true);
+        adjustDimensions(instance, 0, 1);
+      }),
+      insertColumnsAfter: () => withSelection((instance, x) => {
+        instance.insertColumn(1, x, false);
+        adjustDimensions(instance, 0, 1);
+      }),
+      toggleBold: () => setCellStyle([["font-weight", "bold"]], { key: "font-weight", on: "bold", off: "normal" }),
+      toggleItalic: () => setCellStyle([["font-style", "italic"]], { key: "font-style", on: "italic", off: "normal" }),
+      toggleUnderline: () => setCellStyle(
+        [["text-decoration", "underline"]],
+        { key: "text-decoration", on: "underline", off: "none" },
+      ),
+      alignLeft: () => setCellStyle([["text-align", "left"]]),
+      alignCenter: () => setCellStyle([["text-align", "center"]]),
+      alignRight: () => setCellStyle([["text-align", "right"]]),
+      clearFormat: () => withSelection((instance, _x, _y, cells) => {
+        const styles: Record<string, boolean> = {};
+        for (const cell of cells) styles[cell] = true;
+        instance.resetStyle(styles);
+      }),
+      sortAscending: () => withSelection(instance => { instance.orderBy(selectionOn(instance).x, 0); }),
+      sortDescending: () => withSelection(instance => { instance.orderBy(selectionOn(instance).x, 1); }),
+      clearFilters: () => withSelection(instance => { instance.resetFilters(); }),
+      clearSearch: () => withSelection(instance => { instance.resetSearch(); }),
+      copyCsv: async () => {
+        const instance = currentInstance();
+        if (!instance) return;
+        const csv = csvFromData(instance.getData(false, true));
+        if (!navigator.clipboard?.writeText) {
+          showNotice("Portapapeles no disponible");
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(csv);
+          showNotice("CSV copiado al portapapeles");
+        } catch {
+          showNotice("No se pudo copiar");
+        }
+      },
+      downloadJson: () => downloadText(
+        `${safeFileName(displayNameRef.current)}.json`,
+        serializeSheets(sheetRefsRef.current, instancesRef.current, dimensionsRef.current),
+        "application/json",
+      ),
+    };
+
     // Put our formula bar immediately below Jspreadsheet's toolbar, inside the
     // library-owned root, so the visual order is toolbar → formula → grid → tabs.
     const slot = document.createElement("div");
@@ -300,6 +584,9 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     setTabsSlot(tabSlot);
 
     return () => {
+      actionsRef.current = null;
+      emitRef.current = () => undefined;
+      syncFormulaRef.current = () => undefined;
       addSheetRef.current = () => undefined;
       selectSheetRef.current = () => undefined;
       gridScroller?.removeEventListener("scroll", onScroll);
@@ -321,32 +608,122 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     };
   }, [sheets, effectiveContent]);
 
-  // Close the "all sheets" menu on Escape or when clicking outside of it.
-  useEffect(() => {
-    if (!sheetMenu) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Node && tabsSlot?.contains(target)) return;
-      setSheetMenu(null);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSheetMenu(null);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [sheetMenu, tabsSlot]);
+  if (sheets.length === 0) {
+    return <div className="p-6 text-sm text-muted-foreground" role="status">La hoja no tiene celdas.</div>;
+  }
 
-  const openSheetMenu = () => {
+  const zoomStyle: CSSProperties & { "--sheet-zoom"?: string } = {
+    "--sheet-zoom": String(ZOOM_STEPS[zoomIndex]),
+  };
+  const act = (name: keyof SheetActions) => () => { void actionsRef.current?.[name](); };
+  const menus: Array<{ label: string; items: MenuEntry[]; note?: string }> = [
+    {
+      label: "Archivo",
+      items: [
+        { label: "Nueva hoja", action: act("newSheet") },
+        { label: "Renombrar hoja", action: act("renameSheet") },
+        { separator: true },
+        { label: "Guardar ahora", action: act("save"), shortcut: "⌘S" },
+        { label: "Descargar CSV", action: act("downloadCsv") },
+      ],
+    },
+    {
+      label: "Editar",
+      items: [
+        { label: "Deshacer", action: act("undo"), shortcut: "⌘Z" },
+        { label: "Rehacer", action: act("redo"), shortcut: "⇧⌘Z" },
+        { separator: true },
+        { label: "Cortar", action: act("cut"), shortcut: "⌘X" },
+        { label: "Copiar", action: act("copy"), shortcut: "⌘C" },
+        { label: "Pegar", action: act("paste"), shortcut: "⌘V" },
+        { label: "Buscar…", action: act("search"), shortcut: "⌘F" },
+        { separator: true },
+        { label: "Eliminar fila", action: act("deleteRow") },
+        { label: "Eliminar columna", action: act("deleteColumn") },
+      ],
+    },
+    {
+      label: "Ver",
+      items: [
+        { label: "Ir a celda…", action: act("goToCell"), shortcut: "⌘G" },
+        { separator: true },
+        { label: showGridLines ? "Ocultar cuadrícula" : "Mostrar cuadrícula", action: act("toggleGridLines") },
+        { label: showFormulaBar ? "Ocultar barra de fórmulas" : "Mostrar barra de fórmulas", action: act("toggleFormulaBar") },
+        { separator: true },
+        { label: "Agrandar", action: act("zoomIn") },
+        { label: "Reducir", action: act("zoomOut") },
+        { label: "Tamaño real", action: act("zoomReset") },
+      ],
+    },
+    {
+      label: "Insertar",
+      items: [
+        { label: "Filas arriba", action: act("insertRowsBefore") },
+        { label: "Filas abajo", action: act("insertRowsAfter") },
+        { separator: true },
+        { label: "Columnas a la izquierda", action: act("insertColumnsBefore") },
+        { label: "Columnas a la derecha", action: act("insertColumnsAfter") },
+      ],
+    },
+    {
+      label: "Formato",
+      items: [
+        { label: "Negrita", action: act("toggleBold"), shortcut: "⌘B" },
+        { label: "Cursiva", action: act("toggleItalic"), shortcut: "⌘I" },
+        { label: "Subrayado", action: act("toggleUnderline"), shortcut: "⌘U" },
+        { separator: true },
+        { label: "Alinear a la izquierda", action: act("alignLeft") },
+        { label: "Centrar", action: act("alignCenter") },
+        { label: "Alinear a la derecha", action: act("alignRight") },
+        { separator: true },
+        { label: "Limpiar formato", action: act("clearFormat") },
+      ],
+    },
+    {
+      label: "Datos",
+      items: [
+        { label: "Ordenar ascendente", action: act("sortAscending") },
+        { label: "Ordenar descendente", action: act("sortDescending") },
+        { separator: true },
+        { label: "Quitar filtros", action: act("clearFilters") },
+        { label: "Borrar búsqueda", action: act("clearSearch") },
+      ],
+    },
+    {
+      label: "Herramientas",
+      note: "Atajos: ⌘Z deshacer · ⌘C copiar · ⌘V pegar · ⌘F buscar",
+      items: [
+        { label: "Copiar CSV al portapapeles", action: act("copyCsv") },
+        { label: "Descargar JSON", action: act("downloadJson") },
+      ],
+    },
+  ];
+
+  const openSheetTabs = (open: boolean) => {
+    if (!open) return;
     const all = instancesRef.current;
     const active = activeInstanceRef.current ? all.indexOf(activeInstanceRef.current) : 0;
-    setSheetMenu({
-      items: sheetRefsRef.current.map((sheet, index) => ({ index, name: sheet.name })),
-      active: active >= 0 ? active : 0,
-    });
+    setSheetTabs(sheetRefsRef.current.map((sheet, index) => ({
+      index,
+      name: sheet.name,
+      active: index === (active >= 0 ? active : 0),
+    })));
+  };
+
+  const submitPrompt = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const instance = currentInstance();
+    if (instance && promptKind) {
+      if (promptKind === "search") {
+        instance.search(promptValue);
+      } else {
+        const { col, row } = cellCoords(promptValue.trim().toUpperCase());
+        instance.updateSelectionFromCoords(col, row);
+        syncFormulaRef.current(instance, col, row);
+      }
+    }
+    setPromptKind(null);
+    setPromptValue("");
   };
 
   const commitFormula = () => {
@@ -364,14 +741,11 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     if (next !== resolvedTitle) onTitleChange?.(next);
   };
 
-  if (sheets.length === 0) {
-    return <div className="p-6 text-sm text-muted-foreground" role="status">La hoja no tiene celdas.</div>;
-  }
-
   return <div className="sheet-editor" data-testid="jspreadsheet-view">
     <div className="sheet-editor__titlebar">
       <img className="sheet-editor__icon" src={resolveExtensionIconSrc("/sheet-icon.png")} alt="" aria-hidden="true" />
       <input
+        ref={nameInputRef}
         className="sheet-editor__name"
         data-testid="sheet-file-name"
         aria-label="Nombre del archivo"
@@ -391,12 +765,53 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
         }}
       />
     </div>
-    <div className="sheet-editor__menubar" aria-hidden="true">
-      <span>Archivo</span><span>Editar</span><span>Ver</span><span>Insertar</span>
-      <span>Formato</span><span>Datos</span><span>Herramientas</span>
+    <div className="sheet-editor__menubar" role="menubar" aria-label="Menús de la hoja">
+      {menus.map(menu => (
+        <DropdownMenu key={menu.label}>
+          <DropdownMenuTrigger className="sheet-editor__menu-trigger" aria-label={menu.label}>
+            {menu.label}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="bottom">
+            {menu.note ? <DropdownMenuGroup><DropdownMenuLabel>{menu.note}</DropdownMenuLabel></DropdownMenuGroup> : null}
+            {menu.items.map((item, index) => item.separator
+              ? <DropdownMenuSeparator key={`separator-${index}`} />
+              : <DropdownMenuItem
+                  key={item.label}
+                  role="menuitem"
+                  data-testid={`sheet-menu-${menu.label}-${item.label}`}
+                  onClick={item.action}
+                >
+                  <span>{item.label}</span>
+                  {item.shortcut ? <DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut> : null}
+                </DropdownMenuItem>,
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ))}
+      {promptKind ? (
+        <form className="sheet-editor__prompt" onSubmit={submitPrompt}>
+          <input
+            autoFocus
+            data-testid="sheet-menu-prompt"
+            aria-label={promptKind === "search" ? "Texto a buscar" : "Celda destino"}
+            placeholder={promptKind === "search" ? "Buscar en la hoja…" : "Celda (A1)"}
+            value={promptValue}
+            onChange={(event) => setPromptValue(event.target.value)}
+          />
+          <button type="submit">Aplicar</button>
+          <button
+            type="button"
+            aria-label="Cancelar"
+            onClick={() => { setPromptKind(null); setPromptValue(""); }}
+          >×</button>
+        </form>
+      ) : null}
+      {notice ? <span className="sheet-editor__notice" role="status">{notice}</span> : null}
     </div>
-    <div className="sheet-editor__grid"><div ref={rootRef} /></div>
-    {formulaSlot ? createPortal(
+    <div className={`sheet-editor__grid${showGridLines ? "" : " sheet-editor__grid--no-lines"}`}>
+      <div ref={rootRef} style={zoomStyle} />
+    </div>
+    {formulaSlot && showFormulaBar ? createPortal(
       <div className="sheet-editor__formula">
         <span className="sheet-editor__formula-ref">{activeCell}</span>
         <span className="sheet-editor__formula-fx" aria-hidden="true">fx</span>
@@ -426,36 +841,26 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
           data-testid="sheet-add-tab"
           aria-label="Nueva hoja"
           title="Nueva hoja"
-          onClick={() => {
-            setSheetMenu(null);
-            addSheetRef.current();
-          }}
+          onClick={() => addSheetRef.current()}
         >+</button>
-        <button
-          type="button"
-          className="sheet-editor__tabs-menu-btn"
-          data-testid="sheet-tabs-menu"
-          aria-label="Todas las hojas"
-          aria-expanded={sheetMenu !== null}
-          title="Todas las hojas"
-          onClick={() => (sheetMenu ? setSheetMenu(null) : openSheetMenu())}
-        >≡</button>
-        {sheetMenu ? (
-          <div className="sheet-editor__tabs-menu" role="menu" aria-label="Hojas">
-            {sheetMenu.items.map((item) => (
-              <button
+        <DropdownMenu onOpenChange={openSheetTabs}>
+          <DropdownMenuTrigger
+            className="sheet-editor__tabs-menu-btn"
+            data-testid="sheet-tabs-menu"
+            aria-label="Todas las hojas"
+            title="Todas las hojas"
+          >≡</DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top">
+            {sheetTabs.map(item => (
+              <DropdownMenuItem
                 key={item.index}
-                type="button"
                 role="menuitem"
-                className={item.index === sheetMenu.active ? "is-active" : undefined}
-                onClick={() => {
-                  setSheetMenu(null);
-                  selectSheetRef.current(item.index);
-                }}
-              >{item.name}</button>
+                data-active={item.active ? "true" : undefined}
+                onClick={() => selectSheetRef.current(item.index)}
+              >{item.name}</DropdownMenuItem>
             ))}
-          </div>
-        ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </>,
       tabsSlot,
     ) : null}
