@@ -49,6 +49,16 @@ const metadataSchema = z.object({
   focus: z.string().max(500).optional(),
   format: z.enum(["report", "dashboard", "compact", "table", "deck", "canvas"]).optional(),
   theme: z.string().optional(),
+  /** Native document-viewer state. Changing the theme/zoom is not a content edit:
+   *  it lives in metadata and never creates a version. */
+  viewer: z.object({
+    format: z.enum(["md", "mdx"]).optional(),
+    theme: z.enum(["light", "dark"]).optional(),
+    zoom: z.number().int().min(50).max(200).optional(),
+    wrap: z.boolean().optional(),
+    outline: z.boolean().optional(),
+    scrollTo: z.string().max(200).optional(),
+  }).optional(),
 });
 
 export const artifactMetaSchema = z.object({
@@ -161,7 +171,7 @@ async function writeArtifactUnlocked(directory: string, input: ArtifactInput): P
   return { meta, created: !existing };
 }
 
-export async function readArtifact(directory: string, id: string): Promise<{ meta: ArtifactMeta; content: string; truncated: boolean }> {
+async function readArtifactRaw(directory: string, id: string): Promise<{ meta: ArtifactMeta; content: string }> {
   const meta = (await readIndex(directory)).find(entry => entry.id === id);
   if (!meta) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
   const content = await readFile(join(artifactDir(directory, id), contentFile(meta.type)), "utf8")
@@ -171,7 +181,59 @@ export async function readArtifact(directory: string, id: string): Promise<{ met
       return readFile(join(artifactDir(directory, id), last.contentRef), "utf8").catch(() => null);
     });
   if (content === null) throw new ApiError(409, "artifact_content_missing", "El contenido del artefacto no está (¿se borró a mano?).");
-  return { meta, content: content.slice(0, 60_000), truncated: content.length > 60_000 };
+  return { meta: meta, content: content };
+}
+
+export async function readArtifact(directory: string, id: string): Promise<{ meta: ArtifactMeta; content: string; truncated: boolean }> {
+  const { meta, content } = await readArtifactRaw(directory, id);
+  return { meta: meta, content: content.slice(0, 60_000), truncated: content.length > 60_000 };
+}
+
+/** Read–modify–write one artifact under the SAME lock used by UI saves. Without
+ *  it an agent edit and a debounced UI save could read the same version and the
+ *  second write would silently drop the first one. `mutate` receives the full,
+ *  untruncated content and returns the new content (or null to leave it alone). */
+export async function mutateArtifactContent(
+  directory: string,
+  id: string,
+  mutate: (content: string, meta: ArtifactMeta) => string | null,
+  label?: string,
+): Promise<{ meta: ArtifactMeta; changed: boolean }> {
+  return withFileLock(familyLock(directory, "artefactos"), async () => {
+    const { meta, content } = await readArtifactRaw(directory, id);
+    const next = mutate(content, meta);
+    if (next === null) return { meta: meta, changed: false };
+    const result = await writeArtifactUnlocked(directory, {
+      id: meta.id,
+      type: meta.type,
+      title: meta.title,
+      content: next,
+      status: meta.status,
+      sources: meta.sources,
+      metadata: meta.metadata,
+      ...(label ? { label: label } : {}),
+    });
+    return { meta: result.meta, changed: true };
+  });
+}
+
+/** Update only the metadata (viewer settings) under the same family lock used
+ *  by content saves and UI writes. No content version: presentation is not an edit. */
+export async function mutateArtifactMetadata(
+  directory: string,
+  id: string,
+  mutate: (metadata: ArtifactMeta["metadata"]) => ArtifactMeta["metadata"],
+): Promise<ArtifactMeta> {
+  return withFileLock(familyLock(directory, "artefactos"), async () => {
+    const artifacts = await readIndex(directory);
+    const meta = artifacts.find(entry => entry.id === id);
+    if (!meta) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+    const next = metadataSchema.parse(mutate(meta.metadata));
+    const updated: ArtifactMeta = { ...meta, metadata: next, updatedAt: Date.now() };
+    await writeFile(join(artifactDir(directory, id), "artifact.json"), JSON.stringify(updated, null, 2), { mode: 0o600 });
+    await writeIndex(directory, artifacts.map(entry => entry.id === id ? updated : entry));
+    return updated;
+  });
 }
 
 /** Revert the working content to a saved version, without losing later versions. */

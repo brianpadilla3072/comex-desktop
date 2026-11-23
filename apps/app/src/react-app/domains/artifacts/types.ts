@@ -34,6 +34,15 @@ export type ArtifactMetadata = {
   focus?: string;
   format?: "report" | "dashboard" | "compact" | "table" | "deck" | "canvas";
   theme?: string;
+  /** State of the native MD/MDX viewer, written by specialist_doc_view. */
+  viewer?: {
+    format?: "md" | "mdx";
+    theme?: "light" | "dark";
+    zoom?: number;
+    wrap?: boolean;
+    outline?: boolean;
+    scrollTo?: string;
+  };
 };
 
 export interface ArtifactBase {

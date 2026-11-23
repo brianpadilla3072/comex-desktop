@@ -26,12 +26,13 @@ async function fixture() {
   const workspaceId = workspaceIdForPath(project);
   config.workspaces.push({ id: workspaceId, path: project });
   store.bind(workspaceId, app.id, project);
-  return { root, config, project, workspaceId };
+  return { root, config, project, workspaceId, store, app };
 }
 
 function pluginContext(project: string, tools: Map<string, EngineTool>) {
   return {
-    location: { directory: project },
+    // Real engines report the process cwd here; the session's project is authoritative.
+    location: { directory: join(project, "apps", "server"), project: { directory: project, canonical: project } },
     tool: {
       async transform(callback: (editor: { add(tool: EngineTool): void }) => void) {
         callback({ add: (tool) => { tools.set(tool.name, tool); } });
@@ -69,6 +70,35 @@ test("a library tool answers the engine with a content block, never a bare strin
     assert.match(sent?.authorization ?? "", /^Bearer .{16,}$/);
   } finally {
     globalThis.fetch = originalFetch;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a parent folder's bridge cannot shadow this project's tools", async () => {
+  const { root, config, project, workspaceId, store, app } = await fixture();
+  try {
+    await syncLibraryToolPlugin(config as unknown as ServerConfig, workspaceId, project);
+    const own = createHash("sha256").update(project).digest("hex") + ".json";
+    const otherDirectory = join(root, "otro-proyecto");
+    await mkdir(otherDirectory, { recursive: true });
+    const otherWorkspaceId = workspaceIdForPath(otherDirectory);
+    config.workspaces.push({ id: otherWorkspaceId, path: otherDirectory });
+    store.bind(otherWorkspaceId, app.id, otherDirectory);
+    await syncLibraryToolPlugin(config as unknown as ServerConfig, otherWorkspaceId, otherDirectory);
+
+    const descriptor = (name: string) => join(root, "specialists", "tool", name);
+    const ownPlugin = createSpecialistLibraryPlugin(descriptor(own));
+    const otherPlugin = createSpecialistLibraryPlugin(descriptor(createHash("sha256").update(otherDirectory).digest("hex") + ".json"));
+    assert.notEqual(ownPlugin.id, otherPlugin.id, "each folder needs its own plugin id");
+
+    const ownTools = new Map<string, EngineTool>();
+    await ownPlugin.setup(pluginContext(project, ownTools));
+    assert.ok(ownTools.size > 0);
+
+    const foreignTools = new Map<string, EngineTool>();
+    await otherPlugin.setup(pluginContext(project, foreignTools));
+    assert.equal(foreignTools.size, 0, "a bridge scoped to another folder registered tools here");
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

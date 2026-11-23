@@ -1,10 +1,13 @@
+import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import { z } from "zod";
 import { addProviderSafeTool } from "../opencode-plugins/provider-safe-tool-schema.js";
+import { SHEET_TOOL_SCHEMAS } from "./sheet-tools.js";
+import { DOC_TOOL_SCHEMAS } from "./doc-tools.js";
 
 const descriptorSchema = z.object({ directory: z.string(), token: z.string().min(16), url: z.string().url() });
 type Tool = { name: string; description: string; input: Record<string, unknown>; options: { codemode: boolean }; execute(input: unknown, call: { signal: AbortSignal }): Promise<unknown> };
-type Context = { location?: { directory?: string }; tool: { transform(callback: (editor: { add(tool: Tool): void }) => void): Promise<{ dispose(): Promise<void> }> } };
+type Context = { location?: { directory?: string; project?: { directory?: string; canonical?: string } }; tool: { transform(callback: (editor: { add(tool: Tool): void }) => void): Promise<{ dispose(): Promise<void> }> } };
 
 const listSchema = z.object({});
 const readSchema = z.object({ path: z.string().describe("Ruta relativa dentro de la biblioteca, por ejemplo agents/revisor.md o skills/metodo/SKILL.md") });
@@ -99,6 +102,30 @@ const TOOLS = [
   { name: "specialist_output_generate", description: "Generar una SALIDA del mini-Studio (mindmap, informe, flashcards, quiz o tabla) sobre los datasets/fuentes del proyecto. El contenido se valida según el kind y la herramienta devuelve la auditoría de citas: avisa lo que dice (sin anclas o con citas rotas) en vez de ignorarlo.", schema: outputGenerateSchema },
   { name: "specialist_output_list", description: "Listar las salidas del mini-Studio guardadas en este proyecto.", schema: listSchema },
   { name: "specialist_output_read", description: "Leer una salida con su contenido y la auditoría de sus citas (qué anclas resuelven y cuáles no).", schema: outputIdSchema },
+
+  { name: "specialist_sheet_list", description: "Listar las hojas de cálculo (artefactos tipo sheet) del proyecto con su id, título y versión. Primer paso para controlar una hoja: sin id no se puede escribir.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_list },
+  { name: "specialist_sheet_create", description: "Crear una hoja de cálculo nueva con un título, opcionalmente precargada desde rows (array de filas) o csv. Solo cuando la persona pidió una hoja o un cálculo nuevo.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_create },
+  { name: "specialist_sheet_read", description: "Leer una hoja: pestañas, tamaño y celdas de un rango con su valor crudo, su fórmula y el resultado calculado. Usarla ANTES de escribir para no pisar datos ajenos; el resultado viene limitado a 400 celdas.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_read },
+  { name: "specialist_sheet_write", description: "Escribir valores o fórmulas en celdas de una hoja existente (cells={B3:'10',D3:'=B3*C3'} o updates con {cell,value|formula,format}). Una celda que empieza con = se guarda como fórmula, nunca como número muerto. Crea una versión nueva; no hace falta Guardar desde la UI.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_write },
+  { name: "specialist_sheet_clear", description: "Limpiar celdas de una hoja, por rango o por lista de referencias A1. Borra contenido y fórmulas; no cambia el tamaño de la grilla.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_clear },
+  { name: "specialist_sheet_insert", description: "Insertar filas o columnas en una hoja en la posición 1-based indicada. Las fórmulas existentes se reescriben para seguir apuntando a las mismas celdas.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_insert },
+  { name: "specialist_sheet_delete", description: "Borrar filas o columnas de una hoja en la posición 1-based indicada. Las celdas borradas desaparecen y las fórmulas que las citan pasan a #REF!: avisalo en la respuesta.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_delete },
+  { name: "specialist_sheet_tabs", description: "Agregar, renombrar o borrar pestañas de una hoja. No se puede borrar la última pestaña; los nombres deben ser únicos.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_tabs },
+  { name: "specialist_sheet_sort", description: "Ordenar un rango por una columna, ascendente o descendente, usando los valores calculados como clave. Mueve el contenido: revisá las fórmulas del rango porque sus referencias no se reescriben.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_sort },
+  { name: "specialist_sheet_find", description: "Buscar texto o expresiones regulares en valores y fórmulas de una hoja; devuelve pestaña, celda y contenido. No reemplaza: para cambiar lo encontrado usá specialist_sheet_write.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_find },
+  { name: "specialist_sheet_export", description: "Exportar una hoja o rango a CSV (valores calculados por defecto, o fórmulas crudas con computed=false). El texto vuelve en la respuesta: guardalo con tu herramienta de archivos si hace falta un .csv.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_export },
+  { name: "specialist_sheet_import", description: "Importar filas o CSV a una hoja existente desde una celda ancla. Las celdas que empiezan con = se guardan como fórmula. Respeta el máximo de 2000 celdas por llamada.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_import },
+  { name: "specialist_sheet_format", description: "Aplicar o quitar formato de celda (number, currency, percent, date, text) en un rango o lista de celdas. El formato viaja con la hoja; el editor actual muestra el valor sin máscara visual.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_format },
+  { name: "specialist_sheet_versions", description: "Listar las versiones guardadas de una hoja o recuperar el contenido de una (action=revert con versionId). Recuperar no borra las versiones posteriores.", schema: SHEET_TOOL_SCHEMAS.specialist_sheet_versions },
+
+  { name: "specialist_doc_list", description: "Listar los documentos (artefactos tipo doc) del proyecto con id, título, formato y versión. Primer paso para controlar el visor integrado.", schema: DOC_TOOL_SCHEMAS.specialist_doc_list },
+  { name: "specialist_doc_create", description: "Crear un documento nuevo con título, contenido Markdown/MDX y formato opcional. Se abre en el visor integrado de la app, sin navegador ni iframe.", schema: DOC_TOOL_SCHEMAS.specialist_doc_create },
+  { name: "specialist_doc_read", description: "Leer un documento: líneas (con rango opcional) e índice de títulos con su número de línea. Usarla antes de escribir para no pisar contenido ajeno.", schema: DOC_TOOL_SCHEMAS.specialist_doc_read },
+  { name: "specialist_doc_write", description: "Escribir en un documento existente: replace, append, prepend o before/after un título. Cada cambio guarda una versión nueva; no hace falta Guardar desde la UI.", schema: DOC_TOOL_SCHEMAS.specialist_doc_write },
+  { name: "specialist_doc_find", description: "Buscar texto o regex en un documento; devuelve número de línea y contenido. No reemplaza: para cambiar lo encontrado usá specialist_doc_write.", schema: DOC_TOOL_SCHEMAS.specialist_doc_find },
+  { name: "specialist_doc_export", description: "Devolver el texto completo de un documento con su formato (md/mdx) para guardarlo como archivo con tu herramienta de archivos.", schema: DOC_TOOL_SCHEMAS.specialist_doc_export },
+  { name: "specialist_doc_versions", description: "Listar las versiones de un documento o recuperar una (action=revert con versionId). Recuperar no borra las versiones posteriores.", schema: DOC_TOOL_SCHEMAS.specialist_doc_versions },
+  { name: "specialist_doc_view", description: "Controlar el visor integrado de un documento: tema, zoom, ajuste de líneas, índice, formato y desplazarse a un título. El estado se guarda en el artefacto y la app lo refleja; no crea una versión de contenido.", schema: DOC_TOOL_SCHEMAS.specialist_doc_view },
 ] as const;
 
 const failedTool = (error: unknown) => ({
@@ -107,18 +134,32 @@ const failedTool = (error: unknown) => ({
 
 /** Native plugin factory: the OpenWork server owns the library; this file only bridges tool calls with the project's scoped credential. */
 export function createSpecialistLibraryPlugin(descriptorFile: string) {
-  return { id: "comex.library", async setup(context: Context) {
-    if (!context.location?.directory) return;
-    const directory = await realpath(context.location.directory);
+  // OpenCode also loads plugins installed in parent folders. A shared id made one
+  // of them win and register the wrong project's credential; give each bridge its
+  // own id and let only the scoped one register the tools.
+  const id = `comex.library.${createHash("sha256").update(descriptorFile).digest("hex").slice(0, 12)}`;
+  return { id, async setup(context: Context) {
+    // `location.directory` is the engine process's cwd (it may be a subfolder or even
+    // another project). The session's project is the authoritative scope.
+    const project = context.location?.project;
+    const scope = project?.canonical ?? project?.directory ?? context.location?.directory;
+    if (!scope) return;
+    const directory = await realpath(scope);
     const read = async () => {
       try {
         const descriptor = descriptorSchema.parse(JSON.parse(await readFile(descriptorFile, "utf8")));
-        if (descriptor.directory !== directory) throw new Error();
+        if (descriptor.directory !== directory) throw new Error(`la credencial apunta a ${descriptor.directory}, pero el proyecto es ${directory}`);
         const url = new URL(descriptor.url);
-        if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.pathname !== "/specialist-tool" || url.search || url.hash) throw new Error();
+        if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.pathname !== "/specialist-tool" || url.search || url.hash) throw new Error("la dirección del puente no es válida");
         return descriptor;
-      } catch { throw new Error("La biblioteca de la aplicación no está disponible en este proyecto. Revisa la biblioteca desde el menú de la aplicación."); }
+      } catch (error) {
+        const detail = error instanceof Error && error.message ? error.message : "sin detalle";
+        throw new Error(`La biblioteca de la aplicación no está disponible en este proyecto (${detail}). Revisa la biblioteca desde el menú de la aplicación.`);
+      }
     };
+    // A bridge for a different folder must not shadow this project's tools.
+    const scoped = await read().then(() => true, () => false);
+    if (!scoped) return;
     const registration = await context.tool.transform(editor => {
       for (const definition of TOOLS) {
         addProviderSafeTool(editor, {

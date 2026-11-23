@@ -24,7 +24,13 @@ interface ArtifactBodyProps {
 }
 
 export function ArtifactBody({ artifact, client, appId, workspaceId, onSave }: ArtifactBodyProps) {
-  if (artifact.meta.type === "doc") return <DocView content={artifact.content} />;
+  if (artifact.meta.type === "doc") return <DocView
+    content={artifact.content}
+    title={artifact.meta.title}
+    format={artifact.meta.metadata.viewer?.format}
+    viewer={artifact.meta.metadata.viewer}
+    onContentChange={(content) => void onSave?.({ content })}
+  />;
   if (artifact.meta.type === "data") {
     // Salidas `table` del mini-Studio se guardaron como `data` con filas JSON crudas;
     // el resolve de panel falla (422). Renderizamos como hoja para que sí se abra.

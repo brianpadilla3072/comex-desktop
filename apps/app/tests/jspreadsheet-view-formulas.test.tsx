@@ -168,7 +168,20 @@ async function pressEquals(view: View) {
 
 async function clickCell(view: View, x: number, y: number) {
   await act(async () => {
-    view.cell(x, y).dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    view.cell(x, y).dispatchEvent(event);
+    // Jspreadsheet moves the selection unless our reference picker swallowed the
+    // mousedown. Modeling that distinction is what makes the regressions visible.
+    if (!event.defaultPrevented) {
+      state.selection = [x, y, x, y];
+      state.onselection?.(instance, x, y);
+    }
+  });
+}
+
+async function pressBarKey(view: View, key: string) {
+  await act(async () => {
+    view.bar().dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
   });
 }
 
@@ -231,6 +244,56 @@ describe("JspreadsheetView formulas", () => {
         view.bar().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
       });
       expect(state.writes).toEqual([[0, 4, "=B3+C3"]]);
+    } finally {
+      await unmount(view);
+    }
+  });
+
+  test("after Enter, a click selects another cell instead of extending the formula", async () => {
+    resetState();
+    state.selection = [0, 4, 0, 4];
+    const view = await mount(initial);
+    try {
+      await pressEquals(view);
+      await clickCell(view, 1, 2);
+      await clickCell(view, 2, 2);
+      await pressBarKey(view, "Enter");
+      expect(state.writes).toEqual([[0, 4, "=B3+C3"]]);
+
+      // This is the reported bug: the next click was still treated as a
+      // reference and the user could never leave formula mode.
+      await clickCell(view, 5, 6);
+      expect(view.ref()).toBe("F7");
+      expect(view.bar().value).toBe("");
+      expect(state.writes).toEqual([[0, 4, "=B3+C3"]]);
+
+      // A brand-new formula can be started on the newly selected cell.
+      await pressEquals(view);
+      expect(view.ref()).toBe("F7");
+      expect(view.bar().value).toBe("=");
+      expect(document.activeElement).toBe(view.bar());
+    } finally {
+      await unmount(view);
+    }
+  });
+
+  test("Escape cancels the formula and leaves the grid ready to select", async () => {
+    resetState();
+    state.selection = [0, 4, 0, 4];
+    const view = await mount(initial);
+    try {
+      await pressEquals(view);
+      await clickCell(view, 1, 2);
+      expect(view.bar().value).toBe("=B3");
+
+      await pressBarKey(view, "Escape");
+      expect(state.writes).toHaveLength(0);
+      expect(view.bar().value).toBe("");
+
+      await clickCell(view, 2, 2);
+      expect(view.ref()).toBe("C3");
+      expect(view.bar().value).toBe("3");
+      expect(state.writes).toHaveLength(0);
     } finally {
       await unmount(view);
     }

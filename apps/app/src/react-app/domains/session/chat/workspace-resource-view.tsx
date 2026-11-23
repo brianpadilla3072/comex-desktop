@@ -15,7 +15,7 @@ import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider"
 import { openTargetFromWorkspaceFile, type OpenTarget } from "../artifacts/open-target"
 import { WorkspaceFileTree } from "../artifacts/workspace-file-tree"
 import { ArtifactPanel } from "../artifacts/artifact-panel"
-import { MarkdownPreview, MdxPreview } from "../artifacts/preview"
+import { DocView } from "../../artifacts/views/doc-view"
 import { TerminalDock } from "../terminal/terminal-dock"
 import { BrowserPanelContent } from "../panel/side-panel"
 import { getSidePanelSessionKey } from "../panel/side-panel-session"
@@ -110,9 +110,7 @@ export function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { 
     {error ? <p role="alert" className="px-4 py-2 text-sm text-destructive">{error}</p> : null}
     <div className="min-h-0 flex-1 overflow-auto">
       {viewMode === "preview"
-        ? isMdx
-          ? <MdxPreview content={tab.draft ?? ""} />
-          : <MarkdownPreview content={tab.draft ?? ""} className="max-w-[80ch]" />
+        ? <DocView content={tab.draft ?? ""} format={isMdx ? "mdx" : "md"} />
         : <Suspense fallback={<Skeleton className="m-4 h-40" />}><ArtifactTextEditor value={tab.draft ?? ""} language="markdown" onChange={draft => update({ draft })} /></Suspense>}
     </div>
   </section>

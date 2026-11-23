@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ApiError } from "../errors.js";
 import { addRoute, type RequestContext, type Route } from "../routes/registry.js";
 import { workspaceIdForPath } from "../workspaces.js";
-import { specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled } from "../comex/features.js";
+import { comexArtifactsEnabled, specialistApplicationsEnabled, specialistDatasetsEnabled, specialistLibraryEnabled, specialistPanelsEnabled, specialistSourcesEnabled, scheduledTasksEnabled, sourcesLocalFilesEnabled, studioOutputsEnabled } from "../comex/features.js";
 import {
   agentInput, contextInput, createLibraryAgent, createLibrarySkill, deleteLibraryFile, libraryFileInput,
   listSpecialistLibrary, readLibraryFile, readSpecialistContext, skillInput, writeLibraryFile, writeSpecialistContext,
@@ -19,6 +19,8 @@ import { deletePanel, listPanels, readPanelSpec, resolvePanel, writePanel } from
 import { auditOutputCitations, listOutputs, readOutput, writeOutput } from "./outputs.js";
 import { applySpecialistLibraryChange } from "./sync.js";
 import { familyLock, withFileLock } from "./file-lock.js";
+import { runSheetTool, SHEET_TOOL_NAMES, type SheetToolName } from "./sheet-tools.js";
+import { runDocTool, DOC_TOOL_NAMES, type DocToolName } from "./doc-tools.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
 import type { ServerConfig } from "../types.js";
 
@@ -27,7 +29,7 @@ const MARKER = "// Managed by Comex: specialist-library-v1\n";
 export const REVOKED_TOOL_TOKEN = "00000000000000000000000000000000";
 
 const descriptorSchema = z.object({ directory: z.string(), token: z.string().min(16), url: z.string().url() });
-const toolCallSchema = z.object({ name: z.enum([
+const BASE_TOOL_NAMES = [
   "specialist_library_list", "specialist_library_read", "specialist_library_write", "specialist_library_delete",
   "specialist_agent_create", "specialist_skill_create", "specialist_context_write", "specialist_propose",
   "specialist_task_create", "specialist_task_list", "specialist_task_pause", "specialist_task_delete",
@@ -36,7 +38,11 @@ const toolCallSchema = z.object({ name: z.enum([
   "specialist_panel_list", "specialist_panel_write", "specialist_panel_read", "specialist_panel_delete",
   "specialist_openapi_propose",
   "specialist_output_generate", "specialist_output_list", "specialist_output_read",
-]), input: z.record(z.string(), z.unknown()) });
+] as const;
+const toolCallSchema = z.object({
+  name: z.enum([...BASE_TOOL_NAMES, ...SHEET_TOOL_NAMES, ...DOC_TOOL_NAMES]),
+  input: z.record(z.string(), z.unknown()),
+});
 
 const toolDirectory = (config: Pick<ServerConfig, "configPath">) => join(specialistDirectory(config), "tool");
 
@@ -83,7 +89,7 @@ async function syncLibraryToolPluginUnlocked(config: Pick<ServerConfig, "configP
   const canonical = resolve(directory);
   const existing = await readDescriptor(config, canonical);
   const target = existing?.file ?? join(toolDirectory(config), createHash("sha256").update(canonical).digest("hex") + ".json");
-  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled() && !specialistPanelsEnabled() && !studioOutputsEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
+  if (!app || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled() && !specialistPanelsEnabled() && !studioOutputsEnabled() && !comexArtifactsEnabled()) || !store.projectsFor(app.id).some(project => project.workspaceId === workspaceId)) {
     if (existing) await writeDescriptor(target, { directory: canonical, token: REVOKED_TOOL_TOKEN, url: `http://127.0.0.1:${config.port}/specialist-tool` }).catch(() => undefined);
     return;
   }
@@ -155,6 +161,10 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
     if (!specialistPanelsEnabled()) throw new ApiError(409, "specialist_panels_disabled", "Los paneles están desactivados en este server.");
   } else if (name.startsWith("specialist_output_")) {
     if (!studioOutputsEnabled()) throw new ApiError(409, "studio_outputs_disabled", "Las salidas del mini-Studio están desactivadas en este server.");
+  } else if (name.startsWith("specialist_sheet_")) {
+    // Sheets are artifact-backed; they stay available whenever artifacts are,
+    // even if the library or the mini-Studio families are switched off.
+    if (!comexArtifactsEnabled()) throw new ApiError(409, "artifacts_disabled", "Los artefactos (y por lo tanto las hojas de cálculo) están desactivados en este server.");
   } else if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
   switch (name) {
     case "specialist_library_list": {
@@ -349,7 +359,11 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const audit = await auditOutputCitations(directory, id);
       return { output: meta, content: content.slice(0, 60_000), truncated: content.length > 60_000, audit };
     }
-    default: throw new ApiError(404, "library_tool_unknown", "Esa herramienta de biblioteca no existe.");
+    default: {
+      if (name.startsWith("specialist_sheet_")) return runSheetTool(directory, name as SheetToolName, input);
+      if (name.startsWith("specialist_doc_")) return runDocTool(directory, name as DocToolName, input);
+      throw new ApiError(404, "library_tool_unknown", "Esa herramienta de biblioteca no existe.");
+    }
   }
 }
 
@@ -361,7 +375,7 @@ export function registerSpecialistToolRoutes(options: {
 }) {
   const { routes, config, readJsonBody, jsonResponse } = options;
   addRoute(routes, "POST", "/specialist-tool", "none", async (ctx: RequestContext) => {
-    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled() && !specialistPanelsEnabled() && !studioOutputsEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
+    if (!specialistApplicationsEnabled() || (!specialistLibraryEnabled() && !scheduledTasksEnabled() && !specialistDatasetsEnabled() && !specialistSourcesEnabled() && !specialistPanelsEnabled() && !studioOutputsEnabled() && !comexArtifactsEnabled())) throw new ApiError(404, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
     const bearer = ctx.request.headers.get("authorization") ?? "";
     const token = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
     if (token.length < 16) throw new ApiError(401, "library_tool_unauthorized", "Falta la credencial de la biblioteca.");

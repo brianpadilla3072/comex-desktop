@@ -197,7 +197,11 @@ function serializeSheets(
   const next = sheets.map((sheet, index) => {
     const instance = instances[index];
     const size = dimensions[index] ?? { rows: INITIAL_ROWS, cols: INITIAL_COLUMNS };
-    const cells: Record<string, { value: string; formula?: string }> = {};
+    const cells: Record<string, { value: string; formula?: string; format?: string }> = {};
+    // Number formats set by the agent's sheet tools are part of the artifact;
+    // Jspreadsheet does not render them, but dropping them on every UI save
+    // would silently undo the agent's work.
+    const formats = new Map(Object.entries(sheet.cells ?? {}).map(([ref, cell]) => [ref.toUpperCase(), cell.format]));
     // `processed: true` returns the rendered result ("20"). We need the raw cell
     // value ("=B3*C3") or a saved formula comes back as a dead number on reload.
     const data = instance?.getData(false, false) ?? [];
@@ -206,8 +210,9 @@ function serializeSheets(
         const value = raw === null || raw === undefined ? "" : String(raw);
         if (!value) return;
         const ref = `${columnLabel(colIndex)}${rowIndex + 1}`;
-        if (value.startsWith("=")) cells[ref] = { value: "", formula: value };
-        else cells[ref] = { value };
+        const format = formats.get(ref);
+        if (value.startsWith("=")) cells[ref] = { value: "", formula: value, ...(format ? { format } : {}) };
+        else cells[ref] = { value, ...(format ? { format } : {}) };
       });
     });
     return { ...sheet, cells, rows: size.rows, cols: size.cols };
@@ -242,12 +247,15 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
   const syncFormulaRef = useRef<(instance: WorksheetInstance, x: number, y: number) => void>(() => undefined);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const formulaInputRef = useRef<HTMLInputElement | null>(null);
-  const formulaFocusedRef = useRef(false);
+  // Single source of truth for "grid clicks insert references". Focus alone was
+  // not enough: after Enter the input could still be considered focused, so the
+  // next click was swallowed instead of selecting another cell.
+  const formulaModeRef = useRef(false);
+  const formulaOriginalRef = useRef("");
+  const finishFormulaRef = useRef<(commit: boolean) => void>(() => undefined);
 
   const [activeCell, setActiveCell] = useState("A1");
   const [formula, setFormula] = useState("");
-  const formulaRef = useRef(formula);
-  formulaRef.current = formula;
   const [formulaSlot, setFormulaSlot] = useState<HTMLElement | null>(null);
   const [tabsSlot, setTabsSlot] = useState<HTMLElement | null>(null);
   const [sheetTabs, setSheetTabs] = useState<Array<{ index: number; name: string; active: boolean }>>([]);
@@ -450,6 +458,9 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       selectionRef.current = { instance, x, y };
       setActiveCell(`${columnLabel(x)}${y + 1}`);
       setShowFormulaBar(true);
+      const original = instance.getValueFromCoords(x, y, false);
+      formulaOriginalRef.current = original === null || original === undefined ? "" : String(original);
+      formulaModeRef.current = true;
       setFormula("=");
       event.preventDefault();
       event.stopPropagation();
@@ -459,7 +470,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     // While the bar holds a formula under construction, a click on the grid must
     // add that cell's reference instead of moving the anchor to another cell.
     const onGridMouseDown = (event: MouseEvent) => {
-      if (!formulaFocusedRef.current || !formulaRef.current.startsWith("=")) return;
+      if (!formulaModeRef.current) return;
       const reference = referenceAt(event);
       if (!reference) return;
       event.preventDefault();
@@ -467,6 +478,17 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       setFormula(current => appendReference(current, reference));
       formulaInputRef.current?.focus();
     };
+
+    // The artifact panel handles Escape in its own capture phase, above this
+    // component. Intercept first: Escape should cancel the formula, not close
+    // the sheet (which would also discard the cell being edited).
+    const onFormulaEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !formulaModeRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      finishFormulaRef.current(false);
+    };
+    window.addEventListener("keydown", onFormulaEscape, true);
 
     root.addEventListener("keydown", onGridKeyDown, true);
     root.addEventListener("mousedown", onGridMouseDown, true);
@@ -660,6 +682,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       tabSlot.remove();
       // Jspreadsheet mutates the root element with a `spreadsheet` property at
       // runtime; its typings do not model that on the element passed to jspreadsheet().
+      window.removeEventListener("keydown", onFormulaEscape, true);
       root.removeEventListener("keydown", onGridKeyDown, true);
       root.removeEventListener("mousedown", onGridMouseDown, true);
       jspreadsheet.destroy(root as unknown as Parameters<typeof jspreadsheet.destroy>[0]);
@@ -789,11 +812,26 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     setPromptValue("");
   };
 
-  const commitFormula = () => {
+  /** Leave formula-building mode exactly once, either writing the bar or
+   *  restoring the original cell value. Clearing the mode FIRST is what lets the
+   *  next click select another cell instead of appending another reference. */
+  const finishFormula = (commit: boolean) => {
+    if (!formulaModeRef.current) return;
+    formulaModeRef.current = false;
     const selected = selectionRef.current;
-    if (!selected) return;
-    selected.instance.setValueFromCoords(selected.x, selected.y, formula);
+    if (commit && selected) {
+      selected.instance.setValueFromCoords(selected.x, selected.y, formula);
+      // Clicks were intercepted while building, so jspreadsheet never moved its
+      // selection. Reassert the anchor to close any pending editor state; the
+      // following click then behaves like an ordinary selection.
+      selected.instance.updateSelectionFromCoords?.(selected.x, selected.y);
+    } else if (!commit) {
+      setFormula(formulaOriginalRef.current);
+    }
+    const input = formulaInputRef.current;
+    if (input && document.activeElement === input) input.blur();
   };
+  finishFormulaRef.current = finishFormula;
 
   const commitName = () => {
     const next = displayName.trim();
@@ -885,14 +923,15 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
           aria-label={`Valor de ${activeCell}`}
           value={formula}
           onChange={(event) => setFormula(event.target.value)}
-          onFocus={() => { formulaFocusedRef.current = true; }}
-          onBlur={() => { formulaFocusedRef.current = false; commitFormula(); }}
+          onBlur={() => finishFormula(true)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              // `onBlur` is the single commit path; calling both wrote the cell twice.
-              event.currentTarget.blur();
+              event.stopPropagation();
+              finishFormula(true);
             }
+            // Escape is handled by `onFormulaEscape` in window capture, before
+            // the artifact panel's own Escape handler can close the sheet.
           }}
         />
       </div>,
