@@ -359,6 +359,159 @@ function installAgentPointer() {
   window.addEventListener("pagehide", () => { clearTimeout(pulse); hide(); });
 }
 
+// Person picks a page element with a pointer: highlight it, take a short
+// comment, and hand both to the host. Lives in Electron's isolated world, so
+// website scripts cannot read the input, forge a pick, or turn the outline off.
+function installElementPicker() {
+  let active = false;
+  /** @type {HTMLElement | null} */
+  let host = null, outline = null, label = null, form = null, input = null;
+  /** @type {Element | null} */
+  let hovered = null, picked = null;
+
+  function cssEscape(value) {
+    return typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(value) : String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+  }
+  function cssPath(element) {
+    const parts = [];
+    let node = element;
+    while (node && node.nodeType === 1 && parts.length < 8) {
+      let part = node.tagName.toLowerCase();
+      if (node.id) {
+        part += `#${cssEscape(node.id)}`;
+        parts.unshift(part);
+        break;
+      }
+      const parent = node.parentElement;
+      if (parent) {
+        const siblings = Array.from(parent.children).filter(candidate => candidate.tagName === node.tagName);
+        if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+      }
+      parts.unshift(part);
+      node = parent;
+    }
+    return parts.join(" > ");
+  }
+  function describe(element) {
+    return {
+      tag: element.tagName.toLowerCase().slice(0, 40),
+      id: (element.id || "").slice(0, 120),
+      className: (typeof element.className === "string" ? element.className : "").trim().slice(0, 200),
+      text: String(element.innerText || element.textContent || element.getAttribute("aria-label") || element.getAttribute("placeholder") || "")
+        .replace(/\s+/g, " ").trim().slice(0, 300),
+      selector: cssPath(element).slice(0, 600),
+    };
+  }
+  function shortLabel(element) {
+    const detail = element.id ? `#${element.id}` : (typeof element.className === "string" && element.className.trim() ? `.${element.className.trim().split(/\s+/)[0]}` : "");
+    return `${element.tagName.toLowerCase()}${detail}`.slice(0, 60);
+  }
+  function mount() {
+    if (host?.isConnected) return;
+    host = document.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.setAttribute("data-comex-element-picker", "");
+    host.style.cssText = "position:fixed;inset:0;z-index:2147483647;pointer-events:none;";
+    const shadow = host.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent = "*{box-sizing:border-box}#outline{position:absolute;display:none;border:2px solid #2563eb;background:rgba(37,99,235,.10);border-radius:3px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.75) inset}#label{position:absolute;display:none;padding:2px 6px;border-radius:4px;background:#2563eb;color:#fff;font:11px/1.4 system-ui,sans-serif;white-space:nowrap;pointer-events:none}#form{position:absolute;display:none;flex-direction:column;gap:6px;width:264px;padding:10px;border-radius:8px;background:#fff;color:#0f172a;border:1px solid #dbe3ef;box-shadow:0 8px 24px rgba(0,0,0,.24);pointer-events:auto}#form input{width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font:12px/1.4 system-ui;color:#0f172a;outline:none}#form input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.16)}#hint{font:11px/1.4 system-ui;color:#475569}";
+    outline = document.createElement("div"); outline.id = "outline";
+    label = document.createElement("div"); label.id = "label";
+    form = document.createElement("form"); form.id = "form";
+    input = document.createElement("input");
+    input.placeholder = "Comentario (Enter para agregar)";
+    input.setAttribute("aria-label", "Comentario sobre el elemento");
+    const hint = document.createElement("div"); hint.id = "hint"; hint.textContent = "Enter: agregar al chat · Esc: cancelar";
+    form.append(input, hint);
+    form.addEventListener("submit", event => { event.preventDefault(); commit(); });
+    shadow.append(style, outline, label, form);
+    (document.documentElement ?? document).append(host);
+  }
+  function clearHover() {
+    hovered = null;
+    if (outline) outline.style.display = "none";
+    if (label) label.style.display = "none";
+  }
+  function showHover(element) {
+    if (!element?.isConnected || element.nodeType !== 1 || !element.getBoundingClientRect) return clearHover();
+    mount();
+    const rect = element.getBoundingClientRect();
+    if (!rect.width && !rect.height) return clearHover();
+    outline.style.display = "block";
+    outline.style.left = `${rect.left}px`;
+    outline.style.top = `${rect.top}px`;
+    outline.style.width = `${rect.width}px`;
+    outline.style.height = `${rect.height}px`;
+    label.style.display = "block";
+    label.style.left = `${Math.max(0, Math.min(rect.left, window.innerWidth - 120))}px`;
+    label.style.top = `${Math.max(0, rect.top - 20)}px`;
+    label.textContent = shortLabel(element);
+    hovered = element;
+  }
+  function closeForm() {
+    picked = null;
+    if (form) form.style.display = "none";
+  }
+  function commit() {
+    if (!picked || !picked.isConnected) return closeForm();
+    ipcRenderer?.send("openwork:browser:element-picked", {
+      ...describe(picked),
+      comment: (input?.value || "").trim().slice(0, 2000),
+    });
+    closeForm();
+    clearHover();
+  }
+  function fromPointer(event) {
+    if (event.composedPath?.().includes(host)) return null;
+    const target = event.target;
+    return target instanceof Element ? target : document.elementFromPoint(event.clientX, event.clientY);
+  }
+  function onMove(event) {
+    if (!active || !event.isTrusted || form?.style.display === "flex") return;
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    if (!element || element === document.documentElement || element === document.body) return clearHover();
+    showHover(element);
+  }
+  function onDown(event) {
+    if (!active || !event.isTrusted) return;
+    const element = fromPointer(event);
+    if (!element || element === document.documentElement || element === document.body) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    picked = element;
+    showHover(element);
+    mount();
+    const rect = element.getBoundingClientRect();
+    form.style.display = "flex";
+    form.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 280))}px`;
+    form.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 110))}px`;
+    input.value = "";
+    input.focus();
+  }
+  function onKey(event) {
+    if (!active || !event.isTrusted || event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (form?.style.display === "flex") { closeForm(); return; }
+    ipcRenderer?.send("openwork:browser:element-selector-exit");
+  }
+  function setState(value) {
+    active = value?.active === true;
+    if (active) return;
+    clearHover();
+    closeForm();
+    host?.remove();
+    host = null;
+  }
+  ipcRenderer?.on("openwork:browser:element-selector-state", (_event, value) => setState(value));
+  ipcRenderer?.invoke("openwork:browser:element-selector-state").then(setState).catch(() => {});
+  window.addEventListener("pointermove", onMove, { capture: true, passive: true });
+  window.addEventListener("pointerdown", onDown, { capture: true });
+  window.addEventListener("keydown", onKey, { capture: true });
+  window.addEventListener("blur", clearHover);
+  window.addEventListener("pagehide", () => { setState({ active: false }); });
+}
+
 function installToolChangeRelay() {
   let timer = null;
   window.addEventListener("openwork:webmcp-tools-changed", () => {
@@ -372,6 +525,7 @@ function installToolChangeRelay() {
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   installAgentPointer();
+  installElementPicker();
   // This listener and its DOM wrappers live only in Electron's isolated world.
   // Main-world overrides cannot alter these reads or send IPC replies. The only
   // page-facing method below requests a check; it never forwards caller data.

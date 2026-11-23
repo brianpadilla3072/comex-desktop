@@ -5,12 +5,10 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 const ownsDom = !GlobalRegistrator.isRegistered;
 if (ownsDom) GlobalRegistrator.register({ url: "http://localhost/" });
 
-let viewerEnabled = false;
 const actualConfig = await import("../src/react-app/domains/cloud/desktop-config-provider.tsx?actual");
 const actualPreview = await import("../src/react-app/domains/session/artifacts/preview.tsx?actual");
 mock.module("../src/react-app/domains/cloud/desktop-config-provider", () => ({
   ...actualConfig,
-  useChatPageMdMdxViewerEnabled: () => viewerEnabled,
   useComexWorkspaceEnabled: () => false,
 }));
 mock.module("../src/react-app/domains/session/artifacts/preview", () => ({
@@ -34,7 +32,6 @@ let tabId: string;
 
 beforeEach(async () => {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  viewerEnabled = false;
   useWorkspaceResources.setState({ workspaces: {} });
   scope = resourceScope("http://localhost:1", "workspace", "account");
   tabId = useWorkspaceResources.getState().open(scope, "page");
@@ -58,15 +55,14 @@ async function render() {
 
 const button = (label: string) => Array.from(host.querySelectorAll("button")).find(item => item.textContent?.includes(label));
 
-test("sin el flag la página sigue siendo solo el editor", async () => {
+test("la página muestra siempre el toggle y arranca en el editor", async () => {
   await render();
-  expect(button("Vista previa")).toBeUndefined();
+  expect(button("Vista previa")).toBeDefined();
   expect(host.querySelector("[data-editor]")?.textContent).toBe("# Hola **mundo**");
   expect(host.querySelector("[data-preview]")).toBeNull();
 });
 
-test("con el flag, la vista previa renderiza Markdown y MDX y permite volver a editar", async () => {
-  viewerEnabled = true;
+test("la vista previa renderiza Markdown y MDX y permite volver a editar", async () => {
   await render();
   const preview = button("Vista previa")!;
   expect(preview).toBeDefined();

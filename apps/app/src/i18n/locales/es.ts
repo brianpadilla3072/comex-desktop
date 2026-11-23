@@ -3163,6 +3163,8 @@ export default {
   "session_ui.reload_page": "Volver a cargar la página",
   "session_ui.reload": "Volver a cargar",
   "session_ui.enter_url": "Escribe una URL...",
+  "session_ui.select_element": "Seleccionar elemento de la página",
+  "session_ui.select_element_hint": "Resalta un elemento, haz clic, escribe un comentario y agrégalo al chat",
   "session_ui.site_tools_available_one": "1 herramienta del sitio disponible; revisa las herramientas del sitio y su actividad",
   "session_ui.site_tools_available_other": "{count} herramientas del sitio disponibles; revisa las herramientas del sitio y su actividad",
   "session_ui.site_tools_count_one": "1 herramienta",

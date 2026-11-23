@@ -374,6 +374,17 @@ contextBridge.exposeInMainWorld("__OPENWORK_ELECTRON__", {
       ipcRenderer.on("openwork:browser:add-comment", handler);
       return () => ipcRenderer.removeListener("openwork:browser:add-comment", handler);
     },
+    setElementSelector(active) { return ipcRenderer.invoke("openwork:browser:setElementSelector", active); },
+    onElementPicked(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("openwork:browser:element-picked", handler);
+      return () => ipcRenderer.removeListener("openwork:browser:element-picked", handler);
+    },
+    onElementSelectorExit(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("openwork:browser:element-selector-exit", handler);
+      return () => ipcRenderer.removeListener("openwork:browser:element-selector-exit", handler);
+    },
   },
   // Development-only observation of native popup menus; main registers no handler otherwise.
   ...(process.env.OPENWORK_DEV_MODE === "1" ? {

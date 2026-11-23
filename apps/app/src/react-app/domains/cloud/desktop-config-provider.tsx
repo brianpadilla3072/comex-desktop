@@ -64,7 +64,6 @@ export type DesktopConfigStore = {
   agentActivityMap?: boolean;
   comexWorkspace?: boolean;
   comexModelGuide?: boolean;
-  chatPageMdMdxViewer?: boolean;
   config: DenDesktopConfig;
   loading: boolean;
   freshConfigStatus: "pending" | "ready" | "failed";
@@ -285,21 +284,19 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
   const denAuth = useDenAuth();
   const [comexModelGuide, setComexModelGuide] = useState(false);
   const [comexWorkspace, setComexWorkspace] = useState(false);
-  const [chatPageMdMdxViewer, setChatPageMdMdxViewer] = useState(false);
   useEffect(() => {
     let active = true;
     const update = async () => {
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) { setComexWorkspace(false); setComexModelGuide(false); setChatPageMdMdxViewer(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); }
+          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
         if (active) {
           setComexWorkspace(feature.enabled);
           setComexModelGuide(feature.comexModelGuide === true);
-          setChatPageMdMdxViewer(feature.chatPageMdMdxViewer === true);
           setConversationNavigator(feature.conversationNavigator === true);
           setAgentActivityMap(feature.agentActivityMap === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
@@ -317,7 +314,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           // chose a language. Reload once so every screen switches together.
           if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();
         }
-      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setChatPageMdMdxViewer(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); } }
+      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);
@@ -681,7 +678,6 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       config,
       comexWorkspace,
       comexModelGuide,
-      chatPageMdMdxViewer,
       conversationNavigator,
       agentActivityMap,
       freshConfigStatus,
@@ -691,7 +687,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       checkRestriction,
       connectPolicySync,
     };
-  }, [checkRestriction, config, comexWorkspace, comexModelGuide, chatPageMdMdxViewer, conversationNavigator, agentActivityMap, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
+  }, [checkRestriction, config, comexWorkspace, comexModelGuide, conversationNavigator, agentActivityMap, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
 
   return (
     <DesktopConfigContext.Provider value={value}>
@@ -754,7 +750,3 @@ export function useComexModelGuideEnabled(): boolean {
   return use(DesktopConfigContext)?.comexModelGuide === true;
 }
 
-/** Chat pages can preview .md as Markdown and .mdx as live MDX. */
-export function useChatPageMdMdxViewerEnabled(): boolean {
-  return use(DesktopConfigContext)?.chatPageMdMdxViewer === true;
-}

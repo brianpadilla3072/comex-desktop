@@ -8,12 +8,6 @@ export function comexWorkspaceEnabled(env: NodeJS.ProcessEnv = process.env): boo
   return resolveFeature("comexWorkspace", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
-/** Chat pages render .md as Markdown and .mdx as live MDX in a preview toggle. */
-export function chatPageMdMdxViewerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const context = parseFeatureEnvironment(env);
-  if (context.problems.some(problem => problem.fatal)) return false;
-  return resolveFeature("chatPageMdMdxViewer", { ...context, rollouts: {}, overrides: {} }).enabled;
-}
 
 /** Operator-controlled boolean, off by default in the Comex distribution. */
 export function openworkPromotionsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

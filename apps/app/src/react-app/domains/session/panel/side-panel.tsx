@@ -12,6 +12,7 @@ import {
   Loader2,
   MessagesSquare,
   Maximize2,
+  MousePointer2,
   PanelRight,
   PictureInPicture2,
   ShieldOff,
@@ -242,6 +243,7 @@ export function BrowserPanelContent({
   presentation,
 }: BrowserPanelContentProps) {
   const isAvailable = Boolean(getElectronBrowser());
+  const [elementPickerActive, setElementPickerActive] = React.useState(false);
   const suspended = tab.status === "suspended";
   const busy = tab.status === "suspending" || tab.status === "restoring";
   const pageFailure = tab.loadError?.code === "page_load_failed" ? tab.loadError : null;
@@ -261,6 +263,24 @@ export function BrowserPanelContent({
       setUrlInput(tab.url);
     }
   }, [tab.id, tab.url]);
+
+  // The picker is per browser tab in the host. Escape inside the page and a tab
+  // switch both bring this button back to its resting state.
+  React.useEffect(() => {
+    setElementPickerActive(false);
+    if (!isAvailable) return;
+    const browser = getElectronBrowser();
+    const offExit = browser?.onElementSelectorExit?.(payload => {
+      if (!payload?.sessionId || payload.sessionId === sessionId) setElementPickerActive(false);
+    });
+    return () => { offExit?.(); void browser?.setElementSelector?.(false); };
+  }, [isAvailable, sessionId, tab.id]);
+
+  const toggleElementPicker = React.useCallback(() => {
+    const next = !elementPickerActive;
+    const pending = getElectronBrowser()?.setElementSelector?.(next);
+    void pending?.then(active => { if (typeof active === "boolean") setElementPickerActive(active); }).catch(() => {});
+  }, [elementPickerActive]);
 
   const navigate = React.useCallback(() => {
     void getElectronBrowser()?.navigate?.(urlInput).catch((error: unknown) => {
@@ -443,6 +463,24 @@ export function BrowserPanelContent({
                 )}
               />
               <TooltipContent>{t("session_ui.reload")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={(
+                  <Button
+                    type="button"
+                    variant={elementPickerActive ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    aria-pressed={elementPickerActive}
+                    aria-label={t("session_ui.select_element")}
+                    data-testid="browser-element-picker"
+                    onClick={toggleElementPicker}
+                  >
+                    <MousePointer2 />
+                  </Button>
+                )}
+              />
+              <TooltipContent>{t("session_ui.select_element_hint")}</TooltipContent>
             </Tooltip>
             <InputGroup className="mx-1 h-7 flex-1 rounded-md">
               <InputGroupInput

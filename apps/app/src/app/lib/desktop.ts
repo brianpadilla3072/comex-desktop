@@ -57,6 +57,19 @@ import type {
 import type { ComputerRequest } from "@openwork/types/desktop-ipc";
 export type { BrowserStatePayload } from "@openwork/browser-tabs";
 
+/** A page element picked with the built-in browser's element selector. */
+export type BrowserPickedElement = {
+  sessionId: string | null;
+  url: string;
+  title: string;
+  tag: string;
+  id: string;
+  className: string;
+  text: string;
+  selector: string;
+  comment: string;
+};
+
 export type BrowserPresentationMode = "hidden" | "floating" | "side" | "fullscreen";
 
 export type BrowserProxyState = {
@@ -247,6 +260,10 @@ declare global {
         onPanelClosed?: (callback: (payload?: BrowserPanelOwnerPayload) => void) => () => void;
         /** Escape was pressed inside the page of a conversation shown full screen. */
         onPresentationExit?: (callback: (payload: { sessionId: string | null; tabId: string }) => void) => () => void;
+        /** Turn the element picker on or off for the visible browser tab. */
+        setElementSelector?: (active: boolean) => Promise<boolean>;
+        onElementPicked?: (callback: (payload: BrowserPickedElement) => void) => () => void;
+        onElementSelectorExit?: (callback: (payload: { sessionId: string | null }) => void) => () => void;
       };
       terminal?: {
         create?: (options: { cwd: string; cols: number; rows: number }) => Promise<{ terminalId: string }>;

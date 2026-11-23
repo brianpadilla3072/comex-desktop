@@ -62,7 +62,6 @@ config:
     studioOutputs: ""             # default on · Turn one dataset or set of sources into many digestions (mindmap, report, flashcards, quiz, table) stored as workspace files under comex/salidas/, with citation audits that fail loud.
     openworkPromotions: ""        # default off · Show optional OpenWork Cloud sign-in invitations, hosted model promotions and community links. Off keeps Comex local without promotional surfaces.
     comexWorkspace: ""            # default on · Local Word previews, project memory and the Comex research pack.
-    chatPageMdMdxViewer: ""       # default off · Chat pages get a preview toggle that renders .md as Markdown and .mdx as live MDX, alongside the editor.
     googleCalendarRecurrence: ""  # default off · Create and change recurring meeting series through the native Google Calendar capabilities.
     googleDrivePdfText: ""        # default off · Agents read the text of PDFs in Google Drive, up to 50 MB, instead of being told the file is too large.
     autoRouter: ""                # default off (cloud only) · Admins create Smart Routers for everyone, teams or people, listing AI Gateway models and the tasks each handles. Members pick "Smart: <name>": each prompt goes to the model whose tasks fit it best, at the thinking level it needs.

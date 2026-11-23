@@ -3226,6 +3226,30 @@ export function SessionSurface(props: SessionSurfaceProps) {
     return () => { offAdd(); offComment(); };
   }, []);
 
+  // Browser element selector: the picked element plus its comment become one
+  // pasted-text chip, so the person can keep writing in the composer.
+  useEffect(() => {
+    const browser = (window as any).__OPENWORK_ELECTRON__?.browser;
+    if (typeof browser?.onElementPicked !== "function") return;
+    const off = browser.onElementPicked((payload: any) => {
+      if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+      const url = typeof payload?.url === "string" ? payload.url : "";
+      const text = typeof payload?.text === "string" ? payload.text : "";
+      const selector = typeof payload?.selector === "string" ? payload.selector : "";
+      const tag = typeof payload?.tag === "string" ? payload.tag : "elemento";
+      const id = typeof payload?.id === "string" ? payload.id : "";
+      const className = typeof payload?.className === "string" ? payload.className.trim() : "";
+      const comment = typeof payload?.comment === "string" ? payload.comment : "";
+      const detail = [tag, id ? `#${id}` : "", className ? `.${className.split(/\s+/).join(".")}` : ""].join("");
+      const label = text || detail;
+      const lines = [`Elemento de ${url || "la página"}:`, `> ${label}`];
+      if (selector) lines.push("", "Selector:", selector);
+      lines.push("", `Comentario: ${comment}`);
+      handlePasteTextRef.current?.(lines.join("\n"));
+    });
+    return () => { off?.(); };
+  }, []);
+
   const handleExpandPastedText = useCallback((id: string) => {
     const part = pasteParts.find((item) => item.id === id);
     if (!part) return;

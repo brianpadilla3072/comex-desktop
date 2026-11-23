@@ -421,16 +421,6 @@
               ],
               "description": "Comex workspace: Local Word previews, project memory and the Comex research pack. Renders DEN_FEATURE_COMEX_WORKSPACE."
             },
-            "chatPageMdMdxViewer": {
-              "enum": [
-                "",
-                "true",
-                "false",
-                true,
-                false
-              ],
-              "description": "Chat page Markdown/MDX viewer: Chat pages get a preview toggle that renders .md as Markdown and .mdx as live MDX, alongside the editor. Renders DEN_FEATURE_CHAT_PAGE_MD_MDX_VIEWER."
-            },
             "googleCalendarRecurrence": {
               "enum": [
                 "",

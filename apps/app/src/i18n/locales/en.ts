@@ -3138,6 +3138,8 @@ export default {
   "session_ui.reload_page": "Reload page",
   "session_ui.reload": "Reload",
   "session_ui.enter_url": "Enter URL...",
+  "session_ui.select_element": "Select a page element",
+  "session_ui.select_element_hint": "Highlight an element, click it, write a comment and add it to the chat",
   "session_ui.site_tools_available_one": "1 site tool available; inspect site tools and activity",
   "session_ui.site_tools_available_other": "{count} site tools available; inspect site tools and activity",
   "session_ui.site_tools_count_one": "1 tool",

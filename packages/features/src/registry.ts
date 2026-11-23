@@ -500,17 +500,6 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
-  chatPageMdMdxViewer: {
-    label: "Chat page Markdown/MDX viewer",
-    description: "Chat pages get a preview toggle that renders .md as Markdown and .mdx as live MDX, alongside the editor.",
-    category: "workbot",
-    added: "2026-11-22",
-    since: "2026-11",
-    author: "brianpadilla3072",
-    docs: "docs/features/chat-page-md-mdx-viewer/README.md",
-    deployments: ["self_hosted"],
-    default: false,
-  },
   googleCalendarRecurrence: {
     label: "Google Calendar recurring meetings",
     description: "Create and change recurring meeting series through the native Google Calendar capabilities.",

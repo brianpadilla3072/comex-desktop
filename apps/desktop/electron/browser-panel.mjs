@@ -63,6 +63,21 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       try { frame.send("openwork:browser:pointer-state", pointerState(tab)); } catch {}
     }
   }
+  // The picker is per tab. A new document gets its state on dom-ready; no
+  // preference is stored in the page.
+  function sendElementSelectorState(tab) {
+    if (tab.view.webContents.isDestroyed()) return;
+    for (const frame of tab.view.webContents.mainFrame.framesInSubtree) {
+      try { frame.send("openwork:browser:element-selector-state", { active: tab.elementPickerActive === true }); } catch {}
+    }
+  }
+  // Agent input must never be swallowed by the person's pick overlay.
+  function deactivateElementPicker(tab) {
+    if (!tab.elementPickerActive) return;
+    tab.elementPickerActive = false;
+    sendElementSelectorState(tab);
+    sendToRenderer("openwork:browser:element-selector-exit", { sessionId: registry.ownerOf(tab.tabId) ?? null });
+  }
   // The member's agent permission rules for websites, from their desktop
   // config. They apply to every page, frame and request the built-in browser
   // makes, whoever opens it, as the engines apply them to the agent's web fetches.
@@ -1063,6 +1078,8 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       finishSuspension: null,
       webMcpRevision: 0,
       documentGeneration: 0,
+      // Whether the person turned on the element picker for this tab.
+      elementPickerActive: false,
       /** @type {import("@openwork/browser-tabs").BrowserPanelTab["loadError"]} */
       loadError: null,
       /** What the page requested since it opened (origin and path), for checking it against new website rules. */
@@ -1092,6 +1109,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       // Updates skipped while the renderer was gone may have left emulation
       // from the background or the agent on this foreground tab.
       else if (view.webContents.debugger.isAttached()) clearLeftoverEmulation(tab);
+      sendElementSelectorState(tab);
     };
     view.webContents.once("dom-ready", onDomReady);
     // A dead renderer leaves the contents alive (not destroyed) but without a
@@ -1456,6 +1474,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
    * than failing the agent's operation.
    */
   function lockAgentViewport(tab) {
+    deactivateElementPicker(tab);
     if (tab.agentViewport !== agentViewportKey) {
       tab.agentViewport = agentViewportKey;
       sendPointerState(tab);
@@ -2292,6 +2311,53 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
     ipcMain.handle("openwork:browser:pointer-state", event => {
       const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
       return tab && event.senderFrame ? pointerState(tab) : { enabled: false, active: false };
+    });
+    ipcMain.handle("openwork:browser:element-selector-state", event => {
+      const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
+      return { active: !!(tab && tab.elementPickerActive) };
+    });
+    ipcMain.handle("openwork:browser:setElementSelector", (event, active) => {
+      if (!isMainRenderer(event)) return false;
+      const tab = getBrowserTab();
+      if (!tab) return false;
+      // Only the tab the person is looking at may keep a picker overlay.
+      for (const other of browserTabs.values()) {
+        if (other !== tab && other.elementPickerActive) {
+          other.elementPickerActive = false;
+          sendElementSelectorState(other);
+        }
+      }
+      tab.elementPickerActive = active === true;
+      sendElementSelectorState(tab);
+      return tab.elementPickerActive;
+    });
+    function pickedElementFromPage(event, payload) {
+      const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
+      if (!tab || !tab.elementPickerActive) return null;
+      if (!payload || typeof payload !== "object") return null;
+      const field = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
+      return {
+        sessionId: registry.ownerOf(tab.tabId) ?? null,
+        url: tab.view.webContents.getURL(),
+        title: tab.view.webContents.getTitle(),
+        tag: field(payload.tag, 40),
+        id: field(payload.id, 120),
+        className: field(payload.className, 200),
+        text: field(payload.text, 300),
+        selector: field(payload.selector, 600),
+        comment: field(payload.comment, 2000),
+      };
+    }
+    ipcMain.on("openwork:browser:element-picked", (event, payload) => {
+      const picked = pickedElementFromPage(event, payload);
+      if (picked) sendToRenderer("openwork:browser:element-picked", picked);
+    });
+    ipcMain.on("openwork:browser:element-selector-exit", (event) => {
+      const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
+      if (!tab) return;
+      tab.elementPickerActive = false;
+      sendElementSelectorState(tab);
+      sendToRenderer("openwork:browser:element-selector-exit", { sessionId: registry.ownerOf(tab.tabId) ?? null });
     });
     ipcMain.handle("openwork:browser:setProxy", (_event, proxy) => setBrowserProxy(proxy));
     // The app says when the member's rules may have changed. It can only make
