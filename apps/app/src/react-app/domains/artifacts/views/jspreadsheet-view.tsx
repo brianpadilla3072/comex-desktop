@@ -313,6 +313,11 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       // Jspreadsheet mutates the root element with a `spreadsheet` property at
       // runtime; its typings do not model that on the element passed to jspreadsheet().
       jspreadsheet.destroy(root as unknown as Parameters<typeof jspreadsheet.destroy>[0]);
+      // CE destroys the instance but leaves its generated markup behind. If the
+      // same host is reused (HMR, change of session), a second grid is appended
+      // under the first one and the sheet looks like it starts again after the
+      // last row. Remove the stale DOM so every mount starts from a clean root.
+      root.replaceChildren();
     };
   }, [sheets, effectiveContent]);
 

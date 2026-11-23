@@ -87,6 +87,9 @@ mock.module("jspreadsheet-ce", () => ({
       state.onselection = options.onselection ?? null;
       const content = document.createElement("div");
       content.className = "jss_content";
+      const table = document.createElement("table");
+      table.className = "jss_worksheet";
+      content.append(table);
       const tabs = document.createElement("div");
       tabs.className = "jtabs-content";
       tabs.append(content);
@@ -183,6 +186,30 @@ describe("JspreadsheetView growth", () => {
         host.querySelector(".jtabs-content")?.dispatchEvent(new Event("scroll"));
       });
       expect(state.cols).toBeGreaterThan(beforeCols);
+    } finally {
+      await act(async () => { root.unmount(); });
+      host.remove();
+    }
+  });
+
+  test("reloading content leaves a single grid, not a stale grid stacked under the new one", async () => {
+    resetState();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => { root.render(<JspreadsheetView content={initial} />); });
+      expect(host.querySelectorAll(".jss_content")).toHaveLength(1);
+
+      // A genuine change from outside destroys and rebuilds the library on the
+      // same host. CE's destroy leaves its markup behind, so without clearing the
+      // root the old grid stays under the new one and the cells appear twice.
+      await act(async () => { root.render(<JspreadsheetView content={external} />); });
+      expect(state.init).toBe(2);
+      expect(host.querySelectorAll(".jss_content")).toHaveLength(1);
+      expect(host.querySelectorAll(".jtabs-content")).toHaveLength(1);
+      expect(host.querySelectorAll(".jss_worksheet")).toHaveLength(1);
     } finally {
       await act(async () => { root.unmount(); });
       host.remove();
