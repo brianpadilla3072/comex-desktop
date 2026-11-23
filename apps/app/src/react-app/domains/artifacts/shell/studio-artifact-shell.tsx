@@ -7,7 +7,6 @@ import { PreviewError, PreviewLoading } from "../../session/artifacts/preview";
 import { useArtifactUiStore } from "../state/artifact-store";
 import { ArtifactBody } from "./artifact-body";
 import { ArtifactContextBar } from "./artifact-context-bar";
-import { ArtifactDock } from "./artifact-dock";
 import { ArtifactHeader } from "./artifact-header";
 import { ArtifactStatusStrip } from "./artifact-status-strip";
 
@@ -108,8 +107,15 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
       <ArtifactHeader
         meta={artifact.meta}
         focusMode={focusMode}
+        canRevert={artifact.meta.versions.length > 1}
         onToggleFocus={() => setFocusMode(!focusMode)}
+        onCopy={() => void navigator.clipboard?.writeText(artifact.content)}
         onExport={exportContent}
+        onRequestChange={() => askChange()}
+        onRevert={() => {
+          const previous = artifact.meta.versions.at(-2);
+          if (previous && client) void client.revertArtifact(appId, artifactId, previous.id, workspaceId).then(() => query.refetch());
+        }}
         onClose={onClose}
       />
       <ArtifactStatusStrip meta={artifact.meta} />
@@ -118,16 +124,6 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
         <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} onSave={saveArtifact} />
       </div>
       <ArtifactContextBar selectedText={selectedText} onAskChange={text => askChange(text)} />
-      <ArtifactDock
-        canRevert={artifact.meta.versions.length > 1}
-        onCopy={() => void navigator.clipboard?.writeText(artifact.content)}
-        onExport={exportContent}
-        onRequestChange={() => askChange()}
-        onRevert={() => {
-          const previous = artifact.meta.versions.at(-2);
-          if (previous && client) void client.revertArtifact(appId, artifactId, previous.id, workspaceId).then(() => query.refetch());
-        }}
-      />
     </div>
   );
 }
