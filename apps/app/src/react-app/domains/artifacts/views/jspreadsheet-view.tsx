@@ -120,6 +120,27 @@ function selectionOn(instance: WorksheetInstance): { x: number; y: number; cells
   return { x: 0, y: 0, cells: ["A1"] };
 }
 
+/** Cell reference under the pointer while a formula is being built in the bar. */
+function referenceAt(event: MouseEvent): string | null {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return null;
+  const cell = target.closest<HTMLElement>("td[data-x][data-y]");
+  if (!cell) return null;
+  const x = Number(cell.getAttribute("data-x"));
+  const y = Number(cell.getAttribute("data-y"));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return `${columnLabel(x)}${y + 1}`;
+}
+
+/** Extend a formula with a clicked reference. `=` + B3 + C3 becomes `=B3+C3`,
+ *  while an operator or `(` already typed is left to separate the arguments. */
+function appendReference(formula: string, reference: string): string {
+  const current = formula.trimEnd();
+  const last = current.slice(-1);
+  const needsOperator = last.length > 0 && /[A-Za-z0-9_)"]/.test(last);
+  return `${current}${needsOperator ? "+" : ""}${reference}`;
+}
+
 function csvFromData(data: unknown[][]): string {
   const escape = (value: unknown) => {
     const text = value === null || value === undefined ? "" : String(value);
@@ -177,7 +198,9 @@ function serializeSheets(
     const instance = instances[index];
     const size = dimensions[index] ?? { rows: INITIAL_ROWS, cols: INITIAL_COLUMNS };
     const cells: Record<string, { value: string; formula?: string }> = {};
-    const data = instance?.getData(false, true) ?? [];
+    // `processed: true` returns the rendered result ("20"). We need the raw cell
+    // value ("=B3*C3") or a saved formula comes back as a dead number on reload.
+    const data = instance?.getData(false, false) ?? [];
     data.forEach((row, rowIndex) => {
       row.forEach((raw, colIndex) => {
         const value = raw === null || raw === undefined ? "" : String(raw);
@@ -218,9 +241,13 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
   const actionsRef = useRef<SheetActions | null>(null);
   const syncFormulaRef = useRef<(instance: WorksheetInstance, x: number, y: number) => void>(() => undefined);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const formulaInputRef = useRef<HTMLInputElement | null>(null);
+  const formulaFocusedRef = useRef(false);
 
   const [activeCell, setActiveCell] = useState("A1");
   const [formula, setFormula] = useState("");
+  const formulaRef = useRef(formula);
+  formulaRef.current = formula;
   const [formulaSlot, setFormulaSlot] = useState<HTMLElement | null>(null);
   const [tabsSlot, setTabsSlot] = useState<HTMLElement | null>(null);
   const [sheetTabs, setSheetTabs] = useState<Array<{ index: number; name: string; active: boolean }>>([]);
@@ -409,6 +436,40 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     };
     gridScroller?.addEventListener("scroll", onScroll, { passive: true });
     horizontalScroller?.addEventListener("scroll", onScroll, { passive: true });
+
+    // Typing `=` over a selected cell hands the formula to our bar. That keeps a
+    // single editing path: Jspreadsheet's own editor loses its input when the
+    // artifact is saved and rebuilt, and it cannot extend a formula by clicking.
+    const onGridKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "=" || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable=true]")) return;
+      const instance = currentInstance();
+      if (!instance) return;
+      const { x, y } = selectionOn(instance);
+      selectionRef.current = { instance, x, y };
+      setActiveCell(`${columnLabel(x)}${y + 1}`);
+      setShowFormulaBar(true);
+      setFormula("=");
+      event.preventDefault();
+      event.stopPropagation();
+      window.setTimeout(() => formulaInputRef.current?.focus(), 0);
+    };
+
+    // While the bar holds a formula under construction, a click on the grid must
+    // add that cell's reference instead of moving the anchor to another cell.
+    const onGridMouseDown = (event: MouseEvent) => {
+      if (!formulaFocusedRef.current || !formulaRef.current.startsWith("=")) return;
+      const reference = referenceAt(event);
+      if (!reference) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setFormula(current => appendReference(current, reference));
+      formulaInputRef.current?.focus();
+    };
+
+    root.addEventListener("keydown", onGridKeyDown, true);
+    root.addEventListener("mousedown", onGridMouseDown, true);
 
     addSheetRef.current = () => {
       const instance = activeInstanceRef.current ?? instancesRef.current[0];
@@ -599,6 +660,8 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       tabSlot.remove();
       // Jspreadsheet mutates the root element with a `spreadsheet` property at
       // runtime; its typings do not model that on the element passed to jspreadsheet().
+      root.removeEventListener("keydown", onGridKeyDown, true);
+      root.removeEventListener("mousedown", onGridMouseDown, true);
       jspreadsheet.destroy(root as unknown as Parameters<typeof jspreadsheet.destroy>[0]);
       // CE destroys the instance but leaves its generated markup behind. If the
       // same host is reused (HMR, change of session), a second grid is appended
@@ -816,16 +879,18 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
         <span className="sheet-editor__formula-ref">{activeCell}</span>
         <span className="sheet-editor__formula-fx" aria-hidden="true">fx</span>
         <input
+          ref={formulaInputRef}
           className="sheet-editor__formula-input"
           data-testid="sheet-formula-input"
           aria-label={`Valor de ${activeCell}`}
           value={formula}
           onChange={(event) => setFormula(event.target.value)}
-          onBlur={commitFormula}
+          onFocus={() => { formulaFocusedRef.current = true; }}
+          onBlur={() => { formulaFocusedRef.current = false; commitFormula(); }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              commitFormula();
+              // `onBlur` is the single commit path; calling both wrote the cell twice.
               event.currentTarget.blur();
             }
           }}
