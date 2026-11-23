@@ -11,7 +11,7 @@ const NATIVE_MENU_TOGGLE_SIDEBAR_EVENT = "openwork:native-menu:toggle-sidebar";
 const NATIVE_MENU_CHECK_UPDATES_EVENT = "openwork:native-menu:check-updates";
 const NATIVE_MENU_ZOOM_EVENT = "openwork:native-menu:zoom";
 
-export function createApplicationMenu({ appName, docsUrl, getWindow, closeBrowserTab }) {
+export function createApplicationMenu({ appName, docsUrl, getWindow, closeBrowserTab, getServerUrl }) {
   let applicationMenuVisible = process.platform === "darwin";
   let currentAppName = appName;
 
@@ -151,6 +151,18 @@ export function createApplicationMenu({ appName, docsUrl, getWindow, closeBrowse
             accelerator: "CommandOrControl+B",
             click: () => {
               runDetachedTask("toggle sidebar from menu", toggleSidebarFromNativeMenu);
+            },
+          },
+          { type: "separator" },
+          {
+            label: "Ir a web",
+            click: () => {
+              runDetachedTask("open web app from menu", async () => {
+                const url = await (typeof getServerUrl === "function" ? getServerUrl() : null);
+                if (typeof url === "string" && url.trim()) {
+                  await shell.openExternal(url.trim());
+                }
+              });
             },
           },
           { type: "separator" },

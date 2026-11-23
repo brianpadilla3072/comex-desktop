@@ -247,11 +247,16 @@ if (BLANK_SLATE_LAUNCH.enabled || process.env.OPENWORK_ELECTRON_USE_MOCK_KEYCHAI
 const RELEASE_DOWNLOAD_BASE_URL = "https://github.com/brianpadilla3072/comex-desktop/releases/latest/download";
 const RELEASE_PAGE_URL = "https://github.com/brianpadilla3072/comex-desktop/releases/latest";
 const DOCS_PAGE_URL = "https://openworklabs.com/docs";
+const runtimeRef = { current: null };
 const applicationMenu = createApplicationMenu({
   appName: APP_NAME,
   docsUrl: DOCS_PAGE_URL,
   getWindow: () => createMainWindow(),
   closeBrowserTab: (host) => browserPanel?.closeFocusedBrowserTab(host) ?? false,
+  getServerUrl: async () => {
+    const info = await runtimeRef.current?.openworkServerInfo?.();
+    return typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
+  },
 });
 
 let browserPanel = null;
@@ -1602,6 +1607,7 @@ const runtimeManager = createRuntimeManager({
         loadSafeStorage: () => require("electron").safeStorage,
       }),
 });
+runtimeRef.current = runtimeManager;
 const initialRunnerBootstrap = workspaceStore.readDesktopBootstrapConfigSync();
 const legacyRunnerBaseUrls = [
   initialRunnerBootstrap.apiBaseUrl,
