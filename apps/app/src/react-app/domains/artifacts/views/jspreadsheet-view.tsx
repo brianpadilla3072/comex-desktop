@@ -19,14 +19,14 @@ interface JspreadsheetViewProps {
 
 const DEFAULT_TITLE = "Hoja de cálculo";
 
-/** Starting size. It is intentionally bigger than the data so the grid already
- *  feels open, and it grows on demand (see `expand`) instead of stopping here. */
+/** Starting size. There is no fixed ceiling: the grid keeps this many blank
+ *  rows below and columns to the right of the last row/column reached, whether
+ *  by selection or by scrolling, like a familiar spreadsheet. */
 const INITIAL_COLUMNS = 26;
 const INITIAL_ROWS = 60;
-const GROW_COLUMNS = 10;
-const GROW_ROWS = 50;
-const EDGE_THRESHOLD = 4;
-const SCROLL_THRESHOLD = 80;
+const SPARE_ROWS = 20;
+const SPARE_COLUMNS = 8;
+const SCROLL_THRESHOLD = 120;
 
 function columnLabel(index: number): string {
   let label = "";
@@ -149,10 +149,12 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       const index = instancesRef.current.indexOf(instance);
       const dimensions = dimensionsRef.current[index >= 0 ? index : 0];
       if (!dimensions || growing) return;
+      // Add only what is missing to keep the buffer, so growth is continuous
+      // instead of jumping in big batches that look like a fixed end (110/Z).
       expand(
         instance,
-        y >= dimensions.rows - EDGE_THRESHOLD ? GROW_ROWS : 0,
-        x >= dimensions.cols - EDGE_THRESHOLD ? GROW_COLUMNS : 0,
+        Math.max(0, y + SPARE_ROWS + 1 - dimensions.rows),
+        Math.max(0, x + SPARE_COLUMNS + 1 - dimensions.cols),
       );
     };
 
@@ -200,17 +202,35 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       cols: worksheet.minDimensions[0],
     }));
 
-    // Keep growing when the person scrolls to the end of the rendered grid, so
-    // there is always another row below and another column to the right.
-    const scroller = root.querySelector<HTMLElement>(".jss_content");
+    // In our layout the library's `.jss_content` never scrolls: vertical scrolling
+    // belongs to our grid wrapper and horizontal scrolling to `.jtabs-content`.
+    // Listening on the wrong element is what made the sheet look like it ended
+    // after the first jump (110 rows / column Z).
+    const gridScroller = root.closest<HTMLElement>(".sheet-editor__grid");
+    const horizontalScroller = root.querySelector<HTMLElement>(".jtabs-content");
+    let lastScrollGrow = 0;
     const onScroll = () => {
+      const now = Date.now();
+      if (now - lastScrollGrow < 80 || growing) return;
       const instance = activeInstanceRef.current ?? instancesRef.current[0];
-      if (!instance || !scroller || growing) return;
-      const nearBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - SCROLL_THRESHOLD;
-      const nearRight = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - SCROLL_THRESHOLD;
-      expand(instance, nearBottom ? GROW_ROWS : 0, nearRight ? GROW_COLUMNS : 0);
+      if (!instance) return;
+      const nearBottom = gridScroller && gridScroller.scrollHeight > gridScroller.clientHeight
+        ? gridScroller.scrollTop + gridScroller.clientHeight >= gridScroller.scrollHeight - SCROLL_THRESHOLD
+        : false;
+      const nearRight = horizontalScroller && horizontalScroller.scrollWidth > horizontalScroller.clientWidth
+        ? horizontalScroller.scrollLeft + horizontalScroller.clientWidth >= horizontalScroller.scrollWidth - SCROLL_THRESHOLD
+        : false;
+      if (!nearBottom && !nearRight) return;
+      lastScrollGrow = now;
+      const dimensions = dimensionsRef.current[instancesRef.current.indexOf(instance)];
+      growToward(
+        instance,
+        nearRight ? (dimensions?.cols ?? 1) - 1 : (selectionRef.current?.x ?? 0),
+        nearBottom ? (dimensions?.rows ?? 1) - 1 : (selectionRef.current?.y ?? 0),
+      );
     };
-    scroller?.addEventListener("scroll", onScroll, { passive: true });
+    gridScroller?.addEventListener("scroll", onScroll, { passive: true });
+    horizontalScroller?.addEventListener("scroll", onScroll, { passive: true });
 
     addSheetRef.current = () => {
       const instance = activeInstanceRef.current ?? instancesRef.current[0];
@@ -268,7 +288,8 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     return () => {
       addSheetRef.current = () => undefined;
       selectSheetRef.current = () => undefined;
-      scroller?.removeEventListener("scroll", onScroll);
+      gridScroller?.removeEventListener("scroll", onScroll);
+      horizontalScroller?.removeEventListener("scroll", onScroll);
       selectionRef.current = null;
       activeInstanceRef.current = null;
       instancesRef.current = [];
