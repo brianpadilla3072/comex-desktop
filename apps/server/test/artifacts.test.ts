@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ApiError } from "../src/errors.js";
-import { listArtifacts, readArtifact, revertArtifact, writeArtifact } from "../src/specialists/artifacts.js";
+import { createArtifactFromOutput, listArtifacts, readArtifact, revertArtifact, tableRowsToSheetContent, writeArtifact } from "../src/specialists/artifacts.js";
 
 async function workspace() {
   const root = await mkdtemp(join(tmpdir(), "artifacts-"));
@@ -68,5 +68,28 @@ test("a missing content file falls back to the last version and still says so if
     });
     await rm(join(root, "proyecto", "artefactos", created.meta.id, "content.md"));
     assert.match((await readArtifact(root, created.meta.id)).content, /Respaldo/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("table rows convert to a sheet artifact with cells and a header row", async () => {
+  const root = await workspace();
+  try {
+    const rows = JSON.stringify([
+      { producto: "Soja", destino: "China", valor: 1200 },
+      { producto: "Trigo", destino: "Brasil", valor: 800 },
+    ]);
+    const sheet = JSON.parse(tableRowsToSheetContent(rows)) as { sheets: Array<{ id: string; name: string; cells: Record<string, { value: string }> }> };
+    assert.equal(sheet.sheets.length, 1);
+    assert.equal(sheet.sheets[0]!.cells.A1!.value, "producto");
+    assert.equal(sheet.sheets[0]!.cells.C1!.value, "valor");
+    assert.equal(sheet.sheets[0]!.cells.A3!.value, "Trigo");
+    assert.equal(sheet.sheets[0]!.cells.C2!.value, "1200");
+
+    const result = await createArtifactFromOutput(root, "app_test", "ws_local", {
+      id: "out_table_1", kind: "table", title: "Exportaciones", fromSources: [], focus: "",
+    }, rows, { total: 0, valid: 0, invalid: [] });
+    assert.equal(result.meta.type, "sheet");
+    const stored = await readArtifact(root, result.meta.id);
+    assert.deepEqual(JSON.parse(stored.content), sheet, "the stored sheet content matches the converted rows");
   } finally { await rm(root, { recursive: true, force: true }); }
 });

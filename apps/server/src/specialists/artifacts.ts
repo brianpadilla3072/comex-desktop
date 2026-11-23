@@ -190,6 +190,37 @@ async function revertArtifactUnlocked(directory: string, id: string, versionId: 
   return updated;
 }
 
+/** Spreadsheet column label from a zero-based index (0 → A, 25 → Z, 26 → AA). */
+function columnLabel(index: number): string {
+  let label = "";
+  let n = index;
+  do {
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return label;
+}
+
+/** A table output is a JSON array of row objects. The sheet renderer expects
+ *  `{ sheets: [{ id, name, cells }] }`; convert once, deterministically, so the
+ *  artifact opens in the sheet panel with real tabs instead of failing the
+ *  `data` panel-spec validation (`422 invalid_artifact`). */
+export function tableRowsToSheetContent(content: string): string {
+  const rows: unknown = JSON.parse(content);
+  if (!Array.isArray(rows)) throw new ApiError(422, "invalid_artifact", "La tabla necesita filas JSON para volverse hoja.");
+  const objects = rows.filter(row => typeof row === "object" && row !== null) as Array<Record<string, unknown>>;
+  const keys = objects.length ? Object.keys(objects[0]) : [];
+  const cells: Record<string, { value: string }> = {};
+  keys.forEach((key, column) => { cells[`${columnLabel(column)}1`] = { value: key }; });
+  objects.forEach((row, rowIndex) => {
+    keys.forEach((key, column) => {
+      const value = row[key];
+      cells[`${columnLabel(column)}${rowIndex + 2}`] = { value: value === null || value === undefined ? "" : String(value) };
+    });
+  });
+  return JSON.stringify({ sheets: [{ id: "sheet-1", name: "Datos", cells }] });
+}
+
 /** Create an artifact from a mini-Studio output: no copy of audit logic, no client trust. */
 export async function createArtifactFromOutput(
   directory: string,
@@ -199,19 +230,21 @@ export async function createArtifactFromOutput(
   content: string,
   audit: { total: number; valid: number; invalid: Array<{ sourceId: string; chunk: number; reason: string }>; note?: string },
 ): Promise<{ meta: ArtifactMeta; created: boolean }> {
-  const type: ArtifactType = output.kind === "report" || output.kind === "mindmap" ? "doc" : "data";
+  const type: ArtifactType = output.kind === "report" || output.kind === "mindmap" ? "doc" : output.kind === "table" ? "sheet" : "data";
+  // A table output becomes a sheet artifact with converted cells; other kinds keep their content.
+  const artifactContent = type === "sheet" ? tableRowsToSheetContent(content) : content;
   // Opening the same output again reuses its artifact (a new version only when the content
   // changed). Creating one per click filled the project's 40-artifact limit for good.
   const existing = (await listArtifacts(directory)).find(entry => entry.metadata.outputRef?.appId === appId && entry.metadata.outputRef?.outputId === output.id && entry.type === type);
   if (existing) {
     const current = await readArtifact(directory, existing.id).catch(() => null);
-    if (current && current.content === content) return { meta: existing, created: false };
+    if (current && current.content === artifactContent) return { meta: existing, created: false };
   }
   return writeArtifact(directory, {
     ...(existing ? { id: existing.id } : {}),
     type,
     title: output.title,
-    content,
+    content: artifactContent,
     status: "draft",
     sources: [
       ...output.fromSources.map(sourceId => ({ kind: "source" as const, id: sourceId, label: sourceId })),
