@@ -4,7 +4,15 @@ import { useMemo, useState } from "react";
 interface SheetViewProps { content: string }
 
 export interface Cell { value: string; formula?: string; format?: string }
-export interface Sheet { id: string; name: string; cells: Record<string, Cell> }
+export interface Sheet {
+  id: string;
+  name: string;
+  cells: Record<string, Cell>;
+  /** Last reached grid size, persisted so the sheet does not shrink back to the
+   *  initial size after a remount (for example when changing sessions). */
+  rows?: number;
+  cols?: number;
+}
 
 /** Parse "A1 producto" / "B1 =SUM(A2:A4)" lines into an Excel-like cell map. */
 export function parseCellLines(content: string): Sheet | null {

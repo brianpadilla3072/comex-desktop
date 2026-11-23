@@ -55,8 +55,11 @@ function sheetToData(sheet: Sheet): { rows: string[][]; colCount: number; rowCou
     maxCol = Math.max(maxCol, col);
     maxRow = Math.max(maxRow, row);
   }
-  const colCount = Math.max(maxCol + 1, INITIAL_COLUMNS);
-  const rowCount = Math.max(maxRow + 1, INITIAL_ROWS);
+  // The last reached size travels with the artifact. Otherwise changing session
+  // (or any other remount) rebuilds Jspreadsheet from the cells alone and the
+  // grid appears to shrink back to 60 rows / column Z.
+  const colCount = Math.max(maxCol + 1, INITIAL_COLUMNS, sheet.cols ?? 0);
+  const rowCount = Math.max(maxRow + 1, INITIAL_ROWS, sheet.rows ?? 0);
   const rows = Array.from({ length: rowCount }, () => Array.from({ length: colCount }, () => ""));
   for (const [ref, cell] of Object.entries(sheet.cells ?? {})) {
     const { col, row } = cellCoords(ref.toUpperCase());
@@ -68,9 +71,14 @@ function sheetToData(sheet: Sheet): { rows: string[][]; colCount: number; rowCou
 }
 
 /** Serialize the live worksheets back into the artifact's { sheets: [...] } JSON format. */
-function serializeSheets(sheets: Sheet[], instances: WorksheetInstance[]): string {
+function serializeSheets(
+  sheets: Sheet[],
+  instances: WorksheetInstance[],
+  dimensions: Array<{ rows: number; cols: number }>,
+): string {
   const next = sheets.map((sheet, index) => {
     const instance = instances[index];
+    const size = dimensions[index] ?? { rows: INITIAL_ROWS, cols: INITIAL_COLUMNS };
     const cells: Record<string, { value: string; formula?: string }> = {};
     const data = instance?.getData(false, true) ?? [];
     data.forEach((row, rowIndex) => {
@@ -82,7 +90,7 @@ function serializeSheets(sheets: Sheet[], instances: WorksheetInstance[]): strin
         else cells[ref] = { value };
       });
     });
-    return { ...sheet, cells };
+    return { ...sheet, cells, rows: size.rows, cols: size.cols };
   });
   return JSON.stringify({ sheets: next });
 }
@@ -126,6 +134,14 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
     appliedContentRef.current = effectiveContent;
     sheetRefsRef.current = sheets;
 
+    const emit = (instances: WorksheetInstance[] = instancesRef.current) => {
+      const callback = onChangeRef.current;
+      if (!callback) return;
+      const serialized = serializeSheets(sheetRefsRef.current, instances, dimensionsRef.current);
+      lastEmittedRef.current = serialized;
+      callback(serialized);
+    };
+
     // jSuites fires selection events while rows/columns are being inserted.
     // Without this guard a selection near the edge re-enters `expand` forever.
     let growing = false;
@@ -143,6 +159,10 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       } finally {
         growing = false;
       }
+      // Persist the new size immediately. A remount (change of session, reload)
+      // reads the artifact JSON, not the live Jspreadsheet instance, so without
+      // this the grown rows/columns are lost.
+      emit();
     };
 
     const growToward = (instance: WorksheetInstance, x: number, y: number) => {
@@ -188,12 +208,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
         if (selected && selected.instance === instance) {
           growToward(instance, selected.x, selected.y);
         }
-        const callback = onChangeRef.current;
-        if (callback) {
-          const serialized = serializeSheets(sheetRefsRef.current, instance.parent.worksheets);
-          lastEmittedRef.current = serialized;
-          callback(serialized);
-        }
+        emit(instance.parent.worksheets);
       },
     });
     instancesRef.current = instances;
@@ -251,8 +266,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
         ...dimensionsRef.current,
         { rows: INITIAL_ROWS, cols: INITIAL_COLUMNS },
       ];
-      const callback = onChangeRef.current;
-      if (callback) callback(serializeSheets(sheetRefsRef.current, all));
+      emit(all);
       all[all.length - 1]?.updateSelectionFromCoords(0, 0);
     };
 

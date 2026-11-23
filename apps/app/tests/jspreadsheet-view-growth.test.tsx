@@ -28,6 +28,7 @@ const state = {
   onselection: null as ((instance: MockWorksheet, x: number, y: number) => void) | null,
   rows: 60,
   cols: 26,
+  initDimensions: [] as Array<[number, number]>,
 };
 const instance: MockWorksheet = {
   parent: { worksheets: [] },
@@ -47,6 +48,7 @@ function resetState() {
   state.onselection = null;
   state.rows = 60;
   state.cols = 26;
+  state.initDimensions = [];
 }
 
 function setScroll(element: Element | null, metrics: {
@@ -70,10 +72,17 @@ function setScroll(element: Element | null, metrics: {
 mock.module("jspreadsheet-ce", () => ({
   default: Object.assign(
     (root: HTMLElement, options: {
+      worksheets?: Array<{ minDimensions: [number, number] }>;
       onchange?: (sheet: MockWorksheet) => void;
       onselection?: (sheet: MockWorksheet, x: number, y: number) => void;
     }) => {
       state.init += 1;
+      const first = options.worksheets?.[0]?.minDimensions;
+      if (first) {
+        state.initDimensions.push(first);
+        state.cols = first[0];
+        state.rows = first[1];
+      }
       state.onchange = options.onchange ?? null;
       state.onselection = options.onselection ?? null;
       const content = document.createElement("div");
@@ -177,6 +186,48 @@ describe("JspreadsheetView growth", () => {
     } finally {
       await act(async () => { root.unmount(); });
       host.remove();
+    }
+  });
+
+  test("the grown size survives a remount (changing session)", async () => {
+    resetState();
+    let emitted = "";
+    const firstHost = document.createElement("div");
+    document.body.append(firstHost);
+    const firstRoot = createRoot(firstHost);
+    let secondRoot: ReturnType<typeof createRoot> | null = null;
+    let secondHost: HTMLDivElement | null = null;
+
+    try {
+      await act(async () => {
+        firstRoot.render(<JspreadsheetView content={initial} onChange={(value) => { emitted = value; }} />);
+      });
+      await act(async () => { state.onselection?.(instance, 0, 59); });
+      await act(async () => { state.onselection?.(instance, 25, 79); });
+      expect(state.rows).toBe(100);
+      expect(state.cols).toBe(34);
+
+      const saved = JSON.parse(emitted) as {
+        sheets: Array<{ rows?: number; cols?: number; cells: Record<string, unknown> }>;
+      };
+      expect(saved.sheets[0].rows).toBe(100);
+      expect(saved.sheets[0].cols).toBe(34);
+
+      await act(async () => { firstRoot.unmount(); });
+      secondHost = document.createElement("div");
+      document.body.append(secondHost);
+      secondRoot = createRoot(secondHost);
+      await act(async () => {
+        secondRoot!.render(<JspreadsheetView content={emitted} onChange={(value) => { emitted = value; }} />);
+      });
+      expect(state.initDimensions.at(-1)).toEqual([34, 100]);
+      expect(state.rows).toBe(100);
+      expect(state.cols).toBe(34);
+    } finally {
+      if (secondRoot) await act(async () => { secondRoot!.unmount(); });
+      await act(async () => { firstRoot.unmount(); });
+      firstHost.remove();
+      secondHost?.remove();
     }
   });
 });
