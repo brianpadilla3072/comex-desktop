@@ -32,7 +32,7 @@ export function resourceAddress(input: string): string | null {
 export function resourcePagePath(input: string): string | null {
   const value = input.trim().replace(/\\/g, "/")
   if (!value || value.startsWith("/") || value.split("/").some(part => !part || part === "." || part === "..") || /[\x00-\x1f:]/.test(value)) return null
-  return /\.md$/i.test(value) ? value : `${value}.md`
+  return /\.(?:md|mdx|markdown|mmd)$/i.test(value) ? value : `${value}.md`
 }
 export function resourceScope(server: string | undefined, workspaceId: string, accountScope?: string | null) { return JSON.stringify([server ?? "", workspaceId, accountScope ?? "local"]) }
 

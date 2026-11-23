@@ -3,7 +3,7 @@ import { WorkspaceAgentsView } from "./workspace-agents-view";
 import { WorkspaceSourcesView } from "./workspace-sources-view";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, ArrowRight, ChevronDown, FileText, FolderOpen, Globe, MessageCircle, MoreHorizontal, PanelRight, RotateCw, Save, TerminalSquare, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, ChevronDown, Eye, FileText, FolderOpen, Globe, MessageCircle, MoreHorizontal, PanelRight, Pencil, RotateCw, Save, TerminalSquare, X } from "lucide-react"
 import type { OpenworkServerClient } from "@/app/lib/openwork-server"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,10 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePlatform } from "../../../kernel/platform"
-import { useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider"
+import { useChatPageMdMdxViewerEnabled, useComexWorkspaceEnabled } from "../../cloud/desktop-config-provider"
 import { openTargetFromWorkspaceFile, type OpenTarget } from "../artifacts/open-target"
 import { WorkspaceFileTree } from "../artifacts/workspace-file-tree"
 import { ArtifactPanel } from "../artifacts/artifact-panel"
+import { MarkdownPreview, MdxPreview } from "../artifacts/preview"
 import { TerminalDock } from "../terminal/terminal-dock"
 import { BrowserPanelContent } from "../panel/side-panel"
 import { getSidePanelSessionKey } from "../panel/side-panel-session"
@@ -70,10 +71,13 @@ function ResourceBrowser({ tab, scope, active, onClose }: { tab: WorkspaceResour
   return nativeTab ? <div className="flex h-full min-h-0 flex-col"><BrowserPanelContent sessionId={getSidePanelSessionKey(tab.ownerSessionId ?? null)} tab={nativeTab} onClose={onClose} /></div> : <div role="status" aria-label="Abriendo sitio" className="p-4"><Skeleton className="h-8 w-full" /></div>
 }
 
-function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: WorkspaceResourceTab; scope: string; client: OpenworkServerClient | null; workspaceId: string; sessionId: string | null }) {
+export function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: WorkspaceResourceTab; scope: string; client: OpenworkServerClient | null; workspaceId: string; sessionId: string | null }) {
   const comexLayout = useComexWorkspaceEnabled()
+  const viewerEnabled = useChatPageMdMdxViewerEnabled()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("edit")
+  const isMdx = /\.mdx$/i.test(tab.path ?? "")
   const update = (patch: Partial<WorkspaceResourceTab>) => useWorkspaceResources.getState().update(scope, tab.id, patch)
   const save = async () => {
     let path = resourcePagePath(tab.path ?? "")
@@ -97,11 +101,23 @@ function WorkspacePage({ tab, scope, client, workspaceId, sessionId }: { tab: Wo
   return <section className="flex h-full min-h-0 flex-col" aria-label="Editor de página">
     <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
       <Input className="h-8 min-w-40 flex-1" aria-label="Ruta de la página" disabled={saving} value={tab.path ?? ""} onChange={event => update({ path: event.currentTarget.value })} />
+      {viewerEnabled ? (
+        <div role="group" aria-label="Vista de la página" className="flex items-center rounded-md border border-border p-0.5">
+          <Button type="button" size="sm" variant={viewMode === "edit" ? "secondary" : "ghost"} className="h-7 px-2" aria-pressed={viewMode === "edit"} onClick={() => setViewMode("edit")}><Pencil className="size-3.5" />Editar</Button>
+          <Button type="button" size="sm" variant={viewMode === "preview" ? "secondary" : "ghost"} className="h-7 px-2" aria-pressed={viewMode === "preview"} onClick={() => setViewMode("preview")}><Eye className="size-3.5" />Vista previa</Button>
+        </div>
+      ) : null}
       <span className="text-xs text-muted-foreground" role="status">{dirty ? "Borrador local" : "Guardado"}</span>
       <Button size="sm" disabled={!client || saving || !dirty} onClick={() => void save()}><Save className="size-4" />{saving ? "Guardando…" : "Guardar página"}</Button>
     </header>
     {error ? <p role="alert" className="px-4 py-2 text-sm text-destructive">{error}</p> : null}
-    <div className="min-h-0 flex-1 overflow-auto"><Suspense fallback={<Skeleton className="m-4 h-40" />}><ArtifactTextEditor value={tab.draft ?? ""} language="markdown" onChange={draft => update({ draft })} /></Suspense></div>
+    <div className="min-h-0 flex-1 overflow-auto">
+      {viewerEnabled && viewMode === "preview"
+        ? isMdx
+          ? <MdxPreview content={tab.draft ?? ""} />
+          : <MarkdownPreview content={tab.draft ?? ""} className="max-w-[80ch]" />
+        : <Suspense fallback={<Skeleton className="m-4 h-40" />}><ArtifactTextEditor value={tab.draft ?? ""} language="markdown" onChange={draft => update({ draft })} /></Suspense>}
+    </div>
   </section>
 }
 

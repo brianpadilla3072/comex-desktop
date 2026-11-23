@@ -50,6 +50,10 @@ test("address entry distinguishes web navigation from script and local-file sche
 test("page names stay relative to the owning workspace", () => {
   assert.equal(resourcePagePath("paginas/Notas"), "paginas/Notas.md");
   assert.equal(resourcePagePath("paginas/Notas.md"), "paginas/Notas.md");
+  assert.equal(resourcePagePath("paginas/Demo.mdx"), "paginas/Demo.mdx");
+  assert.equal(resourcePagePath("paginas/Demo.markdown"), "paginas/Demo.markdown");
+  assert.equal(resourcePagePath("paginas/Demo.mmd"), "paginas/Demo.mmd");
+  assert.equal(resourcePagePath("paginas/Demo.mdx.txt"), "paginas/Demo.mdx.txt.md");
   for (const path of ["../notes.md", "/tmp/notes.md", "pages/../../notes", "C:\\notes.md", ""]) assert.equal(resourcePagePath(path), null);
 });
 
