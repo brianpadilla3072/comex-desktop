@@ -730,6 +730,25 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
         edit("paste", "Paste", "canPaste");
         edit("selectAll", "Select All", "canSelectAll");
       }
+      if (params.selectionText) {
+        separator();
+        add("add-selection-to-chat", "Agregar selección al chat", () => {
+          sendToRenderer("openwork:browser:add-to-chat", {
+            sessionId: registry.ownerOf(tab.tabId) ?? null,
+            url: contents.getURL(),
+            title: contents.getTitle(),
+            selectionText: params.selectionText,
+          });
+        });
+        add("comment-on-selection", "Comentar sobre la selección", () => {
+          sendToRenderer("openwork:browser:add-comment", {
+            sessionId: registry.ownerOf(tab.tabId) ?? null,
+            url: contents.getURL(),
+            title: contents.getTitle(),
+            selectionText: params.selectionText,
+          });
+        });
+      }
     }
     if (!params.isEditable && !params.selectionText && !params.linkURL && params.mediaType !== "image") {
       add("back", "Back", () => contents.goBack(), contents.canGoBack());

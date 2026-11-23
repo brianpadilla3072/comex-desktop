@@ -3200,6 +3200,32 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setComposerDraft(props.sessionId, insertDraftToken(draft, `[pasted text ${pasted.label}]`, draftOffset));
   }, [draft, pasteParts, props.sessionId, setComposerDraft, setComposerPasteParts]);
 
+  const handlePasteTextRef = useRef(handlePasteText);
+  handlePasteTextRef.current = handlePasteText;
+
+  // Browser "Add to chat" / "Comment": insert the page selection as a pasted-text chip.
+  useEffect(() => {
+    const browser = (window as any).__OPENWORK_ELECTRON__?.browser;
+    if (typeof browser?.onAddToChat !== "function") return;
+    const offAdd = browser.onAddToChat((payload: any) => {
+      if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+      const url = payload?.url ?? "";
+      const selection = payload?.selectionText ?? "";
+      const text = url ? `Selección de ${url}:\n${selection}` : selection;
+      handlePasteTextRef.current?.(text);
+    });
+    const offComment = typeof browser.onAddComment === "function"
+      ? browser.onAddComment((payload: any) => {
+          if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+          const url = payload?.url ?? "";
+          const selection = payload?.selectionText ?? "";
+          const text = `Comentario sobre ${url}:\n> ${selection}\n\n`;
+          handlePasteTextRef.current?.(text);
+        })
+      : () => {};
+    return () => { offAdd(); offComment(); };
+  }, []);
+
   const handleExpandPastedText = useCallback((id: string) => {
     const part = pasteParts.find((item) => item.id === id);
     if (!part) return;
