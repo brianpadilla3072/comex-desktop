@@ -92,7 +92,13 @@ function serializeSheets(sheets: Sheet[], instances: WorksheetInstance[]): strin
  *  strip are ours because CE hides the tabs when there is only one worksheet. */
 export function JspreadsheetView({ content, title, onTitleChange, onChange }: JspreadsheetViewProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const sheets = useMemo(() => parseSheets(content), [content]);
+  // Saving echoes the exact JSON we emitted back as `content`. Rebuilding on that
+  // echo would recreate the library at its initial 60 rows, dropping the rows we
+  // grew on demand and resetting the selection, so keep the live instance.
+  const lastEmittedRef = useRef<string | null>(null);
+  const appliedContentRef = useRef(content);
+  const effectiveContent = content === lastEmittedRef.current ? appliedContentRef.current : content;
+  const sheets = useMemo(() => parseSheets(effectiveContent), [effectiveContent]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -117,6 +123,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
   useEffect(() => {
     const root = rootRef.current;
     if (!root || sheets.length === 0) return;
+    appliedContentRef.current = effectiveContent;
     sheetRefsRef.current = sheets;
 
     // jSuites fires selection events while rows/columns are being inserted.
@@ -180,7 +187,11 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
           growToward(instance, selected.x, selected.y);
         }
         const callback = onChangeRef.current;
-        if (callback) callback(serializeSheets(sheetRefsRef.current, instance.parent.worksheets));
+        if (callback) {
+          const serialized = serializeSheets(sheetRefsRef.current, instance.parent.worksheets);
+          lastEmittedRef.current = serialized;
+          callback(serialized);
+        }
       },
     });
     instancesRef.current = instances;
@@ -268,7 +279,7 @@ export function JspreadsheetView({ content, title, onTitleChange, onChange }: Js
       // runtime; its typings do not model that on the element passed to jspreadsheet().
       jspreadsheet.destroy(root as unknown as Parameters<typeof jspreadsheet.destroy>[0]);
     };
-  }, [sheets]);
+  }, [sheets, effectiveContent]);
 
   // Close the "all sheets" menu on Escape or when clicking outside of it.
   useEffect(() => {
