@@ -8,7 +8,6 @@ import { useArtifactUiStore } from "../state/artifact-store";
 import { ArtifactBody } from "./artifact-body";
 import { ArtifactContextBar } from "./artifact-context-bar";
 import { ArtifactHeader } from "./artifact-header";
-import { ArtifactStatusStrip } from "./artifact-status-strip";
 
 interface StudioArtifactShellProps {
   client: OpenworkServerClient | null;
@@ -118,7 +117,6 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
         }}
         onClose={onClose}
       />
-      <ArtifactStatusStrip meta={artifact.meta} />
       {saveError ? <div role="alert" className="border-b bg-muted px-4 py-2 text-xs text-destructive">{saveError}</div> : null}
       <div className="min-h-0 flex-1 overflow-auto" data-testid="artifact-body">
         <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} onSave={saveArtifact} />
