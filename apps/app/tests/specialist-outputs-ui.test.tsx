@@ -48,6 +48,7 @@ const KINDS: Record<string, string> = {
 beforeEach(() => {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
+  useArtifactUiStore.getState().consumeRequestedTab();
   if (!("ResizeObserver" in globalThis)) Reflect.set(globalThis, "ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   if (!("IntersectionObserver" in globalThis)) Reflect.set(globalThis, "IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } });
   flags = { libraryEnabled: true, scheduledTasksEnabled: false, datasetsEnabled: true, sourcesEnabled: true, panelsEnabled: true, outputsEnabled: true };
@@ -208,23 +209,35 @@ test("flashcards flip and a quiz marks the answer right or wrong", async () => {
   expect(hasText("Incorrecto: la respuesta es \"Consumidores\".")).toBe(true);
 });
 
-test("Abrir en el panel crea el artefacto detrás del flag y pide su tab", async () => {
-  await openOutputsView();
-  const openPanel = [...document.querySelectorAll("button")].find(button =>
-    (button.getAttribute("aria-label") ?? "") === "Abrir Informe soja en el panel");
-  expect(openPanel).toBeTruthy();
-  await act(async () => { (openPanel as HTMLButtonElement).click(); });
-  await flush(60);
-  expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts/from-output/out_good"))).toBe(true);
+test("una tabla nueva se abre sola en la vista lateral, sin botón", async () => {
+  await renderAt();
+  // Las salidas que ya existían al cargar no se abren: solo las generadas ahora.
+  expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts/from-output"))).toBe(false);
+  outputs = [...outputs, {
+    id: "out_tabla_nueva", kind: "table", title: "Exportaciones de ejemplo",
+    fromDatasets: [], fromSources: [], focus: "",
+    createdAt: 1_700_000_900_000, updatedAt: 1_700_000_900_000,
+    workspaceId: "ws_test", workspaceName: "proyecto-principal",
+  }];
+  await act(async () => { await cache.invalidateQueries({ queryKey: ["specialist-outputs"] }); });
+  await flush(200);
+  expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts/from-output/out_tabla_nueva"))).toBe(true);
   expect(useArtifactUiStore.getState().requestedTab?.artifactId).toBe("art_test");
   expect(useArtifactUiStore.getState().requestedTab?.appId).toBe("app_test");
+  expect(useArtifactUiStore.getState().requestedTab?.label).toBe("Exportaciones de ejemplo");
 });
 
-test("sin el flag, la salida no ofrece abrir el artefacto en el panel", async () => {
+test("sin artefactos, una tabla nueva no dispara la vista lateral", async () => {
   artifactsEnabled = false;
-  await openOutputsView();
-  const openPanel = [...document.querySelectorAll("button")].find(button =>
-    (button.getAttribute("aria-label") ?? "") === "Abrir Informe soja en el panel");
-  expect(openPanel).toBeUndefined();
+  await renderAt();
+  outputs = [...outputs, {
+    id: "out_tabla_nueva", kind: "table", title: "Exportaciones de ejemplo",
+    fromDatasets: [], fromSources: [], focus: "",
+    createdAt: 1_700_000_900_000, updatedAt: 1_700_000_900_000,
+    workspaceId: "ws_test", workspaceName: "proyecto-principal",
+  }];
+  await act(async () => { await cache.invalidateQueries({ queryKey: ["specialist-outputs"] }); });
+  await flush(200);
   expect(outputRequests.some(request => request.method === "POST" && request.path.includes("/artifacts"))).toBe(false);
+  expect(useArtifactUiStore.getState().requestedTab).toBeNull();
 });

@@ -1,33 +1,27 @@
-# Artifact spreadsheet editor (`artifactSpreadsheetEditor`)
+# Editor de hojas de cálculo de artefactos
 
-Open sheet artifacts in an Excel-like spreadsheet powered by **Jspreadsheet CE** (MIT),
-instead of the read-only HTML grid.
+Los artefactos de tipo `sheet` se abren siempre en una hoja de cálculo tipo Excel con
+**Jspreadsheet CE** (MIT), en lugar de la grilla HTML de solo lectura. No hay flag: es el
+único renderizador de hojas.
 
-## What changes
+## Qué hace
 
-When the flag is on, artifacts of type `sheet` render with Jspreadsheet CE: editable cells,
-keyboard navigation, copy/paste from Excel, formulas (`=SUM(...)`), column resize, multiple
-worksheets and a toolbar. When it is off, the lightweight read-only grid is shown.
+Celdas editables, navegación por teclado, copiar/pegar desde Excel, fórmulas (`=SUM(...)`),
+redimensionado de columnas, varias hojas y una barra de herramientas. El nombre del archivo y
+el contenido se guardan como una nueva versión del artefacto.
 
-## How to try it
+## Cómo probarlo
 
-1. Turn the flag on in `/admin` › Features (self-hosted).
-2. Open a conversation with a `sheet` artifact (for example "Exportaciones de ejemplo").
-3. Edit a cell, add a row, or paste a range from Excel; changes are kept in the spreadsheet
-   instance. The artifact content on disk is not rewritten yet — saving is the next step.
+1. Abrí una conversación con un artefacto `sheet` (p. ej. «Exportaciones de ejemplo (demo)»).
+2. Editá una celda, agregá una fila o pegá un rango desde Excel. Los cambios se guardan en el
+   artefacto.
 
-## What turning it off does
+## Antigua key de flag
 
-Falls back to the read-only HTML grid. Nothing is lost: the artifact content is unchanged.
+`artifactSpreadsheetEditor` existió brevemente y ya no existe: está en `RETIRED_FEATURE_KEYS`
+para que clients y overrides viejos se ignoren sin efecto. El editor siempre está activo.
 
-## Feature key, deployments, author
+## Captura
 
-- Key: `artifactSpreadsheetEditor`
-- Deployments: self-hosted
-- Author: brianpadilla3072
-
-## Screenshot
-
-To be captured once the feature is exercised on a machine with a working display (the
-development sandbox used while building it has no usable GPU for Electron). The feature is
-visual: a sheet artifact changes from a read-only HTML grid into an interactive spreadsheet.
+Pendiente de capturar en una máquina con display usable (el sandbox de desarrollo no tiene GPU
+para Electron). La mejora es visual: la hoja pasa de grilla estática a hoja interactiva.

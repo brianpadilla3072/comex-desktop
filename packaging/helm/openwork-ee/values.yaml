@@ -45,7 +45,6 @@ config:
     comexContinuity: ""           # default off · Save and resume structured session progress, decisions and pending work with conflict detection.
     comexGitWorkspace: ""         # default off · Review local changes and create isolated Git worktrees from the current committed revision.
     comexArtifacts: ""            # default on · Open mini-Studio outputs in a persistent artifact shell in the session side panel, with versions, sources and split chat/artifact view.
-    artifactSpreadsheetEditor: "" # default off · Open sheet artifacts in an interactive, Excel-like spreadsheet (Jspreadsheet CE) with editable cells, formulas, copy/paste and column resize.
     browserAgentPointer: ""       # default off · Show the agent pointer and click position inside the embedded browser while it is under agent control.
     specialistIntegrations: ""    # default off · Connect Tavily research and import or safely update portable OCX agent and skill packs for a specialist application.
     agentActivityMap: ""          # default on · Show delegated agents in the composer, with a live task map, their prompts and executed tool calls.

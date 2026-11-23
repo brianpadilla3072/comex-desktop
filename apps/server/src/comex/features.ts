@@ -149,13 +149,6 @@ export function comexArtifactsEnabled(env: NodeJS.ProcessEnv = process.env): boo
   return resolveFeature("comexArtifacts", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
-/** Excel-style spreadsheet editor for sheet artifacts, powered by Jspreadsheet CE. */
-export function artifactSpreadsheetEditorEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const context = parseFeatureEnvironment(env);
-  if (context.problems.some(problem => problem.fatal)) return false;
-  return resolveFeature("artifactSpreadsheetEditor", { ...context, rollouts: {}, overrides: {} }).enabled;
-}
-
 export function agentEcosystemEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;

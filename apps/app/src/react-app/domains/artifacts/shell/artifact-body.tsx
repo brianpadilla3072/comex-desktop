@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import type { ArtifactRecord } from "../types";
@@ -20,17 +19,11 @@ interface ArtifactBodyProps {
   client: OpenworkServerClient;
   appId: string;
   workspaceId?: string;
+  /** Persist an edit as a new artifact version (used by the editable sheet title). */
+  onSave?: (patch: { title?: string; content?: string }) => void | Promise<void>;
 }
 
-export function ArtifactBody({ artifact, client, appId, workspaceId }: ArtifactBodyProps) {
-  const features = useQuery({
-    queryKey: ["comex-features", client.baseUrl],
-    queryFn: () => client.getComexFeatures(),
-    retry: false,
-    staleTime: 15_000,
-  });
-  const excelEditorEnabled = features.data?.artifactSpreadsheetEditor === true;
-
+export function ArtifactBody({ artifact, client, appId, workspaceId, onSave }: ArtifactBodyProps) {
   if (artifact.meta.type === "doc") return <DocView content={artifact.content} />;
   if (artifact.meta.type === "data") {
     // Salidas `table` del mini-Studio se guardaron como `data` con filas JSON crudas;
@@ -46,14 +39,16 @@ export function ArtifactBody({ artifact, client, appId, workspaceId }: ArtifactB
     return <SlidesView content={artifact.content} />;
   }
   if (artifact.meta.type === "sheet") {
-    if (excelEditorEnabled) {
-      return (
-        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground" role="status">Cargando hoja de cálculo…</div>}>
-          <JspreadsheetView content={artifact.content} />
-        </Suspense>
-      );
-    }
-    return <SheetView content={artifact.content} />;
+    return (
+      <Suspense fallback={<div className="p-6 text-sm text-muted-foreground" role="status">Cargando hoja de cálculo…</div>}>
+        <JspreadsheetView
+          content={artifact.content}
+          title={artifact.meta.title}
+          onTitleChange={(title) => void onSave?.({ title })}
+          onChange={(updatedContent) => void onSave?.({ content: updatedContent })}
+        />
+      </Suspense>
+    );
   }
   if (artifact.meta.type === "board") {
     return <BoardView content={artifact.content} />;

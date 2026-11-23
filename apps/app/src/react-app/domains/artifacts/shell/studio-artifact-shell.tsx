@@ -40,6 +40,43 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
   });
 
   const artifact = query.data;
+  const [saveError, setSaveError] = React.useState("");
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  }, []);
+
+  const persist = React.useCallback(async (patch: { title?: string; content?: string }) => {
+    if (!client || !artifact) return;
+    try {
+      setSaveError("");
+      await client.saveArtifactVersion(appId, artifactId, {
+        type: artifact.meta.type,
+        title: patch.title ?? artifact.meta.title,
+        content: patch.content ?? artifact.content,
+        status: artifact.meta.status,
+      }, workspaceId);
+      await query.refetch();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "No se pudo guardar el cambio.");
+      await query.refetch();
+    }
+  }, [artifact, appId, artifactId, client, query, workspaceId]);
+
+  const saveArtifact = React.useCallback((patch: { title?: string; content?: string }) => {
+    // Editing cells fires one change per keystroke: coalesce them into one version.
+    if (patch.content !== undefined) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        void persist(patch);
+      }, 900);
+      return;
+    }
+    void persist(patch);
+  }, [persist]);
+
   const exportContent = React.useCallback(() => {
     if (!artifact) return;
     const blob = new Blob([artifact.content], { type: "text/markdown;charset=utf-8" });
@@ -76,8 +113,9 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
         onClose={onClose}
       />
       <ArtifactStatusStrip meta={artifact.meta} />
+      {saveError ? <div role="alert" className="border-b bg-muted px-4 py-2 text-xs text-destructive">{saveError}</div> : null}
       <div className="min-h-0 flex-1 overflow-auto" data-testid="artifact-body">
-        <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} />
+        <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} onSave={saveArtifact} />
       </div>
       <ArtifactContextBar selectedText={selectedText} onAskChange={text => askChange(text)} />
       <ArtifactDock

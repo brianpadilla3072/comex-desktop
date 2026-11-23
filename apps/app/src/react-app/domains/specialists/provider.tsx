@@ -15,6 +15,8 @@ import { createOpenworkServerClient, type OpenworkServerClient, type SpecialistA
 import { pickDirectory, workspaceSetRuntimeActive, workspaceSetSelected } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { resolveOpenworkConnection } from "@/react-app/shell/openwork-connection";
+import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
+import { useArtifactUiStore } from "../artifacts/state/artifact-store";
 import { SpecialistIntegrationsDialog } from "./integrations-dialog";
 import { SpecialistLibraryDialog } from "./library-dialog";
 import { specialistErrorMessage } from "./error-message";
@@ -82,6 +84,48 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const active = catalog?.enabled ? (workspaceId
     ? catalog.applications.find(app => app.workspaceIds.includes(workspaceId))
     : catalog.applications.find(app => app.id === catalog.activeApplicationId) ?? catalog.applications[0]) ?? null : null;
+
+  // A table output IS a spreadsheet. Open it as a native side view the moment the
+  // assistant generates it — no extra button in the library dialog. The query key
+  // is shared with that dialog, so one poll serves both. The first load only seeds
+  // the "already seen" set, so old outputs never pop open when the app starts.
+  const artifactsEnabled = useComexArtifactsFeature(query.data?.client ?? null);
+  const outputsQuery = useQuery({
+    queryKey: ["specialist-outputs", query.data?.client.baseUrl, active?.id],
+    queryFn: () => query.data!.client.getSpecialistOutputs(active!.id),
+    enabled: Boolean(query.data?.client && active && catalog?.outputsEnabled && artifactsEnabled),
+    retry: false,
+    refetchInterval: location.pathname.includes("/session/") ? 3_000 : 30_000,
+  });
+  const mountedAt = useRef(Date.now());
+  const seenOutputs = useRef<{ key: string; ids: Set<string> } | null>(null);
+  useEffect(() => {
+    const client = query.data?.client;
+    const list = outputsQuery.data?.outputs;
+    if (!client || !active || !list) return;
+    const key = `${client.baseUrl}:${active.id}`;
+    const seen = seenOutputs.current;
+    const firstLoad = !seen || seen.key !== key;
+    const ids = firstLoad ? new Set<string>() : seen.ids;
+    // An output created while this page was loading is new too; only genuinely old
+    // ones seed the set. Otherwise the first poll would swallow a just-generated table.
+    const fresh = firstLoad
+      ? list.filter(output => output.createdAt >= mountedAt.current)
+      : list.filter(output => !ids.has(output.id) || output.createdAt >= mountedAt.current);
+    for (const output of list) ids.add(output.id);
+    seenOutputs.current = { key, ids };
+    const table = fresh.find(output => output.kind === "table" && (!workspaceId || output.workspaceId === workspaceId));
+    if (!table) return;
+    void client.createArtifactFromOutput(active.id, table.id, table.workspaceId)
+      .then(result => useArtifactUiStore.getState().requestArtifactTab({
+        artifactId: result.meta.id,
+        appId: active.id,
+        label: table.title,
+        ...(table.workspaceId ? { workspaceId: table.workspaceId } : {}),
+      }))
+      .catch(() => undefined);
+  }, [outputsQuery.data, query.data?.client, active, workspaceId]);
+
   useEffect(() => {
     // Never open a form this connection cannot submit (a browser session only reads).
     if (catalog?.enabled && catalog.writable !== false && !catalog.user && !catalog.applications.length && !dismissed) setForm(current => current ?? "create");

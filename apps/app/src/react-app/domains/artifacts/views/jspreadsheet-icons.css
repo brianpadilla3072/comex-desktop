@@ -1,0 +1,374 @@
+/*
+ * Jspreadsheet CE / jSuites render their toolbar with Material Icons ligatures
+ * (`font-family: "Material Icons"`). Those libraries ship the CSS rule but not
+ * the font file, so without this @font-face the buttons show literal text like
+ * "undo redo save" instead of icons. Serve the font from our own public/ so the
+ * spreadsheet works offline (desktop-first) and without a third-party CDN.
+ */
+@font-face {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/material-icons.ttf") format("truetype");
+}
+
+/*
+ * Spreadsheet-like chrome around Jspreadsheet CE: quiet gray toolbar, formula
+ * bar, light grid lines and the worksheet tabs at the bottom. Everything uses
+ * our semantic tokens (DESIGN.md V2), so it follows the app theme.
+ */
+.sheet-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+}
+
+.sheet-editor__titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-editor__icon {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* The file name is an input, not a label: people can click it and type a new
+   name, just like in a spreadsheet app. Enter/blur commits, Escape cancels. */
+.sheet-editor__name {
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.sheet-editor__name:hover {
+  border-color: var(--border);
+}
+
+.sheet-editor__name:focus {
+  outline: 0;
+  border-color: var(--primary);
+  background: var(--background);
+}
+
+.sheet-editor__menubar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 28px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground, var(--foreground));
+  font-size: 0.75rem;
+}
+
+.sheet-editor__menubar span {
+  cursor: default;
+}
+
+.sheet-editor__grid {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.sheet-editor .jss_spreadsheet {
+  --jss-border-color: var(--border);
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  color: var(--foreground);
+}
+
+.sheet-editor .jss_spreadsheet > .jss_toolbar {
+  order: 1;
+  background: var(--muted);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  margin: 0;
+  padding: 3px 8px;
+  min-height: 36px;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.sheet-editor .jss_spreadsheet > .jtabs-content {
+  order: 3;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sheet-editor .jss_spreadsheet > .jtabs-headers-container {
+  order: 4;
+  /* CE hides the tab strip when there is a single worksheet; our sheet chrome
+     keeps it visible and pinned below the scrolling grid. Layout matches the
+     reference: [+] [≡] [tabs…] on the left, scroll arrows on the right. */
+  display: flex !important;
+  align-items: center;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  min-height: 36px;
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  padding: 0 8px;
+}
+
+/* Left slot for our "+" and "≡" buttons, inserted before the library tabs. */
+.sheet-editor__tabs-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-right: 6px;
+}
+
+.sheet-editor__add-sheet,
+.sheet-editor__tabs-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted-foreground, var(--foreground));
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.sheet-editor__add-sheet {
+  font-size: 18px;
+}
+
+.sheet-editor__add-sheet:hover,
+.sheet-editor__tabs-menu-btn:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* "All sheets" navigation menu, opened by the ≡ button. */
+.sheet-editor__tabs-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+}
+
+.sheet-editor__tabs-menu button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sheet-editor__tabs-menu button:hover {
+  background: var(--muted);
+}
+
+.sheet-editor__tabs-menu button.is-active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  font-weight: 500;
+}
+
+.sheet-editor .jtoolbar .jtoolbar-item {
+  border-radius: var(--radius);
+  color: var(--foreground);
+}
+
+.sheet-editor .jtoolbar .jtoolbar-item:hover {
+  background: var(--border);
+}
+
+.sheet-editor .jtoolbar .jtoolbar-divisor {
+  background: var(--border);
+  margin: 0 3px;
+}
+
+.sheet-editor .jss_worksheet {
+  background: var(--background);
+  font-size: 0.8125rem;
+}
+
+.sheet-editor .jss_worksheet > tbody > tr > td {
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  padding: 2px 5px;
+  height: 22px;
+}
+
+.sheet-editor .jss_worksheet > tbody > tr > td:first-child,
+.sheet-editor .jss_worksheet > tfoot > tr > td {
+  background: var(--muted);
+  color: var(--muted-foreground, var(--foreground));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.sheet-editor .jss_worksheet > thead > tr > td {
+  background: var(--background);
+  color: var(--muted-foreground, var(--foreground));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.sheet-editor .jss_worksheet .highlight,
+.sheet-editor .jss_worksheet .selection {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.sheet-editor .jss_worksheet .highlight-top,
+.sheet-editor .jss_worksheet .highlight-left,
+.sheet-editor .jss_worksheet .highlight-right,
+.sheet-editor .jss_worksheet .highlight-bottom {
+  border-color: var(--primary);
+  box-shadow: none;
+}
+
+.sheet-editor .jss_corner {
+  background: var(--primary);
+  border-color: var(--background);
+}
+
+/* Sheet tabs like the reference: quiet bar, inactive tabs transparent, the
+   active one a pale-blue rounded pill with a small dropdown caret. */
+.sheet-editor .jtabs-headers-container .jtabs-headers {
+  flex: 0 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.sheet-editor .jtabs-border {
+  display: none !important;
+}
+
+.sheet-editor .jtabs-headers > div:not(.jtabs-border):not(.jtabs-selected) {
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--muted-foreground, var(--foreground));
+  border-radius: 8px 8px 0 0;
+  font-size: 0.8125rem;
+}
+
+.sheet-editor .jtabs-headers > div:not(.jtabs-border):not(.jtabs-selected):hover {
+  background: var(--muted);
+}
+
+.sheet-editor .jtabs-headers > div.jtabs-selected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  color: var(--foreground);
+  border-radius: 8px 8px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.sheet-editor .jtabs-headers > div.jtabs-selected > div {
+  width: auto;
+  color: inherit;
+}
+
+/* Decorative caret on the active tab, as in the reference image. */
+.sheet-editor .jtabs-headers > div.jtabs-selected::after {
+  content: "▾";
+  color: var(--muted-foreground, var(--foreground));
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* Keep the prev/next scroll arrows at the far right of the strip. */
+.sheet-editor .jtabs-controls {
+  margin-left: auto;
+  min-width: 56px;
+}
+
+/* Formula bar: rendered into a slot right below Jspreadsheet's toolbar. */
+.sheet-editor__formula {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.sheet-editor__formula-ref {
+  min-width: 52px;
+  padding: 2px 6px;
+  border-right: 1px solid var(--border);
+  color: var(--foreground);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.sheet-editor__formula-fx {
+  color: var(--muted-foreground, var(--foreground));
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.sheet-editor__formula-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+}
+
+.sheet-editor__formula-input:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--primary);
+  border-radius: var(--radius);
+}

@@ -33,7 +33,7 @@ test("/comex/features is registered once and reports every flag the app reads", 
   assert.equal(source.split('addRoute(routes, "GET", "/comex/features"').length - 1, 1);
   const response = await fetch(`http://127.0.0.1:${server.port}/comex/features`, { headers: { authorization: "Bearer features-client" } });
   const body = z.record(z.string(), z.unknown()).parse(await response.json());
-  for (const key of ["taskIsolationReview", "projectsExperience", "commandCenter", "resultsInbox", "activityAnimationsToggle", "paletteSettingSearch", "artifactSpreadsheetEditor"]) {
+  for (const key of ["taskIsolationReview", "projectsExperience", "commandCenter", "resultsInbox", "activityAnimationsToggle", "paletteSettingSearch"]) {
     assert.equal(typeof body[key], "boolean", key);
   }
 });

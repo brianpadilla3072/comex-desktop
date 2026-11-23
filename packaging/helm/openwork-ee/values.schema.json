@@ -251,16 +251,6 @@
               ],
               "description": "Artifact panel and shell: Open mini-Studio outputs in a persistent artifact shell in the session side panel, with versions, sources and split chat/artifact view. Renders DEN_FEATURE_COMEX_ARTIFACTS."
             },
-            "artifactSpreadsheetEditor": {
-              "enum": [
-                "",
-                "true",
-                "false",
-                true,
-                false
-              ],
-              "description": "Excel-style spreadsheet editor for artifacts: Open sheet artifacts in an interactive, Excel-like spreadsheet (Jspreadsheet CE) with editable cells, formulas, copy/paste and column resize. Renders DEN_FEATURE_ARTIFACT_SPREADSHEET_EDITOR."
-            },
             "browserAgentPointer": {
               "enum": [
                 "",
@@ -2192,6 +2182,16 @@
               "description": "Retired: no longer a feature switch. Ignored."
             },
             "desktopUpdateDownloadWindow": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Retired: no longer a feature switch. Ignored."
+            },
+            "artifactSpreadsheetEditor": {
               "enum": [
                 "",
                 "true",

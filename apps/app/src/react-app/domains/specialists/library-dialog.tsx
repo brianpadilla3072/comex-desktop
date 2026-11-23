@@ -16,8 +16,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, SpecialistLibrary, SpecialistLibraryEntry, SpecialistOutput, SpecialistOutputAudit, SpecialistPanelBlock, SpecialistPanelResolution, SpecialistProposal, SpecialistSource, SpecialistSyncResult, SpecialistTask, SpecialistTaskSchedule } from "@/app/lib/openwork-server";
 import { MarkdownPreview } from "@/react-app/domains/session/artifacts/preview";
 import { comexDefaultTheme } from "@/react-app/design-system/comex-theme";
-import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
-import { useArtifactUiStore } from "../artifacts/state/artifact-store";
 import { specialistErrorMessage } from "./error-message";
 import { TaskIsolationReviewDialog } from "./task-isolation-review";
 import { t } from "../../../i18n";
@@ -726,9 +724,6 @@ function OutputsSummary({ app, client }: { app: SpecialistApplication; client: O
 function OutputsView({ app, client, onBack }: { app: SpecialistApplication; client: OpenworkServerClient; onBack(): void }) {
   const query = useQuery(outputsQuery(client, app));
   const queryClient = useQueryClient();
-  const artifactsEnabled = useComexArtifactsFeature(client);
-  const requestArtifactTab = useArtifactUiStore(state => state.requestArtifactTab);
-  const [openingId, setOpeningId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SpecialistOutput | null>(null);
@@ -736,16 +731,6 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
     setError(null);
     try { await client.deleteSpecialistOutput(app.id, output.id, output.workspaceId); await queryClient.invalidateQueries({ queryKey: OUTPUTS_KEY(client, app) }); }
     catch (cause) { setError(specialistErrorMessage(cause, "No se pudo eliminar la salida.")); }
-  }
-  async function openInPanel(output: SpecialistOutput) {
-    setError(null);
-    setOpeningId(output.id);
-    try {
-      const result = await client.createArtifactFromOutput(app.id, output.id, output.workspaceId);
-      requestArtifactTab({ artifactId: result.meta.id, appId: app.id, label: output.title, ...(output.workspaceId ? { workspaceId: output.workspaceId } : {}) });
-    } catch (cause) {
-      setError(specialistErrorMessage(cause, "No se pudo abrir el artefacto en el panel."));
-    } finally { setOpeningId(null); }
   }
   if (query.isPending) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><Skeleton className="h-24 w-full" /></>;
   if (query.isError) return <><Button variant="ghost" size="sm" className="justify-self-start" onClick={onBack}><ArrowLeft className="size-4" />Volver</Button><p role="alert" className="text-sm text-destructive">No se pudieron leer las salidas. <Button variant="link" onClick={() => void query.refetch()}>Volver a intentar</Button></p></>;
@@ -767,7 +752,6 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
         <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
         <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
         <Button size="sm" variant="ghost" aria-expanded={openId === output.id} onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
-        {artifactsEnabled ? <Button size="sm" variant="outline" aria-label={`Abrir ${output.title} en el panel`} disabled={openingId === output.id} onClick={() => void openInPanel(output)}>{openingId === output.id ? "Abriendo…" : "Abrir en el panel"}</Button> : null}
         <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => setPendingDelete(output)}><Trash2 className="size-4" /></Button>
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}

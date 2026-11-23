@@ -313,17 +313,6 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
-  artifactSpreadsheetEditor: {
-    label: "Excel-style spreadsheet editor for artifacts",
-    description: "Open sheet artifacts in an interactive, Excel-like spreadsheet (Jspreadsheet CE) with editable cells, formulas, copy/paste and column resize.",
-    category: "experience",
-    added: "2026-11-22",
-    since: "2026-11",
-    author: "brianpadilla3072",
-    docs: "docs/features/artifact-spreadsheet-editor/README.md",
-    deployments: ["self_hosted"],
-    default: true,
-  },
   browserAgentPointer: {
     label: "Visible browser agent pointer",
     description: "Show the agent pointer and click position inside the embedded browser while it is under agent control.",

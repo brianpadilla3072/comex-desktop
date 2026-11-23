@@ -102,6 +102,9 @@ export const RETIRED_FEATURE_KEYS = [
   "lastUsedSignIn", "remoteSessionHelperView",
   // Removed, not graduated (2026-10): early restart and its download-progress window.
   "desktopUpdateDownloadWindow",
+  // Always on (2026-11): the Jspreadsheet editor is the only renderer for sheet artifacts;
+  // no flag. Older clients and stored overrides may still send the key.
+  "artifactSpreadsheetEditor",
 ] as const
 
 export function isFeatureKey(value: string): value is FeatureKey {

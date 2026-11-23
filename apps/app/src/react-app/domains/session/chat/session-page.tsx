@@ -821,6 +821,16 @@ export function SessionPage(props: SessionPageProps) {
     setSidePanelState(sidePanelSessionKey, panel);
   }, [setSidePanelState, sidePanelSessionKey]);
 
+  // "Abrir en el panel" (Salidas del mini-Studio) only writes the requested artifact
+  // to the UI store. The SidePanel that consumes it is not mounted while the panel
+  // is closed, so its effect never runs. Open the panel here, where this page is
+  // always mounted, so the request can be consumed and the tab shown.
+  const requestedArtifactTab = useArtifactUiStore(state => state.requestedTab);
+  useEffect(() => {
+    if (!requestedArtifactTab) return;
+    setCurrentSidePanel("panel");
+  }, [requestedArtifactTab, setCurrentSidePanel]);
+
   // Which conversation's browser tabs may take the screen. Every other
   // conversation's tabs keep loading silently in the background.
   useEffect(() => {
