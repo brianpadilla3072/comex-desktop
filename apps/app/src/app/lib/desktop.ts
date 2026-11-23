@@ -68,6 +68,8 @@ export type BrowserPickedElement = {
   text: string;
   selector: string;
   comment: string;
+  /** Optional PNG data URL of the picked node; best-effort, may be absent. */
+  screenshot?: string;
 };
 
 export type BrowserPresentationMode = "hidden" | "floating" | "side" | "fullscreen";

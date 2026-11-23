@@ -365,7 +365,7 @@ function installAgentPointer() {
 function installElementPicker() {
   let active = false;
   /** @type {HTMLElement | null} */
-  let host = null, outline = null, label = null, form = null, input = null;
+  let host = null, outline = null, label = null, form = null, input = null, capture = null;
   /** @type {Element | null} */
   let hovered = null, picked = null;
 
@@ -414,15 +414,24 @@ function installElementPicker() {
     host.style.cssText = "position:fixed;inset:0;z-index:2147483647;pointer-events:none;";
     const shadow = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
-    style.textContent = "*{box-sizing:border-box}#outline{position:absolute;display:none;border:2px solid #2563eb;background:rgba(37,99,235,.10);border-radius:3px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.75) inset}#label{position:absolute;display:none;padding:2px 6px;border-radius:4px;background:#2563eb;color:#fff;font:11px/1.4 system-ui,sans-serif;white-space:nowrap;pointer-events:none}#form{position:absolute;display:none;flex-direction:column;gap:6px;width:264px;padding:10px;border-radius:8px;background:#fff;color:#0f172a;border:1px solid #dbe3ef;box-shadow:0 8px 24px rgba(0,0,0,.24);pointer-events:auto}#form input{width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font:12px/1.4 system-ui;color:#0f172a;outline:none}#form input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.16)}#hint{font:11px/1.4 system-ui;color:#475569}";
+    style.textContent = "*{box-sizing:border-box}#outline{position:absolute;display:none;border:2px solid #2563eb;background:rgba(37,99,235,.10);border-radius:3px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.75) inset}#label{position:absolute;display:none;padding:2px 6px;border-radius:4px;background:#2563eb;color:#fff;font:11px/1.4 system-ui,sans-serif;white-space:nowrap;pointer-events:none}#form{position:absolute;display:none;flex-direction:column;gap:6px;width:264px;padding:10px;border-radius:8px;background:#fff;color:#0f172a;border:1px solid #dbe3ef;box-shadow:0 8px 24px rgba(0,0,0,.24);pointer-events:auto}#form input[type=text]{width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:5px;font:12px/1.4 system-ui;color:#0f172a;outline:none}#form input[type=text]:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.16)}#capture-row{display:flex;align-items:center;gap:6px;font:11px/1.4 system-ui,sans-serif;color:#334155;cursor:pointer}#capture-row input{width:auto;margin:0;padding:0;accent-color:#2563eb}#hint{font:11px/1.4 system-ui;color:#475569}";
     outline = document.createElement("div"); outline.id = "outline";
     label = document.createElement("div"); label.id = "label";
     form = document.createElement("form"); form.id = "form";
     input = document.createElement("input");
+    input.type = "text";
     input.placeholder = "Comentario (Enter para agregar)";
     input.setAttribute("aria-label", "Comentario sobre el elemento");
+    const captureRow = document.createElement("label");
+    captureRow.id = "capture-row";
+    capture = document.createElement("input");
+    capture.type = "checkbox";
+    capture.setAttribute("aria-label", "Adjuntar captura del elemento");
+    const captureText = document.createElement("span");
+    captureText.textContent = "Adjuntar captura del elemento";
+    captureRow.append(capture, captureText);
     const hint = document.createElement("div"); hint.id = "hint"; hint.textContent = "Enter: agregar al chat · Esc: cancelar";
-    form.append(input, hint);
+    form.append(input, captureRow, hint);
     form.addEventListener("submit", event => { event.preventDefault(); commit(); });
     shadow.append(style, outline, label, form);
     (document.documentElement ?? document).append(host);
@@ -454,12 +463,34 @@ function installElementPicker() {
   }
   function commit() {
     if (!picked || !picked.isConnected) return closeForm();
-    ipcRenderer?.send("openwork:browser:element-picked", {
-      ...describe(picked),
-      comment: (input?.value || "").trim().slice(0, 2000),
-    });
+    const element = picked;
+    const comment = (input?.value || "").trim().slice(0, 2000);
+    let captureRegion = null;
+    if (capture?.checked === true) {
+      try {
+        const rect = element.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          captureRegion = {
+            include: true,
+            x: rect.left,
+            y: rect.top,
+            width: Math.min(rect.width, 8192),
+            height: Math.min(rect.height, 8192),
+            scrollX: window.scrollX,
+            scrollY: window.scrollY,
+          };
+        }
+      } catch {}
+    }
+    // Hide the isolated overlay before the host paints the region, so the
+    // outline and the comment box never appear in the attached screenshot.
     closeForm();
     clearHover();
+    ipcRenderer?.send("openwork:browser:element-picked", {
+      ...describe(element),
+      comment,
+      capture: captureRegion,
+    });
   }
   function fromPointer(event) {
     if (event.composedPath?.().includes(host)) return null;
@@ -486,6 +517,7 @@ function installElementPicker() {
     form.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 280))}px`;
     form.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 110))}px`;
     input.value = "";
+    if (capture) capture.checked = false;
     input.focus();
   }
   function onKey(event) {

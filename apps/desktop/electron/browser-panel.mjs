@@ -2348,9 +2348,44 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
         comment: field(payload.comment, 2000),
       };
     }
-    ipcMain.on("openwork:browser:element-picked", (event, payload) => {
+    function captureRegionFromPage(payload) {
+      const capture = payload?.capture;
+      if (!capture || typeof capture !== "object" || capture.include !== true) return null;
+      const number = value => typeof value === "number" && Number.isFinite(value) ? value : null;
+      const x = number(capture.x), y = number(capture.y);
+      const width = number(capture.width), height = number(capture.height);
+      if (x === null || y === null || width === null || height === null) return null;
+      if (x < -1 || y < -1 || width <= 0 || height <= 0 || width > 8192 || height > 8192) return null;
+      const scrollX = number(capture.scrollX) ?? 0;
+      const scrollY = number(capture.scrollY) ?? 0;
+      return {
+        x: Math.max(0, Math.floor(x + scrollX)),
+        y: Math.max(0, Math.floor(y + scrollY)),
+        width: Math.ceil(width),
+        height: Math.ceil(height),
+      };
+    }
+    ipcMain.on("openwork:browser:element-picked", async (event, payload) => {
       const picked = pickedElementFromPage(event, payload);
-      if (picked) sendToRenderer("openwork:browser:element-picked", picked);
+      if (!picked) return;
+      const region = captureRegionFromPage(payload);
+      if (region) {
+        try {
+          // The isolated preload already hid its overlay; give Chromium one
+          // paint turn before reading the pixels.
+          await new Promise(resolve => setTimeout(resolve, 60));
+          const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);
+          if (tab) {
+            const image = await tab.view.webContents.capturePage(region);
+            if (!image.isEmpty()) {
+              picked.screenshot = `data:image/png;base64,${image.toPNG().toString("base64")}`;
+            }
+          }
+        } catch {
+          // Best effort: the text chip must still reach the chat.
+        }
+      }
+      sendToRenderer("openwork:browser:element-picked", picked);
     });
     ipcMain.on("openwork:browser:element-selector-exit", (event) => {
       const tab = [...browserTabs.values()].find(candidate => candidate.view.webContents === event.sender);

@@ -3113,6 +3113,10 @@ export function SessionSurface(props: SessionSurfaceProps) {
     setComposerAttachments,
     setComposerDraft,
   ]);
+  // Like the browser callbacks below, this listener is registered once while
+  // SessionSurface is reused across sessions; read the latest attach function.
+  const handleAttachFilesRef = useRef(handleAttachFiles);
+  handleAttachFilesRef.current = handleAttachFiles;
 
   const companionResponseAt = props.isControlTarget && isDesktopRuntime() ? latestCompanionResponseTime(renderedMessages) : 0;
   useCompanionHost({
@@ -3202,13 +3206,18 @@ export function SessionSurface(props: SessionSurfaceProps) {
 
   const handlePasteTextRef = useRef(handlePasteText);
   handlePasteTextRef.current = handlePasteText;
+  // SessionSurface is reused across session switches. These IPC listeners are
+  // registered once, so reading sessionId from props here would filter every
+  // pick with the session that was active on the first mount.
+  const browserSessionIdRef = useRef(props.sessionId);
+  browserSessionIdRef.current = props.sessionId;
 
   // Browser "Add to chat" / "Comment": insert the page selection as a pasted-text chip.
   useEffect(() => {
     const browser = (window as any).__OPENWORK_ELECTRON__?.browser;
     if (typeof browser?.onAddToChat !== "function") return;
     const offAdd = browser.onAddToChat((payload: any) => {
-      if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+      if (payload?.sessionId && payload.sessionId !== browserSessionIdRef.current) return;
       const url = payload?.url ?? "";
       const selection = payload?.selectionText ?? "";
       const text = url ? `Selección de ${url}:\n${selection}` : selection;
@@ -3216,7 +3225,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     });
     const offComment = typeof browser.onAddComment === "function"
       ? browser.onAddComment((payload: any) => {
-          if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+          if (payload?.sessionId && payload.sessionId !== browserSessionIdRef.current) return;
           const url = payload?.url ?? "";
           const selection = payload?.selectionText ?? "";
           const text = `Comentario sobre ${url}:\n> ${selection}\n\n`;
@@ -3232,7 +3241,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     const browser = (window as any).__OPENWORK_ELECTRON__?.browser;
     if (typeof browser?.onElementPicked !== "function") return;
     const off = browser.onElementPicked((payload: any) => {
-      if (payload?.sessionId && payload.sessionId !== props.sessionId) return;
+      if (payload?.sessionId && payload.sessionId !== browserSessionIdRef.current) return;
       const url = typeof payload?.url === "string" ? payload.url : "";
       const text = typeof payload?.text === "string" ? payload.text : "";
       const selector = typeof payload?.selector === "string" ? payload.selector : "";
@@ -3246,6 +3255,25 @@ export function SessionSurface(props: SessionSurfaceProps) {
       if (selector) lines.push("", "Selector:", selector);
       lines.push("", `Comentario: ${comment}`);
       handlePasteTextRef.current?.(lines.join("\n"));
+
+      // The screenshot is opt-in: only present when the person ticked
+      // "Adjuntar captura del elemento" in the picker's comment box.
+      const screenshot = typeof payload?.screenshot === "string" && payload.screenshot.startsWith("data:image/png;base64,")
+        ? payload.screenshot
+        : "";
+      if (!screenshot) return;
+      void (async () => {
+        try {
+          const response = await fetch(screenshot);
+          const blob = await response.blob();
+          // Let the pasted-text chip land in the store before adding the file.
+          await new Promise(resolve => setTimeout(resolve, 0));
+          const file = new File([blob], `elemento-${tag}-${Date.now()}.png`, { type: "image/png" });
+          handleAttachFilesRef.current?.([file]);
+        } catch {
+          // Best effort: the chip and the comment are already in the draft.
+        }
+      })();
     });
     return () => { off?.(); };
   }, []);

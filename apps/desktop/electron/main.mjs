@@ -2104,13 +2104,20 @@ const desktopCommandHandlers = {
   "__stopSpeechDictation": async (event, requestId) => speechDictation.stop(event, requestId),
   "__abortSpeechDictation": async (event, requestId) => speechDictation.abort(event, requestId),
   openWebInBrowser: async () => {
+    // The OpenWork web app proper is served by `openwork-server web` (default
+    // port 8787), which injects the collaborator token into index.html so the
+    // browser opens already signed in. Fall back to the dev renderer / runtime.
     let url = null;
     try {
-      const current = mainWindow?.webContents?.getURL?.() ?? "";
-      // In dev the UI is served by Vite (http://localhost:<port>); in packaged
-      // builds it is served by openwork-server itself (baseUrl).
-      if (/^https?:\/\//i.test(current)) url = current;
+      const probe = await fetch("http://127.0.0.1:8787/", { signal: AbortSignal.timeout(800) });
+      if (probe.ok) url = "http://127.0.0.1:8787/";
     } catch {}
+    if (!url) {
+      try {
+        const current = mainWindow?.webContents?.getURL?.() ?? "";
+        if (/^https?:\/\//i.test(current)) url = current;
+      } catch {}
+    }
     if (!url) {
       const info = await runtimeRef.current?.openworkServerInfo?.();
       url = typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;

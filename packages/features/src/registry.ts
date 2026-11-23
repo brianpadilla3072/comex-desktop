@@ -322,7 +322,7 @@ export const FEATURES = defineFeatures({
     author: "brianpadilla3072",
     docs: "docs/features/artifact-spreadsheet-editor/README.md",
     deployments: ["self_hosted"],
-    default: false,
+    default: true,
   },
   browserAgentPointer: {
     label: "Visible browser agent pointer",
