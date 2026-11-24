@@ -1,0 +1,8 @@
+setup_at=2026-11-23T20:26:38-03:00
+os=linux
+mem_available_gb=3
+ocr_tesseract=ok
+ollama=missing
+moondream=missing
+mode=ocr+vision
+note=RAM suficiente (3GB): visión local bajo demanda (previa confirmación).

@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { parseLocalPathReference } from "./local-path";
 
-type OpenTargetKind = "url" | "file";
+type OpenTargetKind = "url" | "file" | "artifact";
 export type OpenTargetPreview = "browser" | "markdown" | "code" | "sheet" | "slides" | "document" | "image" | "pdf" | "html" | "text" | "external";
 
 export interface TextData {
@@ -33,6 +33,8 @@ export type OpenTarget = {
   fileScope?: "workspace" | "conversation";
   size?: number;
   updatedAt?: number;
+  /** A mini-Studio artifact: open it in the studio shell, which picks the viewer from its type. */
+  artifact?: { artifactId: string; appId: string; workspaceId?: string };
 };
 
 /** Explicit links preserve the full address, unlike URLs extracted from prose. */
@@ -64,7 +66,10 @@ export function sameOpenTargets(left: OpenTarget[], right: OpenTarget[]): boolea
       && target.resolvedPath === other.resolvedPath
       && target.fileScope === other.fileScope
       && target.size === other.size
-      && target.updatedAt === other.updatedAt;
+      && target.updatedAt === other.updatedAt
+      && target.artifact?.artifactId === other.artifact?.artifactId
+      && target.artifact?.appId === other.artifact?.appId
+      && target.artifact?.workspaceId === other.artifact?.workspaceId;
   });
 }
 
@@ -146,6 +151,41 @@ export function openTargetFromWorkspaceFile(
 ): OpenTarget | null {
   const target = targetFromFile(path, 100, "workspace tree");
   return target ? { ...target, exists: true, ...metadata } : null;
+}
+
+/** Maps an artifact type to the preview its studio viewer will actually render. */
+export function artifactPreview(type: string): OpenTargetPreview {
+  if (type === "doc") return "markdown";
+  if (type === "sheet") return "sheet";
+  if (type === "slides") return "slides";
+  // Data dashboards and boards are rich views, not plain text files.
+  return "html";
+}
+
+/**
+ * An existing mini-Studio artifact becomes a clickable result. The studio shell
+ * chooses the viewer from `meta.type`, so one click opens sheets in the sheet
+ * editor and docs in the MD/MDX viewer without asking the agent to open them.
+ */
+export function openTargetFromArtifact(
+  artifact: { id: string; type: string; title: string },
+  context: { appId: string; workspaceId?: string },
+): OpenTarget {
+  return {
+    id: `artifact:${artifact.id}`,
+    kind: "artifact",
+    value: artifact.id,
+    name: artifact.title,
+    preview: artifactPreview(artifact.type),
+    confidence: 100,
+    reason: "artefacto del proyecto",
+    exists: true,
+    artifact: {
+      artifactId: artifact.id,
+      appId: context.appId,
+      ...(context.workspaceId ? { workspaceId: context.workspaceId } : {}),
+    },
+  };
 }
 
 function shouldScanAssistantFileMentions(text: string) {

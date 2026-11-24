@@ -40,7 +40,7 @@ config:
     specialistAppZipBundle: ""    # default on · Export an application as a .owapp ZIP archive that also carries the project's work files, with streamed, size-capped and checksum-verified import. Old JSON bundles still import.
     comexSpanishLocale: ""        # default on · Show the interface in Spanish when the person has not chosen a language, so it matches the Spanish Comex screens.
     comexModelGuide: ""           # default off · Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates.
-    comexChatCommands: ""         # default off · Manage chats, inspect status, sketch and review local share copies from the composer command menu.
+    comexChatCommands: ""         # default on · Manage chats, inspect status, sketch and review local share copies from the composer command menu.
     comexScopedMemory: ""         # default off · Remember explicit notes at conversation, project or application scope and manage them locally.
     comexContinuity: ""           # default off · Save and resume structured session progress, decisions and pending work with conflict detection.
     comexGitWorkspace: ""         # default off · Review local changes and create isolated Git worktrees from the current committed revision.

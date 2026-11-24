@@ -99,7 +99,7 @@ import {
 } from "../../../shell/session-actions-bus";
 
 import { isElectronRuntime, isMacPlatform } from "../../../../app/utils";
-import { openTargetFromUrl, isCollectibleArtifactTarget, isLocalhostBrowserTarget, isOpenableFileTarget, type OpenTarget } from "../artifacts/open-target";
+import { openTargetFromArtifact, openTargetFromUrl, isCollectibleArtifactTarget, isLocalhostBrowserTarget, isOpenableFileTarget, type OpenTarget } from "../artifacts/open-target";
 import { fileOriginForRuntime, nativeFileAction, planFileOpen, resolveCollectibleOpenTarget, unavailableFileMessage } from "../artifacts/resolve-open-target";
 import type { OpenTargetOptions } from "@/lib/target-provider";
 import { SidePanel } from "../panel/side-panel";
@@ -123,6 +123,8 @@ import { useActivePanelTab, usePanelTabStore, useSessionPanelState } from "../pa
 import { useComexArtifactsFeature } from "../comex/use-comex-feature";
 import type { SidebarDesign, SidebarProjects } from "../../projects/projects-sidebar";
 import { useArtifactUiStore } from "../../artifacts/state/artifact-store";
+import { useSpecialistApplications } from "../../specialists/provider";
+import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
 import { useControlAction, type OpenworkControlAction } from "../../../shell/control/control-provider";
 import { cn } from "@/lib/utils";
@@ -613,6 +615,25 @@ export function SessionPage(props: SessionPageProps) {
   const sessionPanelState = useSessionPanelState(sidePanelSessionKey);
   const activePanelTab = useActivePanelTab(sidePanelSessionKey);
   const artifactsEnabled = useComexArtifactsFeature(props.openworkServerClient);
+  // Existing mini-Studio artifacts are results of the conversation too. Listing them here
+  // lets a person open a sheet or a document with one click, instead of asking the agent
+  // to open it again. The studio shell picks the viewer from the artifact type.
+  const specialist = useSpecialistApplications();
+  const studioArtifactsQuery = useQuery({
+    queryKey: ["session-resource-artifacts", specialist?.client?.baseUrl, specialist?.active?.id, props.runtimeWorkspaceId],
+    queryFn: () => specialist!.client!.getArtifacts(specialist!.active!.id, props.runtimeWorkspaceId ?? undefined),
+    enabled: Boolean(artifactsEnabled && specialist?.client && specialist?.active && props.openworkServerClient && props.runtimeWorkspaceId),
+    retry: false,
+    staleTime: 15_000,
+  });
+  const studioArtifactTargets = useMemo<OpenTarget[]>(() => {
+    const appId = specialist?.active?.id;
+    if (!appId) return [];
+    return (studioArtifactsQuery.data?.artifacts ?? []).map(artifact => openTargetFromArtifact(artifact, {
+      appId,
+      ...(props.runtimeWorkspaceId ? { workspaceId: props.runtimeWorkspaceId } : {}),
+    }));
+  }, [specialist?.active?.id, studioArtifactsQuery.data, props.runtimeWorkspaceId]);
   const studioActive = artifactsEnabled && activePanelTab?.type === "studio";
   const artifactFocusMode = useArtifactUiStore(state => state.focusMode);
   const [hiddenTargetRevision, setHiddenTargetRevision] = useState(0);
@@ -962,6 +983,24 @@ export function SessionPage(props: SessionPageProps) {
     workspaceType?: WorkspaceInfo["workspaceType"];
     sandboxBackend?: string | null;
   }, target: OpenTarget, options?: OpenTargetOptions, sourceSessionId?: string) => {
+    // A result that is already a mini-Studio artifact opens in the studio shell.
+    // Its viewer (sheet, MD/MDX, slides, dashboard) is chosen from the artifact type.
+    if (target.artifact) {
+      const artifactSessionId = sourceSessionId ?? props.selectedSessionId;
+      if (artifactSessionId) {
+        openTab(artifactSessionId, {
+          id: `studio:${target.artifact.appId}:${target.artifact.artifactId}`,
+          type: "studio",
+          label: target.name,
+          artifactId: target.artifact.artifactId,
+          appId: target.artifact.appId,
+          ...(target.artifact.workspaceId ? { workspaceId: target.artifact.workspaceId } : {}),
+        });
+        useWorkspaceResources.getState().select(workspaceResourceScope, null);
+        openOwnerSidePanel(artifactSessionId);
+      }
+      return;
+    }
     if (target.kind === "url" || target.preview === "browser") {
       const url = browserUrlForTarget(target);
       if (referenceLayout && !options?.external && runtime.runtimeWorkspaceId === props.runtimeWorkspaceId) {
@@ -2311,7 +2350,10 @@ export function SessionPage(props: SessionPageProps) {
                         ) : null}
                         <div className="min-h-0 flex-1">
                           <SessionSurface
-                            resourceCardTargets={resourceWorkspace.tabs.filter(tab => tab.kind === "browser" && tab.ownerSessionId === props.selectedSessionId).flatMap(tab => { const target = openTargetFromUrl(tab.url ?? ""); return target ? [target] : []; })}
+                            resourceCardTargets={[
+                              ...studioArtifactTargets,
+                              ...resourceWorkspace.tabs.filter(tab => tab.kind === "browser" && tab.ownerSessionId === props.selectedSessionId).flatMap(tab => { const target = openTargetFromUrl(tab.url ?? ""); return target ? [target] : []; }),
+                            ]}
                             resourceCardEnabled={referenceLayout && !sidePanelOpen && !canRenderSplitSurface}
                             onOpenAgents={referenceLayout ? (childId) => { useWorkspaceResources.getState().open(workspaceResourceScope, "agents", childId, props.selectedSessionId); } : undefined}
                             onViewSources={() => useWorkspaceResources.getState().open(workspaceResourceScope, "sources", undefined, props.selectedSessionId)}

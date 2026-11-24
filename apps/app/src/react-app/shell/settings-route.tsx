@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { workspaceRenameFailure } from "@/react-app/shell/workspace-rename-error";
+import { autoCompactionEnabled } from "@/react-app/domains/settings/state/auto-compaction";
 import { useChatEngineClient } from "@/react-app/domains/models/use-chat-engine-client";
 import { useAutoAccess } from "@/react-app/domains/cloud/auto-access-ui";
 import { freeAutoSwitchedOff } from "@/app/lib/inference-access";
@@ -1731,11 +1732,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
       try {
         const config = await openworkClient.getConfig(workspaceId);
         if (cancelled) return;
-        const compaction = config.opencode?.compaction;
-        const auto = compaction && typeof compaction === "object" && "auto" in compaction
-          ? (compaction as { auto?: boolean }).auto
-          : undefined;
-        setAutoCompactContext(auto !== false);
+        setAutoCompactContext(autoCompactionEnabled(config.opencode?.compaction));
         setAutoCompactContextLoaded(true);
       } catch {
         if (!cancelled) setAutoCompactContextLoaded(true);

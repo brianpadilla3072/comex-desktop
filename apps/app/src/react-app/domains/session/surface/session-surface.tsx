@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { SessionResourcesCard } from "./session-resources-card";
+import { orderResourceCardTargets, SessionResourcesCard } from "./session-resources-card";
 import { openMemberApiKeyDialog } from "../../connections/member-api-key-dialog";
 import { childOrigin, rememberChildOrigin, prepareChildReturn, consumeChildReturn, registerChildDraftPersistence } from "@/lib/child-navigation";
 import { remoteSessionRouteId } from "@/lib/remote-session-route";
@@ -2213,19 +2213,21 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setVerifiedOpenTargets((current) => sameOpenTargets(current, targets) ? current : targets);
     };
     async function verifyTargets() {
-      if (!openTargets.length) {
+      // Artifacts already exist by definition and the resolver only knows files and URLs.
+      const resolvableTargets = openTargets.filter((target): target is OpenTarget & { kind: "url" | "file" } => target.kind !== "artifact");
+      if (!resolvableTargets.length) {
         updateVerifiedOpenTargets([]);
         return;
       }
       try {
-        const response = await props.client.resolveArtifacts(props.workspaceId, openTargets, { sessionId: props.sessionId });
+        const response = await props.client.resolveArtifacts(props.workspaceId, resolvableTargets, { sessionId: props.sessionId });
         if (!cancelled) {
           const nextTargets = response.items as OpenTarget[];
           updateVerifiedOpenTargets(nextTargets);
         }
       } catch {
         if (!cancelled) {
-          const nextTargets = openTargets.map((target) => ({ ...target, exists: target.kind === "url" }));
+          const nextTargets = resolvableTargets.map((target) => ({ ...target, exists: target.kind === "url" }));
           updateVerifiedOpenTargets(nextTargets);
         }
       }
@@ -3989,7 +3991,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
           <SessionResourcesCard
             agents={props.onOpenAgents && conversationAgentTasks(renderedMessages).length ? <AgentActivityMap key={historyViewOwner} presentation="summary" messages={renderedMessages} workspaceId={props.workspaceId} owner={historyViewOwner} parentTitle={props.sessionTitle ?? "Conversación principal"} parentActive={subagentTrackerParentActive} syncDegraded={runSyncHealth.degraded} readChild={readAgentMessages} onOpenWorkspace={() => props.onOpenAgents?.()} /> : undefined}
             messages={renderedMessages}
-            targets={[...verifiedOpenTargets, ...(props.resourceCardTargets ?? [])]}
+            targets={orderResourceCardTargets(verifiedOpenTargets, props.resourceCardTargets ?? [])}
             onOpen={handleOpenTarget}
             onAddResult={props.onAddResourceResult}
             onViewSources={props.onViewSources}

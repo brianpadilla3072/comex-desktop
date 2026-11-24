@@ -1,6 +1,6 @@
 # Comandos del chat
 
-Flag `comexChatCommands`, self-hosted, default false en el registro. Autor: brianpadilla3072. Habilitado en la distribución Comex salvo bloqueo explícito. Apagar restaura el catálogo anterior del motor; no modifica chats ni archivos.
+Flag `comexChatCommands`, self-hosted, default true en el registro. Autor: brianpadilla3072. Habilitado en la distribución Comex salvo bloqueo explícito. Apagar quita las acciones locales del menú `/`, sin tocar chats ni archivos: el catálogo completo de OpenCode (comandos y skills del motor) sigue accesible.
 
 ## Funciones y propietario de cada operación
 
@@ -24,7 +24,7 @@ Los alias ingleses se resuelven en el compositor. Los nombres ya definidos por O
 
 Antes del cambio: compositor 1.719 líneas, superficie de conversación 4.235 (5.954 combinadas), menú limitado a ocho sugerencias y acciones de aplicación fuera del catálogo. Se agregan módulos separados para catálogo/validación, acciones, exportación, dibujo y mascota. El compositor solo mezcla opciones y deriva la selección; la superficie aporta sus referencias e historial completo. Archivar reutiliza el mismo servicio del lateral, incluidos conflictos, cancelación y verificación.
 
-Resolución por mapa, sin consultar la red al escribir. El catálogo externo conserva su caché y cargas existentes. La lista dibuja hasta 40 filas al abrir y 24 resultados al buscar; no renderiza todo el catálogo. Exportar usa la lectura paginada completa existente bajo demanda y limita la copia a dos millones de caracteres. Un bloqueo de ejecución impide dobles pulsaciones y no hay reintentos automáticos de mutaciones. Estado y MCP se consultan al abrir sus vistas.
+Resolución por mapa, sin consultar la red al escribir. El catálogo externo conserva su caché y cargas existentes. El menú `/` muestra todos los comandos y skills que informa el motor, esté o no activo el flag: al abrir lista el catálogo completo y al buscar filtra sin tope de filas; el Popover limita la altura a `--available-height` y hace scroll (DESIGN.md S7). Exportar usa la lectura paginada completa existente bajo demanda y limita la copia a dos millones de caracteres. Un bloqueo de ejecución impide dobles pulsaciones y no hay reintentos automáticos de mutaciones. Estado y MCP se consultan al abrir sus vistas.
 
 La copia compartida excluye herramientas, razonamiento, partes sintéticas y archivos adjuntos. Redacta algunos formatos conocidos de claves, exige revisar el texto y descarga un archivo local, sin subir ni publicar datos. El HTML escapa texto y aplica CSP sin scripts. La redacción no sustituye la revisión de datos privados.
 

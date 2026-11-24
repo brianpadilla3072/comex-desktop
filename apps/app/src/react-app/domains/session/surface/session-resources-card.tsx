@@ -1,6 +1,6 @@
 import { useState, type Ref, type ReactNode } from "react";
 import type { UIMessage } from "ai";
-import { FileText, Globe, Link, Plus } from "lucide-react";
+import { Blocks, FileSpreadsheet, FileText, Globe, Link, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { deriveOpenTargets, type OpenTarget } from "../artifacts/open-target";
@@ -13,6 +13,16 @@ export function conversationResources(messages: UIMessage[], verified: OpenTarge
     part.type === "file" && part.mediaType.startsWith("image/") && /^(data:image\/|https?:\/\/)/.test(part.url)
       ? [{ id: `${message.id}:${index}`, name: part.filename || "Imagen adjunta", url: part.url }] : [])).map(image => ({ ...image, path: sources.find(target => target.kind === "file" && target.name === image.name)?.value }));
   return { sources: sources.filter(target => !images.some(image => image.name === target.name)), images, results: Array.from(new Map(verified.filter(target => !sourceIds.has(target.id) && target.exists !== false).map(target => [target.id, target])).values()) };
+}
+
+/** Artifacts from the project lead the card; chat files and browser tabs keep
+ *  their previous relative order. The card itself only renders the first three. */
+export function orderResourceCardTargets(verified: OpenTarget[], cardTargets: OpenTarget[]): OpenTarget[] {
+  return [
+    ...cardTargets.filter(target => target.kind === "artifact"),
+    ...verified,
+    ...cardTargets.filter(target => target.kind !== "artifact"),
+  ];
 }
 
 export function SessionResourcesCard(props: {
@@ -29,9 +39,13 @@ export function SessionResourcesCard(props: {
   const rowClass = "h-8 w-full justify-start gap-2.5 rounded-md px-1 text-sm font-normal text-dls-secondary hover:text-dls-text";
   function targetRow(target: OpenTarget) {
     const label = target.kind === "url" ? target.name.replace(/^https?:\/\//, "").replace(/\/$/, "") : target.name;
+    const Icon = target.kind === "url" || target.preview === "browser" ? Globe
+      : target.preview === "sheet" ? FileSpreadsheet
+        : target.kind === "artifact" ? Blocks
+          : FileText;
     return <Button key={target.id} variant="ghost" className={rowClass} title={target.value}
       onClick={() => props.onOpen(target)}>
-      {target.kind === "url" ? <Globe strokeWidth={1.5} className="size-4 shrink-0 text-dls-text" /> : <FileText strokeWidth={1.5} className="size-4 shrink-0" />}
+      <Icon strokeWidth={1.5} className="size-4 shrink-0 text-dls-text" />
       <span className="min-w-0 truncate">{label}</span>
     </Button>;
   }

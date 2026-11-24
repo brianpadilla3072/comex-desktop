@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { indexSlashOptions, searchSlashOptions } from "../src/react-app/domains/session/commands/search-index";
+import { filterSlashOptions, indexSlashOptions, searchSlashOptions } from "../src/react-app/domains/session/commands/search-index";
 import { performance } from "node:perf_hooks";
 import { CHAT_COMMANDS, chatCommandOptions, resolveChatCommand, appCommandForOption } from "../src/react-app/domains/session/commands/catalog";
 import { shareTranscript, buildShareHtml } from "../src/react-app/domains/session/commands/share-snapshot";
@@ -44,10 +44,14 @@ test("dispatch lookup stays bounded with a large external catalog: no network, n
   assert.ok(elapsed < 5000);
 });
 
-test("large native catalogs are searched without rendering every result", () => {
+test("every native command stays reachable: search has no hidden row cap", () => {
   const items = Array.from({ length: 10_000 }, (_, i) => ({ id: `native:${i}`, name: `plugin:command-${i}`, description: "Native engine command" }));
   const prepared = indexSlashOptions(items);
   const start = performance.now(); const results = searchSlashOptions("command", prepared);
-  console.log(`10,000 native entries searched: ${(performance.now() - start).toFixed(1)}ms; rendered results ${results.length}.`);
-  assert.equal(results.length, 24);
+  console.log(`10,000 native entries searched: ${(performance.now() - start).toFixed(1)}ms; matching results ${results.length}.`);
+  assert.equal(results.length, items.length);
+  assert.equal(searchSlashOptions("plugin:command-42", prepared)[0]?.id, "native:42");
+  // With the local action flag off the menu receives only the engine catalog.
+  assert.equal(filterSlashOptions("", items, prepared).length, items.length);
+  assert.equal(filterSlashOptions("plugin:command-42", items, prepared)[0]?.id, "native:42");
 });

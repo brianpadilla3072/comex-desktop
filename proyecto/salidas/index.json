@@ -1,0 +1,22 @@
+[
+  {
+    "id": "out-table-923eb91b",
+    "kind": "table",
+    "title": "Hoja automática final",
+    "fromDatasets": [],
+    "fromSources": [],
+    "focus": "",
+    "createdAt": 1795450079624,
+    "updatedAt": 1795450079624
+  },
+  {
+    "id": "out-table-5c3b5cac",
+    "kind": "table",
+    "title": "Exportaciones de ejemplo (demo)",
+    "fromDatasets": [],
+    "fromSources": [],
+    "focus": "Datos de ejemplo para probar el editor de hojas nativo; no son estadísticas reales.",
+    "createdAt": 1795447712871,
+    "updatedAt": 1795475556493
+  }
+]

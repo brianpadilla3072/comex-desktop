@@ -74,7 +74,7 @@ function paletteItemSearchValue(item: unknown) {
 
 export type AccessibleTargetOption = {
   id: string;
-  kind: "url" | "file";
+  kind: "url" | "file" | "artifact";
   value: string;
   name: string;
   preview: string;

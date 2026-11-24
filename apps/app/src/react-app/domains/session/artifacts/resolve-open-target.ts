@@ -109,7 +109,18 @@ export async function resolveCollectibleOpenTarget(
 ): Promise<OpenTarget | null> {
   if (target.kind !== "file") return null;
 
-  const response = await client.resolveArtifacts(workspaceId, [target], {
+  // Only file references go to filesystem resolution; the resolver contract
+  // deliberately accepts no other kind. Spelling the fields out keeps that
+  // boundary narrow instead of widening it for every OpenTarget kind.
+  const response = await client.resolveArtifacts(workspaceId, [{
+    kind: "file",
+    value: target.value,
+    ...(target.name ? { name: target.name } : {}),
+    ...(target.preview ? { preview: target.preview } : {}),
+    ...(target.confidence === undefined ? {} : { confidence: target.confidence }),
+    ...(target.reason ? { reason: target.reason } : {}),
+    ...(target.fileScope ? { fileScope: target.fileScope } : {}),
+  }], {
     sessionId: sessionId ?? undefined,
     search: options?.search,
   });

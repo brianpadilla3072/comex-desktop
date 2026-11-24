@@ -267,7 +267,7 @@ export const FEATURES = defineFeatures({
     author: "brianpadilla3072",
     docs: "docs/features/comex-chat-commands/README.md",
     deployments: ["self_hosted"],
-    default: false,
+    default: true,
   },
   comexScopedMemory: {
     label: "Conversation, project and application memory",

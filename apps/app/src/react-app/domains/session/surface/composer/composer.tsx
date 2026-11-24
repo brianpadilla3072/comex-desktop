@@ -1,6 +1,6 @@
 import { EngineIdentity } from "./engine-identity";
 import { cn } from "@/lib/utils";
-import { indexSlashOptions, searchSlashOptions } from "../../commands/search-index";
+import { filterSlashOptions, indexSlashOptions } from "../../commands/search-index";
 import { CHAT_COMMAND_ICONS } from "../../commands/icons";
 import { useChatCommands, type ChatCommandTarget } from "../../commands/use-chat-commands";
 import { appCommandForOption, resolveChatCommand } from "../../commands/catalog";
@@ -774,12 +774,13 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
     })) : []), ...commands.filter(command => !chatCommands.enabled || command.name !== "init"), ...connectSkillSlashCommandOptions(skills)],
     [commands, skills, chatCommands.enabled, chatCommands.options, commandsLoaded],
   );
-  const slashSearchIndex = useMemo(() => chatCommands.enabled ? indexSlashOptions(slashItems) : [], [slashItems, chatCommands.enabled]);
-  const slashFiltered = useMemo(() => {
-    if (!slashOpen) return [];
-    if (!slashQuery) return slashItems.slice(0, chatCommands.enabled ? 40 : 8);
-    return chatCommands.enabled ? searchSlashOptions(slashQuery, slashSearchIndex) : fuzzysort.go(slashQuery, slashItems, { keys: ["name", "description"], limit: 8 }).map(entry => entry.obj);
-  }, [slashItems, slashOpen, slashQuery, slashSearchIndex, chatCommands.enabled]);
+  // The engine's catalog is always searchable in full, with or without the
+  // Comex command actions. The menu scrolls (DESIGN.md S7); no row is hidden.
+  const slashSearchIndex = useMemo(() => indexSlashOptions(slashItems), [slashItems]);
+  const slashFiltered = useMemo(
+    () => slashOpen ? filterSlashOptions(slashQuery, slashItems, slashSearchIndex) : [],
+    [slashItems, slashOpen, slashQuery, slashSearchIndex],
+  );
   const mentionFiltered = useMemo(() => {
     if (!mentionOpen) return [];
     if (!mentionQuery) return mentionItems.slice(0, 8);
