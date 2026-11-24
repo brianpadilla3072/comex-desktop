@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { MarkdownBlock } from "../../session/surface/markdown";
 import type { ArtifactMetadata } from "../types";
 import { mdxToMarkdown } from "./mdx-to-markdown";
+import "./doc-view.css";
 
 type ViewerState = NonNullable<ArtifactMetadata["viewer"]>;
 type DocViewProps = {
@@ -134,8 +135,9 @@ export function DocView({ content, format, viewer, title, onContentChange, onVie
         <div
           ref={contentRef}
           data-testid="doc-content"
-          className={cn("min-w-0 flex-1 overflow-auto", wrap ? "[&_pre]:whitespace-pre-wrap" : "[&_pre]:whitespace-pre")}
-          style={{ zoom: zoom / 100, colorScheme: theme, backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#e2e8f0" : "#1e293b" }}
+          data-doc-theme={theme}
+          className={cn("doc-view-content min-w-0 flex-1 overflow-auto", wrap ? "[&_pre]:whitespace-pre-wrap" : "[&_pre]:whitespace-pre")}
+          style={{ zoom: zoom / 100, backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#e2e8f0" : "#1e293b" }}
         >
           {mode === "edit" ? (
             <textarea

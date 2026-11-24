@@ -1,0 +1,46 @@
+/* The document viewer owns its palette. The chat shell may be dark while the
+   document is light (or the other way around); if the Markdown inherits the
+   shell's `--foreground`, a light viewer paints white text on a white page.
+   Scoping the base tokens here keeps `text-foreground`, muted text and borders
+   in sync with the background painted by DocView. */
+
+.doc-view-content {
+  color-scheme: light;
+  --foreground: #1e293b;
+  --muted-foreground: #475569;
+  --background: #ffffff;
+  --border: #cbd5e1;
+  --dls-border: #cbd5e1;
+  --dls-text-primary: #1e293b;
+  --dls-text-secondary: #475569;
+}
+
+.doc-view-content[data-doc-theme="dark"] {
+  color-scheme: dark;
+  --foreground: #e2e8f0;
+  --muted-foreground: #94a3b8;
+  --background: #0f172a;
+  --border: #334155;
+  --dls-border: #334155;
+  --dls-text-primary: #e2e8f0;
+  --dls-text-secondary: #94a3b8;
+}
+
+/* Surface Markdown is highlighted with the single `github-light` Shiki theme.
+   index.css repaints Shiki tokens when the app root is dark; a light document
+   has to keep its dark tokens, while a dark document needs light ones. */
+:is(.dark, [data-theme="dark"]) .doc-view-content[data-doc-theme="light"] .shiki,
+:is(.dark, [data-theme="dark"]) .doc-view-content[data-doc-theme="light"] .shiki span {
+  color: inherit !important;
+}
+
+.doc-view-content[data-doc-theme="dark"] .shiki,
+:is(.dark, [data-theme="dark"]) .doc-view-content[data-doc-theme="dark"] .shiki {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.doc-view-content[data-doc-theme="dark"] .shiki span,
+:is(.dark, [data-theme="dark"]) .doc-view-content[data-doc-theme="dark"] .shiki span {
+  color: #e2e8f0 !important;
+}
