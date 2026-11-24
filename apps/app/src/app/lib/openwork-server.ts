@@ -267,6 +267,39 @@ export interface SpecialistOutput {
   workspaceId: string; workspaceName: string;
 }
 export interface SpecialistOutputAudit { total: number; valid: number; invalid: Array<{ sourceId: string; chunk: number; reason: string }>; note?: string }
+
+/** Recurso que se puede guardar en `proyecto/recursos/` de un workspace de la app. */
+export type WorkspaceResourceInput =
+  | { kind: "file"; path: string; name?: string; content?: string }
+  | { kind: "url"; url: string; title?: string }
+  | { kind: "credential"; origin: string; alias: string; secret?: string }
+  | { kind: "source" | "dataset" | "output" | "artifact"; id: string };
+
+export interface SavedResource {
+  id: string;
+  kind: "file" | "url" | "credential" | "source" | "dataset" | "output" | "artifact";
+  title: string;
+  savedAt: number;
+  path?: string;
+  url?: string;
+  origin?: string;
+  alias?: string;
+  sourceId?: string;
+  secretRef?: string;
+  sha256?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+}
+
+export interface SaveWorkspaceResourceResult {
+  resource: SavedResource;
+  created: boolean;
+  workspacePath: string;
+  note: string;
+  workspaceId: string;
+  workspaceName: string;
+}
+
 export interface SpecialistProposal {
   id: string; kind: "skill" | "agent" | "context" | "task" | "plan"; name: string; description: string; content: string; reason: string; createdAt: number;
 }
@@ -2803,6 +2836,8 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     putSpecialistPanel: (id: string, name: string, spec: unknown) => requestJson<{ name: string; spec: SpecialistPanelSpec; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "PUT", body: spec, timeoutMs: 60_000 }),
     deleteSpecialistPanel: (id: string, name: string) => requestJson<{ deleted: string }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}`, { token, hostToken, method: "DELETE", timeoutMs: 60_000 }),
     resolveSpecialistPanel: (id: string, name: string, workspaceId?: string) => requestJson<{ spec: SpecialistPanelSpec; resolutions: SpecialistPanelResolution[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/panels/${encodeURIComponent(name)}/resolve${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    getSpecialistWorkspaceResources: (id: string, workspaceId?: string) => requestJson<{ resources: SavedResource[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/workspace-resources${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
+    saveSpecialistWorkspaceResource: (id: string, resource: WorkspaceResourceInput, workspaceId?: string) => requestJson<SaveWorkspaceResourceResult>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/workspace-resources`, { token, hostToken, method: "POST", body: { resource, ...(workspaceId ? { workspaceId } : {}) } }),
     getSpecialistOutputs: (id: string, workspaceId?: string) => requestJson<{ outputs: SpecialistOutput[] }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getSpecialistOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ output: SpecialistOutput; content: string; truncated: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getSpecialistOutputAudit: (id: string, outputId: string, workspaceId?: string) => requestJson<{ audit: SpecialistOutputAudit }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/outputs/${encodeURIComponent(outputId)}/audit${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),

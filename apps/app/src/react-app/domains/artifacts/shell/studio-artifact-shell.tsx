@@ -107,6 +107,9 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
         meta={artifact.meta}
         focusMode={focusMode}
         canRevert={artifact.meta.versions.length > 1}
+        applicationId={appId}
+        client={client}
+        workspaceId={workspaceId}
         onToggleFocus={() => setFocusMode(!focusMode)}
         onCopy={() => void navigator.clipboard?.writeText(artifact.content)}
         onExport={exportContent}

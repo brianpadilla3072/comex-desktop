@@ -346,3 +346,118 @@ automatizaciones. Se copia el modelo de trabajo, no las funciones de Git.
 - Verificado en vivo por CDP en la sesión aislada (app con `data-theme="dark"`): tema claro → texto `rgb(30,41,59)` sobre `rgb(255,255,255)`, código incluido; tema oscuro → `rgb(226,232,240)` sobre `rgb(15,23,42)`. Capturas `/tmp/opencode/doc-viewer-fixed.png` y `doc-viewer-dark-fixed.png`. Tests: `mdx-to-markdown` + toggle del chat (6 pass), `doc-tools` (6 pass), typechecks de app y servidor limpios. Doc actualizada en `docs/features/chat-page-md-mdx-viewer/README.md`.
 - Pendiente para cerrar el tramo: `features:check`, `check:rust-readiness`, suite app y bajar la sesión aislada `doc-view-shot` + el servidor de imágenes 8766 (no tocar el python ajeno del 8765). Para que las tools nuevas aparezcan en la sesión del usuario hay que reiniciar app/servidor: el watcher no recarga código del plugin. Sin commit salvo que el usuario lo pida.
 - **Limpieza de recursos (2026-11-23, regla del proyecto):** `pnpm dev:agent down --session doc-view-shot --purge` detuvo el Electron aislado (pid 222526), su `opencode2` (pid 225545) y borró su perfil/estado; se mató solo el `python3 -m http.server 8766` (pid 193907) de las capturas. Verificado: 9223, 32941 y 8766 dan `000` y `status` de la sesión devuelve `[]`. No se tocaron los puertos 8765/8767 (python de otras sesiones) ni la app del usuario (44129/9823, pid 3994363). Mi scratch `/tmp/opencode/verificacion-resultados/` ya estaba borrado; no abrí pestañas ni levanté servidores propios en este tramo. Se dejan las capturas `/tmp/opencode/doc-viewer-*.png` como evidencia citada arriba (tres archivos, sin consumo de procesos). `proyecto/estado.md` se commitea aparte a pedido del usuario; sin push.
+
+### 2026-11-23/24 — Guardián de limpieza de recursos (solo detectar y fallar)
+- Pedido del usuario: «podemos implementar? un guardian?». Ante las tres opciones eligió
+  explícitamente **solo detectar y fallar** (Recommended): sin modo `--fix`, sin limpieza automática
+  y sin hook de fin de sesión. El guardián **nunca** mata procesos, cierra tabs ni borra rutas.
+- Criterio de seguridad: el dueño existe solo si hay un registro explícito; sin registro, un
+  proceso es invisible a propósito (no se infiere dueño por puerto, nombre ni antigüedad). Así se
+  respeta la regla de no tocar lo ajeno y se conserva el criterio cauteloso de `engine-registry.ts`.
+- `scripts/check-resource-cleanup.mjs` (nuevo): registro JSON `tmp/resource-cleanup/<sesion>.json`
+  (`{version:1, session, resources:[{kind,value,released,...}]}`, modo 600, gitignored), con
+  `OPENWORK_RESOURCE_OWNERS_DIR` para aislar tests. Kinds: `pid`, `port`, `path`, `tab`. CLI
+  `check|add|release`; `check` imprime `LEAK`/`SPARED` y sale `1` si hay leaks. Un PID se verifica
+  con `kill(pid,0)` y, si se pasó `cmdline`, contra `/proc/<pid>/cmdline`: si no coincide es
+  `SPARED` (PID reutilizado), no `LEAK`. Puertos con `ss -ltnp` y fallback a `net.connect`;
+  rutas con `existsSync`; las tabs requieren `release` explícito porque no se pueden sondear.
+- `package.json`: scripts `resource-cleanup` (entrypoint para add/release), `check:resource-cleanup`,
+  `test:resource-cleanup`; los dos últimos se concatenan al final de `test:comex`.
+- La skill `.opencode/skills/limpieza-recursos/SKILL.md` ahora exige `add` al abrir y `release` al
+  cerrar cada recurso, y `pnpm check:resource-cleanup` en la checklist final (paso 9), con aviso
+  de que un check en rojo no se "arregla" matando por heurística ni tocando el registro ajeno.
+  `AGENTS.md` menciona el nuevo flujo en la regla de limpieza.
+- Tests: 5 pass en `scripts/tests/check-resource-cleanup.test.mjs` con sondas inyectadas — add
+  idempotente, nombres de sesión sin path traversal, los cuatro kinds detectados, SPARED por
+  cmdline distinta, y CLI con `exit 1` / `exit 0` sin tocar procesos. `pnpm check:resource-cleanup`
+  sobre el registro real: «Sin recursos pendientes», exit 0. Wrapper `pnpm resource-cleanup`
+  probado con directorio aislado. `git diff --check` limpio.
+- Puertos ajenos verificados y **no tocados**: 44129/9823 (Electron del usuario, pid 3994363),
+  8765 y 8767 (python de otras sesiones). No se levantaron servidores ni pestañas en este tramo.
+- Limitaciones conocidas: el registro es manual, así que lo que no se registró no se detecta; la
+  comparación de `cmdline` depende de `/proc` (en macOS/Windows se reporta leak si el PID sigue
+  vivo, nunca un falso "limpio"). Sin commit: este tramo no tuvo pedido explícito de commit.
+
+### 2026-11-24 — Regla dura de anotación y adopción de sesiones de `dev:agent`
+- Pedido del usuario: «verifiquemos que los agentes anoten el proceso siempre, pongamos como regla dura».
+- Auditoría: no hay agentes definidos en la app (`agents: []`, `context` era null) ni en
+  `.opencode/agents/`; la única instrucción estaba en la skill y no era obligatoria. Además,
+  `pnpm dev:agent` registra dueño en `tmp/dev-agent/<sesion>/session.json` y el guardián no lo
+  leía: un recurso abierto con esa herramienta era invisible para el check. No había leaks ni
+  sesiones `dev-agent` activas al auditar.
+- `scripts/check-resource-cleanup.mjs` exporta `devAgentRecords(root)`, que adopta `pid`,
+  `watcherPid`, `fakeModelPid`, `fakeModelPort` y el puerto CDP como recursos con dueño; una
+  sesión con `stoppedAt` cuenta como liberada y una URL de CDP inválida se ignora. `listRecords`
+  solo mergea esa fuente cuando se usa el registro real: con `OPENWORK_RESOURCE_OWNERS_DIR`
+  (tests/CI) queda aislado, para no adoptar sesiones ajenas.
+- La regla queda dura en tres lugares: `AGENTS.md` (obligatoria para todos los agentes, la
+  entrega no termina hasta que el check sale 0, la nota mental no es registro), la skill
+  `.opencode/skills/limpieza-recursos/SKILL.md` y el contexto de la aplicación especialista
+  (escrito con `specialist_context_write` y confirmado con `specialist_library_list`). Ninguno
+  autoriza matar por heurística ni tocar el registro ajeno.
+- Verificación: `pnpm test:resource-cleanup` 7 pass / 0 fail (nuevos tests de adopción y
+  aislamiento), `pnpm test:dev-agent` 16 pass / 0 fail, `pnpm check:resource-cleanup` exit 0
+  sobre el registro real, `git diff --check` limpio. Sin commit: no hubo pedido explícito.
+- Alcance honesto: los agentes listados por el harness son de otra instalación y no se tocaron;
+  la regla llega a todos los que lean este repo o usen esta app por `AGENTS.md` y el contexto,
+  no por editar cada definición de agente (no hay ninguna aquí). Lo que se abre con spawn
+  directo sigue dependiendo del `add` manual.
+
+## 2026-11-23 — No duplicar versiones + «Guardar en workspace» para toda fuente
+- Pedido del usuario: que editar un archivo no cree una y otra vez versiones nuevas, y poder
+  fijar CUALQUIER fuente en el workspace (archivos, URLs, credenciales del navegador) desde el
+  front (tres puntitos) y desde una tool del agente; al instalarse la app usa una carpeta del
+  sistema por workspace. Sin flag nuevo: fijar es una acción explícita de la persona.
+- Decisiones aplicadas: dedup por contenido byte-idéntico (un cambio real sí crea versión,
+  historial intacto; además `status` se conserva al re-guardar). «Fijar» existe como menú de
+  tres puntitos y como tool; las credenciales dejan solo `origin`/`alias`/`secretRef` en
+  `proyecto/recursos/index.json` y el valor en
+  `<config de OpenWork>/workspaces/<sha256(workspaceId)[:24]>/credentials.json` (0600, carpeta 700).
+- Servidor: `artifacts.ts` (dedup), `workspace-resources.ts` (nuevo: file/url/credential/source/
+  dataset/output/artifact, rutas relativas o absolutas dentro del workspace, rotación de
+  secretos, dedup por hash), `library-tool-api.ts` + `library-plugin.ts`
+  (`specialist_workspace_save` / `_list`), `routes.ts` (`GET/POST /specialist-applications/:id/
+  workspace-resources`). El schema público de la tool se envolvió en un objeto porque el
+  proveedor rechaza un `oneOf` en la raíz; el servidor valida el union discriminado igual.
+- Front: `openwork-server.ts` (tipos y métodos REST), `save-to-workspace-menu.tsx` (menú
+  compartido, más una variante para menús «…» existentes) cableado en artefactos doc/hoja,
+  datasets, fuentes, salidas, adjuntos del chat, URLs del navegador y tarjetas de recurso.
+  Los adjuntos extraen del reveal path el segmento `.openwork/inbox/chat-attachments/`;
+  las pestañas usan el workspace activo de la app. No hay UI de credenciales en el front: el
+  tipo quedó soportado en el cliente y se guarda con la tool del agente.
+- Docs: `.opencode/skills/credenciales-app/SKILL.md` explica la carpeta privada por workspace,
+  la tool y que el workspace nunca contiene el secreto.
+- Verificación: tests focalizados 14 pass (workspace-resources, artifacts, plugin-contract),
+  typecheck de servidor y app limpios, `pnpm check:resource-cleanup` exit 0. Sin commit ni push.
+- Deudas preexistentes confirmadas en `HEAD` (no de este tramo): `specialist-datasets-routes.test.ts`
+  espera un token revocado pero su test no apaga `comexArtifacts`; 15 fallos de UI en la suite
+  de la app; `features:check` (values.yaml) y `check:rust-readiness` (JSON.parse sin validar).
+  Las tools nuevas pueden no aparecer en la sesión del usuario hasta reiniciar app/servidor:
+  el watcher no recarga código del plugin.
+
+### 2026-11-24 — Adopción automática de worlds de `pnpm world up`
+- Pedido del usuario: «¿va a funcionar para alguien que no lo prueba modo dev?». Respuesta honesta:
+  no automáticamente; eligió **Instrumentar world up (Recommended)**, sin tocar la app del usuario.
+- Decisión de diseño: no instrumentar los scripts de world (layering raro `packages/world` →
+  `scripts/` y múltiples puntos de registro/liberación). En cambio el guardián **adopta el snapshot
+  que `hold()` ya escribe** en `evals/results/.worlds/scripts/`: se crea al levantar y se desliga al
+  bajar con `pnpm world down` o Ctrl-C, así que registro y liberación son automáticos y simétricos
+  a la adopción de `dev:agent`. Cubre `world up dev-app-web` en primer plano y con `--detach`
+  (ambos pasan por `hold()`). El legacy `dev:headless-web --detach` (que no escribe snapshot)
+  queda fuera: no tiene hook de bajada limpio; se documenta como brecha conocida.
+- `scripts/check-resource-cleanup.mjs`: nueva `worldRecords(root?, isAlive?)`, filtrada a los
+  snapshots `dev-app-web`/`dev-headless` (no otros worlds, para no reportar los que el usuario
+  deja levantados a propósito). Registra el PID y solo los **puertos numéricos** de
+  `webUrl`/`openworkUrl`/`cdp`: nunca tokens, workspace ni la ruta del runtime manifest. Si el PID
+  del snapshot murió (world matado con SIGKILL), marca todo como liberado para no dar falso leak
+  por un puerto reutilizado. `listRecords` la mergea solo con el registro real; con
+  `OPENWORK_RESOURCE_OWNERS_DIR` (tests/CI) queda aislada. `OPENWORK_WORLD_SNAPSHOT_DIR` permite
+  apuntar a otro directorio de snapshots.
+- Regla dura actualizada en los tres sitios (skill, `AGENTS.md`, contexto de la app) para decir
+  que los worlds de verificación también se adoptan solos y se liberan con `pnpm world down`.
+- Verificación: `pnpm test:resource-cleanup` 9 pass / 0 fail (2 tests nuevos: adopción con
+  pid/puertos y sin secretos; pid muerto como liberado y aislamiento). Integración real de
+  `listRecords()` con snapshot temporal: adopta `world-dev-app-web`, sin filtrar el token.
+  `pnpm check:resource-cleanup` exit 0; no había snapshots de world activos (solo un `.log`),
+  los puertos 44129/9823 siguen siendo del Electron del usuario, intactos. `git diff --check`
+  limpio. Sin commit: no hubo pedido explícito.

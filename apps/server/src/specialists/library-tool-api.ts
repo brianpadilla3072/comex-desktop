@@ -22,6 +22,7 @@ import { familyLock, withFileLock } from "./file-lock.js";
 import { runSheetTool, SHEET_TOOL_NAMES, type SheetToolName } from "./sheet-tools.js";
 import { runDocTool, DOC_TOOL_NAMES, type DocToolName } from "./doc-tools.js";
 import { specialistDirectory, specialistStore, type SpecialistApplication } from "./store.js";
+import { listWorkspaceResources, saveWorkspaceResource, workspaceResourceInputSchema } from "./workspace-resources.js";
 import type { ServerConfig } from "../types.js";
 
 const MARKER = "// Managed by Comex: specialist-library-v1\n";
@@ -38,6 +39,7 @@ const BASE_TOOL_NAMES = [
   "specialist_panel_list", "specialist_panel_write", "specialist_panel_read", "specialist_panel_delete",
   "specialist_openapi_propose",
   "specialist_output_generate", "specialist_output_list", "specialist_output_read",
+  "specialist_workspace_save", "specialist_workspace_list",
 ] as const;
 const toolCallSchema = z.object({
   name: z.enum([...BASE_TOOL_NAMES, ...SHEET_TOOL_NAMES, ...DOC_TOOL_NAMES]),
@@ -165,6 +167,10 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
     // Sheets are artifact-backed; they stay available whenever artifacts are,
     // even if the library or the mini-Studio families are switched off.
     if (!comexArtifactsEnabled()) throw new ApiError(409, "artifacts_disabled", "Los artefactos (y por lo tanto las hojas de cálculo) están desactivados en este server.");
+  } else if (name.startsWith("specialist_workspace_")) {
+    // Pinning a resource is an explicit person action, not a background feature: it follows
+    // the specialist application itself, not the library flag.
+    if (!specialistApplicationsEnabled()) throw new ApiError(409, "specialists_disabled", "Los perfiles especialistas están desactivados en este server.");
   } else if (!specialistLibraryEnabled()) throw new ApiError(409, "specialist_library_disabled", "La biblioteca de la aplicación está desactivada.");
   switch (name) {
     case "specialist_library_list": {
@@ -359,6 +365,13 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
       const audit = await auditOutputCitations(directory, id);
       return { output: meta, content: content.slice(0, 60_000), truncated: content.length > 60_000, audit };
     }
+    case "specialist_workspace_save": {
+      const parsed = workspaceResourceInputSchema.parse(input);
+      const result = await saveWorkspaceResource(config, directory, parsed);
+      return { ...result, note: `${result.note} La persona lo ve en proyecto/recursos/ de su workspace.` };
+    }
+    case "specialist_workspace_list":
+      return { resources: await listWorkspaceResources(directory), note: "Estos recursos quedaron fijados en el workspace: sobreviven a recargas y viajan con la aplicación." };
     default: {
       if (name.startsWith("specialist_sheet_")) return runSheetTool(directory, name as SheetToolName, input);
       if (name.startsWith("specialist_doc_")) return runDocTool(directory, name as DocToolName, input);

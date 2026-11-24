@@ -92,6 +92,8 @@ import { ImageAttachmentBadge } from "@/components/chat/image-attachment-badge"
 import { AttachmentFileChip, ComposerBadgeChip, ComposerPillChip, PastedTextChip } from "@/components/chat/composer-pill"
 import { agentBadge, fileMentionBadge } from "@/react-app/domains/session/surface/composer/composer-chips"
 import { isChatAttachmentUrl } from "@/react-app/domains/session/sync/attachment-file-part"
+import { useSpecialistApplications } from "@/react-app/domains/specialists/provider"
+import { SaveToWorkspaceMenuItem } from "@/react-app/domains/specialists/save-to-workspace-menu"
 import { splitComposerPillText } from "@/react-app/domains/session/surface/composer/composer-pills"
 import { composerDraftFromSentParts, sentTextPartToken } from "@/react-app/domains/session/surface/composer/sent-message-tokens"
 import { Image } from "@/components/ui/image"
@@ -491,6 +493,18 @@ interface FileMessageProps {
   tone: "user" | "assistant"
 }
 
+/** El reveal path del chat es absoluto; el guardado necesita la ruta relativa al workspace. */
+function workspaceRelativeAttachmentPath(revealPath: string | null): string | null {
+  if (!revealPath) return null
+  const normalized = revealPath.replace(/\\/g, "/")
+  for (const root of [".openwork/inbox", ".opencode/openwork/inbox"]) {
+    const marker = `/${root}/chat-attachments/`
+    const index = normalized.indexOf(marker)
+    if (index >= 0) return `${root}/chat-attachments/${normalized.slice(index + marker.length)}`
+  }
+  return null
+}
+
 function FileMessage({ part, tone }: FileMessageProps) {
   const openArtifactPath = useOpenArtifactPath()
   const title = getFileTitle(part)
@@ -500,6 +514,17 @@ function FileMessage({ part, tone }: FileMessageProps) {
   const downloadUrl = getSafeFileDownloadUrl(part)
   const { isLocalWorkspace } = useOpenTargets()
   const canReveal = isLocalWorkspace && isElectronRuntime() && Boolean(revealPath)
+  const specialist = useSpecialistApplications()
+  const { workspaceId } = useMessageList()
+  const attachmentPath = isChatAttachmentUrl(part.url) ? workspaceRelativeAttachmentPath(revealPath) : null
+  const saveToWorkspace = specialist?.client && specialist.active && attachmentPath
+    ? {
+        applicationId: specialist.active.id,
+        client: specialist.client,
+        resource: { kind: "file" as const, path: attachmentPath },
+        workspaceId: workspaceId || specialist.active.workspaceIds[0],
+      }
+    : null
 
   const handleDownload = React.useCallback(() => {
     if (!downloadUrl) return
@@ -533,7 +558,7 @@ function FileMessage({ part, tone }: FileMessageProps) {
     </>
   )
 
-  const actions = downloadUrl || canReveal ? (
+  const actions = downloadUrl || canReveal || saveToWorkspace ? (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
@@ -560,6 +585,7 @@ function FileMessage({ part, tone }: FileMessageProps) {
             {t("workspace_list.reveal_finder")}
           </DropdownMenuItem>
         ) : null}
+        {saveToWorkspace ? <SaveToWorkspaceMenuItem {...saveToWorkspace} /> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null

@@ -44,6 +44,30 @@ test("artifacts are workspace files with immutable versions and a revertible wor
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("saving byte-identical content reuses the version instead of appending duplicates", async () => {
+  const root = await workspace();
+  try {
+    const first = await writeArtifact(root, {
+      type: "doc", title: "Informe", content: "# Informe\n\nCifras finales.", metadata,
+      label: "Primera",
+    });
+    const repeated = await writeArtifact(root, {
+      type: "doc", title: "Informe", content: "# Informe\n\nCifras finales.", metadata,
+      id: first.meta.id, label: "Autoguardado",
+    });
+    assert.equal(repeated.changed, false);
+    assert.deepEqual(repeated.meta.versions.map(version => version.id), ["v1"]);
+    assert.equal((await listArtifacts(root))[0]?.versions.length, 1);
+
+    const edited = await writeArtifact(root, {
+      type: "doc", title: "Informe", content: "# Informe\n\nCifras revisadas.", metadata,
+      id: first.meta.id,
+    });
+    assert.equal(edited.changed, true);
+    assert.deepEqual(edited.meta.versions.map(version => version.id), ["v1", "v2"]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("artifact writes fail loud on empty content, broken JSON and wrong ids", async () => {
   const root = await workspace();
   try {

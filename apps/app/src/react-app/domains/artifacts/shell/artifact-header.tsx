@@ -1,12 +1,17 @@
 import { Copy, Download, Maximize2, MessageSquarePlus, PanelRightClose, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { OpenworkServerClient } from "@/app/lib/openwork-server";
+import { SaveToWorkspaceMenu } from "@/react-app/domains/specialists/save-to-workspace-menu";
 import type { ArtifactBase } from "../types";
 
 interface ArtifactHeaderProps {
   meta: ArtifactBase;
   focusMode: boolean;
   canRevert: boolean;
+  applicationId?: string;
+  client?: OpenworkServerClient;
+  workspaceId?: string;
   onToggleFocus: () => void;
   onCopy: () => void;
   onExport: () => void;
@@ -21,6 +26,9 @@ export function ArtifactHeader({
   meta,
   focusMode,
   canRevert,
+  applicationId,
+  client,
+  workspaceId,
   onToggleFocus,
   onCopy,
   onExport,
@@ -58,6 +66,15 @@ export function ArtifactHeader({
           </TooltipTrigger>
           <TooltipContent>Descartar</TooltipContent>
         </Tooltip>
+      ) : null}
+      {applicationId && client ? (
+        <SaveToWorkspaceMenu
+          applicationId={applicationId}
+          client={client}
+          resource={{ kind: "artifact", id: meta.id }}
+          workspaceId={workspaceId}
+          className="size-8 shrink-0"
+        />
       ) : null}
       <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
       <Tooltip>

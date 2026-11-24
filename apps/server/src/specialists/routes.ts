@@ -30,6 +30,7 @@ import { deletePanel, listPanels, panelBodySchema, readPanelSpec, resolvePanel, 
 import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, readOutput, writeOutput } from "./outputs.js";
 import { artifactMetaSchema, artifactTypeSchema, createArtifactFromOutput, listArtifacts, readArtifact, revertArtifact, writeArtifact } from "./artifacts.js";
 import { ensureChunks, listSources, readCitation, registerLocalSource } from "./sources.js";
+import { listWorkspaceResources, saveWorkspaceResource, workspaceResourceInputSchema } from "./workspace-resources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
 import { readIsolation } from "./isolation/service.js";
 import type { ServerConfig } from "../types.js";
@@ -757,5 +758,29 @@ export function registerSpecialistRoutes(options: {
       return jsonResponse({ meta, workspaceId: target.workspaceId });
     }
     throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+
+  // "Guardar en workspace" en el front: la MISMA implementación que usa la tool del agente.
+  addRoute(routes, "GET", "/specialist-applications/:id/workspace-resources", "client", async ctx => {
+    requireFeature();
+    const targets = await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"));
+    const listings = await Promise.all(targets.map(async target => ({
+      ...target, resources: await listWorkspaceResources(target.workspacePath),
+    })));
+    return jsonResponse({
+      resources: listings.flatMap(listing => listing.resources.map(resource => ({ ...resource, workspaceId: listing.workspaceId, workspaceName: listing.workspaceName }))),
+    });
+  });
+  addRoute(routes, "POST", "/specialist-applications/:id/workspace-resources", "host", async ctx => {
+    requireFeature(true);
+    const body = await readJsonBody(ctx.request);
+    const requested = typeof body.workspaceId === "string" ? body.workspaceId : null;
+    const targets = await datasetWorkspaces(ctx.params.id, requested);
+    const target = targets[0];
+    if (!target) throw new ApiError(409, "no_workspace", "La aplicación no tiene ningún proyecto disponible para guardar el recurso.");
+    const parsed = workspaceResourceInputSchema.safeParse(body.resource);
+    if (!parsed.success) throw new ApiError(422, "invalid_resource", "Revisa el tipo de recurso y sus campos; no se guardó nada.");
+    const result = await saveWorkspaceResource(config, target.workspacePath, parsed.data);
+    return jsonResponse({ ...result, workspaceId: target.workspaceId, workspaceName: workspaceName(target) }, result.created ? 201 : 200);
   });
 }

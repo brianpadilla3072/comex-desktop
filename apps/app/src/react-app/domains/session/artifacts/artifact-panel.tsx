@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TaskRecovery } from "@/components/chat/task-recovery";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSpecialistApplications } from "../../specialists/provider";
+import { SaveToWorkspaceMenuItem } from "../../specialists/save-to-workspace-menu";
 import { usePlatform } from "@/react-app/kernel/platform";
 import { type ArtifactPanelTab, usePanelTabStore } from "../panel/panel-tab-store";
 import { isCollectibleArtifactTarget, openTargetFromWorkspaceFile, type BinaryData, type Data, type OpenTarget, type TextData } from "./open-target";
@@ -102,6 +104,31 @@ export function ArtifactPanel({ sessionId, tab, client, workspaceId, workspaceRo
 }
 
 function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, target, onOpenTarget, isLocalWorkspace, onOpenWorkspaceFile, onClose, cacheScope }: ArtifactPanelViewProps) {
+  const specialist = useSpecialistApplications();
+  const saveToWorkspace = (() => {
+    if (!specialist?.active || !specialist.client) return null;
+    if (target.kind === "file") return {
+      applicationId: specialist.active.id,
+      client: specialist.client,
+      resource: { kind: "file" as const, path: target.value, name: target.name },
+      workspaceId,
+    };
+    if (target.kind === "url") {
+      try {
+        const parsed = new URL(target.value);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+        return {
+          applicationId: specialist.active.id,
+          client: specialist.client,
+          resource: { kind: "url" as const, url: parsed.href, title: target.name },
+          workspaceId,
+        };
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
   const comexEnabled = useComexFeature(client);
   const [failure, setFailure] = useState<{ owner: string; title: string; details: string } | null>(null);
   const owner = JSON.stringify([sessionId, workspaceId, target.id]);
@@ -370,6 +397,7 @@ function ArtifactPanelView({ sessionId, client, workspaceId, workspaceRoot, targ
                       <ExternalLink /> {t("session_ui.open_externally")}
                     </DropdownMenuItem>
                   ) : null}
+                  {saveToWorkspace ? <SaveToWorkspaceMenuItem {...saveToWorkspace} /> : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

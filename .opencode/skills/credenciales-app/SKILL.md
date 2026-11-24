@@ -1,6 +1,6 @@
 ---
 name: credenciales-app
-description: "Gestionar credenciales (usuario/contraseña) de sitios web para la aplicación, guardadas en un archivo privado (~/.config/openwork/credentials.json) con permisos 600. Usar SIEMPRE que el usuario pida guardar, recuperar o usar contraseñas de sitios, 'loguearme', 'usar mis credenciales', 'recordar contraseña de X', o cuando se necesite autenticarse en un sitio del navegador integrado. NUNCA guardar contraseñas en archivos del repo ni en memoria compartida."
+description: "Gestionar credenciales (usuario/contraseña) de sitios web para la aplicación, guardadas en la carpeta privada del sistema de OpenWork (~/.config/openwork/workspaces/<workspace>/credentials.json, 0600) con solo un alias/origin en el workspace. Usar SIEMPRE que el usuario pida guardar, recuperar o usar contraseñas de sitios, 'loguearme', 'usar mis credenciales', 'recordar contraseña de X', o cuando se necesite autenticarse en un sitio del navegador integrado. NUNCA guardar contraseñas en archivos del repo ni en memoria compartida."
 ---
 
 # Gestión de credenciales de la aplicación
@@ -11,9 +11,12 @@ permite listar, agregar, obtener y eliminar entradas sin tocar el JSON a mano.
 
 ## Ubicación
 
-- Archivo: `~/.config/openwork/credentials.json` (permisos 600).
-- Helper: `~/.config/openwork/cred_helper.py` (permisos 700).
-- **Nunca** copiar este archivo al repo ni a ningún workspace.
+- **Por workspace (preferido):** `~/.config/openwork/workspaces/<hash-del-workspace>/credentials.json` (permisos 600; carpeta 700). Lo escribe `specialist_workspace_save { kind: "credential", origin, alias, secret }` de la carpeta del sistema de OpenWork, fuera del repo y del workspace. El id del workspace se deriva de su ruta, así que cada proyecto tiene su propio archivo y no comparte secretos con otro.
+- **En el workspace solo queda la referencia:** `proyecto/recursos/index.json` guarda `origin` (sin usuario, contraseña, query ni fragmento), `alias` y un `secretRef`; NUNCA el valor.
+- **Legacy:** `~/.config/openwork/credentials.json` (permisos 600) y el helper `~/.config/openwork/cred_helper.py` (permisos 700) siguen disponibles para credenciales globales sin scope de workspace.
+- **Nunca** copiar estos archivos al repo ni a ningún workspace.
+
+En macOS usa `~/Library/Application Support/openwork` y en Windows `%APPDATA%/openwork`, según la carpeta de configuración de OpenWork. `OPENWORK_SERVER_CONFIG` cambia la raíz.
 
 ## Uso del helper
 
@@ -48,13 +51,32 @@ python3 ~/.config/openwork/cred_helper.py remove <sitio>
    python3 ~/.config/openwork/cred_helper.py add <sitio> <usuario> <password>
    ```
 
+## Credenciales ligadas a un workspace
+
+Cuando la persona diga "guardá esta credencial para este proyecto", "que no se pierda al cambiar de workspace" o pida fijar credenciales del navegador:
+
+1. Usá la tool del agente:
+   ```json
+   specialist_workspace_save {
+     "kind": "credential",
+     "origin": "https://ejemplo.com",
+     "alias": "ejemplo-com",
+     "secret": "<valor que dio la persona>"
+   }
+   ```
+2. La tool deja el alias y el `origin` en `proyecto/recursos/index.json` del workspace y el valor en la carpeta privada del sistema. La respuesta **nunca** devuelve el secreto.
+3. Para recordar solo el sitio sin guardar valor, llamá a la misma tool sin `secret`.
+4. `specialist_workspace_list` muestra los alias guardados, sin secretos.
+5. En el front, el menú de tres puntitos «Guardar en workspace» cubre archivos y URLs; los secretos **no** se ponen en ese menú.
+
 ## Reglas de seguridad
 
 - **NUNCA** escribir contraseñas en archivos del repo, en skills, en memoria
   compartida, ni en el chat.
 - **NUNCA** mostrar la contraseña en la respuesta al usuario — solo confirmar
   que se guardó/obtuvo.
-- El archivo `credentials.json` tiene permisos 600; no cambiarlos.
+- El archivo `credentials.json` tiene permisos 600 y su carpeta 700; no cambiarlos.
+- El workspace y los `datasets` nunca contienen valores de credenciales, aunque la persona pida "guardar todo": se guarda la referencia, no el secreto.
 - Si el usuario pide "guardar mi contraseña de X", pedirle el usuario y la
   contraseña, guardarlas con el helper, y confirmar solo el sitio (no el password).
 - Para sitios con 2FA o CAPTCHA, usar `browser_handoff` para que el usuario

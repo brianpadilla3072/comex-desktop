@@ -75,6 +75,20 @@ const openapiProposeSchema = z.object({
   spec: z.string().describe("Documento OpenAPI completo en JSON (lo que pegó la persona)"),
   title: z.string().describe("Nombre legible del pack (opcional; si no, se usa info.title del spec)").optional(),
 });
+/** Providers reject a root `oneOf` and very large `maxLength`s, so the public tool schema is a
+ *  plain object. The server still parses the exact discriminated union before writing anything. */
+const workspaceSaveSchema = z.object({
+  kind: z.enum(["file", "url", "credential", "source", "dataset", "output", "artifact"]).describe("file=archivo del workspace (usa path o content); url=página web; credential=alias + origin (el secreto va a la carpeta privada); source/dataset/output/artifact=usa id"),
+  path: z.string().describe("Para kind=file: ruta relativa del archivo dentro del workspace").optional(),
+  name: z.string().describe("Para kind=file: nombre destino opcional").optional(),
+  content: z.string().describe("Para kind=file: contenido en texto cuando el archivo aún no está en disco").optional(),
+  url: z.string().describe("Para kind=url: URL http/https").optional(),
+  title: z.string().describe("Para kind=url: etiqueta legible opcional").optional(),
+  origin: z.string().describe("Para kind=credential: origen del sitio, sin usuario ni contraseña").optional(),
+  alias: z.string().describe("Para kind=credential: alias legible, sin secretos").optional(),
+  secret: z.string().describe("Para kind=credential: valor a guardar fuera del workspace; NUNCA se devuelve").optional(),
+  id: z.string().describe("Para kind=source/dataset/output/artifact: id del recurso del proyecto").optional(),
+});
 const TOOLS = [
   { name: "specialist_library_list", description: "Listar el contexto, los agentes y las skills de la aplicación especialista actual.", schema: listSchema },
   { name: "specialist_library_read", description: "Leer un archivo de la biblioteca de la aplicación (agents/*.md, skills/*/SKILL.md o recursos).", schema: readSchema },
@@ -126,6 +140,9 @@ const TOOLS = [
   { name: "specialist_doc_export", description: "Devolver el texto completo de un documento con su formato (md/mdx) para guardarlo como archivo con tu herramienta de archivos.", schema: DOC_TOOL_SCHEMAS.specialist_doc_export },
   { name: "specialist_doc_versions", description: "Listar las versiones de un documento o recuperar una (action=revert con versionId). Recuperar no borra las versiones posteriores.", schema: DOC_TOOL_SCHEMAS.specialist_doc_versions },
   { name: "specialist_doc_view", description: "Controlar el visor integrado de un documento: tema, zoom, ajuste de líneas, índice, formato y desplazarse a un título. El estado se guarda en el artefacto y la app lo refleja; no crea una versión de contenido.", schema: DOC_TOOL_SCHEMAS.specialist_doc_view },
+
+  { name: "specialist_workspace_save", description: "Fijar CUALQUIER recurso en el workspace para que no se pierda y siga disponible al recargar: kind=file (archivo del workspace, o content en texto), url (página web), credential (alias + origin; el secreto va a la carpeta privada del sistema, NUNCA al repo), source/dataset/output/artifact (por id). Guarda en proyecto/recursos/ y deduplica contenido idéntico. Usarla cuando la persona pida 'guardar en workspace', 'fijar' o 'que no se pierda'.", schema: workspaceSaveSchema },
+  { name: "specialist_workspace_list", description: "Listar los recursos fijados en el workspace (archivos, URLs, credenciales por alias y fuentes del proyecto), con su ruta y fecha.", schema: listSchema },
 ] as const;
 
 const failedTool = (error: unknown) => ({

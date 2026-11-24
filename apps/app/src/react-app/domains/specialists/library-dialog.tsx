@@ -17,6 +17,7 @@ import type { OpenworkServerClient, SpecialistApplication, SpecialistDataset, Sp
 import { MarkdownPreview } from "@/react-app/domains/session/artifacts/preview";
 import { comexDefaultTheme } from "@/react-app/design-system/comex-theme";
 import { specialistErrorMessage } from "./error-message";
+import { SaveToWorkspaceMenu } from "./save-to-workspace-menu";
 import { TaskIsolationReviewDialog } from "./task-isolation-review";
 import { t } from "../../../i18n";
 
@@ -362,6 +363,7 @@ function DatasetsView({ app, client, onBack }: { app: SpecialistApplication; cli
         </button>
         {/* Only Tavily research queries can re-run (datasets-refresh.ts answers 409 for any other). */}
         {dataset.provider === "tavily" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => client.refreshSpecialistDataset(app.id, dataset.id, dataset.workspaceId), "Consulta re-ejecutada: el dataset quedó con un snapshot nuevo.")}>Actualizar</Button> : null}
+        <SaveToWorkspaceMenu applicationId={app.id} client={client} resource={{ kind: "dataset", id: dataset.id }} workspaceId={dataset.workspaceId} />
         <Button size="sm" variant="ghost" disabled={busy} aria-label={`Eliminar ${dataset.name}`} onClick={() => setPendingDelete({ id: dataset.id, workspaceId: dataset.workspaceId, name: dataset.name })}><Trash2 className="size-4" /></Button>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -471,6 +473,7 @@ function SourceRow({ app, client, source, open, onToggle, multi }: { app: Specia
       <LibraryBig className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium">{source.title}</span>
       <Badge variant="outline">{source.provider}</Badge>
+      <SaveToWorkspaceMenu applicationId={app.id} client={client} resource={{ kind: "source", id: source.id }} workspaceId={source.workspaceId} />
     </div>
     <p className="text-xs text-muted-foreground">
       {source.id}{multi ? ` · ${source.workspaceName}` : ""} · {source.chunks ? `${source.chunks} ${source.chunks === 1 ? "pasaje" : "pasajes"}` : "sin pasajes citables"} · {formatWhen(source.retrievedAt)}
@@ -752,6 +755,7 @@ function OutputsView({ app, client, onBack }: { app: SpecialistApplication; clie
         <span className="min-w-0 flex-1 truncate font-medium">{output.title}</span>
         <Badge variant="outline">{OUTPUT_LABEL[output.kind]}</Badge>
         <Button size="sm" variant="ghost" aria-expanded={openId === output.id} onClick={() => setOpenId(openId === output.id ? null : output.id)}>{openId === output.id ? "Ocultar" : "Ver"}</Button>
+        <SaveToWorkspaceMenu applicationId={app.id} client={client} resource={{ kind: "output", id: output.id }} workspaceId={output.workspaceId} />
         <Button size="sm" variant="ghost" aria-label={`Eliminar salida ${output.title}`} onClick={() => setPendingDelete(output)}><Trash2 className="size-4" /></Button>
       </div>
       {multi ? <p className="text-xs text-muted-foreground">{output.workspaceName} · {formatWhen(output.updatedAt)}</p> : null}

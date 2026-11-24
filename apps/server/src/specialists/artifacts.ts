@@ -8,7 +8,9 @@ import { dataPath } from "./project-data.js";
 
 /** Artifacts are workspace FILES under <datos>/artefactos/<id>/, never a DB table or
  *  localStorage. Same atomic-write discipline as outputs.ts, plus immutable versions:
- *  `Guardar` creates a new version and `Descartar` can go back to the last saved one. */
+ *  a real content change creates a new version and `Descartar` can go back to it.
+ *  Saving byte-identical content does NOT append a version: debounced autosaves were
+ *  filling projects with dozens of identical "vN" entries. */
 
 const ARTIFACT_LIMIT = 40;
 const CONTENT_LIMIT = 300 * 1024;
@@ -127,7 +129,7 @@ export async function listArtifacts(directory: string): Promise<ArtifactMeta[]> 
   return (await readIndex(directory)).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
-async function writeArtifactUnlocked(directory: string, input: ArtifactInput): Promise<{ meta: ArtifactMeta; created: boolean }> {
+async function writeArtifactUnlocked(directory: string, input: ArtifactInput): Promise<{ meta: ArtifactMeta; created: boolean; changed: boolean }> {
   if (input.id && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(input.id)) throw failure("El id del artefacto no es válido.");
   const problem = validateContent(input.type, input.content);
   if (problem) throw failure(problem);
@@ -140,10 +142,37 @@ async function writeArtifactUnlocked(directory: string, input: ArtifactInput): P
 
   const id = existing?.id ?? `art-${randomUUID().slice(0, 8)}`;
   const dir = artifactDir(directory, id);
-  await mkdir(join(dir, "versions"), { recursive: true });
-  const now = Date.now();
-  const nextVersion = (existing?.versions.length ?? 0) + 1;
   const extension = contentFile(input.type);
+  const now = Date.now();
+
+  // Autosave may write the same bytes many times. Only a real content change earns a version.
+  if (existing) {
+    const current = await readFile(join(dir, extension), "utf8").catch(async () => {
+      const last = existing.versions.at(-1);
+      return last ? readFile(join(dir, last.contentRef), "utf8").catch(() => null) : null;
+    });
+    if (current === input.content) {
+      const next: ArtifactMeta = {
+        ...existing,
+        title,
+        status: input.status ?? existing.status,
+        sources: input.sources ?? existing.sources,
+        metadata: { ...input.metadata, schemaVersion: 1 },
+      };
+      const metadataChanged = next.title !== existing.title
+        || next.status !== existing.status
+        || JSON.stringify(next.sources) !== JSON.stringify(existing.sources)
+        || JSON.stringify(next.metadata) !== JSON.stringify(existing.metadata);
+      if (!metadataChanged) return { meta: existing, created: false, changed: false };
+      next.updatedAt = now;
+      await writeFile(join(dir, "artifact.json"), JSON.stringify(next, null, 2), { mode: 0o600 });
+      await writeIndex(directory, artifacts.map(entry => entry.id === id ? next : entry));
+      return { meta: next, created: false, changed: false };
+    }
+  }
+
+  await mkdir(join(dir, "versions"), { recursive: true });
+  const nextVersion = (existing?.versions.length ?? 0) + 1;
   const version: z.infer<typeof versionSchema> = {
     id: `v${nextVersion}`,
     createdAt: now,
@@ -159,7 +188,7 @@ async function writeArtifactUnlocked(directory: string, input: ArtifactInput): P
     id,
     type: input.type,
     title,
-    status: input.status ?? "draft",
+    status: input.status ?? existing?.status ?? "draft",
     sources: input.sources ?? existing?.sources ?? [],
     versions: [...(existing?.versions ?? []), version],
     metadata: { ...input.metadata, schemaVersion: 1 },
@@ -168,7 +197,7 @@ async function writeArtifactUnlocked(directory: string, input: ArtifactInput): P
   };
   await writeFile(join(dir, "artifact.json"), JSON.stringify(meta, null, 2), { mode: 0o600 });
   await writeIndex(directory, existing ? artifacts.map(entry => entry.id === id ? meta : entry) : [meta, ...artifacts]);
-  return { meta, created: !existing };
+  return { meta, created: !existing, changed: true };
 }
 
 async function readArtifactRaw(directory: string, id: string): Promise<{ meta: ArtifactMeta; content: string }> {
@@ -213,7 +242,7 @@ export async function mutateArtifactContent(
       metadata: meta.metadata,
       ...(label ? { label: label } : {}),
     });
-    return { meta: result.meta, changed: true };
+    return { meta: result.meta, changed: result.changed };
   });
 }
 

@@ -24,6 +24,8 @@ import { useDragControls } from "motion/react";
 import { AGENT_VIEWPORTS, type AgentViewportKey } from "@openwork/browser-tabs";
 
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
+import { useSpecialistApplications } from "../../specialists/provider";
+import { SaveToWorkspaceMenu } from "../../specialists/save-to-workspace-menu";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
 import { Button } from "@/components/ui/button";
 import { TaskRecovery } from "@/components/chat/task-recovery";
@@ -243,6 +245,7 @@ export function BrowserPanelContent({
   presentation,
 }: BrowserPanelContentProps) {
   const isAvailable = Boolean(getElectronBrowser());
+  const specialist = useSpecialistApplications();
   const [elementPickerActive, setElementPickerActive] = React.useState(false);
   const suspended = tab.status === "suspended";
   const busy = tab.status === "suspending" || tab.status === "restoring";
@@ -253,6 +256,21 @@ export function BrowserPanelContent({
   const contentRef = React.useRef<HTMLDivElement>(null);
   const urlInputRef = React.useRef<HTMLInputElement>(null);
   const [failure, setFailure] = React.useState<{ owner: string; title: string; details: string } | null>(null);
+  const saveUrl = (() => {
+    if (!specialist?.client || !specialist.active) return null;
+    try {
+      const parsed = new URL(tab.url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      return {
+        applicationId: specialist.active.id,
+        client: specialist.client,
+        resource: { kind: "url" as const, url: parsed.href, title: tab.label },
+        workspaceId: specialist.active.workspaceIds[0],
+      };
+    } catch {
+      return null;
+    }
+  })();
   const failureOwner = JSON.stringify([sessionId, tab.id]);
   const reportFailure = React.useCallback((title: string, error: unknown) => {
     setFailure({ owner: failureOwner, title, details: error instanceof Error ? error.message : String(error) });
@@ -506,6 +524,7 @@ export function BrowserPanelContent({
                 <Globe />
               </InputGroupAddon>
             </InputGroup>
+            {saveUrl ? <SaveToWorkspaceMenu {...saveUrl} /> : null}
             {tab.siteToolCount > 0 ? (
               <Popover>
                 <PopoverTrigger
