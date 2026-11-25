@@ -201,6 +201,16 @@
               ],
               "description": "Model guide and local catalog: Compare model costs, sourced assessments and capabilities using a release catalog with optional static JSON updates. Renders DEN_FEATURE_COMEX_MODEL_GUIDE."
             },
+            "comexTaskSound": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Task completion sound: Play a built-in or uploaded sound when an agent finishes a task while the window is in the background. Renders DEN_FEATURE_COMEX_TASK_SOUND."
+            },
             "comexChatCommands": {
               "enum": [
                 "",
