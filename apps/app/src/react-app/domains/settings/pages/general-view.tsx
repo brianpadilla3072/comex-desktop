@@ -105,7 +105,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       {/* Global settings */}
       <div className="space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-dls-secondary">
-          Global
+          {t("settings.group_global")}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {globalCards.filter(card => card.tab !== "cloud-account" || config.cloudSignin).map((card) => (
@@ -123,7 +123,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
       {/* Feedback */}
       {config.feedbackButton ? <div className="space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-dls-secondary">
-          Help
+          {t("settings.group_help")}
         </div>
         <div className="rounded-2xl border border-dls-border bg-dls-surface p-4">
           <div className="space-y-3">

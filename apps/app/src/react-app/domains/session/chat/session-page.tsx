@@ -232,6 +232,8 @@ export type SessionPageSidebarProps = {
   dashboardActive?: boolean;
   dashboardLabel?: string;
   onOpenDashboard?: () => void;
+  videoPanelActive?: boolean;
+  onOpenVideoPanel?: () => void;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   onReorderWorkspaces?: (workspaceIds: string[]) => void;
@@ -1858,6 +1860,8 @@ export function SessionPage(props: SessionPageProps) {
           dashboardActive={props.sidebar.dashboardActive}
           dashboardLabel={props.sidebar.dashboardLabel}
           onOpenDashboard={props.sidebar.onOpenDashboard}
+          videoPanelActive={props.sidebar.videoPanelActive}
+          onOpenVideoPanel={props.sidebar.onOpenVideoPanel}
           conversationHistory={{
             canGoBack: canGoBackInConversationHistory,
             canGoForward: canGoForwardInConversationHistory,

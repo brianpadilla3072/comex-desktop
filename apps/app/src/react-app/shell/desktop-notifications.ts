@@ -7,6 +7,12 @@ import {
   type DesktopNotificationPreference,
 } from "@/react-app/kernel/desktop-notification-preferences";
 import { LOCAL_PREFERENCES_KEY } from "@/react-app/kernel/local-preferences-storage";
+import { isTaskSoundFeatureEnabled } from "@/react-app/kernel/task-sound-feature";
+import { playTaskSound } from "@/react-app/kernel/task-sound";
+import {
+  migrateTaskSoundPreference,
+  type TaskSoundPreference,
+} from "@/react-app/kernel/task-sound-preference";
 import {
   browserNotificationEnvironment,
   decideWebNotification,
@@ -72,6 +78,31 @@ function readDesktopNotificationPreference(): DesktopNotificationPreference {
 function isAppInView() {
   if (typeof document === "undefined") return false;
   return document.visibilityState === "visible" && document.hasFocus();
+}
+
+function readTaskSoundPreference(): TaskSoundPreference {
+  if (typeof window === "undefined") return "off";
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PREFERENCES_KEY);
+    if (!raw) return "off";
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return "off";
+    return migrateTaskSoundPreference(Reflect.get(parsed, "taskSound"));
+  } catch {
+    return "off";
+  }
+}
+
+let lastChimeAt = 0;
+
+function playTaskCompletionSound(): void {
+  if (!isTaskSoundFeatureEnabled()) return;
+  const kind = readTaskSoundPreference();
+  if (kind === "off") return;
+  const nowMs = Date.now();
+  if (nowMs - lastChimeAt < 1_200) return;
+  lastChimeAt = nowMs;
+  playTaskSound(kind);
 }
 
 function copyForEvent(event: DesktopNotificationEvent): NotificationCopy {
@@ -152,7 +183,9 @@ export function notifyDesktopEvent(event: DesktopNotificationEvent): void {
     return;
   }
 
-  if (isAppInView()) return;
+  const inView = isAppInView();
+  if (event.type === "task.completed" && !inView) playTaskCompletionSound();
+  if (inView) return;
   if (isDuplicateTerminal(event, Date.now())) return;
 
   if (!isDesktopRuntime()) {

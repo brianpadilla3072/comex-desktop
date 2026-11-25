@@ -18,6 +18,11 @@ import {
   isDesktopNotificationPreference,
   type DesktopNotificationPreference,
 } from "./desktop-notification-preferences";
+import {
+  DEFAULT_TASK_SOUND_PREFERENCE,
+  migrateTaskSoundPreference,
+  type TaskSoundPreference,
+} from "./task-sound-preference";
 import { DEFAULT_SHOW_THINKING, isLinkOpenDestination, LOCAL_PREFERENCES_KEY, needsShowThinkingReset, type LinkOpenDestination } from "./local-preferences-storage";
 import {
   readStoredDefaultModel,
@@ -67,6 +72,11 @@ export type LocalPreferences = {
    * users are not surprised by system popups.
    */
   desktopNotifications: DesktopNotificationPreference;
+  /**
+   * Short chime when a task finishes while the window is in the background.
+   * Off by default; the setting only appears when `comexTaskSound` is on.
+   */
+  taskSound: TaskSoundPreference;
   linkOpenDestination: LinkOpenDestination;
   askBeforeOpeningLinks: boolean;
   /**
@@ -101,6 +111,7 @@ const INITIAL_PREFS: LocalPreferences = {
   hasCompletedOnboarding: false,
   analyticsEnabled: true,
   desktopNotifications: DEFAULT_DESKTOP_NOTIFICATION_PREFERENCE,
+  taskSound: DEFAULT_TASK_SOUND_PREFERENCE,
   linkOpenDestination: "openwork",
   askBeforeOpeningLinks: true,
   keepAwake: true,
@@ -159,6 +170,7 @@ export function LocalProvider({ children }: LocalProviderProps) {
     persisted.desktopNotifications = isDesktopNotificationPreference(persisted.desktopNotifications)
       ? persisted.desktopNotifications
       : DEFAULT_DESKTOP_NOTIFICATION_PREFERENCE;
+    persisted.taskSound = migrateTaskSoundPreference(persisted.taskSound);
     try {
       if (window.localStorage.getItem(MODEL_PREF_KEY) !== null) {
         return { ...persisted, defaultModel: readStoredDefaultModel() };

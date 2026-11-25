@@ -97,3 +97,26 @@ evals/results/
 /apps/desktop/vendor/comex-python/
 
 __pycache__/
+
+# Datos locales de la app: grabaciones de voz, consentimientos y bandejas.
+# Nunca se versionan (biometría y datos personales).
+/.openwork/
+
+# Datos locales de video: grabaciones de voz, biblioteca de referencias y
+# material de trabajo de cada proyecto. Nunca se versionan (biometria,
+# archivos pesados y videos en curso).
+/video-projects/
+/voices/
+
+# Material personal y de prueba, fuera del producto.
+/capturas/
+/facturas/
+/guion-prueba-*.wav
+/guion-prueba-*.mp3
+
+# Transcripciones de conversaciones (contexto privado).
+/proyecto/sesiones/
+/comex/sesiones/
+
+# Instaladores generados en la raiz del repo.
+/openwork-win-x64-*.exe

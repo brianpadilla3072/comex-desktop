@@ -17,8 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation, useNavigate } from "react-router";
-import { toast } from "@/components/ui/sonner";
+import { useLocation, useNavigate } from "react-router";import { toast } from "@/components/ui/sonner";
 import type { ProviderListResponse } from "@opencode-ai/sdk/v2/client";
 
 import { captureAnalyticsEvent, markTaskRunStart } from "@/app/lib/analytics";
@@ -300,6 +299,7 @@ import { useModelShortcutKeys } from "@/react-app/domains/shortcuts/use-model-sh
 import { useEngineReload } from "./use-engine-reload";
 import { useSessionGroupSync } from "./use-session-group-sync";
 import { useUiStateStore } from "./ui-state-store";
+import { useVideoSessionRegistry } from "@/react-app/domains/video/video-session-registry";
 import { useWorkspaceRouteState } from "./use-workspace-route-state";
 import { CloudWorkspaceBootTakeover, useCloudWorkspaceStatus } from "./cloud-workspace-overlay";
 import {
@@ -322,6 +322,7 @@ import {
   workspaceSettingsRoute,
 } from "./workspace-routes";
 import { WorkspaceProvider } from "./workspace-provider";
+import { VideoPanelRoute } from "../domains/video/video-panel";
 import type { OpenTarget } from "@/react-app/domains/session/artifacts/open-target";
 import { SettingsSurface } from "./settings-route";
 import { readWorkspaceDefaultModel, setWorkspaceDefaultModel, useWorkspaceDefaultModel, workspaceModelScope, writeStoredDefaultModel } from "@/react-app/kernel/model-config";
@@ -450,6 +451,7 @@ export function SessionRoute() {
   const inWorkspaceRoute = /^\/workspace\/[^/]+/.test(location.pathname);
   const specialistApplicationId = inWorkspaceRoute ? specialistApplications?.active?.id : undefined;
   const appsRouteActive = /^(?:\/apps|\/dashboard\/apps)(?:\/|$)/.test(location.pathname);
+  const videoRouteActive = /^\/video(?:\/|$)/.test(location.pathname) || /^\/workspace\/[^/]+\/video(?:\/|$)/.test(location.pathname);
   const automationsRouteRequested = /^\/automations(?:\/|$)/.test(location.pathname);
   const dashboardRouteRequested = /^\/dashboard(?:\/|$)/.test(location.pathname);
   const activityRouteRequested = location.pathname === "/activity";
@@ -489,6 +491,7 @@ export function SessionRoute() {
   } = useDashboardDeploymentAvailability();
   const platform = usePlatform();
   const toggleSidebar = useUiStateStore((state) => state.toggleSidebar);
+  const videoSidebarSectionVisible = useUiStateStore((state) => state.videoSidebarSectionVisible);
   const denAuth = useDenAuth();
   const artifactsLabel = "Artifacts";
   // On desktop, Dashboard and Automations stay in the sidebar while signed
@@ -753,6 +756,16 @@ export function SessionRoute() {
     }
     return endpoints;
   }, [dashboardRouteActive, retainedArtifactsScope, endpointForWorkspace, selectedWorkspaceEndpoint, workspaces]);
+  const videoWorkspaces = useMemo(() => {
+    const entries: Array<{ id: string; name: string; client: NonNullable<ResolvedWorkspaceEndpoint["client"]>; root: string }> = [];
+    for (const workspace of workspaces) {
+      const endpoint = endpointForWorkspace(workspace);
+      if (endpoint?.client && !entries.some((entry) => entry.id === endpoint.workspaceId)) {
+        entries.push({ id: endpoint.workspaceId, name: workspace.name, client: endpoint.client, root: workspace.path ?? "" });
+      }
+    }
+    return entries;
+  }, [endpointForWorkspace, workspaces]);
   const dashboardEndpoint = dashboardEndpoints[0] ?? null;
   const dashboardFallbackEndpoints = useMemo(
     () => dashboardEndpoints.slice(1).map((endpoint) => ({
@@ -956,6 +969,16 @@ export function SessionRoute() {
     // Session-list failures already land in errorsByWorkspaceId; there is no second map here.
     return toSessionGroups(workspaces, lists, errorsByWorkspaceId, new Set(retryingWorkspaceIds), sessionListErrorsByWorkspaceId);
   }, [errorsByWorkspaceId, retryingWorkspaceIds, sessionListErrorsByWorkspaceId, sessionsByWorkspaceId, workspaces, pendingConversations, sessionDraftScope]);
+  // Video chats are sessions, but they are not conversations the person
+  // started: keep them out of the sidebar.
+  const hiddenVideoSessionIds = useVideoSessionRegistry((state) => state.ids);
+  const sidebarSessionGroups = useMemo(() => {
+    if (hiddenVideoSessionIds.length === 0) return workspaceSessionGroups;
+    const hidden = new Set(hiddenVideoSessionIds);
+    return workspaceSessionGroups
+      .map((group) => ({ ...group, sessions: group.sessions.filter((session) => !hidden.has(session.id)) }))
+      .filter((group) => group.sessions.length > 0);
+  }, [hiddenVideoSessionIds, workspaceSessionGroups]);
   useEffect(() => {
     for (const entry of Object.values(pendingConversations)) {
       if (entry.scope === sessionDraftScope && entry.session && sessionsByWorkspaceId[entry.destination.workspaceId]?.some((session) => session.id === entry.sessionId)) {
@@ -4044,6 +4067,36 @@ export function SessionRoute() {
         designId={designRoute?.designId ?? ""} context={newTaskComposerContext} busy={busy} onStart={start} />
     ) : undefined,
   } : null;
+  if (videoRouteActive) {
+    return (
+      <WorkspaceProvider
+        client={opencodeClient}
+        opencodeBaseUrl={opencodeBaseUrl}
+        openworkServerClient={selectedWorkspaceEndpoint?.client ?? null}
+        workspaceId={selectedWorkspaceEndpoint?.workspaceId ?? ""}
+        selectedWorkspaceRoot={selectedWorkspaceRoot}
+      >
+        <VideoPanelRoute
+          endpoint={
+            selectedWorkspaceServerToken
+              ? { opencodeBaseUrl: opencodeBaseUrl.trim(), token: selectedWorkspaceServerToken.trim() }
+              : undefined
+          }
+          workspaces={videoWorkspaces}
+          draftScope={sessionDraftScope}
+          model={
+            newTaskModel?.providerID && newTaskModel.modelID
+              ? {
+                  providerID: newTaskModel.providerID,
+                  modelID: newTaskModel.modelID,
+                  variant: newTaskVariant ?? null,
+                }
+              : undefined
+          }
+        />
+      </WorkspaceProvider>
+    );
+  }
 
   return (
     <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
@@ -4260,7 +4313,7 @@ export function SessionRoute() {
         sessionTabNavRef.current = { ...sessionTabNavRef.current, options: tabs };
       }}
       sidebar={{
-        workspaceSessionGroups,
+        workspaceSessionGroups: sidebarSessionGroups,
         selectedWorkspaceId,
         selectedSessionId,
         developerMode: false,
@@ -4303,6 +4356,12 @@ export function SessionRoute() {
         onOpenDashboard: dashboardSurfaceAvailable
           ? () => {
               navigate(dashboardRoute());
+            }
+          : undefined,
+        videoPanelActive: videoRouteActive,
+        onOpenVideoPanel: videoSidebarSectionVisible && selectedWorkspaceId
+          ? () => {
+              navigate(`/workspace/${selectedWorkspaceId}/video`);
             }
           : undefined,
         onSelectWorkspace: async (workspaceId) => {

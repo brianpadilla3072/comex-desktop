@@ -1,7 +1,7 @@
 {
   "name": "@openwork/app",
   "private": true,
-  "version": "0.0.0-dev",
+  "version": "1.0.34",
   "engines": {
     "node": ">=24.22.1 <25"
   },

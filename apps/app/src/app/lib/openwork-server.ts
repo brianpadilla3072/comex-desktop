@@ -609,6 +609,51 @@ export type OpenworkWorkspaceFileContent = {
   updatedAt: number;
 };
 
+type VideoProjectBeat = {
+  id: string;
+  time: number;
+  duration?: number;
+  text?: string;
+  scene?: string;
+  motion?: string;
+  transition?: string;
+  voice?: { line?: string; audio?: string; gainDb?: number };
+  sfx?: Array<{ label?: string; asset?: string; at?: number; gainDb?: number }>;
+};
+
+export type VideoProjectSummary = {
+  slug: string;
+  /** `video-projects/<slug>/project.json`: who asked for this video and what it is called. */
+  project?: {
+    title?: string;
+    sessionId?: string;
+    workspaceId?: string;
+    createdAt?: string;
+    [key: string]: unknown;
+  } | null;
+  style: {
+    palette?: string[];
+    typography?: { display?: string; body?: string };
+    format?: { aspect?: string; fps?: number; resolution?: number[] };
+    motion?: { cutsPerMinute?: number; transitions?: string[] };
+    attention?: { hookSeconds?: number };
+    options?: { voice?: boolean; captions?: boolean; lowerThird?: boolean; sfx?: boolean };
+    [key: string]: unknown;
+  } | null;
+  cue: {
+    meta?: { durationSeconds?: number; fps?: number; aspect?: string };
+    beats?: VideoProjectBeat[];
+    captions?: Array<{ from: number; to: number; text: string }>;
+    lowerThird?: { name: string; title?: string };
+    [key: string]: unknown;
+  } | null;
+  approvals: { gates?: Record<string, { status?: string; at?: string }> } | null;
+  report: { checks?: Array<{ name: string; ok: boolean; detail: string; blocker?: boolean }>; blockers?: string[] } | null;
+  hasStoryboard: boolean;
+  hasStill: boolean;
+  hasFinal: boolean;
+};
+
 export type OpenworkWorkspaceFileWriteResult = {
   ok: boolean;
   path: string;
@@ -2835,7 +2880,8 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     // Gated server writes waiting for someone with owner access (host token or a paired device).
     listApprovals: async () => pendingApprovalsSchema.parse(await requestJson<unknown>(baseUrl, "/approvals", { token, hostToken, timeoutMs: timeouts.status })),
     respondApproval: async (id: string, reply: "allow" | "deny") => approvalReplySchema.parse(await requestJson<unknown>(baseUrl, `/approvals/${encodeURIComponent(id)}`, { token, hostToken, method: "POST", body: { reply }, timeoutMs: timeouts.status })),
-    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean; designStudio?: boolean; externalDelegates?: boolean; artifactSpreadsheetEditor?: boolean; chatPageMdMdxViewer?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getComexFeatures: () => requestJson<{ enabled: boolean; comexArtifacts?: boolean; taskContinuity?: boolean; comexModelGuide?: boolean; comexSpanishLocale?: boolean; comexScopedMemory?: boolean; comexChatCommands?: boolean; comexContinuity?: boolean; comexGitWorkspace?: boolean; openworkPromotions?: boolean; conversationNavigator?: boolean; agentActivityMap?: boolean; agentEcosystem?: boolean; webNotifications?: boolean; commandCenter?: boolean; taskIsolationReview?: boolean; resultsInbox?: boolean; startupScreenPolish?: boolean; activityAnimationsToggle?: boolean; paletteSettingSearch?: boolean; projectsExperience?: boolean; designStudio?: boolean; externalDelegates?: boolean; artifactSpreadsheetEditor?: boolean; chatPageMdMdxViewer?: boolean; taskSound?: boolean; videoStudio?: boolean }>(baseUrl, "/comex/features", { token, hostToken }),
+    getVideoProjects: (workspaceId: string) => requestJson<{ projects: VideoProjectSummary[] }>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/video/projects`, { token, hostToken }),
     /** Owner access: who decides about external agent CLIs (docs/features/external-delegates). */
     getDelegateSettings: async () => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, timeoutMs: timeouts.config })),
     setDelegateSettings: async (decider: "person" | "orchestrator") => delegateSettingsSchema.parse(await requestJson<unknown>(baseUrl, "/delegates/settings", { token, hostToken, method: "PUT", body: { decider }, timeoutMs: timeouts.config })),

@@ -6,7 +6,7 @@ import { useChatCommands, type ChatCommandTarget } from "../../commands/use-chat
 import { appCommandForOption, resolveChatCommand } from "../../commands/catalog";
 import { LocalPet } from "../../commands/local-pet";
 import { useWorkspaceMaybe } from "@/react-app/shell/workspace-provider";
-import { useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
+import { useComexVideoStudioEnabled, useComexWorkspaceEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 /** @jsxImportSource react */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ComposerSourcesMenu } from "./composer-sources-menu";
@@ -57,8 +57,11 @@ import {
 import { DevProfiler } from "@/react-app/shell/dev-profiler";
 import { encodeConnectorToken } from "./connector-token";
 import { ComposerPlusMenu, type ComposerPlusMenuPick } from "./composer-plus-menu";
+import { VideoVoiceRecorder } from "./video-voice-recorder";
+import { videoActionPrompt, videoVoiceSavedPrompt } from "@/react-app/domains/video/video-actions";
+import { VideoProjectChip } from "@/react-app/domains/video/video-project-chip";
 import { ComposerSuggestionMenu, composerSuggestionRowClass } from "./composer-suggestion-menu";
-import type { PlusMenuAgent, PlusMenuConnector, PlusMenuSection } from "./composer-plus-menu-model";
+import type { PlusMenuAgent, PlusMenuConnector, PlusMenuSection, VideoAction } from "./composer-plus-menu-model";
 import { connectionDiagnosticHistory, type ConnectionDiagnosticSource, type SendDiagnosticReason } from "@/app/lib/connection-diagnostic-history";
 import { composerDiagnosticBlockers } from "./composer-diagnostics";
 import { resolveComposerSubmit } from "./composer-submit";
@@ -260,6 +263,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   const [toolMenuLocation, setToolMenuLocation] = useState<"composer" | "sources">("composer");
   const sourceFolderInputRef = useRef<HTMLInputElement>(null);
   const [plusMenuQuery, setPlusMenuQuery] = useState("");
+  const [voiceRecorderOpen, setVoiceRecorderOpen] = useState(false);
   const [workspaceFileResults, setWorkspaceFileResults] = useState<string[]>([]);
   const [mentionItems, setMentionItems] = useState<MentionItem[]>([]);
   const [activeMentionQuery, setActiveMentionQuery] = useState<string | null>(null);
@@ -304,6 +308,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
   const designStudio = useDesignStudioAvailability();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const compactComposer = useComexWorkspaceEnabled();
+  const videoStudioEnabled = useComexVideoStudioEnabled();
   const workspaceForCommands = useWorkspaceMaybe();
   const chatCommands = useChatCommands({
     ...(props.chatCommandTarget ?? { client: workspaceForCommands?.openworkServerClient ?? null, nativeClient: workspaceForCommands?.client ?? null,
@@ -1044,6 +1049,26 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
     setToolMenuOpen(false);
   };
 
+  const voiceUpload = useMemo(() => {
+    const client = workspaceForCommands?.openworkServerClient;
+    const workspaceId = workspaceForCommands?.workspaceId;
+    if (!client || !workspaceId) return null;
+    return async (file: File, path: string) => {
+      await client.uploadInbox(workspaceId, file, { path });
+    };
+  }, [workspaceForCommands]);
+
+  const handleVideoAction = (action: VideoAction) => {
+    if (action === "grabar") {
+      setVoiceRecorderOpen(true);
+      return;
+    }
+    props.onDraftChange(videoActionPrompt(action, {
+      sessionId: props.sessionId,
+      workspaceId: workspaceForCommands?.workspaceId,
+    }));
+  };
+
   const handlePlusMenuPick = (item: ComposerPlusMenuPick) => {
     switch (item.kind) {
       case "skill":
@@ -1633,7 +1658,15 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   }}
                   onManage={handlePlusMenuManage}
                   onQueryChange={setPlusMenuQuery}
+                  videoActions={videoStudioEnabled}
+                  onVideoAction={handleVideoAction}
                   returnFocus={() => rootRef.current?.querySelector<HTMLElement>("[contenteditable='true']") ?? null}
+                />
+                <VideoVoiceRecorder
+                  open={voiceRecorderOpen}
+                  onOpenChange={setVoiceRecorderOpen}
+                  upload={voiceUpload}
+                  onSaved={(path) => props.onDraftChange(videoVoiceSavedPrompt(path))}
                 />
                 {props.sourcesMenuHost ? createPortal(<>
                   <input type="file" multiple hidden ref={node => { sourceFolderInputRef.current = node; node?.setAttribute("webkitdirectory", ""); }} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); if (files.length) void addAttachments(files); event.currentTarget.value = ""; }} />
@@ -1649,6 +1682,7 @@ export const ReactSessionComposer = memo(function ReactSessionComposer(props: Co
                   />
                 </>, props.sourcesMenuHost) : null}
                 {props.runModeControl}
+                <VideoProjectChip sessionId={props.sessionId} />
                 {props.agentActivityControl}
                 </div>
 

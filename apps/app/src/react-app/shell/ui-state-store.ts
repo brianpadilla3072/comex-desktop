@@ -20,6 +20,7 @@ export type SidePanelState = Record<string, SidePanelItem | null>;
 
 export type PersistedUiState = {
   applicationMenuVisible?: boolean;
+  videoSidebarSectionVisible?: boolean;
   workspaceLeftSidebarWidth?: number;
   workspaceRightSidebarExpanded?: boolean;
   workspaceRightSidebarExpandedWidth?: number;
@@ -34,6 +35,8 @@ export type UiState = {
   // them: the session route unmounts while Settings is open.
   expandedWorkspaceIds: string[];
   applicationMenuVisible: boolean;
+  /** Shows the "Panel de video" destination in the session sidebar. */
+  videoSidebarSectionVisible: boolean;
   workspaceLeftSidebarWidth: number;
   workspaceLeftSidebarResizing: boolean;
   workspaceRightSidebarExpanded: boolean;
@@ -45,6 +48,7 @@ const initialState: UiState = {
   sidePanelState: {},
   expandedWorkspaceIds: [],
   applicationMenuVisible: false,
+  videoSidebarSectionVisible: true,
   workspaceLeftSidebarWidth: DEFAULT_WORKSPACE_LEFT_SIDEBAR_WIDTH,
   workspaceLeftSidebarResizing: false,
   workspaceRightSidebarExpanded: false,
@@ -144,6 +148,8 @@ function readPersistedUiState(): UiState {
       ...initialState,
       sidebarOpen,
       applicationMenuVisible: parsed.applicationMenuVisible ?? initialState.applicationMenuVisible,
+      videoSidebarSectionVisible:
+        parsed.videoSidebarSectionVisible ?? initialState.videoSidebarSectionVisible,
       workspaceLeftSidebarWidth: normalizeNumber(
         parsed.workspaceLeftSidebarWidth,
         MIN_WORKSPACE_LEFT_SIDEBAR_WIDTH,
@@ -174,6 +180,7 @@ export function persistUiState(state: UiState): void {
       PERSISTED_UI_STATE_KEY,
       JSON.stringify({
         applicationMenuVisible: state.applicationMenuVisible,
+        videoSidebarSectionVisible: state.videoSidebarSectionVisible,
         workspaceLeftSidebarWidth: state.workspaceLeftSidebarWidth,
         workspaceRightSidebarExpanded: state.workspaceRightSidebarExpanded,
         workspaceRightSidebarExpandedWidth: state.workspaceRightSidebarExpandedWidth,
@@ -271,6 +278,17 @@ export function setApplicationMenuVisible(state: UiState, visible: boolean): UiS
   };
 }
 
+export function setVideoSidebarSectionVisible(state: UiState, visible: boolean): UiState {
+  if (state.videoSidebarSectionVisible === visible) {
+    return state;
+  }
+
+  return {
+    ...state,
+    videoSidebarSectionVisible: visible,
+  };
+}
+
 export function setWorkspaceLeftSidebarWidth(state: UiState, width: number): UiState {
   const nextWidth = clampNumber(width, MIN_WORKSPACE_LEFT_SIDEBAR_WIDTH, MAX_WORKSPACE_LEFT_SIDEBAR_WIDTH);
   if (state.workspaceLeftSidebarWidth === nextWidth) {
@@ -335,6 +353,7 @@ type UiStateStore = UiState & {
   expandWorkspace: (workspaceId: string) => void;
   toggleWorkspaceExpanded: (workspaceId: string) => void;
   setApplicationMenuVisible: (visible: boolean) => void;
+  setVideoSidebarSectionVisible: (visible: boolean) => void;
   setWorkspaceLeftSidebarWidth: (width: number) => void;
   setWorkspaceLeftSidebarResizing: (resizing: boolean) => void;
   setWorkspaceRightSidebarExpanded: (expanded: boolean) => void;
@@ -355,6 +374,8 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
     syncApplicationMenuVisible(visible);
   },
   setWorkspaceLeftSidebarWidth: (width) => set((state) => setWorkspaceLeftSidebarWidth(state, width)),
+  setVideoSidebarSectionVisible: (visible) =>
+    set((state) => setVideoSidebarSectionVisible(state, visible)),
   setWorkspaceLeftSidebarResizing: (resizing) => set((state) => setWorkspaceLeftSidebarResizing(state, resizing)),
   setWorkspaceRightSidebarExpanded: (expanded) => set((state) => setWorkspaceRightSidebarExpanded(state, expanded)),
   setWorkspaceRightSidebarExpandedWidth: (width) => set((state) => setWorkspaceRightSidebarExpandedWidth(state, width)),

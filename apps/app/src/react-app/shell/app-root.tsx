@@ -545,6 +545,22 @@ export function AppRoot() {
                 }
               />
               <Route
+                path="/video"
+                element={
+                  <DevProfiler id="VideoRoute">
+                    <SessionRoute />
+                  </DevProfiler>
+                }
+              />
+              <Route
+                path="/workspace/:workspaceId/video"
+                element={
+                  <DevProfiler id="VideoRoute">
+                    <SessionRoute />
+                  </DevProfiler>
+                }
+              />
+              <Route
                 path="/automations"
                 element={
                   <DevProfiler id="AutomationsRoute">

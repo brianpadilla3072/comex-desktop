@@ -6,13 +6,18 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clapperboard,
   CornerDownLeft,
   FileText,
   LoaderCircle,
+  Mic,
+  PanelRight,
   Paperclip,
+  Play,
   Plug,
   Plus,
   Puzzle,
+  ScanSearch,
   Settings,
   Terminal,
 } from "lucide-react";
@@ -34,6 +39,7 @@ import {
   type PlusMenuItem,
   type PlusMenuSection,
   type PlusMenuView,
+  type VideoAction,
 } from "./composer-plus-menu-model";
 
 export type ComposerPlusMenuPick = Exclude<PlusMenuItem, { kind: "attach" | "section" | "manage" | "plugin" }>;
@@ -48,6 +54,7 @@ type ComposerPlusMenuProps = Omit<PlusMenuInput, "view" | "query" | "recentIds">
   onPick: (item: ComposerPlusMenuPick) => void;
   onConnect: (connector: PlusMenuConnector) => void;
   onManage: (section: PlusMenuSection) => void;
+  onVideoAction: (action: VideoAction) => void;
   onQueryChange?: (query: string) => void;
   /** Where focus returns when the menu closes. */
   returnFocus: () => HTMLElement | null;
@@ -104,10 +111,38 @@ function groupLabel(id: PlusMenuGroupId): string | null {
       return t("composer.plus_commands");
     case "files":
       return t("composer.plus_files");
+    case "video":
+      return t("composer.plus_video");
     case "attach":
     case "plugin-files":
     case "manage":
       return null;
+  }
+}
+
+function videoLabel(action: VideoAction): string {
+  switch (action) {
+    case "nuevo":
+      return t("composer.plus_video_nuevo");
+    case "grabar":
+      return t("composer.plus_video_grabar");
+    case "analizar":
+      return t("composer.plus_video_analizar");
+    case "renderizar":
+      return t("composer.plus_video_renderizar");
+  }
+}
+
+function videoDescription(action: VideoAction): string {
+  switch (action) {
+    case "nuevo":
+      return t("composer.plus_video_nuevo_desc");
+    case "grabar":
+      return t("composer.plus_video_grabar_desc");
+    case "analizar":
+      return t("composer.plus_video_analizar_desc");
+    case "renderizar":
+      return t("composer.plus_video_renderizar_desc");
   }
 }
 
@@ -169,6 +204,13 @@ function ItemIcon(props: { item: PlusMenuItem }) {
     case "plugin-file":
     case "file":
       return <FileText className={iconClass} aria-hidden="true" />;
+    case "video": {
+      const Icon = item.action === "grabar" ? Mic
+        : item.action === "analizar" ? ScanSearch
+          : item.action === "renderizar" ? Play
+            : Clapperboard;
+      return <Icon className={iconClass} aria-hidden="true" />;
+    }
     case "manage":
       return <Settings className={iconClass} aria-hidden="true" />;
   }
@@ -189,6 +231,8 @@ function itemText(item: PlusMenuItem): ReactNode {
           <HighlightedLabel label={item.label} highlights={item.highlights} />
         </>
       );
+    case "video":
+      return videoLabel(item.action);
     default:
       return <HighlightedLabel label={item.label} highlights={item.highlights} />;
   }
@@ -199,6 +243,7 @@ function itemTitle(item: PlusMenuItem): string | undefined {
   if (item.kind === "skill") return item.skill.description || undefined;
   if (item.kind === "agent") return item.agent.description || undefined;
   if (item.kind === "command") return item.command.description || undefined;
+  if (item.kind === "video") return videoDescription(item.action);
   return undefined;
 }
 
@@ -233,8 +278,9 @@ export function ComposerPlusMenu(props: ComposerPlusMenuProps) {
         agents: props.agents,
         commands: props.commands,
         files: props.files,
+        videoActions: props.videoActions,
       }),
-    [view, query, recentIds, props.skills, props.connectors, props.plugins, props.agents, props.commands, props.files],
+    [view, query, recentIds, props.skills, props.connectors, props.plugins, props.agents, props.commands, props.files, props.videoActions],
   );
   const itemIds = useMemo(() => model.groups.flatMap((group) => group.items.map((item) => item.id)), [model]);
 
@@ -280,6 +326,10 @@ export function ComposerPlusMenu(props: ComposerPlusMenuProps) {
       case "manage":
         close();
         props.onManage(item.section);
+        return;
+      case "video":
+        close();
+        props.onVideoAction(item.action);
         return;
       default:
         if (item.kind !== "agent") setRecentIds(recordComposerPlusMenuRecent(item.id));

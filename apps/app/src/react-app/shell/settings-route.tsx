@@ -2393,6 +2393,10 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             onDesktopNotificationsChange={(desktopNotifications) => {
               local.setPrefs((previous) => ({ ...previous, desktopNotifications }));
             }}
+            taskSound={local.prefs.taskSound}
+            onTaskSoundChange={(taskSound) => {
+              local.setPrefs((previous) => ({ ...previous, taskSound }));
+            }}
           />
         );
       case "extensions":

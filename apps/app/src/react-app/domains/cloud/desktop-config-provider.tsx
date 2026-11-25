@@ -53,6 +53,7 @@ import { setExternalDelegatesFeatureEnabled } from "@/app/lib/external-delegates
 import { rememberStartupScreenPolish } from "@/app/lib/startup-screen-flag";
 import { rememberActivityAnimationsToggle } from "@/app/lib/activity-motion";
 import { setPaletteSettingSearchEnabled } from "@/react-app/domains/settings/settings-search-index";
+import { setTaskSoundFeatureEnabled } from "@/react-app/kernel/task-sound-feature";
 import {
   bootstrapBrandingFromDesktopConfig,
   bootstrapBrandingNeedsSync,
@@ -64,6 +65,8 @@ export type DesktopConfigStore = {
   agentActivityMap?: boolean;
   comexWorkspace?: boolean;
   comexModelGuide?: boolean;
+  taskSound?: boolean;
+  videoStudio?: boolean;
   config: DenDesktopConfig;
   loading: boolean;
   freshConfigStatus: "pending" | "ready" | "failed";
@@ -284,13 +287,16 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
   const denAuth = useDenAuth();
   const [comexModelGuide, setComexModelGuide] = useState(false);
   const [comexWorkspace, setComexWorkspace] = useState(false);
+  const [taskSound, setTaskSound] = useState(false);
+  const [videoStudio, setVideoStudio] = useState(false);
   useEffect(() => {
     let active = true;
+    const applyTaskSound = (value: boolean) => { setTaskSound(value); setTaskSoundFeatureEnabled(value); };
     const update = async () => {
       try {
         const connection = await resolveOpenworkConnection();
         if (!connection.normalizedBaseUrl || !connection.resolvedToken) {
-          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); }
+          if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); applyTaskSound(false); setVideoStudio(false); }
           return;
         }
         const feature = await createOpenworkServerClient({ baseUrl: connection.normalizedBaseUrl, token: connection.resolvedToken }).getComexFeatures();
@@ -299,6 +305,8 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           setComexModelGuide(feature.comexModelGuide === true);
           setConversationNavigator(feature.conversationNavigator === true);
           setAgentActivityMap(feature.agentActivityMap === true);
+          applyTaskSound(feature.taskSound === true);
+          setVideoStudio(feature.videoStudio === true);
           setOpenworkPromotionsEnabled(feature.openworkPromotions === true);
           setWebNotificationsFeatureEnabled(feature.webNotifications === true);
           // Permisos › "Agentes externos" (flag externalDelegates, default off).
@@ -314,7 +322,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
           // chose a language. Reload once so every screen switches together.
           if (applyDefaultLanguageHint(feature.enabled && feature.comexSpanishLocale === true ? "es" : null)) window.location.reload();
         }
-      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); } }
+      } catch { if (active) { setComexWorkspace(false); setComexModelGuide(false); setOpenworkPromotionsEnabled(false); setConversationNavigator(false); setAgentActivityMap(false); setWebNotificationsFeatureEnabled(false); setExternalDelegatesFeatureEnabled(false); applyTaskSound(false); setVideoStudio(false); } }
     };
     void update();
     const timer = window.setInterval(() => void update(), 15_000);
@@ -678,6 +686,8 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       config,
       comexWorkspace,
       comexModelGuide,
+      taskSound,
+      videoStudio,
       conversationNavigator,
       agentActivityMap,
       freshConfigStatus,
@@ -687,7 +697,7 @@ export function DesktopConfigProvider({ children }: DesktopConfigProviderProps) 
       checkRestriction,
       connectPolicySync,
     };
-  }, [checkRestriction, config, comexWorkspace, comexModelGuide, conversationNavigator, agentActivityMap, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
+  }, [checkRestriction, config, comexWorkspace, comexModelGuide, taskSound, videoStudio, conversationNavigator, agentActivityMap, freshConfigStatus, loading, refresh, refreshFresh, connectPolicySync]);
 
   return (
     <DesktopConfigContext.Provider value={value}>
@@ -748,4 +758,12 @@ export function useAgentActivityMapEnabled(): boolean {
 
 export function useComexModelGuideEnabled(): boolean {
   return use(DesktopConfigContext)?.comexModelGuide === true;
+}
+
+export function useComexTaskSoundEnabled(): boolean {
+  return use(DesktopConfigContext)?.taskSound === true;
+}
+
+export function useComexVideoStudioEnabled(): boolean {
+  return use(DesktopConfigContext)?.videoStudio === true;
 }

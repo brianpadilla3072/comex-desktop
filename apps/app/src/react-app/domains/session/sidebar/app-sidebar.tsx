@@ -24,6 +24,7 @@ import {
   ArchiveRestore,
   Blocks,
   CheckCheck,
+  Clapperboard,
   Folder,
   FolderClosed,
   Palette,
@@ -736,6 +737,8 @@ export type AppSidebarProps = {
   projects?: SidebarProjects;
   /** Design studio: the "Diseño" entry; absent while `designStudio` is off. */
   design?: SidebarDesign;
+  videoPanelActive?: boolean;
+  onOpenVideoPanel?: () => void;
   /** Opens the cross-session message search dialog (Cmd/Ctrl+Shift+F). */
   onOpenSessionSearch?: () => void;
   /** Back/forward across recently viewed conversations, rendered at the top of the sidebar. */
@@ -967,6 +970,7 @@ export function AppSidebar(inputProps: AppSidebarProps) {
           onAutomations={props.onOpenAutomations} automationsActive={props.automationsActive} automationsNeedAttention={props.automationsNeedAttention}
           onCommandCenter={props.onOpenCommandCenter} commandCenterActive={props.commandCenterActive}
           onResultsInbox={props.onOpenResultsInbox} resultsInboxActive={props.resultsInboxActive} resultsInboxUnread={props.resultsInboxUnread}
+          onVideo={props.onOpenVideoPanel} videoActive={props.videoPanelActive}
           onExtensions={props.onOpenExtensions} extensionsActive={props.extensionsActive}
           onInstallSkillsTools={props.onOpenExtensions}
           onProjectsPage={props.projects?.onOpen} projectsPageActive={props.projects?.active}
@@ -1022,6 +1026,48 @@ export function AppSidebar(inputProps: AppSidebarProps) {
             </SidebarMenuItem>
             {!referenceLayout ? sidebarDestinationOrder(projectsOn, availableDestinations)
               .map(id => <React.Fragment key={id}>{destinations[id]}</React.Fragment>) : null}
+            {!referenceLayout && props.onOpenDashboard ? (
+              <SidebarDestination
+                active={props.dashboardActive === true}
+                icon={Blocks}
+                label={props.dashboardLabel ?? "Dashboard"}
+                onSelect={props.onOpenDashboard}
+              />
+            ) : null}
+            {!referenceLayout && props.onOpenAutomations ? (
+              <SidebarDestination
+                active={props.automationsActive === true}
+                icon={Clock3}
+                label="Automations"
+                labelContent={(
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate">Automations</span>
+                    {props.automationsNeedAttention ? (
+                      <AlertTriangle
+                        data-automations-attention-indicator
+                        className="ml-auto size-3.5 shrink-0 text-warning"
+                        aria-label="An Automation needs attention"
+                      />
+                    ) : null}
+                  </span>
+                )}
+                onSelect={props.onOpenAutomations}
+              />
+            ) : null}
+            {!referenceLayout && props.onOpenVideoPanel ? (
+              <SidebarDestination
+                active={props.videoPanelActive === true}
+                icon={Clapperboard}
+                label="Panel de video"
+                onSelect={props.onOpenVideoPanel}
+              />
+            ) : null}
+            {!referenceLayout ? <SidebarDestination
+              active={props.extensionsActive === true}
+              icon={LayoutGrid}
+              label={t("settings.tab_extensions")}
+              onSelect={props.onOpenExtensions}
+            /> : null}
             {props.mobileChatActions}
           </SidebarMenu>
         </SidebarHeader>

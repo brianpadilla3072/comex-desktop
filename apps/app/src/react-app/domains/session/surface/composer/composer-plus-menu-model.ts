@@ -17,6 +17,10 @@ export type PlusMenuView =
   | { kind: "section"; section: PlusMenuSection }
   | { kind: "plugin"; pluginId: string };
 
+export type VideoAction = "nuevo" | "grabar" | "analizar" | "renderizar";
+
+export const VIDEO_ACTIONS: readonly VideoAction[] = ["nuevo", "grabar", "analizar", "renderizar"];
+
 export type PlusMenuConnector = {
   key: string;
   name: string;
@@ -42,6 +46,7 @@ export type PlusMenuItem =
   | (ItemBase & { kind: "agent"; agent: PlusMenuAgent })
   | (ItemBase & { kind: "command"; command: SlashCommandOption })
   | (ItemBase & { kind: "file"; path: string })
+  | (ItemBase & { kind: "video"; action: VideoAction })
   | (ItemBase & { kind: "manage"; section: PlusMenuSection });
 
 export type PlusMenuGroupId =
@@ -55,6 +60,7 @@ export type PlusMenuGroupId =
   | "commands"
   | "files"
   | "plugin-files"
+  | "video"
   | "manage";
 
 export type PlusMenuGroup = { id: PlusMenuGroupId; items: PlusMenuItem[] };
@@ -75,6 +81,7 @@ export type PlusMenuInput = {
   commands: SlashCommandOption[];
   files: string[];
   recentIds: string[];
+  videoActions: boolean;
 };
 
 const QUERY_GROUP_LIMIT = 5;
@@ -131,6 +138,10 @@ function commandItem(command: SlashCommandOption, highlights: number[] = []): Pl
 
 function fileItem(path: string, highlights: number[] = []): PlusMenuItem {
   return { kind: "file", id: `file:${path}`, label: fileLabel(path), highlights, path };
+}
+
+function videoItem(action: VideoAction, highlights: number[] = []): PlusMenuItem {
+  return { kind: "video", id: `video:${action}`, label: action, highlights, action };
 }
 
 function attachItem(): PlusMenuItem {
@@ -217,6 +228,10 @@ function fileEntry(path: string): ComposerSearchEntry<string> {
   return { id: path, label: fileLabel(path), keywords: [path], value: path };
 }
 
+function videoEntry(action: VideoAction): ComposerSearchEntry<VideoAction> {
+  return { id: `video:${action}`, label: action, keywords: ["video", "grabar", "render", "referencia"], value: action };
+}
+
 function compareBest(a: Ranked, b: Ranked): number {
   if (!a.best || !b.best) return a.best ? -1 : b.best ? 1 : 0;
   const tier = TIER_ORDER[b.best.tier] - TIER_ORDER[a.best.tier];
@@ -237,12 +252,24 @@ function recentGroup(input: PlusMenuInput): PlusMenuGroup {
   return { id: "recent", items: items.slice(0, RECENT_LIMIT) };
 }
 
+function videoGroup(): PlusMenuGroup {
+  return { id: "video", items: VIDEO_ACTIONS.map((action) => videoItem(action)) };
+}
+
 function rootModel(input: PlusMenuInput, query: string): PlusMenuModel {
   if (!query) {
-    const groups: PlusMenuGroup[] = [{ id: "attach", items: [attachItem()] }, recentGroup(input), browseGroup(input)];
+    const groups: PlusMenuGroup[] = [
+      { id: "attach", items: [attachItem()] },
+      ...(input.videoActions ? [videoGroup()] : []),
+      recentGroup(input),
+      browseGroup(input),
+    ];
     return { noMatches: false, groups: groups.filter((group) => group.items.length > 0) };
   }
   const ranked: { id: PlusMenuGroupId; ranked: Ranked }[] = [
+    ...(input.videoActions
+      ? [{ id: "video" as const, ranked: rank(query, [...VIDEO_ACTIONS], videoEntry, videoItem, QUERY_GROUP_LIMIT) }]
+      : []),
     { id: "connectors", ranked: rank(query, input.connectors, connectorEntry, connectorItem, QUERY_GROUP_LIMIT) },
     { id: "skills", ranked: rank(query, input.skills, skillEntry, skillItem, QUERY_GROUP_LIMIT) },
     { id: "plugins", ranked: rank(query, input.plugins, pluginEntry, pluginItem, QUERY_GROUP_LIMIT) },

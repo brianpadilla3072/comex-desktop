@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useEffect, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -8,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 
 import { t } from "@/i18n";
 import { isElectronRuntime } from "@/app/utils";
@@ -17,6 +19,14 @@ import {
   isDesktopNotificationPreference,
   type DesktopNotificationPreference,
 } from "@/react-app/kernel/desktop-notification-preferences";
+import {
+  TASK_SOUND_PREFERENCE_VALUES,
+  isTaskSoundPreference,
+  type TaskSoundPreference,
+} from "@/react-app/kernel/task-sound-preference";
+import { MAX_CUSTOM_SOUND_BYTES, loadCustomTaskSound, saveCustomTaskSound } from "@/react-app/kernel/custom-sound-store";
+import { playTaskSound } from "@/react-app/kernel/task-sound";
+import { useComexTaskSoundEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import {
   LayoutSection,
   LayoutSectionDescription,
@@ -36,6 +46,7 @@ import {
   AUTO_SETTLE_DAY_OPTIONS,
   useSessionManagementStore,
 } from "@/react-app/domains/session/sidebar/session-management-store";
+import { useUiStateStore } from "@/react-app/shell/ui-state-store";
 
 export type PreferencesViewProps = {
   busy: boolean;
@@ -50,6 +61,8 @@ export type PreferencesViewProps = {
   onToggleKeepAwake: () => void;
   desktopNotifications: DesktopNotificationPreference;
   onDesktopNotificationsChange: (value: DesktopNotificationPreference) => void;
+  taskSound: TaskSoundPreference;
+  onTaskSoundChange: (value: TaskSoundPreference) => void;
   linkOpenDestination: LinkOpenDestination;
   onLinkOpenDestinationChange: (value: LinkOpenDestination) => void;
 };
@@ -62,6 +75,25 @@ function desktopNotificationPreferenceLabel(value: DesktopNotificationPreference
       return t("settings.desktop_notifications.all");
     case "off":
       return t("settings.desktop_notifications.off");
+  }
+}
+
+function taskSoundLabel(value: TaskSoundPreference) {
+  switch (value) {
+    case "chime":
+      return t("settings.task_sound.chime");
+    case "bell":
+      return t("settings.task_sound.bell");
+    case "pop":
+      return t("settings.task_sound.pop");
+    case "marimba":
+      return t("settings.task_sound.marimba");
+    case "soft":
+      return t("settings.task_sound.soft");
+    case "custom":
+      return t("settings.task_sound.custom");
+    case "off":
+      return t("settings.task_sound.off");
   }
 }
 
@@ -114,8 +146,75 @@ function AutoSettleSection() {
   );
 }
 
+/** Sidebar layout: shows or hides the "Panel de video" destination. */
+function VideoSidebarSection() {
+  const visible = useUiStateStore((state) => state.videoSidebarSectionVisible);
+  const setVisible = useUiStateStore((state) => state.setVideoSidebarSectionVisible);
+
+  return (
+    <LayoutSection>
+      <LayoutSectionHeader>
+        <LayoutSectionTitle>{t("settings.video_sidebar.title")}</LayoutSectionTitle>
+        <LayoutSectionDescription>{t("settings.video_sidebar.section_desc")}</LayoutSectionDescription>
+      </LayoutSectionHeader>
+
+      <LayoutSectionItem>
+        <LayoutSectionItemHeader>
+          <LayoutSectionItemTitle>{t("settings.video_sidebar.show")}</LayoutSectionItemTitle>
+          <LayoutSectionItemDescription>{t("settings.video_sidebar.show_desc")}</LayoutSectionItemDescription>
+          <LayoutSectionItemHeaderActions>
+            <Switch
+              aria-label={t("settings.video_sidebar.show")}
+              checked={visible}
+              onCheckedChange={(checked) => {
+                setVisible(checked === true);
+              }}
+            />
+          </LayoutSectionItemHeaderActions>
+        </LayoutSectionItemHeader>
+      </LayoutSectionItem>
+    </LayoutSection>
+  );
+}
+
 export function PreferencesView(props: PreferencesViewProps) {
   const webNotifications = useWebNotificationsAvailable();
+  const taskSoundEnabled = useComexTaskSoundEnabled();
+  const [customSoundName, setCustomSoundName] = useState<string | null>(null);
+  const [customSoundError, setCustomSoundError] = useState<string | null>(null);
+  const customSoundInput = useRef<HTMLInputElement | null>(null);
+  const taskSoundItems = TASK_SOUND_PREFERENCE_VALUES.map((value) => ({
+    value,
+    label: taskSoundLabel(value),
+  }));
+
+  useEffect(() => {
+    let active = true;
+    void loadCustomTaskSound().then((stored) => {
+      if (active) setCustomSoundName(stored?.name ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const pickCustomSound = async (file: File | undefined) => {
+    if (!file) return;
+    setCustomSoundError(null);
+    if (!file.type.startsWith("audio/")) {
+      setCustomSoundError(t("settings.task_sound.file_invalid"));
+      return;
+    }
+    if (file.size > MAX_CUSTOM_SOUND_BYTES) {
+      setCustomSoundError(t("settings.task_sound.file_too_large"));
+      return;
+    }
+    const stored = await saveCustomTaskSound(file);
+    setCustomSoundName(stored.name);
+    props.onTaskSoundChange("custom");
+    playTaskSound("custom");
+  };
+
   const linkDestinationItems = [
     { value: "openwork", label: "OpenWork" },
     { value: "external", label: t("settings.links.external") },
@@ -168,6 +267,8 @@ export function PreferencesView(props: PreferencesViewProps) {
 
       <AutoSettleSettings />
 
+      <VideoSidebarSection />
+
       <LayoutSection>
         <LayoutSectionHeader>
           <LayoutSectionTitle>{t(webNotifications ? "web_notifications.section_title" : "settings.desktop_notifications.title")}</LayoutSectionTitle>
@@ -208,6 +309,90 @@ export function PreferencesView(props: PreferencesViewProps) {
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
         {webNotifications ? <WebNotificationPermissionItem preferenceOff={props.desktopNotifications === "off"} /> : null}
+
+        {taskSoundEnabled ? (
+          <>
+            <LayoutSectionItem>
+              <LayoutSectionItemHeader>
+                <LayoutSectionItemTitle>{t("settings.task_sound.title")}</LayoutSectionItemTitle>
+                <LayoutSectionItemDescription>{t("settings.task_sound.desc")}</LayoutSectionItemDescription>
+                <LayoutSectionItemHeaderActions>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={props.taskSound}
+                      items={taskSoundItems}
+                      onValueChange={(value) => {
+                        if (isTaskSoundPreference(value)) {
+                          props.onTaskSoundChange(value);
+                        }
+                      }}
+                      disabled={props.busy}
+                    >
+                      <SelectTrigger className="w-40" aria-label={t("settings.task_sound.title")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {TASK_SOUND_PREFERENCE_VALUES.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {taskSoundLabel(value)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      disabled={props.busy || props.taskSound === "off"}
+                      onClick={() => playTaskSound(props.taskSound)}
+                    >
+                      {t("settings.task_sound.preview")}
+                    </Button>
+                  </div>
+                </LayoutSectionItemHeaderActions>
+              </LayoutSectionItemHeader>
+            </LayoutSectionItem>
+
+            {props.taskSound === "custom" ? (
+              <LayoutSectionItem>
+                <LayoutSectionItemHeader>
+                  <LayoutSectionItemTitle>{t("settings.task_sound.custom_title")}</LayoutSectionItemTitle>
+                  <LayoutSectionItemDescription>
+                    {customSoundName
+                      ? t("settings.task_sound.custom_current", { name: customSoundName })
+                      : t("settings.task_sound.custom_empty")}
+                  </LayoutSectionItemDescription>
+                  <LayoutSectionItemHeaderActions>
+                    <input
+                      ref={customSoundInput}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(event) => {
+                        void pickCustomSound(event.currentTarget.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      disabled={props.busy}
+                      onClick={() => customSoundInput.current?.click()}
+                    >
+                      {t("settings.task_sound.upload")}
+                    </Button>
+                  </LayoutSectionItemHeaderActions>
+                </LayoutSectionItemHeader>
+                {customSoundError ? (
+                  <p className="text-xs text-destructive">{customSoundError}</p>
+                ) : null}
+              </LayoutSectionItem>
+            ) : null}
+          </>
+        ) : null}
       </LayoutSection>
 
       {isElectronRuntime() ? (
