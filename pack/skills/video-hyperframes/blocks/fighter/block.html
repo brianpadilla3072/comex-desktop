@@ -1,0 +1,78 @@
+<div class="cam" style="z-index: 1">
+  <div class="world">
+    <div class="blk-fighter" data-aura="{{aura}}">
+      <svg class="blk-fighter__svg" viewBox="0 0 420 640" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="auraGrad" cx="50%" cy="55%" r="50%">
+            <stop offset="0%" stop-color="var(--aura-1)" stop-opacity="0.55" />
+            <stop offset="60%" stop-color="var(--aura-2)" stop-opacity="0.22" />
+            <stop offset="100%" stop-color="var(--aura-2)" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+
+        <g id="char-move">
+          <g id="character" transform="translate(210, 620)">
+            <g id="aura">
+              <ellipse class="aura-ring" cx="0" cy="-300" rx="230" ry="300" fill="url(#auraGrad)" />
+              <ellipse class="aura-core" cx="0" cy="-300" rx="150" ry="210" fill="url(#auraGrad)" />
+            </g>
+
+            <ellipse cx="0" cy="4" rx="120" ry="16" fill="rgba(0,0,0,0.42)" />
+
+            <g id="legs">
+              <rect x="-46" y="-156" width="40" height="156" rx="16" fill="var(--pants)" />
+              <rect x="6" y="-156" width="40" height="156" rx="16" fill="var(--pants)" />
+              <rect x="-58" y="-24" width="58" height="30" rx="12" fill="var(--boot)" />
+              <rect x="0" y="-24" width="58" height="30" rx="12" fill="var(--boot)" />
+            </g>
+
+            <g id="body">
+              <rect x="-90" y="-360" width="180" height="232" rx="46" fill="var(--gi)" />
+              <path d="M-90 -360 L-34 -360 L0 -286 L34 -360 L90 -360 L90 -316 L34 -316 L0 -262 L-34 -316 L-90 -316 Z"
+                fill="var(--gi-dark)" opacity="0.55" />
+              <rect x="-96" y="-196" width="192" height="30" rx="12" fill="var(--sash)" />
+
+              <g id="arm-l" transform="translate(-88, -338)">
+                <rect x="-24" y="0" width="34" height="150" rx="17" fill="var(--gi)" />
+                <circle cx="-7" cy="152" r="23" fill="var(--glove)" />
+              </g>
+
+              <g id="arm-r" transform="translate(88, -338)">
+                <rect x="-10" y="0" width="34" height="150" rx="17" fill="var(--gi)" />
+                <circle cx="7" cy="152" r="23" fill="var(--glove)" />
+              </g>
+
+              <g id="head" transform="translate(0, -398)">
+                <ellipse cx="0" cy="0" rx="84" ry="94" fill="var(--skin)" />
+
+                <path
+                  d="M-86 -8 L-108 -58 L-78 -44 L-96 -104 L-58 -74 L-54 -136 L-22 -92 L-6 -148 L16 -94 L44 -140 L52 -84 L84 -116 L74 -54 L104 -66 L86 -6
+                     C 70 -46 40 -60 0 -60 C -40 -60 -70 -46 -86 -8 Z"
+                  fill="var(--hair)"
+                />
+                <path d="M-40 -96 C-16 -116 18 -118 40 -98" stroke="var(--hair-light)" stroke-width="10"
+                  stroke-linecap="round" fill="none" opacity="0.65" />
+
+                <g id="eyes">
+                  <ellipse cx="-32" cy="8" rx="11" ry="8" fill="#14141f" />
+                  <ellipse cx="32" cy="8" rx="11" ry="8" fill="#14141f" />
+                </g>
+                <g id="brows">
+                  <path d="M-48 -12 L-18 -4" stroke="#14141f" stroke-width="8" stroke-linecap="round" />
+                  <path d="M48 -12 L18 -4" stroke="#14141f" stroke-width="8" stroke-linecap="round" />
+                </g>
+
+                <g id="mouth">
+                  <path class="m-smile" d="M-18 44 Q2 56 20 42" fill="none" stroke="#14141f"
+                    stroke-width="7" stroke-linecap="round" />
+                  <ellipse class="m-open" cx="0" cy="50" rx="15" ry="17" fill="#14141f" opacity="0" />
+                  <circle class="m-wow" cx="0" cy="50" r="11" fill="#14141f" opacity="0" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>

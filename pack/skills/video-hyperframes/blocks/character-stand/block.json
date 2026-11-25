@@ -1,0 +1,5 @@
+{
+  "id": "character-stand",
+  "description": "Personaje de pie, de espaldas, con dos bolsas. state = walk | arrive | idle. walkIn: segundos que camina antes de frenar.",
+  "defaults": { "state": "arrive", "dir": "right", "walkIn": 1.4 }
+}

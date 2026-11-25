@@ -1,0 +1,40 @@
+.blk-stand {
+  --skin: #f0bd92;
+  --hoodie: #2b2d3a;
+  --pants: #1f2430;
+  --shoe: #12141a;
+  --hair: #1c1614;
+  --hair-light: #3a2d24;
+  --bag-1: #e6b84a;
+  --bag-2: #d8dde3;
+  --bag-handle: #8a6a2a;
+
+  position: absolute;
+  left: 50%;
+  margin-left: -300px;
+  top: 500px;
+  width: 600px;
+  z-index: 2;
+}
+
+.blk-stand__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 26px 44px rgba(0, 0, 0, 0.45));
+}
+
+.blk-stand[data-dir="left"] .blk-stand__svg {
+  transform: scaleX(-1);
+}
+
+.blk-stand #stand-leg-l,
+.blk-stand #stand-leg-r,
+.blk-stand #stand-arm-l,
+.blk-stand #stand-arm-r,
+.blk-stand #stand-bag-l,
+.blk-stand #stand-bag-r,
+.blk-stand #stand-head {
+  will-change: transform;
+}

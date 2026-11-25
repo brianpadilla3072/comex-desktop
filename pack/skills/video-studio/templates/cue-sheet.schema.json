@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Video cue sheet",
+  "type": "object",
+  "required": ["meta", "beats"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["slug", "durationSeconds", "fps", "aspect"],
+      "properties": {
+        "slug": { "type": "string" },
+        "durationSeconds": { "type": "number" },
+        "fps": { "type": "number" },
+        "aspect": { "type": "string" },
+        "style": { "type": "string" }
+      }
+    },
+    "beats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "time", "scene"],
+        "properties": {
+          "id": { "type": "string" },
+          "time": { "type": "number" },
+          "duration": { "type": "number" },
+          "scene": { "type": "string" },
+          "voice": {
+            "type": "object",
+            "properties": {
+              "line": { "type": "string" },
+              "audio": { "type": "string" },
+              "gainDb": { "type": "number" }
+            }
+          },
+          "sfx": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "asset": { "type": "string" },
+                "at": { "type": "number" },
+                "gainDb": { "type": "number" }
+              }
+            }
+          },
+          "music": {
+            "type": "object",
+            "properties": {
+              "asset": { "type": "string" },
+              "gainDb": { "type": "number" }
+            }
+          },
+          "motion": { "type": "string" },
+          "focus": {
+            "type": "array",
+            "description": "Zoom de cámara por paso; los tiempos son relativos al inicio de la escena.",
+            "items": {
+              "type": "object",
+              "required": ["at"],
+              "properties": {
+                "at": { "type": "number" },
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "scale": { "type": "number" },
+                "duration": { "type": "number" },
+                "ease": { "type": "string", "enum": ["out", "in", "inOut", "linear"] }
+              }
+            }
+          },
+          "text": { "type": "string" },
+          "transition": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "alert",
+  "description": "Tarjeta de alerta: quién hizo qué. Para seguidores, suscripciones o donaciones.",
+  "defaults": {
+    "kicker": "Nuevo seguidor",
+    "color": "var(--yellow)"
+  }
+}

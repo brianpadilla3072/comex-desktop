@@ -1,0 +1,86 @@
+.blk-quote {
+  position: absolute;
+  left: 68px;
+  right: 68px;
+  top: 50%;
+  translate: 0 -50%;
+  padding: 76px 56px 52px;
+  border-radius: 30px;
+  background:
+    linear-gradient(158deg, color-mix(in srgb, var(--primary) 26%, transparent), transparent 64%),
+    color-mix(in srgb, var(--bg) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--paper) 16%, transparent);
+  box-shadow:
+    0 34px 90px color-mix(in srgb, var(--bg) 74%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--paper) 14%, transparent);
+  overflow: hidden;
+}
+
+.blk-quote__mark {
+  position: absolute;
+  top: 10px;
+  left: 38px;
+  font-family: var(--display);
+  font-size: 172px;
+  line-height: 1;
+  color: var(--yellow);
+  opacity: 0.2;
+  transform-origin: 50% 100%;
+}
+
+.blk-quote__body {
+  position: relative;
+  z-index: 1;
+}
+
+.blk-quote__text {
+  font-family: var(--display);
+  font-size: 56px;
+  line-height: 1.12;
+  letter-spacing: -0.5px;
+  color: var(--paper);
+  text-shadow: 0 6px 22px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.blk-quote__author {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.blk-quote__bar {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 56px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, var(--yellow), var(--accent));
+  transform-origin: 50% 0%;
+}
+
+.blk-quote__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.blk-quote__name {
+  font-family: var(--display);
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: 0.4px;
+  color: var(--paper);
+}
+
+.blk-quote__role {
+  font-family: var(--body);
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: 0.8px;
+  color: color-mix(in srgb, var(--paper) 60%, transparent);
+}
+
+.blk-quote__role:empty {
+  display: none;
+}

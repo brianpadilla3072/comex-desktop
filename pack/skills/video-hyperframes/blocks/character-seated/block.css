@@ -1,0 +1,27 @@
+.blk-seated {
+  --skin: #f0bd92;
+  --hoodie: #2b2d3a;
+  --hair: #1c1614;
+  --hair-light: #3a2d24;
+
+  position: absolute;
+  left: 50%;
+  margin-left: -350px;
+  top: 420px;
+  width: 700px;
+  z-index: 2;
+}
+
+.blk-seated__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.45));
+}
+
+.blk-seated #seated-arm-l,
+.blk-seated #seated-arm-r,
+.blk-seated #seated-head {
+  will-change: transform;
+}

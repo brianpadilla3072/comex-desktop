@@ -1,0 +1,10 @@
+{
+  "id": "character",
+  "description": "Personaje 2D vectorial con rig: poses por ángulos, boca por pose o lipsync desde un JSON de bocas. poses = 'idle:0,talk:1.2:open'",
+  "defaults": {
+    "poses": "idle:0",
+    "mouth": [],
+    "mouthFps": 30,
+    "mouthStart": 0
+  }
+}

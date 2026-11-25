@@ -1,0 +1,5 @@
+{
+  "id": "character-seated",
+  "description": "Personaje de espaldas, sentado al escritorio. state = typing | sleep | idle.",
+  "defaults": { "state": "typing" }
+}

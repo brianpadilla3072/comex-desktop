@@ -1,0 +1,5 @@
+{
+  "id": "fighter",
+  "description": "Guerrero original con pelo en punta y aura (gramática tipo Super Saiyan, personaje propio). poses = 'idle:0,power:1.2,punch:2.6'",
+  "defaults": { "poses": "idle:0", "aura": "on" }
+}

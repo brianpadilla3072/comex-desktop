@@ -1,0 +1,5 @@
+{
+  "id": "desk-front",
+  "description": "Frente del set: escritorio, patas, silla y props. Va en una capa superior para tapar al personaje sentado.",
+  "defaults": {}
+}

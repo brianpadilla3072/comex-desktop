@@ -1,0 +1,7 @@
+{
+  "id": "quote",
+  "description": "Cita destacada: texto display entre comillas grandes, autor y línea de acento sobre una tarjeta sutil.",
+  "defaults": {
+    "role": ""
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "counter",
+  "description": "Número grande que cuenta de 0 al valor. Ideal para un dato fuerte.",
+  "defaults": {
+    "label": "",
+    "prefix": "",
+    "suffix": ""
+  }
+}

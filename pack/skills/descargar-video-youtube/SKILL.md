@@ -26,6 +26,9 @@ yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
 ```
 
 - Si solo se quiere audio: `yt-dlp -x --audio-format mp3 -o "~/Descargas/%(title)s [%(id)s].%(ext)s" "URL"`.
+- Si el video es **referencia de un proyecto**, bajalo adentro del proyecto y
+  numerado, para que el analizador lo encuentre sin renombrar nada:
+  `-o "video-projects/<slug>/inspiracion/refs/ref-01-%(id)s.%(ext)s"`.
 - Si el video tiene restricción de edad o región, agregar `--cookies-from-browser firefox` (o chrome).
 - Para Instagram/TikTok/otros: la misma sintaxis funciona (yt-dlp detecta el sitio).
 

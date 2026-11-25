@@ -1,0 +1,86 @@
+.blk-win {
+  position: absolute;
+  left: 58px;
+  right: 58px;
+  top: 50%;
+  translate: 0 -50%;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #20202a;
+  border: 1px solid #34343f;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.6);
+}
+
+.blk-win__bar {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+  background: #16161f;
+  border-bottom: 1px solid #2c2c37;
+}
+
+.blk-win__dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 14px var(--primary);
+}
+
+.blk-win__title {
+  font-size: 20px;
+  color: #c6ccd6;
+}
+
+.blk-win__btns {
+  margin-left: auto;
+  font-size: 20px;
+  color: #828a99;
+  letter-spacing: 14px;
+}
+
+.blk-win__menu {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  background: #1c1c25;
+  border-bottom: 1px solid #2c2c37;
+  font-size: 18px;
+  color: #aab2be;
+}
+
+.blk-win__body {
+  padding: 12px 22px 20px;
+}
+
+.blk-win__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 8px;
+  border-bottom: 1px solid #2a2a34;
+}
+
+.blk-win__row:last-child {
+  border-bottom: 0;
+}
+
+.blk-win__name {
+  width: 250px;
+  font-size: 21px;
+  color: #e2e7ee;
+}
+
+.blk-win__value {
+  flex: 1;
+  font-size: 17px;
+  color: #868e9c;
+}
+
+.blk-win__state {
+  font-size: 18px;
+  color: #53fc18;
+}

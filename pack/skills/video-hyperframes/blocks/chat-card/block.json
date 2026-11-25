@@ -1,0 +1,7 @@
+{
+  "id": "chat-card",
+  "description": "Tarjeta de chat con mensajes por plataforma. messages: [{tag, user, text}] con tag tw|kk|tt|yt",
+  "defaults": {
+    "title": "Chat unificado"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "duration": 30,
+  "out": "assets/audio/mix.wav",
+  "loudness": { "target": -16, "truePeak": -1.5 },
+  "voice": {
+    "gainDb": 0,
+    "trimSilence": true,
+    "note": "trimSilence recorta el silencio de entrada y cola de cada línea antes de ubicarla."
+  },
+  "music": {
+    "file": "assets/audio/music.mp3",
+    "gainDb": -18,
+    "duck": { "enabled": true, "threshold": 0.05, "ratio": 8, "attack": 15, "release": 400 },
+    "license": "Mixkit — uso libre con atribución no obligatoria (declarar en fuentes)"
+  },
+  "lines": [
+    { "file": "assets/audio/voice/v1.wav", "at": 0.06, "gainDb": 0 },
+    { "file": "assets/audio/voice/v2.wav", "at": 3.42, "gainDb": 0 }
+  ],
+  "sfx": [
+    { "file": "assets/audio/sfx/hit.wav", "at": 3.4, "gainDb": -6 },
+    { "file": "assets/audio/sfx/whoosh.wav", "at": 10.2, "gainDb": -8 }
+  ]
+}

@@ -1,0 +1,24 @@
+.blk-alert {
+  position: absolute;
+  left: 90px;
+  top: 560px;
+  padding: 26px 34px;
+  border-radius: 20px;
+  background: rgba(11, 11, 20, 0.86);
+  border: 1px solid color-mix(in srgb, var(--al-color) 60%, transparent);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--al-color) 25%, transparent);
+}
+
+.blk-alert__kicker {
+  font-size: 18px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--al-color);
+}
+
+.blk-alert__name {
+  font-family: var(--display);
+  font-size: 52px;
+  color: var(--paper);
+  margin-top: 10px;
+}

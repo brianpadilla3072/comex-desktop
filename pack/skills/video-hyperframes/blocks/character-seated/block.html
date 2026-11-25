@@ -1,0 +1,38 @@
+<div class="cam" style="z-index: 2">
+  <div class="world">
+    <div class="blk-seated" data-state="{{state}}">
+      <svg class="blk-seated__svg" viewBox="0 0 420 640" xmlns="http://www.w3.org/2000/svg">
+        <g id="seated-move">
+          <g id="seated" transform="translate(210, 640)">
+            <g id="seated-torso">
+              <rect x="-120" y="-330" width="240" height="330" rx="64" fill="var(--hoodie)" />
+              <rect x="-120" y="-330" width="240" height="46" rx="22" fill="rgba(0,0,0,0.18)" />
+            </g>
+
+            <g id="seated-arm-l" transform="translate(-104, -300)">
+              <rect x="-24" y="0" width="34" height="120" rx="17" fill="var(--hoodie)" />
+              <circle cx="-7" cy="122" r="19" fill="var(--skin)" />
+            </g>
+            <g id="seated-arm-r" transform="translate(104, -300)">
+              <rect x="-10" y="0" width="34" height="120" rx="17" fill="var(--hoodie)" />
+              <circle cx="7" cy="122" r="19" fill="var(--skin)" />
+            </g>
+
+            <g id="seated-head-move">
+              <g id="seated-head" transform="translate(0, -352)">
+              <rect x="-22" y="0" width="44" height="34" fill="var(--skin)" />
+              <circle cx="0" cy="-58" r="92" fill="var(--hair)" />
+              <circle cx="0" cy="-46" r="74" fill="var(--hair-light)" opacity="0.25" />
+
+              <path d="M-100 -60 A100 100 0 0 1 100 -60" fill="none" stroke="var(--accent)"
+                stroke-width="14" stroke-linecap="round" />
+              <rect x="-118" y="-72" width="28" height="58" rx="14" fill="var(--accent)" />
+              <rect x="90" y="-72" width="28" height="58" rx="14" fill="var(--accent)" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>

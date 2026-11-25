@@ -1,0 +1,19 @@
+<div class="cam">
+  <div class="world">
+    <div class="blk-chat">
+      <div class="blk-chat__head">
+        <span class="blk-chat__title">{{title}}</span>
+        <span class="blk-chat__dot" style="background: #a970ff"></span>
+        <span class="blk-chat__dot" style="background: #53fc18"></span>
+        <span class="blk-chat__dot" style="background: #25f4ee"></span>
+      </div>
+      <!-- each:messages -->
+      <div class="blk-chat__row">
+        <span class="blk-chat__bar tag-{{tag}}"></span>
+        <span class="blk-chat__user tag-{{tag}}">{{user}}</span>
+        <span class="blk-chat__text">{{text}}</span>
+      </div>
+      <!-- /each:messages -->
+    </div>
+  </div>
+</div>

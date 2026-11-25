@@ -1,0 +1,8 @@
+{
+  "id": "data-bars",
+  "description": "Gráfico de barras horizontales con etiqueta y valor. items: [{label, value}]",
+  "defaults": {
+    "title": "",
+    "unit": "%"
+  }
+}

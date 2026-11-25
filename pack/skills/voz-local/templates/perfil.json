@@ -1,0 +1,11 @@
+{
+  "name": "",
+  "engine": "chatterbox",
+  "language": "es",
+  "reference": "referencia.wav",
+  "transcript": "",
+  "exaggeration": 0.5,
+  "cfgWeight": 0.5,
+  "consent": "consentimiento.md",
+  "createdAt": ""
+}

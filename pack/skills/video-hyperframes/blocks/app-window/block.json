@@ -1,0 +1,8 @@
+{
+  "id": "app-window",
+  "description": "Ventana de app con barra de título y filas nombre/valor/estado. rows: [{name, value, state}]",
+  "defaults": {
+    "title": "AsyncStudio",
+    "menu": "Archivo · Editar · Ver · Escena · Perfil · Herramientas · Ayuda"
+  }
+}

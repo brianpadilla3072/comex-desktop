@@ -1,0 +1,14 @@
+{
+  "id": "hud-serie",
+  "description": "HUD de serie: chip de día, reloj que avanza y barra con porcentaje. fromHour/toHour y percentFrom/percentTo se reparten en la escena.",
+  "defaults": {
+    "day": 1,
+    "total": 30,
+    "tag": "SERIE",
+    "label": "24 HS",
+    "fromHour": 0,
+    "toHour": 3,
+    "percentFrom": 0,
+    "percentTo": 20
+  }
+}

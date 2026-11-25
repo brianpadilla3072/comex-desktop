@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Composición HyperFrames</title>
+    <style>
+      @font-face {
+        font-family: "Archivo Black";
+        src: url("assets/fonts/ArchivoBlack-400.woff2") format("woff2");
+        font-weight: 400;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/Inter-400.woff2") format("woff2");
+        font-weight: 400;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/Inter-700.woff2") format("woff2");
+        font-weight: 700;
+        font-display: block;
+      }
+
+      :root {
+        --bg: #0b0b14;
+        --primary: #4f46e5;
+        --secondary: #8b5cf6;
+        --accent: #22d3ee;
+        --coral: #fb7185;
+        --paper: #dbe5ec;
+        --yellow: #fcd03d;
+        --red: #e63249;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        overflow: hidden;
+        font-family: "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 18%, rgba(79, 70, 229, 0.28), rgba(11, 11, 20, 0) 58%),
+          var(--bg);
+      }
+
+      /* ---------------- escenario 2.5D (perspectiva real, sin WebGL) -------- */
+      .camera {
+        position: absolute;
+        inset: 0;
+        perspective: 1200px;
+        perspective-origin: 50% 46%;
+      }
+
+      .world {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+        will-change: transform;
+      }
+
+      .layer {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(90px);
+        opacity: 0.55;
+      }
+
+      .layer-a {
+        width: 900px;
+        height: 900px;
+        top: -180px;
+        left: -260px;
+        background: var(--primary);
+        transform: translateZ(-520px);
+      }
+
+      .layer-b {
+        width: 760px;
+        height: 760px;
+        top: 900px;
+        right: -220px;
+        background: var(--secondary);
+        transform: translateZ(-360px);
+        opacity: 0.42;
+      }
+
+      .layer-c {
+        width: 520px;
+        height: 520px;
+        top: 620px;
+        left: -160px;
+        background: var(--accent);
+        transform: translateZ(-660px);
+        opacity: 0.22;
+      }
+
+      /* tarjetas de producto en distintos planos */
+      .card {
+        position: absolute;
+        border-radius: 44px;
+        border: 3px solid rgba(219, 229, 236, 0.16);
+        background: linear-gradient(160deg, rgba(30, 32, 58, 0.96), rgba(14, 15, 27, 0.96));
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55);
+        overflow: hidden;
+      }
+
+      .card-a {
+        width: 720px;
+        height: 420px;
+        top: 700px;
+        left: 180px;
+        transform: translateZ(20px);
+      }
+
+      .card-b {
+        width: 560px;
+        height: 300px;
+        top: 1180px;
+        left: 90px;
+        transform: translateZ(-120px) rotateY(6deg);
+        opacity: 0.92;
+      }
+
+      .card-c {
+        width: 420px;
+        height: 240px;
+        top: 560px;
+        left: 620px;
+        transform: translateZ(-260px) rotateY(-9deg);
+        opacity: 0.8;
+      }
+
+      .card-bar {
+        height: 16px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        margin: 34px;
+      }
+
+      .card-line {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(219, 229, 236, 0.22);
+        margin: 18px 34px;
+      }
+
+      .card-line.short {
+        width: 46%;
+      }
+
+      /* ------------------------------- caption ------------------------------ */
+      .caption {
+        position: absolute;
+        top: 176px;
+        left: 64px;
+        right: 64px;
+        text-align: center;
+        font-family: "Archivo Black", sans-serif;
+        font-size: 92px;
+        line-height: 0.96;
+        text-transform: uppercase;
+        color: var(--paper);
+        -webkit-text-stroke: 12px var(--bg);
+        paint-order: stroke fill;
+        text-shadow: 0 8px 0 rgba(0, 0, 0, 0.55);
+        letter-spacing: -1px;
+      }
+
+      .caption em {
+        font-style: normal;
+        color: var(--yellow);
+      }
+
+      .kicker {
+        position: absolute;
+        top: 120px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-family: "Archivo Black", sans-serif;
+        font-size: 26px;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      /* --------------------------- HUD de la marca -------------------------- */
+      .chip {
+        position: absolute;
+        top: 72px;
+        left: 64px;
+        padding: 12px 22px;
+        border-radius: 14px;
+        background: var(--red);
+        color: #fff;
+        font-family: "Archivo Black", sans-serif;
+        font-size: 26px;
+        letter-spacing: 1px;
+        box-shadow: 0 6px 0 #000;
+      }
+
+      .platforms {
+        position: absolute;
+        top: 72px;
+        right: 64px;
+        display: flex;
+        gap: 18px;
+      }
+
+      .badge {
+        width: 76px;
+        height: 76px;
+        border-radius: 999px;
+        border: 3px solid var(--accent);
+        background: #0b0b14;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 26px rgba(34, 211, 238, 0.4);
+      }
+
+      .badge img {
+        width: 38px;
+        height: 38px;
+      }
+
+      .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.55);
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--yellow);
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="6"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div class="camera">
+        <div class="world">
+          <div class="layer layer-c"></div>
+          <div class="layer layer-a"></div>
+          <div class="layer layer-b"></div>
+
+          <div class="card card-c">
+            <div class="card-bar"></div>
+            <div class="card-line"></div>
+            <div class="card-line short"></div>
+          </div>
+          <div class="card card-b">
+            <div class="card-bar"></div>
+            <div class="card-line"></div>
+          </div>
+          <div class="card card-a">
+            <div class="card-bar"></div>
+            <div class="card-line"></div>
+            <div class="card-line short"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chip">V1.0</div>
+
+      <div class="platforms clip" data-start="1.2" data-duration="3.6">
+        <div class="badge"><img src="assets/icons/twitch.png" alt="Twitch" /></div>
+        <div class="badge"><img src="assets/icons/kick.png" alt="Kick" /></div>
+        <div class="badge"><img src="assets/icons/youtube.png" alt="YouTube" /></div>
+        <div class="badge"><img src="assets/icons/tiktok.png" alt="TikTok" /></div>
+      </div>
+
+      <div class="caption clip" data-start="0.35" data-duration="2.2">
+        UN <em>TABLERO</em>
+      </div>
+      <div class="caption clip" data-start="2.55" data-duration="2.2">
+        TODAS LAS <em>REDES</em>
+      </div>
+      <div class="caption clip" data-start="4.75" data-duration="1.25">
+        <em>ASYNCSTUDIO</em>
+      </div>
+
+      <div class="progress">
+        <div class="progress-fill"></div>
+      </div>
+    </div>
+
+    <script src="assets/gsap/gsap.min.js"></script>
+    <script>
+      // Línea de tiempo única, pausada: el runtime la lleva a cada cuadro.
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // cámara: push-in lento sobre el mundo 2.5D
+      tl.fromTo(
+        ".world",
+        { rotateY: -3, z: -40 },
+        { rotateY: 3, z: 70, duration: 6, ease: "none" },
+        0
+      );
+
+      // capas a distinta velocidad = paralaje por profundidad real
+      tl.fromTo(".layer-a", { x: -70 }, { x: 70, duration: 6, ease: "none" }, 0);
+      tl.fromTo(".layer-b", { x: 80 }, { x: -80, duration: 6, ease: "none" }, 0);
+      tl.fromTo(".layer-c", { x: -120 }, { x: 120, duration: 6, ease: "none" }, 0);
+
+      // tarjetas entrando desde su plano
+      tl.fromTo(
+        ".card-a",
+        { y: 90, opacity: 0, scale: 0.94 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.7, ease: "power3.out" },
+        0.15
+      );
+      tl.fromTo(
+        ".card-b",
+        { y: 70, opacity: 0 },
+        { y: 0, opacity: 0.92, duration: 0.7, ease: "power3.out" },
+        0.4
+      );
+      tl.fromTo(
+        ".card-c",
+        { y: 60, opacity: 0 },
+        { y: 0, opacity: 0.8, duration: 0.7, ease: "power3.out" },
+        0.6
+      );
+
+      // captions: entran con pop duro, una palabra en amarillo
+      gsap.utils.toArray(".caption").forEach((el, i) => {
+        const at = [0.35, 2.55, 4.75][i];
+        tl.fromTo(
+          el,
+          { y: 34, opacity: 0, scale: 0.96 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.22, ease: "power4.out" },
+          at
+        );
+      });
+
+      // badges: aparición escalonada
+      tl.fromTo(
+        ".badge",
+        { scale: 0.6, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.24, ease: "back.out(2)", stagger: 0.08 },
+        1.2
+      );
+
+      // barra de progreso
+      tl.fromTo(".progress-fill", { scaleX: 0 }, { scaleX: 1, duration: 6, ease: "none" }, 0);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

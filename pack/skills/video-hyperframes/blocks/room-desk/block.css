@@ -1,0 +1,62 @@
+.blk-room {
+  --wall: #6d7a4d;
+  --floor: #4a5433;
+  --window-frame: #2f3524;
+  --sky: #16203a;
+  --sun: #ffd166;
+  --desk: #23261f;
+  --desk-leg: #171a14;
+  --monitor-frame: #14161c;
+  --monitor-screen: #0b0d12;
+  --monitor-stand: #101218;
+  --screen-line: #4c5a2e;
+  --screen-line-soft: #2f3a1e;
+  --screen-block: #1c2415;
+  --cup-1: #e63249;
+  --cup-2: #f2f2f2;
+  --phone: #1b1b1b;
+  --chair: #1c1e1a;
+  --chair-post: #14150f;
+  --chair-base: #101109;
+
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--wall);
+}
+
+.blk-room__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.blk-room[data-time="dawn"] {
+  --sky: #f2a25c;
+  --sun: #ffe08a;
+  --wall: #77804f;
+}
+
+.blk-room[data-time="day"] {
+  --sky: #8fc3e8;
+  --sun: #fff3b0;
+  --wall: #7d8a55;
+}
+
+.blk-room__sun {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.blk-room[data-time="dawn"] .blk-room__sun,
+.blk-room[data-time="day"] .blk-room__sun {
+  opacity: 1;
+}
+
+.blk-room[data-monitor="off"] .blk-room__screen-ui {
+  opacity: 0;
+}
+
+.blk-room__screen-ui {
+  opacity: 1;
+}

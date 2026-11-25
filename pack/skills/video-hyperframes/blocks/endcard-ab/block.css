@@ -1,0 +1,77 @@
+.blk-ec {
+  --opt-a: #2989df;
+  --opt-b: #de6f2a;
+
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  font-family: var(--display);
+  text-transform: uppercase;
+}
+
+.blk-ec__kicker {
+  font-size: 26px;
+  letter-spacing: 5px;
+  color: var(--yellow);
+  min-height: 1px;
+}
+
+.blk-ec__row {
+  display: flex;
+  width: 100%;
+  gap: 22px;
+}
+
+.blk-ec__card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 34px 18px 30px;
+  border-radius: 22px;
+  border: 6px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 0 rgba(0, 0, 0, 0.45);
+  color: #fff;
+  text-align: center;
+}
+
+.blk-ec__card--a {
+  background: var(--opt-a);
+}
+
+.blk-ec__card--b {
+  background: var(--opt-b);
+}
+
+.blk-ec__letter {
+  font-size: 132px;
+  line-height: 0.9;
+  letter-spacing: -4px;
+  text-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
+}
+
+.blk-ec__label {
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+}
+
+.blk-ec__cta {
+  padding: 16px 34px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: #14141f;
+  font-size: 28px;
+  letter-spacing: 2px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.4);
+}

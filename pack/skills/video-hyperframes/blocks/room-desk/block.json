@@ -1,0 +1,5 @@
+{
+  "id": "room-desk",
+  "description": "Set: habitación con escritorio, silla, monitor y ventana. Cambia la luz con time (night|dawn|day) y el monitor con monitor (on|off).",
+  "defaults": { "time": "night", "monitor": "on" }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "lower-third",
+  "description": "Tarjeta de nombre y función abajo a la izquierda, con barra de color.",
+  "defaults": {
+    "role": "",
+    "color": "var(--accent)"
+  }
+}

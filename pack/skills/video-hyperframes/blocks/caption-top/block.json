@@ -1,0 +1,7 @@
+{
+  "id": "caption-top",
+  "description": "Título grande arriba, tipografía display, una palabra en acento. La base de casi toda placa.",
+  "defaults": {
+    "kicker": ""
+  }
+}

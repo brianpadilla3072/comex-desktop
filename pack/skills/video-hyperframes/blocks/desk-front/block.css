@@ -1,0 +1,19 @@
+.blk-desk {
+  --desk: #23261f;
+  --desk-leg: #171a14;
+  --cup-1: #e63249;
+  --cup-2: #f2f2f2;
+  --phone: #1b1b1b;
+  --chair: #1c1e1a;
+  --chair-post: #14150f;
+  --chair-base: #101109;
+
+  position: absolute;
+  inset: 0;
+}
+
+.blk-desk__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

@@ -1,0 +1,28 @@
+.blk-char {
+  --skin: #f2c6a0;
+  --hoodie: var(--primary);
+  --pants: #1b1b2a;
+  --shoe: #0f0f18;
+  --hair: #241a2e;
+
+  position: absolute;
+  left: 50%;
+  margin-left: -300px;
+  top: 620px;
+  width: 600px;
+  z-index: 1;
+}
+
+.blk-char__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.45));
+}
+
+.blk-char #arm-l,
+.blk-char #arm-r,
+.blk-char #head {
+  will-change: transform;
+}

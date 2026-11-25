@@ -1,0 +1,10 @@
+{
+  "id": "endcard-ab",
+  "description": "Placa final con dos opciones grandes A/B y un CTA. El público elige comentando una letra.",
+  "defaults": {
+    "kicker": "ELEGÍ EL PRÓXIMO",
+    "optionA": "YA LO JUGUÉ",
+    "optionB": "TODAVÍA NO",
+    "cta": "COMENTÁ A O B"
+  }
+}

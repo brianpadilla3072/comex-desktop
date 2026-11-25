@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{title}}</title>
+    <style>
+      @font-face {
+        font-family: "Archivo Black";
+        src: url("assets/fonts/ArchivoBlack-400.woff2") format("woff2");
+        font-weight: 400;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/Inter-400.woff2") format("woff2");
+        font-weight: 400;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/Inter-700.woff2") format("woff2");
+        font-weight: 700;
+        font-display: block;
+      }
+
+      :root {
+        {{vars}}
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        overflow: hidden;
+        font-family: var(--body);
+      }
+
+      #root {
+        position: relative;
+        width: {{width}}px;
+        height: {{height}}px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      .bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(760px 760px at 50% 6%, {{glow1}}, transparent 62%),
+          radial-gradient(680px 680px at 94% 72%, {{glow2}}, transparent 60%),
+          radial-gradient(540px 540px at 0% 60%, {{glow3}}, transparent 62%),
+          var(--bg);
+      }
+
+      .floor {
+        position: absolute;
+        left: -30%;
+        right: -30%;
+        bottom: -8%;
+        height: 600px;
+        background-image:
+          linear-gradient({{grid}}, 1px, transparent 1px),
+          linear-gradient(90deg, {{grid}}, 1px, transparent 1px);
+        background-size: 90px 90px;
+        transform: perspective(700px) rotateX(66deg);
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 55%);
+        mask-image: linear-gradient(to bottom, transparent 0%, #000 55%);
+        opacity: 0.5;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* Capa de foco: el generador la anima para acercar la cámara a un punto. */
+      .focus {
+        position: absolute;
+        inset: 0;
+        /* Origen 0 0: el punto de foco queda exactamente fijo (tx = x·(1−s)). */
+        transform-origin: 0 0;
+        will-change: transform;
+      }
+
+      /* Envoltorio de la escena: acá viven las transiciones de entrada. */
+      .scene-in {
+        position: absolute;
+        inset: 0;
+        will-change: transform, opacity, clip-path;
+      }
+
+      .cam {
+        position: absolute;
+        inset: 0;
+        perspective: 1200px;
+        perspective-origin: 50% 46%;
+      }
+
+      .world {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+      }
+
+      .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.55);
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--yellow);
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+      }
+
+      {{blockCss}}
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="{{duration}}"
+      data-width="{{width}}"
+      data-height="{{height}}"
+    >
+      <div class="bg"></div>
+      <div class="floor"></div>
+
+      {{scenes}}
+
+      <div class="progress"><div class="progress-fill"></div></div>
+    </div>
+
+    <script src="assets/gsap/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo(".progress-fill", { scaleX: 0 }, { scaleX: 1, duration: {{duration}}, ease: "none" }, 0);
+
+      {{blockJs}}
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

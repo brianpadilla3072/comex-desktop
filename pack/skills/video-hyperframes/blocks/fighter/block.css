@@ -1,0 +1,42 @@
+.blk-fighter {
+  --skin: #f0bd92;
+  --hair: #d81e3f;
+  --hair-light: #ff7a8a;
+  --gi: #1f2a4a;
+  --gi-dark: #131b31;
+  --sash: #d81e3f;
+  --pants: #131b31;
+  --boot: #0b0f1a;
+  --glove: #f0bd92;
+  --aura-1: #ffd166;
+  --aura-2: #ff4d6d;
+
+  position: absolute;
+  left: 50%;
+  margin-left: -300px;
+  top: 600px;
+  width: 600px;
+  z-index: 1;
+}
+
+.blk-fighter__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.5));
+}
+
+.blk-fighter #arm-l,
+.blk-fighter #arm-r,
+.blk-fighter #head {
+  will-change: transform;
+}
+
+.blk-fighter #aura {
+  opacity: 0;
+}
+
+.blk-fighter[data-aura="on"] #aura {
+  opacity: 1;
+}

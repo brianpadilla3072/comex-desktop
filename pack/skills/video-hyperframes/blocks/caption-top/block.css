@@ -1,0 +1,35 @@
+.blk-cap {
+  position: absolute;
+  top: 150px;
+  left: 56px;
+  right: 56px;
+  text-align: center;
+  z-index: 5;
+}
+
+.blk-cap__text {
+  font-family: var(--display);
+  font-size: var(--caption-size);
+  line-height: 0.94;
+  text-transform: uppercase;
+  color: var(--paper);
+  letter-spacing: -1px;
+  -webkit-text-stroke: 12px var(--bg);
+  paint-order: stroke fill;
+  text-shadow: 0 8px 0 rgba(0, 0, 0, 0.55);
+}
+
+.blk-cap__text em {
+  font-style: normal;
+  color: var(--yellow);
+}
+
+.blk-cap__kicker {
+  font-family: var(--display);
+  font-size: 23px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+  min-height: 1px;
+}

@@ -1,0 +1,142 @@
+{
+  "blocks": [
+    {
+      "id": "caption-top",
+      "description": "Título grande arriba, tipografía display, una palabra en acento. La base de casi toda placa.",
+      "fields": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "lower-third",
+      "description": "Tarjeta de nombre y función abajo a la izquierda, con barra de color.",
+      "fields": [
+        "role",
+        "color"
+      ]
+    },
+    {
+      "id": "data-bars",
+      "description": "Gráfico de barras horizontales con etiqueta y valor. items: [{label, value}]",
+      "fields": [
+        "title",
+        "unit"
+      ]
+    },
+    {
+      "id": "counter",
+      "description": "Número grande que cuenta de 0 al valor. Ideal para un dato fuerte.",
+      "fields": [
+        "label",
+        "prefix",
+        "suffix"
+      ]
+    },
+    {
+      "id": "chat-card",
+      "description": "Tarjeta de chat con mensajes por plataforma. messages: [{tag, user, text}] con tag tw|kk|tt|yt",
+      "fields": [
+        "title"
+      ]
+    },
+    {
+      "id": "app-window",
+      "description": "Ventana de app con barra de título y filas nombre/valor/estado. rows: [{name, value, state}]",
+      "fields": [
+        "title",
+        "menu"
+      ]
+    },
+    {
+      "id": "alert",
+      "description": "Tarjeta de alerta: quién hizo qué. Para seguidores, suscripciones o donaciones.",
+      "fields": [
+        "kicker",
+        "color"
+      ]
+    },
+    {
+      "id": "quote",
+      "description": "Cita destacada: texto display entre comillas grandes, autor con línea de acento sobre tarjeta sutil. text y author obligatorios.",
+      "fields": [
+        "role"
+      ]
+    },
+    {
+      "id": "cta",
+      "description": "Cierre: texto grande, subtítulo y llamado a la acción.",
+      "fields": [
+        "sub",
+        "chip"
+      ]
+    },
+    {
+      "id": "character",
+      "description": "Personaje 2D vectorial con rig: poses por ángulos, boca y parpadeo. poses = 'idle:0,talk:1.2:open,point:3.4'",
+      "fields": [
+        "poses"
+      ]
+    },
+    {
+      "id": "fighter",
+      "description": "Guerrero original con pelo en punta y aura (gramática tipo Super Saiyan, personaje propio). poses = 'idle:0,power:1.2,punch:2.6'",
+      "fields": [
+        "poses",
+        "aura"
+      ]
+    },
+    {
+      "id": "room-desk",
+      "description": "Set: habitación con escritorio, silla, monitor y ventana. time = night|dawn|day",
+      "fields": [
+        "time",
+        "monitor"
+      ]
+    },
+    {
+      "id": "hud-serie",
+      "description": "HUD de serie: chip de día, reloj que avanza y barra con porcentaje",
+      "fields": [
+        "day",
+        "total",
+        "tag",
+        "label",
+        "fromHour",
+        "toHour",
+        "percentFrom",
+        "percentTo"
+      ]
+    },
+    {
+      "id": "character-seated",
+      "description": "Personaje de espaldas, sentado al escritorio. state = typing | sleep | idle",
+      "fields": [
+        "state"
+      ]
+    },
+    {
+      "id": "desk-front",
+      "description": "Frente del set: escritorio, silla y props",
+      "fields": []
+    },
+    {
+      "id": "character-stand",
+      "description": "Personaje de pie, de espaldas, con dos bolsas. state = walk | arrive | idle",
+      "fields": [
+        "state",
+        "dir",
+        "walkIn"
+      ]
+    },
+    {
+      "id": "endcard-ab",
+      "description": "Placa final A/B con CTA",
+      "fields": [
+        "kicker",
+        "optionA",
+        "optionB",
+        "cta"
+      ]
+    }
+  ]
+}

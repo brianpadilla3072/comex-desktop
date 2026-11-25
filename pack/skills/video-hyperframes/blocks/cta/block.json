@@ -1,0 +1,8 @@
+{
+  "id": "cta",
+  "description": "Cierre: texto grande, subtítulo y llamado a la acción.",
+  "defaults": {
+    "sub": "",
+    "chip": ""
+  }
+}

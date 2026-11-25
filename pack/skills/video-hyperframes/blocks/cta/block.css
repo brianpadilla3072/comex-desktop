@@ -1,0 +1,43 @@
+.blk-cta {
+  position: absolute;
+  left: 60px;
+  right: 60px;
+  top: 640px;
+  text-align: center;
+}
+
+.blk-cta__chip {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  margin-bottom: 26px;
+  min-height: 1px;
+}
+
+.blk-cta__text {
+  font-family: var(--display);
+  font-size: calc(var(--caption-size) * 1.02);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--paper);
+  -webkit-text-stroke: 12px var(--bg);
+  paint-order: stroke fill;
+}
+
+.blk-cta__text em {
+  font-style: normal;
+  color: var(--yellow);
+}
+
+.blk-cta__sub {
+  margin-top: 26px;
+  font-family: var(--display);
+  font-size: 30px;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
