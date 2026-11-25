@@ -29,7 +29,7 @@ import { registerDesignRoutes } from "./designs/routes.js";
 import { designAgentInstructions } from "./designs/guidance.js";
 import { specialistApplicationsEnabled } from "./comex/features.js";
 import { ensureComexSession, readComexMemory } from "./comex/seed.js";
-import { comexWorkspaceEnabled } from "./comex/features.js";
+import { comexVideoStudioEnabled, comexWorkspaceEnabled } from "./comex/features.js";
 import { cloudComputerCall, cloudComputerFor, cloudComputerJson, startCloudComputerBridge } from "./cloud-computer.js";
 import { createV2SessionHomes, nativeSession, nativeSessionDirectory } from "./opencode-v2-session-home.js";
 import { createNativeCloudMcpResolver, createRoutedCloudMcpRegistrar } from "./cloud-mcp-v2.js";
@@ -40,7 +40,7 @@ import { managedPolicyActionSchema } from "./managed-policy-rules.js";
 import { enterEngineMutation, withEngineSwitchFence } from "./engine-switch-fence.js";
 import { originalHistoryUsesV2 } from "./opencode-history.js";
 import { beginOpencodeStop, opencodeSessionIsStopping } from "./opencode-stop-fence.js";
-import { readFile, realpath, writeFile, rm, stat } from "node:fs/promises";
+import { readFile, readdir, realpath, writeFile, rm, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -4243,6 +4243,14 @@ function createRoutes(
     return jsonResponse(result);
   });
 
+  addRoute(routes, "GET", "/workspace/:id/video/projects", "client", async (ctx) => {
+    if (!comexVideoStudioEnabled()) {
+      throw new ApiError(404, "feature_disabled", "Video studio is disabled");
+    }
+    const workspace = await resolveWorkspace(config, ctx.params.id);
+    return jsonResponse({ projects: await listVideoProjects(workspace.path) });
+  });
+
   addRoute(routes, "GET", "/workspace/:id/skills", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const includeGlobal = ctx.url.searchParams.get("includeGlobal") === "true";
@@ -7255,4 +7263,57 @@ function parseWorkspaceExportSensitiveMode(input: string | null): WorkspaceExpor
     return trimmed;
   }
   throw new ApiError(400, "invalid_workspace_export_sensitive_mode", `Invalid workspace export sensitive mode: ${trimmed}`);
+}
+
+/** Scans only video-projects/<slug>/ instead of the whole workspace catalog. */
+async function listVideoProjects(root: string) {
+  const base = join(root, "video-projects");
+  let entries;
+  try {
+    entries = await readdir(base, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const projects = [];
+  for (const entry of entries.filter((item) => item.isDirectory()).slice(0, 20)) {
+    const dir = join(base, entry.name);
+    const readJson = async (relative: string): Promise<unknown> => {
+      try {
+        return JSON.parse((await readFile(join(dir, relative), "utf8")).replace(/^\uFEFF/, ""));
+      } catch {
+        return null;
+      }
+    };
+    const exists = async (relative: string): Promise<boolean> => {
+      try {
+        await stat(join(dir, relative));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const [style, cue, approvals, report, project, hasStoryboardJson, hasStoryboardMd, hasStill, hasFinal] = await Promise.all([
+      readJson("style.json"),
+      readJson("cue-sheet.json"),
+      readJson("qa/approvals.json"),
+      readJson("qa/report.json"),
+      readJson("project.json"),
+      exists("storyboard.json"),
+      exists("storyboard.md"),
+      exists("qa/still.png"),
+      exists("renders/final.mp4"),
+    ]);
+    projects.push({
+      slug: entry.name,
+      project,
+      style,
+      cue,
+      approvals,
+      report,
+      hasStoryboard: hasStoryboardJson || hasStoryboardMd,
+      hasStill,
+      hasFinal,
+    });
+  }
+  return projects.sort((a, b) => a.slug.localeCompare(b.slug));
 }

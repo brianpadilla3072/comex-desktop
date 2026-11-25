@@ -82,6 +82,18 @@ export function comexModelGuideEnabled(env: NodeJS.ProcessEnv = process.env): bo
   return resolveFeature("comexModelGuide", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+export function comexTaskSoundEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("comexTaskSound", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
+export function comexVideoStudioEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("comexVideoStudio", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 export function comexScopedMemoryEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);
   if (context.problems.some(problem => problem.fatal)) return false;
