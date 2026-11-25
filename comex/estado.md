@@ -239,3 +239,27 @@ El usuario pidió activar el modo compañero y aclaró que debe verse la princip
 El usuario informó que, tras conectar OpenCode, el selector no cargaba. HTTP 500 en model/model-default/provider no provenía de autenticación: ensureWorkspaceReady bloqueaba el catálogo porque el wrapper generado comex-browser apuntaba a un módulo anterior todavía existente, y la actualización solo admitía módulos desaparecidos. Se reconoce la plantilla generada exacta y se permite renovarla entre versiones/perfiles, manteniendo protección de archivos personalizados y symlinks. Se actualizaron exclusivamente los wrappers reconocidos de ambos workspaces registrados, con respaldos .pre-model-fix.bak. Sin copiar ni registrar claves en el repo.
 
 Verificado en vivo: ambos workspaces responden HTTP 200 con 44 modelos (32 opencode-go y 12 opencode); el error del selector desapareció. Nueve pruebas de puente/navegador/servicio instalado aprobadas. Compilación del servidor aprobada; la corrección queda en dist para próximos arranques. Se mostró la principal para revisar el selector, con la cápsula oculta automáticamente. No se hicieron inferencias ni pruebas de gasto. No se alteraron pendientes académicos.
+
+## Plantillas de factura en blanco (2026-11-20)
+
+A pedido del usuario se generaron dos plantillas A4 en PDF vectorial, sin datos, importes ni datos fiscales inventados: `facturas/factura-plantilla.pdf` (factura general, 47 campos AcroForm) y `facturas/factura-comercial-exportacion-plantilla.pdf` (factura comercial de exportación / Commercial Invoice, 53 campos). Verificación con `pdf-toolkit`: `info` (1 página A4 cada una), `fields` (campos `/Tx` editables) y `render` (revisión visual). Una copia de prueba completada con datos ficticios confirmó que `fill` persiste los valores; esa copia no se entregó. Pendiente: si el usuario aporta datos reales, completar una copia y validarla antes de emitir. No se usaron datos de clientes ni cifras reales.
+
+## Panel de video con endpoint propio (2026-11-20)
+
+El panel no encontraba proyectos porque `listWorkspaceFiles` trunca el catálogo a 10.000 entradas por los `node_modules` del proyecto. Se agregó `GET /workspace/:id/video/projects` (auth client, gate `comexVideoStudioEnabled`) que recorre solo `video-projects/<slug>/` y resume style, cue-sheet, aprobaciones, reporte QA y presencia de storyboard/still/final; el cliente expone `getVideoProjects` y el panel dejó de usar el catálogo. Build 1.0.31 instalado.
+
+Verificación real en `ws_af593f57df21`: el panel lista `prueba-video` (5/5 gates, 8,32 s), muestra el still `qa/still.png`, las recomendaciones del reporte y el formulario de edición. Aprobar Estilo y Stills escribió `qa/approvals.json` (16:03:08 y 16:03:28) y la interfaz mostró "Aprobado"/"Reabrir"; editar b1 y guardar escribió `cue-sheet.json` y `style.json`; el texto se revirtió a "Fin de tarea". Captura: `%TEMP%\opencode\video-panel-1.0.31.png`.
+
+## Voz clonada conectada al render (2026-11-20)
+
+La grabación de 29,94 s quedó importada en `voices/dylan-voz/` (`referencia.wav` normalizada a -16 LUFS, `consentimiento.md`, `perfil.json`). Se generó una muestra y las líneas b1/b2 con Chatterbox; whisper transcribió ambas líneas correctamente. Se agregó `VoiceTrack` al starter de `video-studio` y al proyecto: reproduce cada `voice.audio` en su timecode, con ruta relativa a `remotion/public/audio` y `gainDb` opcional.
+
+`renders/final-voz.mp4` (7,68 s, 1080x1920, H.264 + AAC) contiene las dos líneas con la voz clonada; se copió a `renders/final.mp4`. QA: -16,4 LUFS, duración 7,68 vs 7,66 planificada; quedan avisos no bloqueantes de true peak sin medir y cortes/min. Panel actualizado (5/5 gates, 7,66 s). Pendiente: revisar de oído las líneas y, si Chatterbox repite tokens en textos largos, regenerar con otra semilla.
+
+## Corrección de "Abrir panel" (2026-11-20)
+
+El usuario reportó que el panel no abría. La acción "Abrir panel" del menú + del compositor navegaba a `#/video`, ruta sin workspace, y `VideoRoute` redirigía al chat. Ahora usa `#/workspace/<workspaceId>/video` cuando hay workspace; si no, conserva `#/video`. Build 1.0.32 instalado y probado: + → Video → Abrir panel abre el panel del workspace correcto y "Volver al chat" regresa a la sesión. No se tocaron datos del proyecto.
+
+## Panel de video simplificado a opciones (2026-11-20)
+
+El usuario aclaró que los videos se generan 2D/3D a partir de referencias y que un editor técnico no aporta: la IA define paleta, guion y tiempos. Se reemplazó el editor crudo por "Opciones": formato 9:16/16:9/1:1 y toggles de voz, subtítulos, lower third y SFX, con "Guardar", "Guardar y pedir render" y "Copiar pedido". `style.options` (voice/captions/lowerThird/sfx, true por defecto) lo respetan `VideoTrack`, `Caption`, `LowerThird` y `SfxTrack` en el starter y en el proyecto. Build 1.0.34 instalado y probado: guardar subtítulos off escribió `style.json`; 16:9 y vuelta a 9:16 persistieron; Estilo y Stills quedaron aprobados. Captura: `%TEMP%\opencode\video-panel-opciones.png`. Falta evaluar si conviene un botón de render directo sin pasar por el chat.
