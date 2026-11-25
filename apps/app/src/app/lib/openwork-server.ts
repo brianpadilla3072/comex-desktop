@@ -652,6 +652,10 @@ export type VideoProjectSummary = {
   hasStoryboard: boolean;
   hasStill: boolean;
   hasFinal: boolean;
+  /** Fecha del archivo más nuevo del proyecto, en milisegundos. */
+  updatedAt?: number | null;
+  /** Qué se tocó último: Render, Stills, QA, Guion, Opciones o Pedido. */
+  lastActivity?: string | null;
 };
 
 export type OpenworkWorkspaceFileWriteResult = {

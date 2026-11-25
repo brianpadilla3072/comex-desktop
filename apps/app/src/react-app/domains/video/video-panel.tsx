@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
-import { Check, ChevronDown, Copy, ExternalLink, MessageSquare, Plus, RefreshCw, RotateCcw, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Copy, ExternalLink, MessageSquare, Plus, RefreshCw, RotateCcw, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +17,7 @@ import { createClient, unwrap } from "@/app/lib/opencode";
 import { createClientV2, isOpencodeV2BaseUrl } from "@/app/lib/opencode-v2-adapter";
 import { useComexVideoStudioEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useWorkspace, useWorkspaceMaybe } from "@/react-app/shell/workspace-provider";
+import { readLastSessionFor } from "@/react-app/shell/session-memory";
 import { markComposerAutoSend } from "@/react-app/domains/session/surface/composer-auto-send";
 import { useComposerStateStore } from "@/react-app/domains/session/surface/composer-state-store";
 import { saveSessionDraft } from "@/react-app/domains/session/sync/draft-store";
@@ -386,6 +387,19 @@ function approved(project: Project, gate: Gate): boolean {
   return project.approvals?.gates?.[gate]?.status === "approved";
 }
 
+/** «hace 2 h», «ayer», «hace 4 días»: cuánto pasó desde la última modificación. */
+function relativeTime(ms?: number | null): string {
+  if (!ms) return "";
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "recién";
+  const minutes = Math.round(diff / 60_000);
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "ayer" : `hace ${days} días`;
+}
+
 function OptionToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="flex items-center gap-2 text-[13px]">
@@ -461,6 +475,25 @@ export function VideoPanel({
   }, [allGroups]);
   const [searchParams] = useSearchParams();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(() => searchParams.get("project"));
+  // El centro arranca en «Recientes»; si la URL trae ?project=, abre ese video.
+  const [view, setView] = useState<"recent" | "project">(
+    () => (searchParams.get("project") ? "project" : "recent"),
+  );
+  const recent = useMemo(
+    () =>
+      allGroups
+        .flatMap((group) => group.projects.map((project) => ({ group, project })))
+        .sort((a, b) => (b.project.updatedAt ?? 0) - (a.project.updatedAt ?? 0)),
+    [allGroups],
+  );
+  const openProject = (group: WorkspaceProjects, slug: string) => {
+    if (group.workspaceId !== workspace.workspaceId) {
+      window.location.hash = `#/workspace/${group.workspaceId}/video?project=${encodeURIComponent(slug)}`;
+      return;
+    }
+    setSelectedSlug(slug);
+    setView("project");
+  };
   const [draft, setDraft] = useState<Draft | null>(null);
   const client = workspace.openworkServerClient;
 
@@ -588,10 +621,17 @@ export function VideoPanel({
     await sendChangeRequest({ text: renderPrompt(selected.slug), mode: "raw" });
   };
 
+  /** Returns to the conversation the person had open, not to a blank chat. */
   const backToChat = () => {
-    window.location.hash = workspace.workspaceId
-      ? `#/workspace/${workspace.workspaceId}/session`
-      : "#/session";
+    const workspaceId = workspace.workspaceId;
+    if (!workspaceId) {
+      window.location.hash = "#/session";
+      return;
+    }
+    const remembered = readLastSessionFor(workspaceId);
+    window.location.hash = remembered
+      ? `#/workspace/${workspaceId}/session/${remembered}`
+      : `#/workspace/${workspaceId}/session`;
   };
 
   const origin = useProjectOrigin(workspace, selected?.slug ?? null);
@@ -1040,11 +1080,7 @@ export function VideoPanel({
                           type="button"
                           onClick={() => {
                             if (!confirmDiscard()) return;
-                            if (isCurrent) {
-                              setSelectedSlug(project.slug);
-                              return;
-                            }
-                            window.location.hash = `#/workspace/${group.workspaceId}/video?project=${encodeURIComponent(project.slug)}`;
+                            openProject(group, project.slug);
                           }}
                           className={cn(
                             "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors",
@@ -1085,12 +1121,81 @@ export function VideoPanel({
         </aside>
 
         <main className="min-h-0 overflow-y-auto px-6 py-5">
-          {!selected ? (
+          {view === "recent" ? (
+            <div className="mx-auto max-w-4xl space-y-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-[17px] font-semibold">Recientes</h2>
+                <span className="text-xs text-muted-foreground">
+                  {recent.length === 1 ? "1 video" : `${recent.length} videos`}
+                </span>
+              </div>
+              {recent.length === 0 ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Todavía no hay videos en este workspace.</p>
+                  <Button size="sm" onClick={() => setNewVideoOpen(true)}>Crear el primero</Button>
+                </div>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {recent.map(({ group, project }) => {
+                    const ready = GATES.filter((gate) => gateReady(project, gate)).length;
+                    const root = group.workspaceId === workspace.workspaceId ? workspace.selectedWorkspaceRoot : group.root;
+                    return (
+                      <li key={`${group.workspaceId}:${project.slug}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!confirmDiscard()) return;
+                            openProject(group, project.slug);
+                          }}
+                          className="flex w-full flex-col overflow-hidden rounded-xl border text-left transition-colors hover:bg-muted/50"
+                        >
+                          <span className="relative block h-32 w-full bg-muted">
+                            {project.hasStill && root ? (
+                              <img
+                                src={`${fileUrl(root, `video-projects/${project.slug}/qa/still.png`)}?v=${thumbVersion}`}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                onError={(event) => {
+                                  event.currentTarget.style.visibility = "hidden";
+                                }}
+                              />
+                            ) : null}
+                            {project.hasFinal ? (
+                              <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
+                                Final
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="block space-y-0.5 p-3">
+                            <span className="block truncate text-[13px] font-medium">
+                              {project.project?.title?.trim() || project.slug}
+                            </span>
+                            <span className="block text-[11px] text-muted-foreground">
+                              {project.lastActivity ? `${project.lastActivity} · ` : ""}
+                              {relativeTime(project.updatedAt)}
+                            </span>
+                            <span className="block text-[11px] text-muted-foreground">
+                              {ready}/{GATES.length} gates · {project.cue?.meta?.durationSeconds ?? 0}s
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : !selected ? (
             <p className="text-sm text-muted-foreground">Elegí un proyecto.</p>
           ) : !draft ? (
             <p className="text-sm text-muted-foreground">Cargando opciones…</p>
           ) : (
             <div className="mx-auto max-w-3xl space-y-8">
+              <div>
+                <Button variant="ghost" size="sm" onClick={() => setView("recent")}>
+                  <ArrowLeft className="size-3.5" /> Recientes
+                </Button>
+              </div>
               <section>
                 <div className="flex items-baseline justify-between gap-4">
                   <h2 className="text-[17px] font-semibold">{selected.slug}</h2>

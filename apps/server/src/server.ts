@@ -7275,7 +7275,7 @@ async function listVideoProjects(root: string) {
     return [];
   }
   const projects = [];
-  for (const entry of entries.filter((item) => item.isDirectory()).slice(0, 20)) {
+  for (const entry of entries.filter((item) => item.isDirectory()).slice(0, 50)) {
     const dir = join(base, entry.name);
     const readJson = async (relative: string): Promise<unknown> => {
       try {
@@ -7284,25 +7284,58 @@ async function listVideoProjects(root: string) {
         return null;
       }
     };
-    const exists = async (relative: string): Promise<boolean> => {
+    // La fecha de cada archivo dice qué se tocó último: render, stills, QA o guion.
+    const mtime = async (relative: string): Promise<number | null> => {
       try {
-        await stat(join(dir, relative));
-        return true;
+        return (await stat(join(dir, relative))).mtimeMs;
       } catch {
-        return false;
+        return null;
       }
     };
-    const [style, cue, approvals, report, project, hasStoryboardJson, hasStoryboardMd, hasStill, hasFinal] = await Promise.all([
+    const [
+      style,
+      cue,
+      approvals,
+      report,
+      project,
+      storyboardJsonAt,
+      storyboardMdAt,
+      stillAt,
+      finalAt,
+      projectAt,
+      styleAt,
+      cueAt,
+      reportAt,
+      srtsAt,
+    ] = await Promise.all([
       readJson("style.json"),
       readJson("cue-sheet.json"),
       readJson("qa/approvals.json"),
       readJson("qa/report.json"),
       readJson("project.json"),
-      exists("storyboard.json"),
-      exists("storyboard.md"),
-      exists("qa/still.png"),
-      exists("renders/final.mp4"),
+      mtime("storyboard.json"),
+      mtime("storyboard.md"),
+      mtime("qa/still.png"),
+      mtime("renders/final.mp4"),
+      mtime("project.json"),
+      mtime("style.json"),
+      mtime("cue-sheet.json"),
+      mtime("qa/report.json"),
+      mtime("subtitles/video.srt"),
     ]);
+    const storyboardAt = Math.max(storyboardJsonAt ?? 0, storyboardMdAt ?? 0) || null;
+    const activity = [
+      ["Render", finalAt],
+      ["Subtítulos", srtsAt],
+      ["Stills", stillAt],
+      ["QA", reportAt],
+      ["Guion", storyboardAt],
+      ["Guion", cueAt],
+      ["Opciones", styleAt],
+      ["Pedido", projectAt],
+    ].filter((entry): entry is [string, number] => typeof entry[1] === "number");
+    activity.sort((a, b) => b[1] - a[1]);
+    const [lastActivity, updatedAt] = activity[0] ?? [null, null];
     projects.push({
       slug: entry.name,
       project,
@@ -7310,10 +7343,15 @@ async function listVideoProjects(root: string) {
       cue,
       approvals,
       report,
-      hasStoryboard: hasStoryboardJson || hasStoryboardMd,
-      hasStill,
-      hasFinal,
+      hasStoryboard: storyboardAt !== null,
+      hasStill: stillAt !== null,
+      hasFinal: finalAt !== null,
+      updatedAt,
+      lastActivity,
     });
   }
-  return projects.sort((a, b) => a.slug.localeCompare(b.slug));
+  // Lo último que se tocó va primero: el panel abre con los más recientes.
+  return projects.sort(
+    (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.slug.localeCompare(b.slug),
+  );
 }

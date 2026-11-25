@@ -331,6 +331,14 @@ function exactButton(text: string) {
   return element;
 }
 
+/** El panel abre en «Recientes»: entra al video para ver sus opciones. */
+async function openProject() {
+  const card = Array.from(host.querySelectorAll("button"))
+    .find((item) => (item.textContent ?? "").includes("Prueba"));
+  if (!card) throw new Error("Missing project card");
+  await click(card);
+}
+
 async function click(node: Element) {
   await act(async () => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -338,8 +346,16 @@ async function click(node: Element) {
   await flush();
 }
 
+test("el panel abre en Recientes con los videos del workspace", async () => {
+  await renderPanel();
+  expect(host.textContent).toContain("Recientes");
+  const cards = host.querySelectorAll("li button");
+  expect(cards.length).toBeGreaterThan(0);
+});
+
 test("las opciones tocadas quedan marcadas como sin guardar", async () => {
   await renderPanel();
+  await openProject();
   expect(host.textContent).not.toContain("Sin guardar");
   expect((exactButton("Guardar") as HTMLButtonElement).disabled).toBe(true);
   await click(exactButton("1:1"));
@@ -349,6 +365,7 @@ test("las opciones tocadas quedan marcadas como sin guardar", async () => {
 
 test("guardar escribe el formato elegido en el style.json del video", async () => {
   await renderPanel();
+  await openProject();
   await click(exactButton("1:1"));
   await click(exactButton("Guardar"));
   await flush();
