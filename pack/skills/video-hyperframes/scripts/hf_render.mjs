@@ -83,6 +83,17 @@ function parseShard(value, frameCount) {
   return [from, Math.min(from + size, frameCount)];
 }
 
+/**
+ * Cuántos procesos usar. Sin `--workers`, el render va en paralelo por defecto:
+ * dejar el default secuencial obligaba a conocer el flag para no perder tiempo.
+ * `--workers 1` fuerza el modo secuencial.
+ */
+function resolveWorkers(value) {
+  if (Number.isFinite(value) && value >= 1) return Math.min(Math.trunc(value), 16);
+  const cores = (os.cpus()?.length ?? 4) - 1;
+  return Math.max(1, Math.min(4, cores));
+}
+
 /** Une los cuadros ya capturados en el MP4 final. */
 async function encodeFrames() {
   const framesDir = framesDirFor();
@@ -358,9 +369,11 @@ async function evaluate(cdp, sessionId, expression, awaitPromise = true) {
 
 // ------------------------------------------------------------------- main
 async function main() {
-  // Varios procesos: cada uno hace su parte y este codifica al final.
-  if (args.workers && args.workers > 1 && !args.shard) {
-    await runWorkers(Math.min(Math.trunc(args.workers), 16));
+  // Varios procesos por defecto: cada uno hace su parte y este codifica al final.
+  // Los modos de inspección (--at, --eval) van siempre en un solo proceso.
+  const workers = resolveWorkers(args.workers);
+  if (workers > 1 && !args.shard && !args.at && !args.eval) {
+    await runWorkers(workers);
     return;
   }
 

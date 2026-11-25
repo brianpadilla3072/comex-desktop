@@ -96,21 +96,23 @@ archivo nuevo, lo trata como error (antes cantaba éxito sin video).
 
 ### Render en paralelo
 
-`hf_render` captura cuadro por cuadro con un solo Chrome. Con `--workers N`
-reparte los cuadros entre N procesos (cada uno abre su Chrome) y los escribe en
-la misma carpeta con el índice global, así la secuencia queda completa sin
-renumerar; después codifica una sola vez con ffmpeg, audio incluido.
+`hf_render` captura cuadro por cuadro con Chrome. **Por defecto reparte los
+cuadros entre varios procesos** (4, o núcleos menos uno si hay menos) y los
+escribe en la misma carpeta con el índice global, así la secuencia queda completa
+sin renumerar; después codifica una sola vez con ffmpeg, audio incluido.
 
 ```powershell
-node "$hf/hf_render.mjs" --dir video-projects/<slug> --out renders/final.mp4 --fps 30 --workers 4
+node "$hf/hf_render.mjs" --dir video-projects/<slug> --out renders/final.mp4 --fps 30
+# 4 procesos por defecto. Para forzar otro número:
+node "$hf/hf_render.mjs" --dir video-projects/<slug> --out renders/final.mp4 --fps 30 --workers 6
 ```
 
 - Los cuadros salen **idénticos** a los del render secuencial: cada proceso pide
   `__hf.seek(t)` en su propio Chrome y la animación es determinística.
+- `--workers 1` fuerza el modo secuencial (útil para depurar o en equipos con
+  poca memoria). Cada proceso abre su Chrome (~400 MB).
 - `--resume` se comporta igual: cada parte saltea los cuadros que ya existen.
-- Elegí N según los núcleos libres; cada proceso abre su Chrome (~400 MB). 4 es
-  un buen punto de partida; 8 en un equipo de 8 núcleos sin otra carga.
-- `--at` (stills) y `--eval` ignoran `--workers`.
+- `--at` (stills) y `--eval` van siempre en un solo proceso.
 
 ### Sin ventana
 
