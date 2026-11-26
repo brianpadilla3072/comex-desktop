@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronDown, Copy, ExternalLink, MessageSquare, Plus, RefreshCw, RotateCcw, Send, Settings2, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Copy, ExternalLink, LoaderCircle, MessageSquare, Plus, RefreshCw, RotateCcw, Send, Settings2, Sparkles, Trash2, Wrench, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MarkdownBlock } from "@/components/markdown/markdown";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,17 @@ type VideoChatEndpoint = { opencodeBaseUrl: string; token: string };
 type VideoModel = { providerID: string; modelID: string; variant?: string | null };
 type VideoWorkspaceRef = { id: string; name: string; client: OpenworkServerClient; root: string };
 type WorkspaceProjects = { workspaceId: string; name: string; root: string; projects: Project[] };
-type ChatRow = { id: string; mine: boolean; text: string; created: number; error?: boolean };
+type ChatTool = { id: string; name: string; target: string; status: string; ms?: number };
+type ChatQuestion = { id: string; text: string; options: string[]; answered: boolean };
+type ChatRow = {
+  id: string;
+  mine: boolean;
+  text: string;
+  created: number;
+  error?: boolean;
+  tools?: ChatTool[];
+  question?: ChatQuestion | null;
+};
 type Style = NonNullable<Project["style"]>;
 type Cue = NonNullable<Project["cue"]>;
 type Draft = { style: Style; cue: Cue };
@@ -368,6 +379,76 @@ function messageText(parts: ReadonlyArray<unknown>): string {
   return chunks.join("\n\n");
 }
 
+/** Qué tocó la herramienta, en una línea: comando, archivo, patrón o URL. */
+function toolTarget(input: unknown): string {
+  if (!input || typeof input !== "object") return "";
+  const pick = (key: string) => {
+    const value = Reflect.get(input, key);
+    return typeof value === "string" ? value : "";
+  };
+  const raw = pick("command") || pick("filePath") || pick("path") || pick("pattern")
+    || pick("query") || pick("url") || pick("cmd") || pick("description");
+  const first = raw.split(/\r?\n/)[0]?.trim() ?? "";
+  return first.length > 64 ? `${first.slice(0, 61)}…` : first;
+}
+
+/** Las llamadas a herramientas del mensaje, para mostrar qué está haciendo. */
+function messageTools(parts: ReadonlyArray<unknown>): ChatTool[] {
+  const tools: ChatTool[] = [];
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    if (Reflect.get(part, "type") !== "tool") continue;
+    const name = String(Reflect.get(part, "name") ?? "herramienta");
+    const state = Reflect.get(part, "state");
+    const status = state && typeof state === "object"
+      ? String(Reflect.get(state, "status") ?? "")
+      : "";
+    const input = state && typeof state === "object" ? Reflect.get(state, "input") : undefined;
+    const time = Reflect.get(part, "time");
+    const created = time && typeof time === "object" ? Number(Reflect.get(time, "created") ?? 0) : 0;
+    const completed = time && typeof time === "object" ? Number(Reflect.get(time, "completed") ?? 0) : 0;
+    tools.push({
+      id: String(Reflect.get(part, "id") ?? `${name}-${tools.length}`),
+      name,
+      target: toolTarget(input),
+      status,
+      ...(completed && created ? { ms: completed - created } : {}),
+    });
+  }
+  return tools;
+}
+
+/** La pregunta que el agente dejó abierta, con sus opciones, si la hay. */
+function messageQuestion(parts: ReadonlyArray<unknown>): ChatQuestion | null {
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    if (Reflect.get(part, "type") !== "tool") continue;
+    if (Reflect.get(part, "name") !== "question") continue;
+    const state = Reflect.get(part, "state");
+    if (!state || typeof state !== "object") continue;
+    const input = Reflect.get(state, "input");
+    const questions = input && typeof input === "object" ? Reflect.get(input, "questions") : null;
+    if (!Array.isArray(questions) || questions.length === 0) continue;
+    const first = questions[0];
+    if (!first || typeof first !== "object") continue;
+    const text = Reflect.get(first, "question");
+    const rawOptions = Reflect.get(first, "options");
+    const options = Array.isArray(rawOptions)
+      ? rawOptions.flatMap((option) => {
+        const label = option && typeof option === "object" ? Reflect.get(option, "label") : null;
+        return typeof label === "string" && label.trim() ? [label] : [];
+      })
+      : [];
+    return {
+      id: String(Reflect.get(part, "id") ?? "question"),
+      text: typeof text === "string" ? text : "",
+      options,
+      answered: String(Reflect.get(state, "status") ?? "") === "completed",
+    };
+  }
+  return null;
+}
+
 function gateReady(project: Project, gate: Gate): boolean {
   switch (gate) {
     case "style":
@@ -668,6 +749,8 @@ export function VideoPanel({
         error?: { type?: string; name?: string; message?: string } | string;
       };
       const text = messageText(message.parts as ReadonlyArray<unknown>);
+      const tools = messageTools(message.parts as ReadonlyArray<unknown>);
+      const question = messageQuestion(message.parts as ReadonlyArray<unknown>);
       const created = info.time?.created ?? 0;
       if (!text) {
         // A failed or stopped assistant step has no text at all. Without this the
@@ -682,6 +765,7 @@ export function VideoPanel({
             text: `El motor no respondió: ${failure || "error sin detalle"}`,
             created,
             error: true,
+            tools,
           });
         }
         continue;
@@ -691,6 +775,8 @@ export function VideoPanel({
         mine: info.role === "user",
         text,
         created,
+        tools,
+        question,
       });
     }
     // The engine returns newest first; a chat reads oldest first.
@@ -698,6 +784,16 @@ export function VideoPanel({
   }, [chat.data]);
   // The last word is the person's: the agent is working on it.
   const chatPending = chatRows.length > 0 && chatRows[chatRows.length - 1]?.mine === true;
+  const lastRow = chatRows[chatRows.length - 1];
+  // Mientras trabaja, el panel cuenta cuánto hace que empezó y qué herramienta corre.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!chatPending) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [chatPending]);
+  const chatElapsed = lastRow ? Math.max(0, Math.round((clock - lastRow.created) / 1000)) : 0;
+  const runningTool = lastRow?.tools?.find((tool) => tool.status && tool.status !== "completed");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const node = chatScrollRef.current;
@@ -981,6 +1077,12 @@ export function VideoPanel({
     } finally {
       setNewVideoBusy(false);
     }
+  };
+
+  /** Las preguntas del motor se contestan en el chat completo: acá se ofrece el atajo. */
+  const answerInChat = () => {
+    if (!activeChatSessionId) return;
+    navigate(`/workspace/${workspace.workspaceId}/session/${activeChatSessionId}`);
   };
 
   return (
@@ -1457,19 +1559,65 @@ export function VideoPanel({
                   key={row.id}
                   className={cn(
                     "rounded-xl px-3 py-2",
-                    row.mine ? "ml-6 border bg-muted/60" : row.error ? "mr-4 border border-amber-7 bg-amber-2" : "mr-4 border",
+                    row.mine ? "ml-6 border bg-muted/60" : row.error ? "mr-4 border border-amber-7 bg-amber-2" : "border",
                   )}
                 >
                   <p className="text-[11px] font-medium text-muted-foreground">
                     {row.mine ? "Vos" : row.error ? "Motor" : "Agente"}
                   </p>
-                  <p className="mt-0.5 max-h-40 overflow-hidden whitespace-pre-wrap text-[12px] leading-snug">{row.text}</p>
+                  {row.mine ? (
+                    <p className="mt-0.5 whitespace-pre-wrap text-[12px] leading-snug">{row.text}</p>
+                  ) : (
+                    <MarkdownBlock text={row.text} className="mt-0.5 text-[12px] leading-snug" />
+                  )}
+                  {!row.mine && row.tools?.length ? (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {row.tools.slice(-4).map((tool) => (
+                        <li key={tool.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Wrench className="size-3 shrink-0" aria-hidden="true" />
+                          <span className="shrink-0 font-medium">{tool.name}</span>
+                          {tool.target ? <span className="truncate">{tool.target}</span> : null}
+                          {tool.status && tool.status !== "completed" ? (
+                            <span className="shrink-0">· {tool.status}</span>
+                          ) : null}
+                          {tool.ms ? <span className="shrink-0">· {(tool.ms / 1000).toFixed(1)}s</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {!row.mine && row.question && !row.question.answered && row.question.text ? (
+                    <div className="mt-2 rounded-lg border border-dashed p-2">
+                      <p className="whitespace-pre-wrap text-[12px] leading-snug">{row.question.text}</p>
+                      {row.question.options.length ? (
+                        <ul className="mt-1.5 space-y-1">
+                          {row.question.options.map((option) => (
+                            <li key={option}>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                className="w-full justify-start text-left"
+                                onClick={answerInChat}
+                              >
+                                {option}
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <p className="mt-1.5 text-[10px] text-muted-foreground">
+                        El agente espera una respuesta: se contesta en el chat completo.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}
             {chatPending ? (
-              <p className="text-[11px] italic text-muted-foreground">
-                {chatBusy ? "Enviando…" : "El agente está trabajando…"}
+              <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+                {chatBusy
+                  ? "Enviando…"
+                  : `${runningTool ? `${runningTool.name}…` : "El agente está trabajando…"} ${chatElapsed} s`}
               </p>
             ) : null}
           </div>
