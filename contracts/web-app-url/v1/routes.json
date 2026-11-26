@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "baseUrl": "http://127.0.0.1:8787/",
+      "currentUrl": "http://localhost:40707/#/workspace/ws_example/session/ses_example",
+      "expected": "http://127.0.0.1:8787/workspace/ws_example/session/ses_example"
+    },
+    {
+      "baseUrl": "https://example.invalid/comex/",
+      "currentUrl": "http://localhost:40707/#/workspace/ws_example/session",
+      "expected": "https://example.invalid/comex/workspace/ws_example/session"
+    },
+    {
+      "baseUrl": "http://127.0.0.1:8787/",
+      "currentUrl": "http://localhost:40707/#/settings/general",
+      "expected": "http://127.0.0.1:8787/"
+    },
+    {
+      "baseUrl": "file:///index.html",
+      "currentUrl": "http://localhost:40707/",
+      "expected": null
+    },
+    {
+      "baseUrl": "http://127.0.0.1:8787/",
+      "currentUrl": "file:///C:/app/index.html#/workspace/ws_example/session/ses_example",
+      "expected": "http://127.0.0.1:8787/workspace/ws_example/session/ses_example"
+    }
+  ]
+}

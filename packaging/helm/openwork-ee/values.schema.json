@@ -61,6 +61,16 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "desktopLocalWeb": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Local desktop web access: Open the current desktop conversation in a connected local web browser using the existing server. Renders DEN_FEATURE_DESKTOP_LOCAL_WEB."
+            },
             "desktopCompanion": {
               "enum": [
                 "",

@@ -1341,6 +1341,7 @@ const STORAGE_PAIRED_TOKEN = "openwork.server.pairedToken";
 const LEGACY_STORAGE_REMOTE_ACCESS = "openwork.server.remoteAccessEnabled";
 
 type OpenworkBootstrap = {
+  desktopWeb?: { version: 1 };
   token?: string;
 };
 
@@ -1506,7 +1507,9 @@ export function hydrateOpenworkServerSettingsFromEnv() {
   if (typeof window === "undefined") return;
   if (isOpenworkGatewayRuntime()) return;
 
-  const envUrl = typeof import.meta.env?.VITE_OPENWORK_URL === "string"
+  const envUrl = window.__OPENWORK_BOOTSTRAP__?.desktopWeb?.version === 1 && !isDesktopRuntime()
+    ? window.location.origin
+    : typeof import.meta.env?.VITE_OPENWORK_URL === "string"
     ? import.meta.env.VITE_OPENWORK_URL.trim()
     : "";
   const envPort = typeof import.meta.env?.VITE_OPENWORK_PORT === "string"

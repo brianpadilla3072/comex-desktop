@@ -5,6 +5,7 @@
  * in one call -- mirrors what cli.ts does but returns a handle instead
  * of owning the process lifecycle.
  */
+import { prepareDesktopWebRoot, desktopWebReceiptSchema } from "./desktop-local-web.js";
 import { randomUUID } from "node:crypto";
 import { stopTaskRecovery } from "./task-recovery.js";
 import { existsSync } from "node:fs";
@@ -76,6 +77,8 @@ export type EmbeddedServerOptions = CliArgs & {
 };
 
 export type EmbeddedServerHandle = {
+  /** Enable the existing static UI surface on this loopback server, without a second engine. */
+  enableDesktopWeb: (input: unknown) => Promise<{ version: 1; ready: true }>;
   /** Bound port the HTTP server is listening on. */
   port: number;
   /** Full base URL, e.g. http://127.0.0.1:48123 */
@@ -391,6 +394,11 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
 
   const initialManagedOpencode = managedOpencode;
   return {
+    async enableDesktopWeb(input) {
+      // This config belongs to this embedded server's lifetime, never process-global state.
+      config.desktopWebRoot = await prepareDesktopWebRoot(input, config.host);
+      return desktopWebReceiptSchema.parse({ version: 1, ready: true });
+    },
     port: server.port,
     url: `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${server.port}`,
     config,

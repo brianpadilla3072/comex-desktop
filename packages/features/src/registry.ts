@@ -104,6 +104,17 @@ function defineFeatures<const T extends Record<string, FeatureDefinition>>(featu
 const everywhere = ["cloud", "self_hosted"] as const
 
 export const FEATURES = defineFeatures({
+  desktopLocalWeb: {
+    label: "Local desktop web access",
+    description: "Open the current desktop conversation in a connected local web browser using the existing server.",
+    category: "experience",
+    added: "2026-11-25",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/desktop-local-web/README.md",
+    deployments: ["self_hosted"],
+    default: false,
+  },
   desktopCompanion: {
     label: "Desktop companion",
     description: "Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.",

@@ -1,3 +1,5 @@
+import { desktopLocalWebEnabled } from "./desktop-local-web.mjs";
+import { resolveWebAppUrl } from "./web-app-url.mjs";
 import { companionEnabled } from "./companion-platform.mjs";
 import { processBlankSlateProfile, resolveBlankSlateLaunch } from "./blank-slate-profile.mjs";
 import { createDesktopCompanion } from "./desktop-companion.mjs";
@@ -253,10 +255,7 @@ const applicationMenu = createApplicationMenu({
   docsUrl: DOCS_PAGE_URL,
   getWindow: () => createMainWindow(),
   closeBrowserTab: (host) => browserPanel?.closeFocusedBrowserTab(host) ?? false,
-  getServerUrl: async () => {
-    const info = await runtimeRef.current?.openworkServerInfo?.();
-    return typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
-  },
+  getServerUrl: async () => resolveStandaloneWebUrl(),
 });
 
 let browserPanel = null;
@@ -2088,6 +2087,18 @@ function applyNativeTheme(mode) {
   return true;
 }
 
+async function resolveStandaloneWebUrl() {
+  const info = await runtimeRef.current?.openworkServerInfo?.();
+  if (desktopLocalWebEnabled() && runtimeRef.current?.enableDesktopWeb) {
+    const root = app.isPackaged ? path.join(process.resourcesPath, "app-dist") : path.resolve(__dirname, "../../app/dist");
+    await runtimeRef.current.enableDesktopWeb(root);
+  }
+  return resolveWebAppUrl({
+    serverUrl: typeof info?.baseUrl === "string" ? info.baseUrl : null,
+    currentUrl: mainWindow?.webContents.getURL() ?? "",
+  });
+}
+
 // Desktop IPC command registry. Every command invokable from the renderer's
 // desktopBridge Proxy (apps/app/src/app/lib/desktop.ts) has exactly one
 // entry here; handlers receive the ipcMain event followed by the renderer
@@ -2104,25 +2115,8 @@ const desktopCommandHandlers = {
   "__stopSpeechDictation": async (event, requestId) => speechDictation.stop(event, requestId),
   "__abortSpeechDictation": async (event, requestId) => speechDictation.abort(event, requestId),
   openWebInBrowser: async () => {
-    // The OpenWork web app proper is served by `openwork-server web` (default
-    // port 8787), which injects the collaborator token into index.html so the
-    // browser opens already signed in. Fall back to the dev renderer / runtime.
-    let url = null;
-    try {
-      const probe = await fetch("http://127.0.0.1:8787/", { signal: AbortSignal.timeout(800) });
-      if (probe.ok) url = "http://127.0.0.1:8787/";
-    } catch {}
-    if (!url) {
-      try {
-        const current = mainWindow?.webContents?.getURL?.() ?? "";
-        if (/^https?:\/\//i.test(current)) url = current;
-      } catch {}
-    }
-    if (!url) {
-      const info = await runtimeRef.current?.openworkServerInfo?.();
-      url = typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
-    }
-    if (!url) return { ok: false, error: "El servidor local todavía no está listo." };
+    const url = await resolveStandaloneWebUrl();
+    if (!url) return { ok: false, code: "web_unavailable", error: "La web de Comex no está iniciada. Inicia el servicio web y vuelve a intentar." };
     const result = await openExternalUrl(url);
     return result.ok === true
       ? { ok: true, url }
@@ -3243,10 +3237,7 @@ ipcMain.on("openwork:window-fullscreen-sync", (event) => {
   event.returnValue = BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false;
 });
 ipcMain.handle("openwork:desktop", handleDesktopInvoke);
-ipcMain.handle("openwork:web-url", async () => {
-  const info = await runtimeRef.current?.openworkServerInfo?.();
-  return typeof info?.baseUrl === "string" && info.baseUrl.trim() ? info.baseUrl.trim() : null;
-});
+ipcMain.handle("openwork:web-url", async () => resolveStandaloneWebUrl());
 ipcMain.handle("openwork:shell:openExternal", async (_event, url) => {
   if (typeof url !== "string" || url.trim().length === 0) {
     return { ok: false, error: "empty url" };

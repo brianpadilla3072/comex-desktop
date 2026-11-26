@@ -1,0 +1,1 @@
+{"version":1,"vectors":[{"host":"127.0.0.1","enabled":true,"allowed":true},{"host":"localhost","enabled":true,"allowed":true},{"host":"::1","enabled":true,"allowed":true},{"host":"127.0.0.1","enabled":false,"allowed":false},{"host":"0.0.0.0","enabled":true,"allowed":false},{"host":"192.0.2.1","enabled":true,"allowed":false}]}

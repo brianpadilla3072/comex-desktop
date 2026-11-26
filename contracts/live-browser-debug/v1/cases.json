@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "redaction": [
+    {"input":"http://user:secret@localhost:1234/?token=secret#access_token=secret","expected":"http://localhost:1234/?redacted#redacted"},
+    {"input":"http://localhost:1234/#/workspace/ws_example/session/ses_example?token=secret","expected":"http://localhost:1234/#/workspace/ws_example/session/ses_example"}
+  ],
+  "observation": [
+    {"input":[],"expected":{"redirected":false,"welcome":false}},
+    {"input":[{"url":"http://localhost:1234/#/workspace/ws_example/session/ses_example"},{"url":"http://localhost:1234/welcome"}],"expected":{"redirected":true,"welcome":true}},
+    {"input":[{"url":"http://localhost:1234/#/workspace/ws_example/session/ses_example"},{"url":"http://localhost:1234/#/workspace/ws_example/session/ses_example"}],"expected":{"redirected":false,"welcome":false}}
+  ]
+}

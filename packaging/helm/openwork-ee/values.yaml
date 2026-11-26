@@ -26,6 +26,7 @@ config:
   #   "false" off for everyone; /admin shows "Set by deployment config"
   # The /admin kill switch still turns a feature off, even when locked on.
   features:
+    desktopLocalWeb: ""           # default off · Open the current desktop conversation in a connected local web browser using the existing server.
     desktopCompanion: ""          # default off · Keep a small companion at the top of the desktop, continue the current chat and answer its requests while the main window is hidden.
     taskContinuity: ""            # default off · Save conversation progress automatically, continue bounded goals with Big Pickle and manage conversation worktrees with code-only review.
     taskIsolationReview: ""       # default off · Scheduled specialist task runs and conversations can work in an isolated copy of the project; the person reviews each changed file and accepts or discards it before it lands in the project.

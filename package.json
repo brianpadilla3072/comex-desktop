@@ -6,6 +6,7 @@
     "node": ">=24.22.1 <25"
   },
   "scripts": {
+    "debug:browser": "node scripts/live-browser-debug.mjs",
     "sdk:generate": "pnpm den:contract",
     "sdk:check": "pnpm den:contract && pnpm --filter @openwork/sdk typecheck",
     "sdk:build": "pnpm --filter @openwork/sdk build",

@@ -95,6 +95,8 @@ export type DesktopFreeHost = {
 };
 
 export interface ServerConfig {
+  /** Instance-owned static web root, enabled on demand by a loopback desktop host. */
+  desktopWebRoot?: string;
   host: string;
   port: number;
   token: string;

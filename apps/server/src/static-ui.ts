@@ -1,3 +1,4 @@
+import { desktopLocalWebEnabled, desktopWebAllowed, desktopWebBootstrapSchema } from "./desktop-local-web.js";
 import { readFile, stat } from "node:fs/promises";
 import { extname } from "node:path";
 import { ApiError, formatError } from "./errors.js";
@@ -10,10 +11,11 @@ const WEB_BOOTSTRAP_TOKEN_ENV = "OPENWORK_WEB_BOOTSTRAP_TOKEN";
 const ASSET_CACHE = "public, max-age=31536000, immutable";
 const INDEX_CACHE = "no-cache";
 
-type StaticUiConfig = Pick<ServerConfig, "token">;
+type StaticUiConfig = Pick<ServerConfig, "token"> & Partial<Pick<ServerConfig, "desktopWebRoot" | "host">>;
 
 export async function serveStaticUi(request: Request, config: StaticUiConfig): Promise<Response | null> {
-  const root = process.env[WEB_ROOT_ENV]?.trim();
+  const desktopRoot = config.desktopWebRoot && desktopWebAllowed(config.host ?? "", desktopLocalWebEnabled()) ? config.desktopWebRoot : undefined;
+  const root = desktopRoot ?? process.env[WEB_ROOT_ENV]?.trim();
   if (!root) return null;
 
   const method = request.method.toUpperCase();
@@ -29,10 +31,10 @@ export async function serveStaticUi(request: Request, config: StaticUiConfig): P
 
   const token = bootstrapTokenFor(request, config.token);
   try {
-    const fileResponse = await serveFile(root, relativePath, url.pathname, method, token);
+    const fileResponse = await serveFile(root, relativePath, url.pathname, method, token, Boolean(desktopRoot));
     if (fileResponse) return fileResponse;
     if (url.pathname.startsWith("/assets/")) return null;
-    return serveFile(root, "index.html", "/index.html", method, token);
+    return serveFile(root, "index.html", "/index.html", method, token, Boolean(desktopRoot));
   } catch (error) {
     if (error instanceof ApiError) return jsonError(error);
     throw error;
@@ -54,6 +56,7 @@ async function serveFile(
   requestPathname: string,
   method: string,
   token: string,
+  desktop: boolean,
 ): Promise<Response | null> {
   const filePath = await resolveWithinRoot(root, relativePath);
   const fileStat = await stat(filePath).catch(() => null);
@@ -70,7 +73,7 @@ async function serveFile(
 
   if (isTextExtension(extension)) {
     const body = await readFile(filePath, "utf8");
-    const text = relativePath === "index.html" ? injectBootstrap(body, token) : body;
+    const text = relativePath === "index.html" ? injectBootstrap(desktop ? addWebBase(body) : body, token, desktop) : body;
     return withCacheControl(textResponse(extension, text), cacheControl);
   }
 
@@ -139,11 +142,17 @@ function bootstrapTokenFor(request: Request, token: string): string {
   return opensTab ? token : "";
 }
 
-function injectBootstrap(html: string, token: string): string {
+/** Desktop bundles use relative assets for file://; web path routes need an origin base. */
+export function addWebBase(html: string): string {
+  if (/<base\s/i.test(html)) return html;
+  return html.replace(/<head(?:\s[^>]*)?>/i, '$&<base href="/">');
+}
+
+function injectBootstrap(html: string, token: string, desktop = false): string {
   const clientToken = token.trim();
   if (!clientToken) return html;
 
-  const bootstrap = escapeScriptJson(JSON.stringify({ token: clientToken }));
+  const bootstrap = escapeScriptJson(JSON.stringify(desktop ? desktopWebBootstrapSchema.parse({ token: clientToken, desktopWeb: { version: 1 } }) : { token: clientToken }));
   const script = `<script>window.__OPENWORK_BOOTSTRAP__ = ${bootstrap}</script>`;
   const headCloseIndex = html.toLowerCase().indexOf("</head>");
   if (headCloseIndex < 0) return `${script}${html}`;

@@ -2388,6 +2388,10 @@ export function createRuntimeManager({
     runtimeStatus,
     engineInfo,
     openworkServerInfo,
+    async enableDesktopWeb(root) {
+      if (!inProcessServer?.enableDesktopWeb) throw new Error("The local server must be restarted to enable its web surface.");
+      return inProcessServer.enableDesktopWeb({ root });
+    },
     openworkServerRestart: (options) => withRuntimeLifecycle(() => openworkServerRestart(options)),
     opencodeMcpAuth,
     sandboxCleanupOpenworkContainers,
