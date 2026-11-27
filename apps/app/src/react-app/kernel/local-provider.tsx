@@ -57,6 +57,8 @@ export type LocalPreferences = {
    * workspace list is empty, the app redirects to /welcome.
    */
   hasCompletedOnboarding: boolean;
+  /** The first-run remote pairing setup was completed or explicitly skipped. */
+  hasCompletedRemotePairingSetup: boolean;
   /**
    * Anonymous product analytics (PostHog). On by default with a visible
    * opt-out in Settings -> Preferences. Never includes message content.
@@ -99,6 +101,7 @@ const INITIAL_PREFS: LocalPreferences = {
   releaseChannel: "stable",
   featureFlags: { workspaceRunMode: false },
   hasCompletedOnboarding: false,
+  hasCompletedRemotePairingSetup: false,
   analyticsEnabled: true,
   desktopNotifications: DEFAULT_DESKTOP_NOTIFICATION_PREFERENCE,
   linkOpenDestination: "openwork",

@@ -28,6 +28,7 @@ const OPENWORK_CONFIG_FILENAMES = [
   "runtime-opencode-config.json",
   "engine-instances.json",
   "tokens.json",
+  "remote-pairing-code.json",
   "env.json",
   "connect-state.json",
   "legacy-sweep-state.json",
@@ -58,6 +59,7 @@ const PROFILE_SCOPED_ENV_KEYS = [
   "OPENWORK_ELECTRON_APP_IDENTIFIER",
   "OPENWORK_ELECTRON_USERDATA",
   "OPENWORK_ENV_STORE",
+  "OPENWORK_REMOTE_PAIRING_CODE_STORE",
   "OPENWORK_RUNTIME_DB",
   "OPENWORK_SERVER_CONFIG",
   "OPENWORK_TOKEN_STORE",
@@ -74,6 +76,7 @@ const NUKE_WORKER_ENV_KEYS = [
   "OPENWORK_DEV_MODE",
   "OPENWORK_ELECTRON_USERDATA",
   "OPENWORK_ENV_STORE",
+  "OPENWORK_REMOTE_PAIRING_CODE_STORE",
   "OPENWORK_RUNTIME_DB",
   "OPENWORK_SERVER_CONFIG",
   "OPENWORK_TOKEN_STORE",
@@ -169,6 +172,13 @@ function tokenStorePath(env, serverConfigPath, homedir, paths) {
   if (override) return paths.resolve(override);
   const configDir = serverConfigPath ? paths.dirname(serverConfigPath) : paths.join(homedir, ".config", "openwork");
   return paths.join(configDir, "tokens.json");
+}
+
+function remotePairingCodeStorePath(env, serverConfigPath, homedir, paths) {
+  const override = envValue(env, "OPENWORK_REMOTE_PAIRING_CODE_STORE");
+  if (override) return paths.resolve(override);
+  const configDir = serverConfigPath ? paths.dirname(serverConfigPath) : paths.join(homedir, ".config", "openwork");
+  return paths.join(configDir, "remote-pairing-code.json");
 }
 
 function runtimeDbPath(env, serverConfigPath, homedir, paths) {
@@ -316,6 +326,7 @@ function resolveNukePlan(input) {
   const runtimeDb = runtimeDbPath(env, serverConfig, homedir, paths);
   const envStore = envStorePath(env, homedir, platform, paths);
   const tokens = tokenStorePath(env, serverConfig, homedir, paths);
+  const remotePairingCode = remotePairingCodeStorePath(env, serverConfig, homedir, paths);
   const runtimeConfig = paths.join(paths.dirname(runtimeDb), "runtime-opencode-config.json");
   const dataDirs = opencodeDataDirs(env, homedir, platform, paths);
   const deletePaths = [
@@ -326,6 +337,7 @@ function resolveNukePlan(input) {
     `${runtimeDb}-shm`,
     runtimeConfig,
     tokens,
+    remotePairingCode,
     envStore,
     bootstrapPath,
     legacyBootstrapPath,

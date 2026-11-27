@@ -25,6 +25,17 @@ export type ArtifactAudit = {
   note?: string;
 };
 
+export type DocComment = {
+  id: string;
+  quote: string;
+  blockId?: string;
+  text: string;
+  author: "agent" | "user";
+  resolved: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ArtifactMetadata = {
   workspaceId: string;
   workspaceName?: string;
@@ -42,7 +53,11 @@ export type ArtifactMetadata = {
     wrap?: boolean;
     outline?: boolean;
     scrollTo?: string;
+    mode?: "preview" | "edit";
+    search?: string;
+    fullscreen?: boolean;
   };
+  comments?: DocComment[];
 };
 
 export interface ArtifactBase {

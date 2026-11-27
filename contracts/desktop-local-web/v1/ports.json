@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "vectors": [
+    { "env": {}, "port": null },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "true" }, "port": 44129 },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "true", "OPENWORK_DESKTOP_WEB_PORT": "45123" }, "port": 45123 },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "false", "OPENWORK_DESKTOP_WEB_PORT": "45123" }, "port": null },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "true", "OPENWORK_DESKTOP_WEB_PORT": "0" }, "invalid": true },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "true", "OPENWORK_DESKTOP_WEB_PORT": "65536" }, "invalid": true },
+    { "env": { "DEN_FEATURE_DESKTOP_LOCAL_WEB": "true", "OPENWORK_DESKTOP_WEB_PORT": "abc" }, "invalid": true }
+  ]
+}

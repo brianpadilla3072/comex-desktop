@@ -29,6 +29,13 @@ host token to every page load would give full control to anyone who can open the
 Guessing is bounded: codes are 8 characters from a 32-letter alphabet, compared in constant time,
 and 5 wrong attempts burn the active code. Codes live only in memory.
 
+## Reusable code
+
+Self-hosted installs can also configure a reusable remote code so new devices do not need a
+fresh one-time code from the desktop. See
+[`remote-pairing-code`](../remote-pairing-code/README.md). The one-time flow above remains
+available and unchanged.
+
 ## Tailscale setup
 
 Keep the server on loopback and let Tailscale provide HTTPS and network access:

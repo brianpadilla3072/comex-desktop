@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
-import type { ArtifactRecord } from "../types";
+import type { ArtifactMetadata, ArtifactRecord, DocComment } from "../types";
 import { DocView } from "../views/doc-view";
 import { DataView } from "../views/data-view";
 import { SlidesView } from "../views/slides-view";
@@ -21,15 +21,22 @@ interface ArtifactBodyProps {
   workspaceId?: string;
   /** Persist an edit as a new artifact version (used by the editable sheet title). */
   onSave?: (patch: { title?: string; content?: string }) => void | Promise<void>;
+  /** Presentation/review state lives in metadata and never creates a content version. */
+  onMetadataChange?: (patch: Partial<ArtifactMetadata>) => void | Promise<void>;
 }
 
-export function ArtifactBody({ artifact, client, appId, workspaceId, onSave }: ArtifactBodyProps) {
+export function ArtifactBody({ artifact, client, appId, workspaceId, onSave, onMetadataChange }: ArtifactBodyProps) {
   if (artifact.meta.type === "doc") return <DocView
     content={artifact.content}
     title={artifact.meta.title}
     format={artifact.meta.metadata.viewer?.format}
     viewer={artifact.meta.metadata.viewer}
+    comments={artifact.meta.metadata.comments}
+    sources={artifact.meta.sources}
+    audit={artifact.meta.metadata.audit}
     onContentChange={(content) => void onSave?.({ content })}
+    onViewerChange={(viewer) => void onMetadataChange?.({ viewer: { ...artifact.meta.metadata.viewer, ...viewer } })}
+    onCommentsChange={(comments: DocComment[]) => void onMetadataChange?.({ comments })}
   />;
   if (artifact.meta.type === "data") {
     // Salidas `table` del mini-Studio se guardaron como `data` con filas JSON crudas;

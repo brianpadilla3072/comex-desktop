@@ -40,6 +40,8 @@ const SURFACES: Record<string, string> = {
   "engine-controls": src("react-app/shell/opencode-engine-controls.tsx"),
   "web-notification-permission": src("react-app/domains/settings/web-notification-permission.tsx"),
   "desktop-notifications": src("react-app/shell/desktop-notifications.ts"),
+  "remote-pairing-setup": src("react-app/shell/remote-pairing-setup.tsx"),
+  "devices-section": src("react-app/domains/settings/pages/devices-section.tsx"),
 };
 
 /** Visible English left in JSX: text nodes, labels and returned sentences with two or more words. */

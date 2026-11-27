@@ -45,10 +45,9 @@ export async function designHtmlArchive(projectRoot: string, designId: string): 
   }
   // System designs also ship the generated package artefacts (tokens.css, api docs, types, bundle).
   if (manifest.kind === "system") {
-    let tokens = null as ReturnType<typeof designTokensSchema.safeParse>["data"] | null;
+    let tokens: ReturnType<typeof designTokensSchema.safeParse>["data"] | null = null;
     try {
-      const raw = JSON.parse(await readFile(join(dir, "tokens.json"), "utf8"));
-      const parsed = designTokensSchema.safeParse(raw);
+      const parsed = designTokensSchema.safeParse(JSON.parse(await readFile(join(dir, "tokens.json"), "utf8")));
       if (parsed.success) tokens = parsed.data;
     } catch { /* no tokens: skip generated artefacts */ }
     if (tokens) {

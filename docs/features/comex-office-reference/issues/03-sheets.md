@@ -5,7 +5,30 @@
 **Depende de:** `00-epico-artefactos-oficina`
 **Estimación sugerida:** 3–4 semanas (MVP)
 
-> **✅ Decisión (2026-11-17, publicada como comentario en el issue):** stack **100% open source**. Se adopta **Univer core (Apache-2.0)** como primera opción + **SheetJS CE (Apache-2.0)/exceljs (MIT)** para XLSX/CSV + gráficos propios (Recharts/Nivo) vía Facade API. Colaboración diferida (Yjs/Hocuspocus si se necesita). **Plan B:** FortuneSheet (MIT) si el spike con Univer core resulta pesado. Se descartan Univer Business, SheetXL (partes comerciales), Jspreadsheet CE/RevoGrid core (fórmulas en Pro) y Luckysheet (archivado). Ver `../matriz-decisiones.md`.
+> **Decisión histórica (2026-11-17):** se eligió **Univer core (Apache-2.0)** + complementos OSS
+> para XLSX/CSV y gráficos, con FortuneSheet como plan B. El spike de Univer quedó documentado.
+>
+> **Implementación vigente (2026-11-23/24):** el artefacto `sheet` usa **Jspreadsheet CE** y una
+> barra `fx` propia. Las herramientas del agente usan además un evaluador propio, sin `eval`.
+> Esta desviación no estaba en la decisión original y debe revalidarse —licencia, paridad de
+> fórmulas y alcance— antes de cerrar el issue. Ver `../matriz-decisiones.md`.
+
+> **Estado real (2026-11-24): IMPLEMENTACIÓN AVANZADA, ISSUE ABIERTO.**
+>
+> **Implementado**
+> - Salidas `table` nuevas → `SheetArtifact` y apertura automática en el panel lateral.
+> - Grilla Jspreadsheet CE con barra `fx`, selección, pestañas fijas y creación de hojas.
+> - Crecimiento bajo demanda sin techo artificial; dimensiones persistidas.
+> - Fórmulas entre celdas, referencias por clic, Enter/Escape y persistencia de la fórmula cruda.
+> - Menús Archivo/Editar/Ver/Insertar/Formato/Datos/Herramientas con acciones reales.
+> - Export/import CSV, descarga JSON y 14 herramientas `specialist_sheet_*`.
+> - Versiones inmutables, orden, formato, inserción/borrado y referencias entre hojas en el evaluador del agente.
+>
+> **Pendiente**
+> - Revalidar licencia y paridad de la implementación Jspreadsheet CE.
+> - Export/import XLSX y formato condicional visible.
+> - Dock contextual según tipo de celda y resaltado de celdas modificadas por el agente.
+> - Abrir datasets directamente como hoja y completar el E2E del issue.
 
 ---
 
@@ -55,7 +78,7 @@ Dar a Comex una superficie tipo hoja de cálculo donde los datos de un estudio s
 ## Criterios de aceptación
 
 - [ ] Al derivar un dataset se puede abrir como `SheetArtifact`.
-- [ ] La barra `fx` muestra la fórmula real de la celda seleccionada y se puede editar.
+- [x] La barra `fx` muestra la fórmula real de la celda seleccionada y se puede editar.
 - [ ] Existen al menos 2 pestañas y una fórmula referencia otra pestaña.
 - [ ] El formato condicional aplica a una columna y es visible sin ayuda.
 - [ ] El dock cambia entre estado "celda vacía" y "celda con número" con acciones distintas.
@@ -69,11 +92,14 @@ Ver `../analisis-repos-tecnologias.md` §3.2:
 
 | Opción | Licencia | Trade-off |
 |---|---|---|
-| **Univer Sheets** | Core Apache-2.0; colaboración, import/export XLSX, print, charts, pivot, sparklines y motor rápido suelen ser **Pro/comerciales** | Más completo y cercano al producto de referencia; requiere validar qué queda fuera del core **antes** de diseñar el MVP |
-| **FortuneSheet** | MIT | Sin costo de licencia; modelo Luckysheet-compatible; menos maduro/activo y con menos features |
+| **Univer Sheets** | Core Apache-2.0; colaboración, import/export XLSX, print, charts, pivot, sparklines y motor rápido suelen ser **Pro/comerciales** | Evaluado en spike; no es la dependencia actual |
+| **FortuneSheet** | MIT | Plan B histórico; no implementado |
+| **Jspreadsheet CE** | Dependencia vigente en `apps/app/package.json`; revisar licencia y alcance antes de cerrar | Implementado con barra `fx` propia y evaluador separado para herramientas |
 | **AG Grid/Handsontable** | Community/Commercial | Excelente grid, no es spreadsheet completo |
 
-**Acción requerida antes de estimar en firme:** verificar la matriz open-source vs Pro de Univer a la fecha y decidir: (A) Univer core + features propias, (B) Univer con licencia, o (C) FortuneSheet. Documentar la decisión en este issue.
+**Acción requerida:** revalidar la implementación Jspreadsheet CE —licencia, fórmulas, XLSX,
+formato condicional y compatibilidad— y actualizar la decisión del issue. Univer queda como
+evaluación histórica, no como stack vigente.
 
 - Stack: React/TS; integrar como artefacto embebido con API facade.
 - Persistir celdas/fórmulas en JSON canónico, exportar a CSV/XLSX con librería elegida.

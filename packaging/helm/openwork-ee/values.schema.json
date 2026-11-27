@@ -111,6 +111,16 @@
               ],
               "description": "Pair other devices with a one-time code: Connect a phone or another computer (for example over Tailscale) with a one-time code that gives that browser its own revocable owner access, so the web app can do everything the desktop app does. Renders DEN_FEATURE_REMOTE_DEVICE_PAIRING."
             },
+            "remotePairingCode": {
+              "enum": [
+                "",
+                "true",
+                "false",
+                true,
+                false
+              ],
+              "description": "Reusable remote pairing code: Configure a reusable code for pairing new devices without generating a one-time code on the desktop. The code is stored only as a hash and can be rotated or removed. Renders DEN_FEATURE_REMOTE_PAIRING_CODE."
+            },
             "webFolderBrowser": {
               "enum": [
                 "",

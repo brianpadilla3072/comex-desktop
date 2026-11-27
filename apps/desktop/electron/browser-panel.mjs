@@ -22,6 +22,7 @@ import {
 } from "@openwork/browser-tabs";
 import { runDetachedTask } from "./process-resilience.mjs";
 import { openExternalUrl } from "./open-external.mjs";
+import { appSessionRouteFromUrl } from "./app-session-link.mjs";
 import { BrowserTaskError, createBrowserTaskHost } from "@openwork/computer-use/browser-task";
 import { agentPermissionDenialMessage, decideAgentPermission, stricterAgentPermissionDecision } from "@openwork/types/den/agent-permissions-runtime";
 import { createWebMcpBroker } from "./webmcp-host.mjs";
@@ -495,13 +496,15 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
     const result = await taskHost.request({ sessionId: ownerSessionId, operation: "open", args: { url, provider: requestedProvider } });
     if (!result.ok) throw new BrowserTaskError(result.code, result.error);
     // Electron supplies the exact target without a marker navigation or focus.
-    const targetId = getBrowserTab(result.tabId).view.webContents.getOrCreateDevToolsTargetId();
+    const openedTab = getBrowserTab(result.tabId);
+    const targetId = openedTab.view.webContents.getOrCreateDevToolsTargetId();
     return {
       provider: "builtin",
       browser_url: cdpBrowserUrl(),
       target_id: targetId,
       tab_id: result.tabId,
-      url: getBrowserTab(result.tabId).view.webContents.getURL(),
+      url: openedTab.appSessionHandoff ?? openedTab.view.webContents.getURL(),
+      handoff: openedTab.appSessionHandoff ? true : undefined,
       owner_session_id: registry.ownerOf(result.tabId),
       visible: registry.surfacingFor(result.tabId) === "foreground",
     };
@@ -520,6 +523,25 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       await beforeLoad?.(tab);
       signal?.throwIfAborted();
       if (getBrowserTab(tab.tabId) !== tab || tab.view.webContents.isDestroyed() || registry.ownerOf(tab.tabId) !== ownerSessionId) throw new BrowserTaskError("tab_closed", "The browser tab closed or changed owner before navigation.");
+      // Browser-tool tabs are automation-protected. Hand app links off before
+      // loading them so the operation completes instead of being aborted by the
+      // navigation interceptor below.
+      if (appSessionRouteFromUrl(url, window()?.webContents.getURL() ?? "")) {
+        // Keep the target on the tab so the browser tool can return a terminal
+        // receipt instead of pointing at a blank page it cannot observe.
+        tab.appSessionHandoff = url;
+        if (typeof onDeepLink === "function") onDeepLink([url]);
+        const mainWindow = window();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+        tab.deferBackground = false;
+        applySurfacing();
+        await tab.emulation;
+        signal?.throwIfAborted();
+        return tab;
+      }
       await tab.view.webContents.loadURL(url); signal?.throwIfAborted();
       tab.deferBackground = false;
       applySurfacing();
@@ -591,6 +613,7 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       ownerSessionId: registry.ownerOf(tabId),
       loadError: tab.loadError,
       browserTask: tab.browserTask,
+      appSessionHandoff: tab.appSessionHandoff ?? null,
       agentViewport: tab.agentViewport
         ? { key: tab.agentViewport, width: tab.agentViewportSize.width, height: tab.agentViewportSize.height, scale: tab.viewportScale }
         : null,
@@ -1168,6 +1191,28 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       // data: loads are internal plumbing (CDP target-marker pages), not
       // user-visible navigations — don't surface the panel for them.
       if (target === "about:blank" || target.startsWith("data:")) return;
+      // A link to this desktop renderer is an app navigation, not a website. Hand it to the main
+      // window instead of loading a second, unauthenticated copy that would redirect to /welcome.
+      // This also applies to browser-tool tabs: an agent has no useful website to load here.
+      const appSessionRoute = appSessionRouteFromUrl(target, window()?.webContents.getURL() ?? "");
+      if (appSessionRoute) {
+        tab.appSessionHandoff = target;
+        if (typeof onDeepLink === "function") onDeepLink([target]);
+        const mainWindow = window();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+        // Let the in-flight navigation settle before touching the view: loading
+        // about:blank inside did-start-navigation can crash the renderer.
+        setTimeout(() => {
+          try {
+            if (!view.webContents.isDestroyed()) runDetachedTask("clear completed app handoff", () => view.webContents.loadURL("about:blank"));
+            hideBrowserView();
+          } catch { /* tab already gone */ }
+        }, 200);
+        return;
+      }
       // Intercept openwork:// deep links (e.g. den-auth handoff grants) so
       // in-app browser auth works without the system protocol handler.
       if (target.startsWith("openwork://") || target.startsWith("openwork-dev://")) {
@@ -2546,13 +2591,22 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       control: taskHost.stateFor(tab.tabId).status === "paused" ? "person" : "agent",
       canGoBack: tab.view.webContents.canGoBack(), canGoForward: tab.view.webContents.canGoForward() }),
     capture: async (tab) => {
-      const image = await tab.view.webContents.capturePage();
+      // Inactive tabs in the visible conversation can be detached from every host.
+      // Park them in the existing painting host before capture; otherwise Chromium
+      // returns the last tiny bitmap and cannot accept focused input.
+      if (!tab.background && ![window(), popOutWindow].some(host => host && !host.isDestroyed() && host.contentView.children.includes(tab.view))) enterBackgroundMode(tab);
+      await tab.emulation;
+      let timeout;
+      const image = await Promise.race([
+        tab.view.webContents.capturePage(),
+        new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("browser_capture_timeout")), 2000); }),
+      ]).finally(() => clearTimeout(timeout));
       const size = image.getSize();
       if (size.width < 1 || size.height < 1) throw new Error("empty_frame");
       const scale = Math.min(1, 1600 / size.width, 1000 / size.height);
       const resized = scale < 1 ? image.resize({ width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) }) : image;
       const output = resized.getSize();
-      return { mimeType: "image/jpeg", data: resized.toJPEG(65).toString("base64"), width: output.width, height: output.height };
+      return { mimeType: "image/png", data: resized.toPNG().toString("base64"), width: output.width, height: output.height };
     },
     interact: async (tab, request) => {
       const contents = tab.view.webContents;
@@ -2565,11 +2619,13 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
       else if (request.operation === "input") {
         const input = request.input;
         if (!input) throw new Error("missing_input");
+        if (!tab.background && ![window(), popOutWindow].some(host => host && !host.isDestroyed() && host.contentView.children.includes(tab.view))) enterBackgroundMode(tab);
         await tab.emulation;
         const cdp = contents.debugger;
         const attachedHere = !cdp.isAttached();
         if (attachedHere) cdp.attach("1.3");
         try {
+          await cdp.sendCommand("Emulation.setFocusEmulationEnabled", { enabled: true });
           if (input.type === "text") await cdp.sendCommand("Input.insertText", { text: input.text });
           else if (input.type === "key") {
             const codes = { Enter: 13, Tab: 9, Backspace: 8, Delete: 46, Escape: 27, ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Home: 36, End: 35, PageUp: 33, PageDown: 34 };

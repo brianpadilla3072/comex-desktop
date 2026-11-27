@@ -38,10 +38,9 @@ export type SheetDocument = z.infer<typeof sheetDocumentSchema>;
 const invalid = (code: string, message: string) => new ApiError(422, code, message);
 
 export function parseSheetDocument(content: string): SheetDocument {
-  let raw: unknown;
-  try { raw = JSON.parse(content); }
+  let result: ReturnType<typeof sheetDocumentSchema.safeParse>;
+  try { result = sheetDocumentSchema.safeParse(JSON.parse(content)); }
   catch { throw invalid("invalid_sheet", "El artefacto no contiene JSON válido; no es una hoja de cálculo."); }
-  const result = sheetDocumentSchema.safeParse(raw);
   if (!result.success) throw invalid("invalid_sheet", "El artefacto no sigue el formato { sheets: [{ id, name, cells }] } de una hoja de cálculo.");
   return result.data;
 }

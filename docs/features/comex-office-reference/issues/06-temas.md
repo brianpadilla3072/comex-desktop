@@ -7,6 +7,19 @@
 
 > **✅ Decisión (2026-11-17, publicada en el issue):** **tokens propios + tipografía del sistema**, sin librerías de pago ni externas. Ejecutar primero. Ver `../matriz-decisiones.md`.
 
+> **Estado real (2026-11-24): PARCIAL.**
+>
+> **Implementado**
+> - `comexDefaultTheme` en `apps/app/src/react-app/design-system/comex-theme.ts`.
+> - Tokens semánticos de superficie, texto, borde, acento, radios, tipografía y series de gráficos.
+> - Migración inicial de colores hardcodeados en `library-dialog.tsx`.
+> - Tema claro/oscuro del visor Docs con paleta propia y estado persistido.
+>
+> **Pendiente**
+> - `ThemeProvider` y al menos un tema alternativo.
+> - Panel Design declarativo y cambio en caliente en los cinco artefactos.
+> - Selector de formato de Data y migración de hex hardcodeados restantes.
+
 ---
 
 ## Contexto (qué hace Claude Design)

@@ -461,3 +461,236 @@ automatizaciones. Se copia el modelo de trabajo, no las funciones de Git.
   `pnpm check:resource-cleanup` exit 0; no había snapshots de world activos (solo un `.log`),
   los puertos 44129/9823 siguen siendo del Electron del usuario, intactos. `git diff --check`
   limpio. Sin commit: no hubo pedido explícito.
+
+## 2026-11-24 — Reconciliación completa del backlog de artefactos tipo Office
+
+- Pedido del usuario: «actualiza todo» después de detectar que el documento de issues había
+  quedado detrás de la implementación.
+- Se actualizó `docs/features/comex-office-reference/README.md`, `issues/README.md`, los cuerpos
+  locales de #1–#7, el diseño técnico, la matriz de decisiones, el análisis de tecnologías, la
+  investigación y los spikes con el estado real al 2026-11-24.
+- Se agregó `issues/07-seguimiento-p1-p4.md` para el issue #8 y su URL a
+  `issues/created-issues.txt`. `publish.sh` ahora incluye #8 y no borra `created-issues.txt` en
+  `DRY_RUN`.
+- Estado documentado: P0–P4 integrados; `comexArtifacts` activo por defecto en self-hosted;
+  Docs y Data parciales; Slides y Whiteboard con renderers mínimos; Temas parcial; Sheets es el
+  más avanzado.
+- Desviación importante registrada: Sheets usa **Jspreadsheet CE**, no Univer. El spike de Univer
+  queda histórico y la licencia/paridad de la implementación vigente debe revalidarse antes de
+  cerrar #4.
+- Los issues #1–#8 permanecen abiertos. Se agregaron comentarios de resumen en #1 y de
+  desviación de stack en #4. No se marcó ningún issue como terminado sin completar sus criterios
+  y la evidencia E2E/visual.
+- Verificación focalizada: 42 tests de app (12 archivos) + 49 tests de server (7 archivos) en
+  verde; cuerpos de GitHub #1–#8 comparados con los archivos locales, todos sincronizados.
+- `pnpm features:check` sigue fallando porque `packaging/helm/openwork-ee/values.yaml` está
+  desactualizado. Se clasificó como **preexistente** con control limpio en `HEAD` (stash de los
+  cambios de documentación): mismo comando, mismo mensaje y exit 1. No se modificó Helm en este
+  tramo.
+- Sin cambios de código de producto, sin commit y sin push en este tramo.
+
+## 2026-11-24 — Docs: control completo del visor y 15 tools del agente
+
+- Pedido del usuario: que Docs pueda hacer todo lo listado como pendiente, al nivel de control
+  que tiene Sheets.
+- Se corrigió la causa por la que `specialist_doc_create` y `specialist_doc_write` no llegaban al
+  modelo: los schemas públicos usaban `maxLength: 300000`, superando el tope provider-safe de
+  32000. Ahora el límite real lo aplica el store de artefactos y las 15 tools son registrables.
+- Toolset `specialist_doc_*`: list, create, read, write, blocks, format, find, import, rename,
+  delete, comments, citations, export, versions y view. Todas quedan detrás de `comexArtifacts`;
+  no se agregó otro flag.
+- Bloques Markdown: list/insert/update/move/duplicate/delete; formato de selección
+  bold/italic/strike/code/link/clear. Importación desde archivo, URL https pública o salida del
+  mini-Studio. Renombre, archivo y borrado con confirmación.
+- Comentarios y fuentes/citas viven en metadatos, no crean versiones de contenido. El visor
+  muestra paneles laterales, auditoría y acciones de resolver/eliminar comentarios.
+- Exportación real Markdown/MDX/HTML/Word/PDF. `docx`, `marked`, `pdfkit` y `turndown` se agregaron
+  al server. El header del artefacto descarga los binarios; las tools pueden guardarlos en el
+  proyecto.
+- `DocView` ahora refleja modo editar/vista previa, búsqueda, tema, zoom, líneas, índice, pantalla
+  completa y restablecer vista enviados por el agente.
+- Pruebas: 23 server + 17 app en verde; typechecks app/server y build del server aprobados. El
+  plugin real registra 15/15 tools.
+- Verificación en vivo en sesión aislada `doc-tools-visual`: apertura del documento, vista previa,
+  edición, búsqueda, pantalla completa, comentarios, fuentes/citas y descargas reales de PDF y
+  Word. Capturas en `docs/features/comex-office-reference/doc-tools-controls.png` y
+  `doc-tools-comments.png`.
+- Sesión aislada cerrada y purgada; CDP 9223 y perfil eliminados. Los PDF/Word de prueba se
+  borraron tras validar firmas. No se tocó la app del usuario.
+- Persiste el error conocido de clave duplicada `ws_…:__openwork_no_session__` en la sidebar,
+  ajeno a Docs y ya registrado en tramos previos.
+- Guardrails: se corrigieron los `text-[10px]` nuevos de `DocView`. `check:ui-guardrails` aún
+  reporta dos ocurrencias preexistentes en `connectors-section.tsx`; `check:rust-readiness`
+  reproduce las mismas dos ocurrencias preexistentes en `html-archive.ts` y `sheet-model.ts`.
+  Ambos fallos se confirmaron con el árbol limpio (stash de este tramo).
+- Pendiente: editor rico tipo Lexical/BlockNote, citas clickeables a `specialist_source_read`,
+  Google Docs y suite completa `test:comex`. Sin commit ni push.
+
+## 2026-11-24 — Diagnóstico: deep link de sesión redirige a `/welcome` en web
+
+- Reporte: `http://localhost:40707/#/workspace/ws_5306b194fa17/session/ses_dfcc3aa06ffej1ew4Xj51K3WJO`
+  termina en `/welcome`.
+- Reproducido en una pestaña web: `window.__OPENWORK_ELECTRON__` es `false`, no hay settings de
+  servidor ni token y la lista de workspaces queda vacía. El efecto de
+  `apps/app/src/react-app/shell/use-workspace-route-state.ts:1168-1175` redirige a `/welcome`
+  fuera de Electron cuando no hay workspaces.
+- El renderer principal de Electron sí tiene `__OPENWORK_ELECTRON__`, está conectado a
+  `127.0.0.1:44129` y ve `ws_5306b194fa17` (`multichurch`) con
+  `ses_dfcc3aa06ffej1ew4Xj51K3WJO` (`Project inquiry`). La sesión no está borrada y el enlace
+  interno de Electron es válido.
+- Causa: el puerto 40707 es Vite del renderer de escritorio, no una web autenticada; al abrirlo
+  en un navegador no se heredan el bridge de Electron ni el token del servidor local. Para usar
+  el enlace compartible hace falta acceso remoto vinculado, o abrir la sesión dentro de la
+  ventana principal.
+- Resuelto: `browser-panel.mjs` intercepta enlaces del mismo origen a rutas de sesión/workspace y
+  los entrega a la ventana principal; `AppSessionLinkListener` navega al hash route y la pestaña
+  integrada vuelve a `about:blank`. Los tabs controlados por el agente conservan semántica web.
+- Helpers puros y tests en `apps/app/src/app/lib/app-session-link.ts`,
+  `apps/desktop/electron/app-session-link.mjs`, `apps/app/tests/app-session-link.test.ts` y
+  `apps/desktop/test/app-session-link.test.mjs`. Proof E2E
+  `evals/proofs/app-session-link.proof.test.ts` aprobada bajo Xvfb (1/1).
+- Tipo de cambio: arreglo de deep link, sin flag nuevo. `pnpm test:comex`, typecheck, build
+  selfhost, tests de Electron y lint de specs en verde. Requiere reiniciar el proceso principal
+  de Electron para tomar el cambio; un navegador externo sigue sin acceso al renderer de
+  escritorio. Sin commit ni push. Recursos propios liberados.
+- Verificado en vivo tras el reinicio del 2026-11-25 08:55: abrir el enlace exacto desde el
+  navegador integrado dejó la ventana principal en
+  `#/workspace/ws_5306b194fa17/session/ses_dfcc3aa06ffej1ew4Xj51K3WJO`, sin `/welcome`. El panel
+  de navegador de la sesión quedó desconectado tras el relaunch (requiere reabrirlo desde la app).
+
+## 2026-11-25 — Código remoto reutilizable y prompt de primer arranque
+
+- Pedido: que la app pida un código de emparejamiento al instalar si no tiene uno, con un código
+  conocido por defecto solo en desarrollo.
+- Implementado `remotePairingCode` (self-hosted, activo por defecto). Producción no trae código
+  conocido: el primer arranque permite elegir uno o generar uno de 16 caracteres. El lanzador dev
+  define explícitamente `OPENWORK_DEV_PAIRING_CODE=3570`; sin esa variable no existe fallback.
+- El código es reutilizable hasta rotarlo/eliminarlo. Cada canje crea un token owner independiente
+  y revocable. Se conserva el flujo temporal de cinco minutos.
+- Persistencia dedicada `remote-pairing-code.json`, schema v1, scrypt con salt, escritura atómica
+  `0600`, cola de mutaciones y fail-closed ante corrupción. Rate limit global de cinco fallos y
+  bloqueo de cinco minutos. Configurar/rotar/eliminar exige actor host.
+- Primer arranque: el diálogo de acceso remoto se muestra antes que “Crea tu primera aplicación”;
+  el provider de especialistas difiere su onboarding para evitar dos modales apilados.
+- Ajustes › Avanzado › Dispositivos permite crear, rotar y eliminar el código; rotar no revoca
+  dispositivos existentes. Un store corrupto se puede eliminar desde esa sección.
+- Docs y captura: `docs/features/remote-pairing-code/README.md` y `setup.png`. Contratos en
+  `contracts/remote-pairing-code/v1/`.
+- Verificación: 24 tests de pairing/store/contratos, `pnpm test:comex`, typechecks app/server,
+  builds app selfhost y server, `features:check`, 5 tests de fresh-install, lint de specs y proof
+  E2E local bajo Xvfb (1/1) en verde. El proof configura un código, vincula dos dispositivos,
+  rechaza uno incorrecto y verifica persistencia tras recargar.
+- `check:rust-readiness` y `check:ui-guardrails` siguen rojos solo por dos ocurrencias ajenas y
+  preexistentes en `html-archive.ts`, `sheet-model.ts` y `connectors-section.tsx`. El typecheck de
+  evals conserva 15 errores ajenos en archivos no tocados.
+- La app de desarrollo en ejecución necesita reinicio para tomar el nuevo server y el fallback
+  `3570`; no se generó instalador ni release. Sin commit ni push. Recursos propios liberados y
+  `check:resource-cleanup` en verde.
+
+## 2026-11-25 — Cierre: handoff también en pestañas automation del navegador integrado
+
+- El enlace exacto `http://localhost:40707/#/workspace/ws_5306b194fa17/session/ses_dfcc3aa06ffej1ew4Xj51K3WJO`
+  cargaba `/welcome` cuando se abría con la herramienta nativa del navegador integrado: esas
+  pestañas son `automationProtected` y el interceptor original las excluía.
+- `apps/desktop/electron/browser-panel.mjs` ahora hace el handoff en esas pestañas **antes** de
+  `loadURL`, para que la operación del navegador termine limpia en vez de abortarse con
+  `Browser operation could not finish`. La pestaña queda sin cargar el renderer duplicado; la
+  ventana principal navega al hash destino.
+- El world `evals/worlds/app-session-link.ts` crea la sesión por API y usa
+  `browser.openUrl(url, "builtin", { sessionId })`; el proof verifica el handoff real con clics de
+  la ruta del navegador integrado. `node --check`, tests del helper, `pnpm typecheck` de app,
+  `pnpm --dir evals lint:specs` y E2E bajo Xvfb: 1/1 en verde.
+- Verificación final en vivo: con la herramienta nativa del navegador integrado, el enlace exacto
+  dejó la ventana principal estable en
+  `#/workspace/ws_5306b194fa17/session/ses_dfcc3aa06ffej1ew4Xj51K3WJO` (`Project inquiry`,
+  `multichurch`), sin `/welcome`; la pestaña integrada no cargó una copia del renderer.
+- Incidente de entorno durante la prueba: se sobreescribieron descriptors
+  `installed-browser/*.json` con `{}` al reparar el puente tras el relaunch; se regeneraron los
+  del workspace con el token/URL vivos de este arranque y `browser_tabs` volvió a conectar. No
+  quedaron descriptors propios corruptos. Un navegador externo sigue sin ver el renderer de
+  escritorio; para remoto se usa la web self-host vinculada y sin `#`.
+- `git diff --check` limpio; `check:resource-cleanup` sin recursos pendientes. Sin commit ni push.
+
+## 2026-11-25 — Fix: la herramienta de navegador no queda rota tras el handoff
+
+- Reporte del usuario: “si lo pruebo en el navegador integrado se rompe”. Precisado: la pestaña
+  del browser tool queda en `about:blank` y el siguiente `browser_observe`/`browser_act` falla con
+  `invalid_url` (“Use a complete HTTP or HTTPS website address”). La ruta manual de la barra del
+  panel sí funcionó al reproducirla con eventos reales de teclado por CDP: la ventana principal
+  navega al hash destino y no aparece `/welcome`.
+- Causa: `browser_open` entregaba la sesión pero devolvía `next: "observe"` sobre una pestaña sin
+  URL, porque el renderer duplicado nunca se cargo. El guardián de URL del task host rechazaba
+  `about:blank` con `invalid_url`, que es un error engañoso para un enlace ya entregado.
+- `apps/desktop/electron/browser-panel.mjs` marca la pestaña con `appSessionHandoff = <enlace>`
+  tanto en el handoff previo a `loadURL` (pestañas automation) como en el interceptor
+  `did-start-navigation` (navegación manual). El resultado del tool devuelve esa URL y `handoff`,
+  y el estado del panel expone el campo. El temporizador para limpiar la vista pasó de 0 a 200 ms,
+  igual que el handoff de `openwork://`, para no tocar el view durante la navegación entrante.
+- `packages/computer-use/browser-task.mjs`: `open` devuelve un recibo terminal (`handoff: true`,
+  `next: "none"`, nota explicativa) y cualquier operación posterior sobre esa pestaña responde
+  `app_link_handed_off` con instrucciones claras. `navigate` limpia la marca y recupera la pestaña
+  para uso normal; `browser_close` sigue funcionando.
+- Prueba nueva `packages/computer-use/browser-task-app-handoff.test.mjs` (4 tests): recibo
+  terminal, `observe` con `app_link_handed_off`, recuperación por `navigate` y regresión de
+  `open` normal. El proof E2E usa ahora la herramienta real por `/browser/task` y verifica ambos
+  extremos; `evals/worlds/app-session-link.ts` solo calcula la URL del enlace.
+- Verificación: 52 tests de `packages/computer-use`, `bun test` del helper de app y Electron,
+  `pnpm typecheck`, `pnpm --dir evals lint:specs` (148 archivos, 0 errores) y proof E2E local bajo
+  Xvfb (1/1) en verde. `pnpm test:comex` quedó rojo al llegar a `check:rust-readiness` por dos
+  infracciones ajenas y preexistentes en `apps/server/src/designs/html-archive.ts` y
+  `apps/server/src/specialists/sheet-model.ts`; no se tocó baseline ni esos archivos.
+- La app de desarrollo en ejecución tiene el proceso principal anterior: el cambio de Electron
+  requiere reinicio para verse en vivo en ese chat; la prueba E2E levanta su propio Electron con
+  el código nuevo. Sin commit ni push.
+
+## 2026-11-25 — Reinicio en vivo de la app de desarrollo
+
+- Pedido del usuario: “reinicia”, para que el proceso principal de Electron tomara el fix del handoff del navegador integrado.
+- Se detuvo el Electron anterior (PID 2315788) con `SIGTERM`. Durante el reinicio apareció un segundo stack `pnpm dev` con `PORT=0`, perfil por defecto y su propio Electron en CDP 9823; se detuvo ese grupo de procesos para no dejar dos instancias compitiendo por el puerto ni perfiles distintos.
+- Se relanzó `pnpm dev` con el mismo perfil de desarrollo anidado (`XDG_CONFIG_HOME`/`OPENWORK_DATA_DIR` apuntando al estado ya usado por este chat), `OPENWORK_ELECTRON_START_URL=http://localhost:40707`, `PORT=40707`, Ozone `x11` y CDP 9823. El Electron nuevo quedó con PID 81681 y la ventana principal en `http://localhost:40707/#/session`, con los workspaces y sesiones existentes.
+- Tras el arranque, el integrado `installed-browser` regeneró su descriptor en la ruta de runtime nueva y actualizó `.opencode/plugins/comex-browser/server.js`. El motor ya cargado seguía usando la ruta anterior del descriptor; se copió el descriptor vivo a esa ruta y `browser_tabs` volvió a conectar (sin guardar tokens en estado ni en repo).
+- Verificación con las herramientas nativas: `browser_open` de `http://localhost:40707/#/workspace/ws_5306b194fa17/session/ses_dfcc3aa06ffej1ew4Xj51K3WJO` devolvió `handoff: true`, `next: "none"` y la nota de entrega; `browser_observe` sobre esa pestaña devolvió `app_link_handed_off`. Por CDP se confirmó que la ventana principal quedó en ese hash exacto y que `location.href` no contiene `/welcome`.
+- Limpieza: se borraron los dos scripts CDP temporales y el log propios; se liberaron sus registros y `pnpm check:resource-cleanup` quedó en verde. No se tocaron los Vite ajenos ni se hicieron commits ni pushes.
+
+## Corrección de ruta stale del puente del navegador (2026-11-25)
+
+El plugin consulta ahora el wrapper administrado vigente del proyecto en cada llamada, en lugar de conservar la carpeta del descriptor inicial. El parser exacto compartido rechaza modificaciones y no ejecuta código del wrapper; se mantienen aislamiento por directorio canónico y validación loopback. Tests del puente 6/6, incluido cambio de runtime con el mismo plugin cargado, más vectores portables en `contracts/installed-browser/v1/wrapper.json`. Typecheck y compilación de servidor/bundle aprobados. Verificación nativa real iniciada con ruta obsoleta: tabs conecta; open entrega `handoff: true, next: none`; observe devuelve `app_link_handed_off`. La pestaña fue retirada automáticamente por el handoff y tabs confirmó cero pestañas después. No se reinició app/motor ni se copiaron credenciales: el motor ya cargado requiere recarga para incorporar la implementación nueva; bundle local listo para el próximo arranque. Rust-readiness conserva las dos infracciones ajenas ya documentadas. Sin commit ni push.
+
+Validación final del tramo: siete archivos de tests browser-task aprobados (incluye handoff). Temporales propios borrados y registros propios liberados; app/Vite preexistentes conservados.
+
+## Redirección desde «Ir a web»: diagnóstico separado (2026-11-25)
+
+La captura identifica `openWebInBrowser`: al no encontrar web en 8787 abría el renderer 40707 en el navegador externo sin conexión Electron y caía en /welcome. Se comprobó que 8787 no escucha y que el renderer principal sigue en la sesión durante más de cinco segundos. La prueba previa de handoff integrado no cubría este comando.
+
+Se reemplazó el fallback por `web-app-url.mjs`, compartido con el menú nativo: solo acepta HTML con bootstrap web válido, preserva conversación usando ruta sin hash y devuelve `web_unavailable` si no hay web. No anuncia éxito abriendo el renderer/API. Dos archivos de tests aprobados, vectores JSON en `contracts/web-app-url/v1/routes.json`, typecheck del helper y sintaxis de main aprobados. Typecheck completo Electron detenido por el error ajeno `args.all` en browser-task.mjs. Resolver nuevo probado contra servidor vivo: web no disponible. No se ejecutó el handler nuevo dentro del main cargado: requiere próximo arranque; no se reinició con tareas activas. Sigue pendiente disponer de web conectada. No se creó servicio web ni se copiaron credenciales. Sin commit ni push.
+
+## Tooling portable para diagnóstico y futuro Rust (2026-11-25)
+
+A pedido del usuario, `pnpm debug:browser` ofrece doctor/watch/web/native: CDP parametrizable, navegador Chrome/Chromium/Edge aislado, seguimiento temporal de URL, eventos HTTP/JS y puente nativo descubierto desde la ventana Electron conectada (sin rutas personales). Registro y limpieza automática de recursos exclusivos. Logs JSON v1 sin credenciales ni contenido de consola/cuerpos/headers.
+
+Núcleo puro scripts/live-browser-debug-core.mjs separado del adaptador scripts/live-browser-debug.mjs; vectores JSON en contracts/live-browser-debug/v1/cases.json para Rust. Guía docs/comex/DEBUG-NAVEGADOR.md. Tests de lógica/candidatos para los tres sistemas aprobados; ejecución real solo Linux. Mantener esta separación al continuar: no agregar otro motor ni lógica de producto al tooling.
+
+Prueba del enlace exacto en navegador real aislado: /welcome a los 4–6 segundos sin bootstrap. Prueba nativa real: handoff correcto, observe explicativo y renderer principal estable en conversación durante ocho segundos. La redirección externa sigue pendiente; no confundir tooling operativo con producto resuelto. No hubo reinicios, inferencias ni cambios de permisos. Recursos de prueba cerrados/eliminados, recursos previos conservados. Sin commit ni push.
+
+## Implementación de web local conectada; falta aplicación real (2026-11-26)
+
+Ver detalle de este tramo en comex/estado.md, sección «Corrección conectada de Ir a web». Se agregó flag desktopLocalWeb default:false y superficie estática del servidor embebido existente, loopback-only, con bootstrap versionado y frontend conectado al mismo origen. Sin otro motor/historial/listener. Test servidor 7/7, builds/typechecks app y servidor y pruebas de rutas/features aprobados. Chrome real con API vivo mediante adaptador temporal cargó la conversación/mensajes durante 12 s y tras recarga otros 12 s sin welcome. No atribuir ese resultado al main actual: sigue sin reiniciarse/aplicarse; necesita DEN_FEATURE_DESKTOP_LOCAL_WEB=true y verificación del comando real. El chequeo de inactividad dio 502 y no demuestra idle. Pregunta de reinicio pendiente; no interrumpir tareas sin resolverla.
+
+El usuario autorizó commit y push si está arreglado; todavía no se hicieron porque falta verificar en su app actual. Índice vacío, rama dev. No incluir cambios ajenos; en archivos compartidos seleccionar únicamente hunks de desktopLocalWeb/bootstrap/tooling y no los de remotePairingCode/oficina. Código/contratos/guía quedan en el árbol, bundle compilado en dist. No se guardaron credenciales. Sin cambios académicos.
+
+## Web conectada aplicada y push realizado (2026-11-26)
+
+Autorizado «sí reinicia»: Electron reemplazado preservando perfil (nuevo PID 3717960), flag desktopLocalWeb activo en este lanzamiento y Vite 40707 original intacto. shell.getWebUrl de la app REAL devolvió su servidor 127.0.0.1:35967 con ruta web sin hash; Chrome mostró la conversación/mensajes 12 s y otros 12 s después de recargar, sin welcome. La acción REAL openWebInBrowser devolvió éxito y abrió la URL en el navegador del usuario. Usar Ver → Ir a web; 40707 es renderer, no web conectada. El puerto puede cambiar y el flag requiere configuración de operador en futuros lanzadores.
+
+Commit/push 1ad737492e en origin/fix/desktop-local-web, sin merge a dev/main. Solo se publicaron cambios del arreglo/tooling y sus hunks; otros cambios del árbol siguen sin commitear. Export del commit verificado: 9 tests enlaces/tooling, 26 features y Helm sync en verde. Previamente 7 tests del servidor y builds/typechecks app/servidor aprobados. Bloqueos globales ajenos de Rust-readiness/args.all continúan documentados. Temporales y navegadores headless de prueba eliminados; app/web solicitadas quedan abiertas, Vite ajeno intacto. Sin credenciales ni contenido privado en el commit.
+
+### 2026-11-26 — navegador integrado visible desde la web local
+Implementado puente de capturas/control de la pestaña Electron en el recurso web, bajo desktopLocalWeb. Prueba real con fixture sintético completa: visualizar, tomar control, escribir, pulsar y devolver control; no se usó element.click ni se simuló la página Electron en navegador externo. Contratos y vectores Rust, aislamiento por conversación, pausas y cancelación. Mobile conserva layout sin panel. Se corrigió además la herencia de entorno de relanzamiento para fijar perfil original, sin copiar/migrar historial. Evidencia pública solo del fixture en docs/features/desktop-local-web. Se deja la app solicitada y Vite original funcionando; recursos de prueba se cierran mediante guardián.
+
+2026-11-26: ajuste de tamaño navegador web: captura ocupa ancho del panel y botón Ampliar navegador permite fullscreen. Prueba en vivo en panel dividido 586 px y fullscreen 1440 px, clic al destino correcto tras cambio de escala; typecheck y build app correctos. Requiere recarga de ventana web abierta.
+
+2026-11-26: reinicio autorizado con web local habilitada y perfil real; comando Ir a web devuelve ok y Chrome aislado conserva ruta/bootstrap tras espera y recarga. Lanzador dev actualizado con default explícito reutilizable, comentarios y prueba de respeto a false; empaquetado permanece opt-in. Prueba solicitada contra IP Tailscale: HTTP 000 frente a 200 en loopback, listener solo localhost; proxies Tailscale actuales no apuntan a OpenWork. Acceso remoto todavía pendiente, sin cambiar red. Detalle en comex/estado.md. Temporales Chrome propios cerrados; app solicitada retenida y registrada (PID 150555), guardián rojo por ese recurso intencional y temporal ajeno browser-web-sharp. Sin commit.
+
+2026-11-26: acceso tailnet habilitado por pedido mediante Serve TCP persistente 44129→loopback:44129; HTTP Serve se descartó tras 404 por IP. Prueba por IP Tailscale local: 200 y Chrome con bootstrap, espera/recarga sin welcome. Proxies anteriores conservados. No prueba desde dispositivo remoto ni cambio de ACL. Runbook portable agregado, con límites de cambio de backend y activación de static-ui; ver comex/estado.md. Pruebas propias limpiadas; proxy y app retenidos por pedido.
+
+2026-11-26: PWA completada y probada con cero errores de instalación Chrome sobre HTTPS Tailscale en 44129; reemplaza HTTP/IP anterior por nombre TLS del dispositivo. Puerto backend default 44129 configurable, sin cambio aleatorio cuando está ocupado. Web se activa en cada inicio del servidor, incluso desde renderer, verificada tras relanzar sin Ir a web. Manifiesto/íconos y pruebas aprobados; servidor compilado. Typecheck Electron y Rust conservan bloqueos ajenos conocidos. Perfil intacto, Electron final 316751. QA móvil/escritorio privado; sin instalación física en teléfono. Detalles y límites en comex/estado.md y docs/features/desktop-local-web/README.md. Sin commit; app/proxy solicitados permanecen abiertos.

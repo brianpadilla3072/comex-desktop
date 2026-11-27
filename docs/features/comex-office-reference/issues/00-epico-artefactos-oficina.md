@@ -5,6 +5,21 @@
 **Depende de:** nada
 **Dependencias de:** issues 01–06
 
+> **Estado real (2026-11-24): BASE IMPLEMENTADA, ÉPICO ABIERTO.**
+>
+> **Implementado**
+> - Esquema Zod y unión `doc | slides | sheet | board | data`.
+> - Persistencia en `proyecto/artefactos/`, versiones inmutables, deduplicación y reversión.
+> - Shell común en pestaña `studio`, split chat/artefacto y modo foco.
+> - Apertura de artefactos desde Resultados y auto-apertura de salidas `table` nuevas como hoja.
+> - Visor Data sobre el resolver determinista de paneles.
+> - `comexArtifacts` activo por defecto en self-hosted; cloud sigue apagado y el operador puede bloquearlo.
+>
+> **Pendiente**
+> - Completar los sub-issues y sus criterios de aceptación.
+> - Ejecutar el E2E completo con evidencia, capturas y revisión de `DESIGN.md`.
+> - Cerrar la brecha de temas, Slides, Whiteboard y paridad de Sheets.
+
 ---
 
 ## Contexto
@@ -34,9 +49,9 @@ Dotar a Comex de un modelo de **artefacto de primer nivel** y de un shell reutil
 
 ## Criterios de aceptación del épico
 
-- [ ] Existe un tipo `Artifact` con esquema versionado y persistencia en el workspace de Comex.
-- [ ] El shell común se reutiliza en al menos dos funcionalidades (p. ej. Docs y Data).
-- [ ] El usuario puede abrir una salida, verla con más espacio que el diálogo actual y volver al chat sin perder el objeto.
+- [x] Existe un tipo `Artifact` con esquema versionado y persistencia en el workspace de Comex.
+- [x] El shell común se reutiliza en al menos dos funcionalidades (p. ej. Docs y Data).
+- [x] El usuario puede abrir una salida, verla con más espacio que el diálogo actual y volver al chat sin perder el objeto.
 - [ ] Toda superficie nueva está detrás de feature flag y pasa revisión de `DESIGN.md` con screenshots.
 - [ ] Cada sub-issue tiene criterios de aceptación verificables y tests headless correspondientes.
 - [ ] Los esquemas JSON y las herramientas están documentados para que otro agente pueda continuar.

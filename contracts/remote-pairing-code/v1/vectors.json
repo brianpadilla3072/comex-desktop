@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "normalization": [
+    {
+      "input": "ab cd-efgh ijkl",
+      "normalized": "ABCDEFGHIJKL",
+      "valid": true
+    },
+    {
+      "input": "muy-corto",
+      "normalized": "MUYCORTO",
+      "valid": false
+    },
+    {
+      "input": "contract-code-123",
+      "normalized": "CONTRACTCODE123",
+      "valid": true
+    }
+  ],
+  "developmentFallback": [
+    {
+      "override": "absent",
+      "expected": null
+    },
+    {
+      "override": "custom",
+      "value": "3570",
+      "expected": "3570"
+    },
+    {
+      "override": "empty",
+      "value": "",
+      "expected": null
+    },
+    {
+      "override": "custom",
+      "value": "eval-code",
+      "expected": "EVALCODE"
+    }
+  ],
+  "fallbackVerification": [
+    {
+      "developmentCode": null,
+      "input": "3570",
+      "available": false,
+      "matched": false
+    },
+    {
+      "developmentCode": "3570",
+      "input": "3570",
+      "available": true,
+      "matched": true
+    },
+    {
+      "developmentCode": "EVALCODE",
+      "input": "3570",
+      "available": true,
+      "matched": false
+    },
+    {
+      "developmentCode": "EVALCODE",
+      "input": "eval-code",
+      "available": true,
+      "matched": true
+    }
+  ],
+  "storedVerification": {
+    "record": {
+      "schemaVersion": 1,
+      "algorithm": "scrypt",
+      "salt": "AAECAwQFBgcICQoLDA0ODw==",
+      "hash": "7xQv54eDsZony7qhOjsnKCSOq4Hw91fHHRaeV1s4SNl9D5qQAlXBjyCgjCGrXFXYqJR8oChYV+rGJdHG7MFbZQ==",
+      "createdAt": 1000,
+      "updatedAt": 2000
+    },
+    "cases": [
+      {
+        "developmentCode": null,
+        "input": "contract-code-123",
+        "available": true,
+        "matched": true
+      },
+      {
+        "developmentCode": null,
+        "input": "CONTRACTCODE123",
+        "available": true,
+        "matched": true
+      },
+      {
+        "developmentCode": null,
+        "input": "3570",
+        "available": true,
+        "matched": false
+      },
+      {
+        "developmentCode": "3570",
+        "input": "3570",
+        "available": true,
+        "matched": false
+      },
+      {
+        "developmentCode": null,
+        "input": "wrong-code",
+        "available": true,
+        "matched": false
+      }
+    ],
+    "reusable": {
+      "developmentCode": null,
+      "input": "contract-code-123",
+      "attempts": 2,
+      "available": true,
+      "matched": true
+    }
+  }
+}

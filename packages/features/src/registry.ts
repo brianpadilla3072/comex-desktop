@@ -159,6 +159,17 @@ export const FEATURES = defineFeatures({
     deployments: ["self_hosted"],
     default: true,
   },
+  remotePairingCode: {
+    label: "Reusable remote pairing code",
+    description: "Configure a reusable code for pairing new devices without generating a one-time code on the desktop. The code is stored only as a hash and can be rotated or removed.",
+    category: "experience",
+    added: "2026-11-24",
+    since: "2026-11",
+    author: "brianpadilla3072",
+    docs: "docs/features/remote-pairing-code/README.md",
+    deployments: ["self_hosted"],
+    default: true,
+  },
   webFolderBrowser: {
     label: "Browse server folders from the web app",
     description: "Owners (the desktop or a paired device) browse folders on the server's computer and create a folder, so the web app can create local workspaces without a native folder picker.",

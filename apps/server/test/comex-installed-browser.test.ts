@@ -6,6 +6,8 @@ import { mkdtemp, mkdir, readFile, realpath, writeFile, rm, stat, symlink } from
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { createInstalledBrowserIntegration } from "../src/comex/installed-browser.js";
+import { z } from "zod";
+import { managedBrowserDescriptor } from "../src/comex/installed-browser-source.js";
 import { installedBrowserPlugin } from "../src/comex/installed-browser-plugin.js";
 
 test("installed browser bridge stays project-local, keeps credentials outside it and closes its own endpoint", async () => {
@@ -119,6 +121,23 @@ test("browser tools use the engine's session, forward attachments and reject for
       await assert.rejects(tabs.execute({}, { sessionID: "real-session", signal: new AbortController().signal }), /no está conectado/);
     }
     assert.equal(calls.length, 1);
+    // Keep the same plugin instance alive while the app moves runtime roots.
+    const currentState = join(root, "new-state"); await mkdir(currentState);
+    const currentDescriptor = join(currentState, createHash("sha256").update(root).digest("hex") + ".json");
+    await writeFile(currentDescriptor, JSON.stringify(value), { mode: 0o600 });
+    const wrapper = join(root, ".opencode/plugins/comex-browser/server.js");
+    await mkdir(dirname(wrapper), { recursive: true });
+    const source = `// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from "file:///runtime/installed-browser/plugin.mjs";\nexport default installedBrowserPlugin(${JSON.stringify(currentDescriptor)});\n`;
+    await writeFile(wrapper, source);
+    await tabs.execute({}, { sessionID: "after-restart", signal: new AbortController().signal });
+    assert.equal(calls.at(-1)?.sessionId, "after-restart");
+    // New root wins even when the old descriptor is valid again.
+    await writeFile(descriptor, JSON.stringify(value));
+    await writeFile(currentDescriptor, "{}");
+    await assert.rejects(tabs.execute({}, { sessionID: "real-session", signal: new AbortController().signal }), /no está conectado/);
+    await writeFile(wrapper, source + "// Personalizado\n");
+    await assert.rejects(tabs.execute({}, { sessionID: "real-session", signal: new AbortController().signal }), /no está conectado/);
+    assert.equal(calls.length, 2, "invalid current state never falls back to stale credentials");
     await dispose?.();
   } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, { recursive: true, force: true }); }
 });
@@ -130,4 +149,15 @@ test("browser installation rejects symlink folders before writing outside the wo
   const integration = createInstalledBrowserIntegration({ configPath: join(root, "private/config.json"), workspaces: [{ path: project }] });
   try { await assert.rejects(integration.install(project), /enlazadas/); await assert.rejects(stat(join(outside, "plugins"))); }
   finally { await integration.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+
+test("managed wrapper parsing matches portable contract vectors", async () => {
+  const schema = z.object({ version: z.literal(1), vectors: z.array(z.object({
+    name: z.string(), source: z.string(), descriptor: z.string().nullable(),
+  })) });
+  const contract = schema.parse(JSON.parse(await readFile(new URL("../../../contracts/installed-browser/v1/wrapper.json", import.meta.url), "utf8")));
+  for (const vector of contract.vectors) {
+    assert.equal(managedBrowserDescriptor(vector.source) ?? null, vector.descriptor, vector.name);
+  }
 });

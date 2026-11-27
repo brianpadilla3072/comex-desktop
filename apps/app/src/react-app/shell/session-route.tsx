@@ -40,6 +40,7 @@ import { getDisplaySessionTitle } from "@/app/lib/session-title";
 import { getSessionDescendantIds } from "@/react-app/domains/session/sidebar/utils";
 import { buildOpenworkWorkspaceBaseUrl } from "@/app/lib/openwork-server";
 import { workspaceCreateError } from "./workspace-create-error";
+import { RemotePairingSetup } from "./remote-pairing-setup";
 import {
   resolveEngineRootEndpoint,
   resolveWorkspaceEndpoint,
@@ -4047,6 +4048,7 @@ export function SessionRoute() {
 
   return (
     <ChatCommandHost archive={sessionId => archiveSession(sessionId, true)}>
+    <RemotePairingSetup client={client} />
     <WorkspaceProvider
       client={opencodeClient}
       opencodeBaseUrl={opencodeBaseUrl}

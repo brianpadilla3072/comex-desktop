@@ -1,5 +1,9 @@
 # Spike — Univer core (issue #4, Sheets)
 
+> **Nota histórica (2026-11-24):** este spike validó Univer core, pero la implementación vigente
+> del artefacto `sheet` usa Jspreadsheet CE. El documento conserva evidencia de la evaluación
+> original; no describe el stack actual. Ver `../matriz-decisiones.md`.
+
 > **Fecha:** 2026-11-17. **Estado:** ✅ validado con código real en navegador headless.
 > **Proyecto descartable:** `/tmp/opencode/univer-spike` (Vite + React + TS, pnpm). No se tocó `package.json`, lockfiles ni ningún otro archivo del repo de Comex. Sin commit.
 

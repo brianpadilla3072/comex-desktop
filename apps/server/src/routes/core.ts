@@ -19,9 +19,18 @@ import { takeApprovedDriveUpload } from "../extensions/approved-drive-upload.js"
 import { callDriveFileAction } from "../extensions/drive-files.js";
 import type { TokenService } from "../tokens.js";
 import { createPairingRegistry, DEVICE_LABEL_PREFIX, redeemInput } from "../device-pairing.js";
-import { remoteDevicePairingEnabled, specialistApplicationsEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
+import { remoteDevicePairingEnabled, remotePairingCodeEnabled, specialistApplicationsEnabled, taskIsolationReviewEnabled } from "../comex/features.js";
+import {
+  createRemotePairingCodeRateLimiter,
+  pairingStatusSchema,
+  RemotePairingCodeStore,
+  remotePairingCodeBodySchema,
+  remotePairingCodeCreatedSchema,
+  remotePairingCodeMutationResultSchema,
+  resolveDevelopmentRemotePairingCode,
+} from "../remote-pairing-code.js";
 import type { Capabilities, ServerConfig, WorkspaceInfo } from "../types.js";
-import { addRoute, type Route } from "./registry.js";
+import { addRoute, type RequestContext, type Route } from "./registry.js";
 
 /**
  * Version reported by the engine binary actually in use. `opencodeVersion` on
@@ -402,12 +411,58 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
   // Pairing other devices (docs/features/remote-device-pairing): the desktop (or an already
   // paired owner) shows a one-time code; the other browser redeems it for its own owner token.
   const pairing = createPairingRegistry();
+  const remoteCodeStore = new RemotePairingCodeStore({ configPath: config.configPath });
+  // Owned by this route registry and reset when the server stops. Tailscale proxies make every
+  // caller look local, so reusable-code throttling is intentionally global rather than per-IP.
+  const remoteCodeRateLimiter = createRemotePairingCodeRateLimiter();
   const requirePairing = () => {
     if (!remoteDevicePairingEnabled()) throw new ApiError(404, "pairing_disabled", "Vincular dispositivos está desactivado en esta instalación.");
   };
+  const remoteCodeFeatureEnabled = () => remoteDevicePairingEnabled() && remotePairingCodeEnabled();
+  const developmentPairingCode = () => process.env.OPENWORK_DEV_MODE === "1"
+    ? resolveDevelopmentRemotePairingCode()
+    : null;
+  const requireRemoteCode = () => {
+    if (!remoteCodeFeatureEnabled()) throw new ApiError(404, "remote_pairing_code_disabled", "El código remoto reutilizable está desactivado en esta instalación.");
+  };
+  const requirePairingHost = (ctx: RequestContext) => {
+    if (ctx.actor?.type !== "host") throw new ApiError(403, "pairing_host_required", "Solo el escritorio puede administrar el código remoto reutilizable.");
+  };
   const deviceName = (label: string | undefined) => label?.startsWith(DEVICE_LABEL_PREFIX) ? label.slice(DEVICE_LABEL_PREFIX.length) : null;
 
-  addRoute(routes, "GET", "/pairing/status", "none", async () => jsonResponse({ enabled: remoteDevicePairingEnabled() }));
+  addRoute(routes, "GET", "/pairing/status", "none", async () => {
+    const enabled = remoteDevicePairingEnabled();
+    const remoteCodeEnabled = remoteCodeFeatureEnabled();
+    const remoteStatus = remoteCodeEnabled
+      ? await remoteCodeStore.status(developmentPairingCode())
+      : { configured: false, source: "none" };
+    return jsonResponse(pairingStatusSchema.parse({
+      enabled,
+      remoteCodeEnabled,
+      remoteCodeConfigured: remoteStatus.configured,
+      remoteCodeSource: remoteStatus.source,
+    }));
+  });
+
+  addRoute(routes, "POST", "/pairing/remote-code", "host", async (ctx) => {
+    requireRemoteCode();
+    requirePairingHost(ctx);
+    ensureWritable(config);
+    const parsed = remotePairingCodeBodySchema.safeParse(await readOptionalJsonBody(ctx.request));
+    if (!parsed.success) throw new ApiError(400, "invalid_remote_pairing_code", "El código debe tener al menos 12 caracteres válidos.");
+    const configured = remotePairingCodeCreatedSchema.parse(await remoteCodeStore.configure(parsed.data.code));
+    remoteCodeRateLimiter.reset();
+    return jsonResponse(configured, 201);
+  });
+
+  addRoute(routes, "DELETE", "/pairing/remote-code", "host", async (ctx) => {
+    requireRemoteCode();
+    requirePairingHost(ctx);
+    ensureWritable(config);
+    await remoteCodeStore.remove();
+    remoteCodeRateLimiter.reset();
+    return jsonResponse(remotePairingCodeMutationResultSchema.parse({ ok: true }));
+  });
 
   addRoute(routes, "POST", "/pairing/codes", "host", async () => {
     requirePairing();
@@ -426,7 +481,36 @@ export function registerCoreRoutes(options: RegisterCoreRoutesOptions): void {
     ensureWritable(config);
     const parsed = redeemInput.safeParse(await readJsonBody(ctx.request));
     if (!parsed.success) throw new ApiError(400, "invalid_pairing_request", "Ingresa el código y un nombre para este dispositivo.");
-    pairing.consume(parsed.data.code);
+
+    const remoteEnabled = remoteCodeFeatureEnabled();
+    const remoteBlocked = remoteEnabled && remoteCodeRateLimiter.isBlocked();
+    const remoteAttempt = remoteEnabled
+      ? await remoteCodeStore.match(parsed.data.code, {
+        developmentCode: developmentPairingCode(),
+        skipVerification: remoteBlocked,
+      })
+      : { available: false, matched: false };
+
+    if (remoteAttempt.matched) {
+      remoteCodeRateLimiter.reset();
+    } else {
+      try {
+        // A reusable-code miss must not remove the existing five-minute, single-use flow.
+        pairing.consume(parsed.data.code);
+      } catch (error) {
+        if (remoteAttempt.available) {
+          if (remoteBlocked) {
+            throw new ApiError(429, "remote_pairing_code_rate_limited", "Demasiados intentos fallidos. Espera cinco minutos y vuelve a intentar.", {
+              retryAfterMs: remoteCodeRateLimiter.retryAfterMs(),
+            });
+          }
+          remoteCodeRateLimiter.recordFailure();
+          throw new ApiError(400, "pairing_code_invalid", "El código no es correcto. Revísalo y vuelve a intentar.");
+        }
+        throw error;
+      }
+    }
+
     const issued = await tokens.create("owner", { label: `${DEVICE_LABEL_PREFIX}${parsed.data.deviceName}` });
     return jsonResponse({ id: issued.id, token: issued.token, scope: issued.scope, deviceName: parsed.data.deviceName }, 201);
   });

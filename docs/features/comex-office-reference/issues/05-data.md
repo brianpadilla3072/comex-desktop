@@ -5,6 +5,20 @@
 **Depende de:** `00-epico-artefactos-oficina`, `06-temas`
 **Estimación sugerida:** 2 semanas
 
+> **Estado real (2026-11-24): PARCIAL.**
+>
+> **Implementado**
+> - `DataView` dentro del shell común.
+> - Resolución de la spec mediante `GET /artifacts/:id/resolve` y el motor existente de paneles.
+> - Lectura del snapshot más reciente con refetch cada 15 segundos.
+> - Narrativa Markdown y etiqueta de fuente viva.
+> - Reutilización de `PanelResolutionBlocks`, sin duplicar lógica de datos.
+>
+> **Pendiente**
+> - KPI editorial completo, nota metodológica y traza por gráfico con snapshot/fecha.
+> - Modo foco de series, edición local de títulos/etiquetas y formatos.
+> - Panel Design, pruebas con dataset de ejemplo y capturas.
+
 ---
 
 ## Contexto (qué hace Claude Data)

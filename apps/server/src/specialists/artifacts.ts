@@ -1,6 +1,6 @@
 import { familyLock, withFileLock } from "./file-lock.js";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ApiError } from "../errors.js";
@@ -42,6 +42,17 @@ const auditSchema = z.object({
   note: z.string().optional(),
 });
 
+const docCommentSchema = z.object({
+  id: z.string(),
+  quote: z.string().max(2_000),
+  blockId: z.string().max(40).optional(),
+  text: z.string().max(8_000),
+  author: z.enum(["agent", "user"]),
+  resolved: z.boolean(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
 const metadataSchema = z.object({
   workspaceId: z.string(),
   workspaceName: z.string().optional(),
@@ -60,7 +71,13 @@ const metadataSchema = z.object({
     wrap: z.boolean().optional(),
     outline: z.boolean().optional(),
     scrollTo: z.string().max(200).optional(),
+    mode: z.enum(["preview", "edit"]).optional(),
+    search: z.string().max(300).optional(),
+    fullscreen: z.boolean().optional(),
   }).optional(),
+  /** Anchored review notes. They are metadata, not document content, so resolving a comment
+   *  never creates a new content version. */
+  comments: z.array(docCommentSchema).max(200).optional(),
 });
 
 export const artifactMetaSchema = z.object({
@@ -218,6 +235,11 @@ export async function readArtifact(directory: string, id: string): Promise<{ met
   return { meta: meta, content: content.slice(0, 60_000), truncated: content.length > 60_000 };
 }
 
+/** Full content for exports and server-side transforms; the regular read stays bounded for tools. */
+export async function readArtifactFull(directory: string, id: string): Promise<{ meta: ArtifactMeta; content: string }> {
+  return readArtifactRaw(directory, id);
+}
+
 /** Read–modify–write one artifact under the SAME lock used by UI saves. Without
  *  it an agent edit and a debounced UI save could read the same version and the
  *  second write would silently drop the first one. `mutate` receives the full,
@@ -263,6 +285,32 @@ export async function mutateArtifactMetadata(
     await writeIndex(directory, artifacts.map(entry => entry.id === id ? updated : entry));
     return updated;
   });
+}
+
+/** Update title/status/sources/metadata atomically without creating a content version.
+ *  Rename, archive, comments, citations and viewer controls all use this seam. */
+export async function mutateArtifactMeta(
+  directory: string,
+  id: string,
+  mutate: (meta: ArtifactMeta) => ArtifactMeta,
+): Promise<ArtifactMeta> {
+  return withFileLock(familyLock(directory, "artefactos"), async () => {
+    const artifacts = await readIndex(directory);
+    const meta = artifacts.find(entry => entry.id === id);
+    if (!meta) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+    const next = artifactMetaSchema.parse({ ...mutate(meta), updatedAt: Date.now() });
+    await writeFile(join(artifactDir(directory, id), "artifact.json"), JSON.stringify(next, null, 2), { mode: 0o600 });
+    await writeIndex(directory, artifacts.map(entry => entry.id === id ? next : entry));
+    return next;
+  });
+}
+
+/** Permanently remove an artifact and every saved version. Callers must ask explicitly. */
+async function deleteArtifactUnlocked(directory: string, id: string): Promise<void> {
+  const artifacts = await readIndex(directory);
+  if (!artifacts.some(entry => entry.id === id)) throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  await rm(artifactDir(directory, id), { recursive: true, force: true });
+  await writeIndex(directory, artifacts.filter(entry => entry.id !== id));
 }
 
 /** Revert the working content to a saved version, without losing later versions. */
@@ -356,3 +404,6 @@ export const writeArtifact = (...args: Parameters<typeof writeArtifactUnlocked>)
 
 /** Serialized with every other write to this project's artefactos index (see file-lock.ts). */
 export const revertArtifact = (...args: Parameters<typeof revertArtifactUnlocked>) => withFileLock(familyLock(args[0], "artefactos"), () => revertArtifactUnlocked(...args));
+
+/** Serialized with every other write to this project's artefactos index (see file-lock.ts). */
+export const deleteArtifact = (...args: Parameters<typeof deleteArtifactUnlocked>) => withFileLock(familyLock(args[0], "artefactos"), () => deleteArtifactUnlocked(...args));

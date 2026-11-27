@@ -5,6 +5,18 @@
 **Depende de:** `01-docs` (reutiliza bloques y export), `06-temas` (opcional para marca)
 **Estimación sugerida:** 2–3 semanas (MVP) + 2 semanas (editor visual)
 
+> **Estado real (2026-11-24): RENDERER BÁSICO.**
+>
+> **Implementado**
+> - Schema `slides` y renderer mínimo con filmstrip, diapositivas, bloques, notas y `skipped`.
+> - El visor se monta dentro del shell común de artefactos.
+>
+> **Pendiente**
+> - Creación de decks desde Docs/salidas y flujo de usuario completo.
+> - Edición visual, reordenado/duplicado y barra contextual.
+> - Modo presentar con teclado/notas.
+> - Exportación HTML/PDF/PPTX y selector de tema.
+
 ---
 
 ## Contexto (qué hace Claude Slides)

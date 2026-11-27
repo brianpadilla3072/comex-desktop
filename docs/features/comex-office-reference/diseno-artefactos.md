@@ -1,8 +1,9 @@
 # Diseño técnico — Modelo de artefacto y shell tipo Office (issue #1)
 
-> **Estado:** propuesta de diseño para destrabar el épico
-> [`00-epico-artefactos-oficina.md`](issues/00-epico-artefactos-oficina.md). No contiene código de
-> aplicación; las interfaces y los JSON de abajo son contrato, no implementación.
+> **Estado (2026-11-24):** diseño base implementado en `dev` (P0–P4). Las interfaces y JSON de
+> abajo son el contrato original; donde la implementación divergió, este documento lo señala.
+> El épico [`00-epico-artefactos-oficina.md`](issues/00-epico-artefactos-oficina.md) sigue abierto
+> hasta completar criterios, E2E y evidencia visual.
 > **Decisiones guiadas por:** `AGENTS.md` (feature flag, verificación headless), `DESIGN.md`
 > (P1–P11, S1–S7, V1–V7, T3, R6 del §9 de `investigacion.md`),
 > `investigacion.md` §6/§7/§9/§10 e `investigacion-web-funcionalidades.md` §1/§9.
@@ -168,8 +169,8 @@ export type ArtifactContentByType = {
 | Variante | Origen real | Nota |
 |---|---|---|
 | `doc` | `specialist_output_generate` con `kind: report`/`mindmap` (`library-plugin.ts:58-60`) | Markdown + citas `[fuente:<id>#<n>]` |
-| `data` | `specialist_output_generate` con `kind: table` **o** un `specialist_panel_read` | El contenido del panel resuelto se referencia, no se reimplementa |
-| `sheet` | `artifact-spreadsheet-editor.tsx` (ya en `domains/session/artifacts/`) | El motor de celdas ya existe; el shell solo lo enmarca |
+| `data` | una spec de panel sobre `specialist_dataset_*` | El contenido se resuelve con el motor existente, no se reimplementa |
+| `sheet` | salidas `kind: table` convertidas a celdas | Jspreadsheet CE + modelo canónico `{ sheets: [...] }` |
 | `slides`, `board` | nuevos (issues #02, #04) | heredan el shell; no heredan el editor de texto rico |
 
 ### 1.3Esquema JSON de persistencia
@@ -298,10 +299,11 @@ Archivos nuevos propuestos, todos bajo
   `activeTab` (`:874-902`), junto a `browser`, `mcp-app`, `remote-thread`, `app` y `artifact`.
   En el estado "sin tab activa" sigue mandando `ComexProjectPanel` (`:864-867`), que es el hub que
   hoy muestra salidas y paneles.
-- **Puente explícito, nunca automático.** En `OutputsView` (`library-dialog.tsx:714-751`) y
-  `OutputDetail` (`:753-777`), la fila pasa de `Ver`/`Ocultar` a `Ver` + `Abrir en el panel`, que
-  llama `usePanelTabStore.getState().openTab(sessionId, { type: "studio", artifactId })`. Esto
-  respeta S5 y R6: una salida *ofrece* abrir; no secuestra el foco ni abre sola.
+- **Apertura automática para tablas nuevas (decisión posterior del usuario).** El diseño original
+  proponía un botón “Abrir en el panel”. La implementación vigente eliminó ese botón: al aparecer
+  una salida `table` nueva del workspace activo, `provider.tsx` crea el `SheetArtifact` y pide la
+  pestaña `studio`. Los artefactos existentes también se abren desde Resultados. Esta excepción
+  reemplaza la regla R6 original para ese flujo.
 - **El diálogo puede cerrarse al abrir el artefacto** (es un acto del usuario); el hilo de chat y
   el `SidePanel` permanecen. No se pierde el objeto al volver: la tab `studio` queda en el store.
 - **El `artifact-panel.tsx` actual NO se toca**: resuelve `OpenTarget` (archivos/Markdown/PDF/
@@ -312,11 +314,11 @@ Archivos nuevos propuestos, todos bajo
 
 | Tipo | Renderer | Reutiliza |
 |---|---|---|
-| `doc` | `views/doc-view.tsx` | `MarkdownPreview` de `apps/.../session/artifacts/preview` (ya usado en `OutputBody:783`), columna de lectura `max-w-[68ch]`, sin `max-h` |
-| `data` | `views/data-view.tsx` | resolución de `specialist_panel_read`; bloques KPI/narrativa/nota al pie del §4.5 |
-| `sheet` | `views/sheet-view.tsx` | `artifact-spreadsheet-editor.tsx` existente + barra adaptativa del patrón 5 |
-| `slides` | `views/slides-view.tsx` | filmstrip + slide activa; **sin** zoom/presentador completo |
-| `board` | `views/board-view.tsx` | nodos/ejes del schema; sin canvas infinito |
+| `doc` | `views/doc-view.tsx` | visor nativo Markdown/MDX, edición, búsqueda, índice, zoom, tema, pantalla completa, comentarios y fuentes/citas; sin iframe ni red |
+| `data` | `views/data-view.tsx` | `resolveArtifact` + `PanelResolutionBlocks`; snapshot vivo cada 15 s |
+| `sheet` | `views/jspreadsheet-view.tsx` | Jspreadsheet CE + barra `fx` propia; la decisión original de Univer no se implementó |
+| `slides` | `views/slides-view.tsx` | filmstrip + lista de diapositivas; **sin** editor/presentador completo |
+| `board` | `views/board-view.tsx` | lista mínima de nodos/conectores; Excalidraw todavía no está integrado |
 
 Regla transversal (R1): el scroll es **del panel**, nunca un `max-h-80` dentro de otro scroll.
 Los estados del §States de `DESIGN.md` (cargando con skeleton de la forma, vacío, error, bloqueado,
@@ -362,8 +364,8 @@ sin auditoría, auditoría rota, exportado) se diseñan en el shell, no en cada 
   de tab y a la recarga.
 - Al salir de foco se devuelve el foco al control que lo pidió (S7); `Esc` cierra popovers y
   barras contextuales, no el artefacto (el cierre es acción explícita del header).
-- Nada de esto auto-navega ni roba foco (S5): `Mostrar chat` y `Abrir en el panel` son acciones
-  del usuario.
+- `Mostrar chat` sigue siendo una acción del usuario. La apertura automática de tablas nuevas es
+  una excepción posterior y explícita; no auto-navega a otra sesión ni cambia el proyecto.
 
 ### 3.4Acciones por tipo (R9)
 
@@ -382,22 +384,22 @@ sin auditoría, auditoría rota, exportado) se diseñan en el shell, no en cada 
 
 ## 4. Feature flag
 
-**Nombre propuesto:** `comexArtifacts` (clave del registro en `packages/features/src/registry.ts`).
-Se activa con `DEN_FEATURE_COMEX_ARTIFACTS=true` (convención `DEN_FEATURE_<KEY>` documentada en
-`registry.ts:31`) y por defecto **`false`**: es comportamiento visible nuevo, así que `AGENTS.md`
-obliga a ponerlo detrás de flag; el apagado debe devolver al flujo actual (diálogo + caja + tabs
-existentes) sin deploy.
+**Nombre implementado:** `comexArtifacts` (clave del registro en `packages/features/src/registry.ts`).
+Está **activo por defecto en self-hosted**, sigue apagado en cloud y el operador puede forzarlo con
+`DEN_FEATURE_COMEX_ARTIFACTS=false`. El apagado debe devolver al flujo anterior sin deploy. El
+`default: false` que figuraba en la propuesta original quedó sustituido por decisión posterior del
+usuario.
 
 Puntos de activación (todos, no solo la UI):
 
 | # | Archivo | Cambio |
 |---|---|---|
-| 1 | `packages/features/src/registry.ts` | entrada `comexArtifacts`: `label`, `description`, `category: "experience"`, `added: "2026-11-17"`, `since: "2026-11"`, `author`, `docs: "docs/features/comex-office-reference/README.md"`, `deployments: ["self_hosted"]`, `default: false` |
+| 1 | `packages/features/src/registry.ts` | entrada `comexArtifacts` con `deployments: ["self_hosted"]` y `default: true` (estado vigente) |
 | 2 | `apps/server/src/comex/features.ts` | `comexArtifactsEnabled()` con `resolveFeature("comexArtifacts", ...)`, mismo patrón que `comexScopedMemoryEnabled()` (`:60-64`) |
 | 3 | `apps/server/src/routes/core.ts:152` | añadir `comexArtifacts: comexArtifactsEnabled()` a la respuesta de `GET /comex/features` |
 | 4 | `apps/app/src/app/lib/openwork-server.ts:2621` | añadir `comexArtifacts?: boolean` al tipo de `getComexFeatures()` |
 | 5 | `apps/app/src/react-app/domains/session/comex/use-comex-feature.ts` | exponer `useComexArtifactsFeature(client)` (o extender el hook con el campo). `useQuery` con la misma key `["comex-feature", client.baseUrl]` y `staleTime: 15_000`; **no** crear una query nueva |
-| 6 | `apps/app/src/react-app/domains/specialists/provider.tsx:116` y `library-dialog.tsx` | pasar el flag al diálogo para mostrar `Abrir en el panel` solo si está on |
+| 6 | `apps/app/src/react-app/domains/specialists/provider.tsx` y `session-page.tsx` | detectar salidas `table` nuevas, crear el artefacto y abrir la pestaña `studio` |
 | 7 | `side-panel.tsx` | registrar la rama `studio` solo si el flag está on; apagado = tabs y dispatcher actuales intactos |
 | 8 | `apps/server/src/specialists/library-tool-api.ts` / `library-plugin.ts` | las herramientas que producen esquemas de artefacto también se gatean en servidor (defensa en profundidad) |
 
@@ -436,8 +438,9 @@ antes que cualquier render. `P0` destraba el issue #1; los bloques posteriores s
 ### P2 — Shell (issue #1; lo consumen #05, #03, #02, #04)
 
 11. `apps/app/src/react-app/domains/artifacts/shell/studio-artifact-shell.tsx` (**nuevo**).
-12. `.../shell/artifact-header.tsx`, `artifact-status-strip.tsx`, `artifact-context-bar.tsx`,
-    `artifact-dock.tsx`, `artifact-body.tsx` (**nuevos**).
+12. `.../shell/artifact-header.tsx`, `artifact-context-bar.tsx`, `artifact-body.tsx` y
+    `studio-artifact-shell.tsx`. **Desviación:** la franja de metadatos y el dock inferior se
+    eliminaron; las acciones viven en el header.
 13. `apps/app/src/react-app/domains/artifacts/views/doc-view.tsx` (**nuevo**) — primer renderer;
     reutiliza `MarkdownPreview`.
 14. `apps/app/src/react-app/domains/artifacts/state/artifact-store.ts` (**nuevo**) — store de refs
@@ -453,9 +456,9 @@ antes que cualquier render. `P0` destraba el issue #1; los bloques posteriores s
     `studio` desde una salida.
 17. `apps/app/src/react-app/domains/session/panel/side-panel.tsx` — rama `activeTab?.type === "studio"`
     en el dispatcher (`:874-902`) + gate del flag (`:622` ya trae `useComexFeature`).
-18. `apps/app/src/react-app/domains/specialists/library-dialog.tsx` — `OutputsView`/`OutputDetail`
-    añaden `Abrir en el panel`; la auditoría pasa de párrafo (`:770-775`) a llave
-    `metadata.audit` del artefacto.
+18. `apps/app/src/react-app/domains/specialists/provider.tsx` y `session-page.tsx` — apertura
+    automática de salidas `table` nuevas y consumo de `requestedArtifactTab`. El botón manual
+    propuesto fue eliminado por decisión del usuario.
 19. `apps/app/tests/specialist-outputs-ui.test.tsx` (**nuevo o existente**) — flujo de apertura.
 
 ### P4 — Split y foco (issue #1 + Fase 3 de `investigacion.md`)
@@ -474,8 +477,8 @@ antes que cualquier render. `P0` destraba el issue #1; los bloques posteriores s
     `--chart-*`; sin hex.
 24. issue **#05** (Data): `views/data-view.tsx`, sobre `specialist_panel_read` — depende de P2.
 25. issue **#04** (Board): `views/board-view.tsx` — depende de P2 y #06.
-26. issue **#03** (Sheets): `views/sheet-view.tsx` sobre `artifact-spreadsheet-editor.tsx` —
-    depende de P2.
+26. issue **#03** (Sheets): `views/jspreadsheet-view.tsx` sobre Jspreadsheet CE + barra `fx`
+    propia — depende de P2. Univer quedó solo como spike.
 27. issue **#02** (Slides): `views/slides-view.tsx` — depende de P2 y #06.
 
 **Matriz de dependencias:**
@@ -511,12 +514,14 @@ aceptación del épico. Ningún sub-issue puede empezar antes de P2.
 
 | Nivel | Archivo | Casos |
 |---|---|---|
-| Flag | `apps/server/test/comex-workspace.test.ts` | `comexArtifacts` default false; `DEN_FEATURE_COMEX_ARTIFACTS=true` habilita; ruta `/comex/features` devuelve el campo; rutas de artefacto devuelven 404 con flag off |
-| Registry | `packages/features/src/resolve.test.ts` | la nueva clave aparece en `FEATURE_KEYS`, pasa `featureKeySchema` y respeta `default: false` |
-| Persistencia | `apps/server/test/artifacts.test.ts` | escritura atómica de `artifact.json`/`index.json`; validación Zod por tipo; `contentRef` roto falla en voz alta; auditoría calculada en servidor con citas rotas; `draft` no pisa `saved` |
-| Rutas | `apps/server/test/artifacts-routes.test.ts` | GET/POST/PUT con `workspace` query, patrón de `specialist-outputs-routes.test.ts` |
-| Store de tabs | `apps/app/tests/...` (nuevo, estilo `panel-tab-store` tests) | `openTab({type:"studio"})`, `isSameTab`, `closeTab` conserva el hilo, `partialize`/`merge` restaura la tab `studio` y no resucita un `artifactId` borrado |
-| UI de salidas | `apps/app/tests/specialist-outputs-ui.test.tsx` | `Abrir en el panel` visible solo con flag on; no auto-apertura (S5); el chat mantiene scroll y selección al alternar |
+| Flag | `apps/server/test/comex-artifacts.test.ts` | `comexArtifacts` default true en self-hosted; `DEN_FEATURE_COMEX_ARTIFACTS=false` bloquea; cloud sigue off |
+| Registry | `packages/features/src/resolve.test.ts` | la clave aparece en `FEATURE_KEYS`, pasa `featureKeySchema` y respeta el default vigente |
+| Persistencia | `apps/server/test/artifacts.test.ts` | versiones inmutables, deduplicación, reversión, validación y conversión de tablas a hoja |
+| Rutas | `apps/server/test/artifacts*.test.ts` | resolución, búsqueda y validación de artefactos con workspace |
+| Store de tabs | tests de `panel-tab-store` y `session-resources-artifacts` | apertura/cierre de `studio`, persistencia y mapeo de visores |
+| UI de salidas | `apps/app/tests/specialist-outputs-ui.test.tsx` | una salida `table` nueva se abre sola; sin artefactos no se abre nada |
+| Sheets | `apps/app/tests/jspreadsheet-view-*.test.tsx` | nombre, crecimiento, fórmulas, menús y remontaje sin duplicar la grilla |
+| Docs | `apps/server/test/doc-tools.test.ts` y tests del visor | create/read/write/find/export/versions/view y render Markdown/MDX |
 | UI del shell | `apps/app/tests/artifact-shell.test.tsx` (**nuevo**) | header fijo; `max-h` ausente en el cuerpo; chips de auditoría `12/12` y ruta rota; dock cambia por tipo; `Mostrar chat` / `Maximizar` alterna y restaura ratio; estados skeleton/empty/error/exportado |
 | Flotantes | `apps/app/tests/floating-surface-guard.test.ts` (existente) | `Compartir/Exportar` y la barra contextual usan primitivas Base UI; cierran con `Esc`, devuelven foco, no posicionan a mano |
 | Paneles (regresión) | `apps/app/tests/specialist-panels-ui.test.tsx`, `specialist-datasets-ui.test.tsx` | siguen pasando sin cambios: ningún renderer nuevo reemplaza los bloques deterministas |
@@ -574,17 +579,17 @@ Criterio de salida: `pnpm test:comex` verde + screenshots de los estados tocados
 | Hex o serif importada de Claude | R3/R11: tokens `--dls-*` y `--chart-*`, system stack; checklist de `DESIGN.md` |
 | Confidencialidad (`AGENTS.md`) | Ningún fixture, nombre de cliente ni ticket externo en tests/specs/screenshots; usar IDs internos |
 | Over-engineering (suite Office) | R10: `slides`/`board` solo render acotado; sin presentador completo, sin canvas infinito, sin panel Design de 4 formatos |
-| Auto-apertura al generar | S5/R6: la tarjeta ofrece `Abrir en el panel`; `createArtifact` no llama a `openTab` |
+| Auto-apertura al generar | Decisión posterior: solo salidas `table` nuevas del workspace activo se abren solas; los artefactos existentes se abren desde Resultados |
 
 ---
 
 ## Criterios de aceptación derivados (para el issue #1)
 
-- [ ] `Artifact` con esquema versionado y persistencia en `<datos>/artefactos/`, detrás de `comexArtifacts`.
-- [ ] Un `report` de 20 KB se lee con un solo scroll del panel, sin `max-h` interno.
-- [ ] El shell se reutiliza en `doc` y en `data` (render sobre panel determinista).
-- [ ] `Abrir en el panel` desde `OutputsView` conserva el hilo y el scroll del chat.
-- [ ] `Mostrar chat` / `Maximizar` alterna split y foco restaurando el ratio previo.
+- [x] `Artifact` con esquema versionado y persistencia en `<datos>/artefactos/`, detrás de `comexArtifacts`.
+- [x] Un `report` se lee en el panel sin `max-h` interno.
+- [x] El shell se reutiliza en `doc` y en `data` (render sobre panel determinista).
+- [x] La apertura de artefactos conserva el hilo y el scroll del chat.
+- [x] `Mostrar chat` / `Maximizar` alterna split y foco restaurando el ratio previo.
 - [ ] `12/12 citas` visible como chip con detalle a un clic; sin párrafo explicativo.
-- [ ] Exportar `.md`/`.csv` produce el contenido completo, en un clic.
+- [x] Exportar `.md`/`.csv` produce el contenido completo, en un clic para los tipos que lo implementan.
 - [ ] `pnpm test:comex` verde; screenshots de los estados tocados adjuntos al PR.

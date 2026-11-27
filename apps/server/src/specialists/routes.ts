@@ -28,7 +28,8 @@ import { deleteDataset, listDatasets, listSnapshotDates, readLatestSnapshot, reg
 import { refreshDatasetThroughResearch } from "./datasets-refresh.js";
 import { deletePanel, listPanels, panelBodySchema, readPanelSpec, resolvePanel, resolvePanelSpec, writePanel } from "./panels.js";
 import { auditOutputCitations, deleteOutput, listOutputs, outputKindSchema, readOutput, writeOutput } from "./outputs.js";
-import { artifactMetaSchema, artifactTypeSchema, createArtifactFromOutput, listArtifacts, readArtifact, revertArtifact, writeArtifact } from "./artifacts.js";
+import { artifactMetaSchema, artifactTypeSchema, createArtifactFromOutput, deleteArtifact, listArtifacts, mutateArtifactMetadata, readArtifact, readArtifactFull, revertArtifact, writeArtifact } from "./artifacts.js";
+import { exportDoc, safeDocFileName } from "./doc-export.js";
 import { ensureChunks, listSources, readCitation, registerLocalSource } from "./sources.js";
 import { listWorkspaceResources, saveWorkspaceResource, workspaceResourceInputSchema } from "./workspace-resources.js";
 import { currentSpecialistScheduler } from "./scheduler.js";
@@ -713,6 +714,51 @@ export function registerSpecialistRoutes(options: {
       if (!found) continue;
       const result = await readArtifact(target.workspacePath, found.id);
       return jsonResponse({ ...result, meta: { ...result.meta, metadata: { ...result.meta.metadata, workspaceId: target.workspaceId, workspaceName: workspaceName(target) } }, workspaceId: target.workspaceId, workspaceName: workspaceName(target) });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+  addRoute(routes, "PATCH", "/specialist-applications/:id/artifacts/:artifactId/metadata", "host", async ctx => {
+    requireArtifacts(true);
+    const body = await readJsonBody(ctx.request);
+    const parsed = z.object({ metadata: artifactMetaSchema.shape.metadata }).safeParse(body);
+    if (!parsed.success) throw new ApiError(422, "invalid_artifact", "Los metadatos del artefacto no son válidos.");
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      const meta = await mutateArtifactMetadata(target.workspacePath, found.id, () => parsed.data.metadata);
+      return jsonResponse({ meta, workspaceId: target.workspaceId });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+  addRoute(routes, "GET", "/specialist-applications/:id/artifacts/:artifactId/export", "client", async ctx => {
+    requireArtifacts();
+    const format = ctx.url.searchParams.get("format");
+    if (format !== "md" && format !== "mdx" && format !== "html" && format !== "docx" && format !== "pdf") {
+      throw new ApiError(422, "invalid_artifact_export", "Elegí md, mdx, html, docx o pdf.");
+    }
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      if (found.type !== "doc") throw new ApiError(422, "not_a_doc", "Esta exportación es solo para documentos.");
+      const artifact = await readArtifactFull(target.workspacePath, found.id);
+      const exported = await exportDoc(target.workspacePath, artifact.meta.title, artifact.content, format);
+      return new Response(new Uint8Array(exported.bytes), {
+        headers: {
+          "Content-Type": exported.mime,
+          "Content-Disposition": `attachment; filename="${safeDocFileName(artifact.meta.title, exported.extension)}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
+  });
+  addRoute(routes, "DELETE", "/specialist-applications/:id/artifacts/:artifactId", "host", async ctx => {
+    requireArtifacts(true);
+    for (const target of await datasetWorkspaces(ctx.params.id, ctx.url.searchParams.get("workspace"))) {
+      const found = (await listArtifacts(target.workspacePath)).find(entry => entry.id === ctx.params.artifactId);
+      if (!found) continue;
+      await deleteArtifact(target.workspacePath, found.id);
+      return jsonResponse({ deleted: found.id });
     }
     throw new ApiError(404, "artifact_not_found", "Ese artefacto no existe.");
   });

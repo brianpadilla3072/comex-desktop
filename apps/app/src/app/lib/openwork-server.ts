@@ -30,7 +30,7 @@ import type { DenResourceSnapshot } from "./den-types";
 import type { CloudImportedMarketplace, CloudImportedPlugin, CloudImportedProvider } from "../cloud/import-state";
 import { desktopFreeAccessStatusSchema } from "./inference-access";
 import { claudeImportItemsSchema, claudeImportResultsSchema } from "./claude-import";
-import type { ArtifactBase, ArtifactRecord, ArtifactSourceRef, ArtifactStatus, ArtifactType } from "../../react-app/domains/artifacts/types";
+import type { ArtifactBase, ArtifactMetadata, ArtifactRecord, ArtifactSourceRef, ArtifactStatus, ArtifactType } from "../../react-app/domains/artifacts/types";
 
 const desktopFreePreferencesSchema = z.object({ enabled: z.boolean(), available: z.boolean(), canEnable: z.boolean(), refresh: z.enum(["reloaded", "deferred"]).optional() });
 export type DesktopFreePreferences = z.infer<typeof desktopFreePreferencesSchema>;
@@ -2851,6 +2851,8 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     createArtifactFromOutput: (id: string, outputId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/from-output/${encodeURIComponent(outputId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: {}, timeoutMs: 60_000 }),
     createArtifact: (id: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; sources?: ArtifactSourceRef[]; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body, timeoutMs: 60_000 }),
     saveArtifactVersion: (id: string, artifactId: string, body: { type: ArtifactType; title: string; content: string; status?: ArtifactStatus; label?: string }, workspaceId?: string) => requestJson<{ meta: ArtifactBase; created: boolean }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "PUT", body, timeoutMs: 60_000 }),
+    saveArtifactMetadata: (id: string, artifactId: string, metadata: ArtifactMetadata, workspaceId?: string) => requestJson<{ meta: ArtifactBase }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/metadata${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "PATCH", body: { metadata }, timeoutMs: 60_000 }),
+    exportArtifact: (id: string, artifactId: string, format: "md" | "mdx" | "html" | "docx" | "pdf", workspaceId?: string) => requestBinary(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/export?format=${encodeURIComponent(format)}${workspaceId ? `&workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, timeoutMs: 60_000 }),
     revertArtifact: (id: string, artifactId: string, versionId: string, workspaceId?: string) => requestJson<{ meta: ArtifactBase }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/revert${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken, method: "POST", body: { versionId }, timeoutMs: 60_000 }),
     resolveArtifact: (id: string, artifactId: string, workspaceId?: string) => requestJson<{ spec: SpecialistPanelSpec; resolution: SpecialistPanelResolution }>(baseUrl, `/specialist-applications/${encodeURIComponent(id)}/artifacts/${encodeURIComponent(artifactId)}/resolve${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`, { token, hostToken }),
     getComexCheckpoint: (workspaceId: string, sessionId: string) => requestJson<ComexCheckpointState>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/continuity/${encodeURIComponent(sessionId)}`, { token, hostToken }),
@@ -3052,10 +3054,17 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
     browserWebView: async (workspaceId: string, body: BrowserWebRequest, signal?: AbortSignal) => browserWebReplySchema.parse(await requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/browser/view`, { token, hostToken, method: "POST", body, signal, timeoutMs: 20000 })),
 
     // Pairing other devices (docs/features/remote-device-pairing). Redeeming needs no token: the
-    // one-time code is the credential.
-    getPairingStatus: () => requestJson<{ enabled: boolean }>(baseUrl, "/pairing/status", { timeoutMs: timeouts.config }),
+    // one-time code or configured reusable code is the credential.
+    getPairingStatus: () => requestJson<{
+      enabled: boolean;
+      remoteCodeEnabled: boolean;
+      remoteCodeConfigured: boolean;
+      remoteCodeSource: "stored" | "development" | "none";
+    }>(baseUrl, "/pairing/status", { timeoutMs: timeouts.config }),
     createPairingCode: () => requestJson<{ code: string; expiresAt: number }>(baseUrl, "/pairing/codes", { method: "POST", token, hostToken, timeoutMs: timeouts.config }),
     cancelPairingCode: () => requestJson<{ ok: true }>(baseUrl, "/pairing/codes", { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
+    createRemotePairingCode: (code?: string) => requestJson<{ code: string; createdAt: number }>(baseUrl, "/pairing/remote-code", { method: "POST", body: code === undefined ? {} : { code }, token, hostToken, timeoutMs: timeouts.config }),
+    deleteRemotePairingCode: () => requestJson<{ ok: true }>(baseUrl, "/pairing/remote-code", { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),
     redeemPairingCode: (code: string, deviceName: string) => requestJson<{ id: string; token: string; scope: "owner"; deviceName: string }>(baseUrl, "/pairing/redeem", { method: "POST", body: { code, deviceName }, timeoutMs: timeouts.config }),
     listPairedDevices: () => requestJson<{ items: Array<{ id: string; name: string; createdAt: number }> }>(baseUrl, "/pairing/devices", { token, hostToken, timeoutMs: timeouts.config }),
     revokePairedDevice: (id: string) => requestJson<{ ok: true }>(baseUrl, `/pairing/devices/${encodeURIComponent(id)}`, { method: "DELETE", token, hostToken, timeoutMs: timeouts.config }),

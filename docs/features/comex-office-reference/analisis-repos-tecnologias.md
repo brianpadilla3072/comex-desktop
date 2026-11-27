@@ -3,6 +3,11 @@
 > **Fecha:** 2026-11-16  
 > **Objetivo:** identificar repos/tecnologías integrables para acercar Comex a las funcionalidades y diseño investigados (Docs, Slides, Sheets, Whiteboard, Data) con el menor tiempo posible, y definir cómo darle a Comex la capacidad de usarlos.  
 > **Base:** `investigacion-web-funcionalidades.md`, `investigacion.md`, stack actual de Comex.
+>
+> **Nota de implementación (2026-11-24):** este análisis es histórico. La recomendación de
+> Univer para Sheets no es el stack vigente: el código usa Jspreadsheet CE y un evaluador propio
+> para herramientas del agente. Ver `matriz-decisiones.md` y `issues/03-sheets.md` antes de tomar
+> una decisión nueva.
 
 ## 1. Contexto y restricciones de Comex (stack actual)
 

@@ -15,6 +15,7 @@ import { createOpenworkServerClient, type OpenworkServerClient, type SpecialistA
 import { pickDirectory, workspaceSetRuntimeActive, workspaceSetSelected } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { resolveOpenworkConnection } from "@/react-app/shell/openwork-connection";
+import { useRemotePairingSetupPending } from "@/react-app/shell/remote-pairing-setup-state";
 import { useComexArtifactsFeature } from "../session/comex/use-comex-feature";
 import { useArtifactUiStore } from "../artifacts/state/artifact-store";
 import { SpecialistIntegrationsDialog } from "./integrations-dialog";
@@ -60,6 +61,8 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   const returnTo = useRef<string | null>(null);
   const [projectName, setProjectName] = useState("");
   const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem("specialists.onboarding-dismissed") === "1"; } catch { return false; } });
+  const remotePairingSetupPending = useRemotePairingSetupPending();
+  const autoOpenedApplicationForm = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One client per connection. A new client on every 15 s refetch made the query data new each
@@ -127,9 +130,19 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
   }, [outputsQuery.data, query.data?.client, active, workspaceId]);
 
   useEffect(() => {
+    // First-run remote access and application creation are separate decisions. Never stack their
+    // dialogs: finish or skip remote setup first, then open the application form.
+    if (remotePairingSetupPending && autoOpenedApplicationForm.current) {
+      autoOpenedApplicationForm.current = false;
+      setForm(current => current === "create" ? null : current);
+    }
+    if (remotePairingSetupPending || form) return;
     // Never open a form this connection cannot submit (a browser session only reads).
-    if (catalog?.enabled && catalog.writable !== false && !catalog.user && !catalog.applications.length && !dismissed) setForm(current => current ?? "create");
-  }, [catalog, dismissed]);
+    if (catalog?.enabled && catalog.writable !== false && !catalog.user && !catalog.applications.length && !dismissed) {
+      autoOpenedApplicationForm.current = true;
+      setForm("create");
+    }
+  }, [catalog, dismissed, form, remotePairingSetupPending]);
   useEffect(() => {
     const refresh = () => { void query.refetch(); };
     window.addEventListener("openwork-server-settings-changed", refresh);
@@ -141,6 +154,7 @@ export function SpecialistApplicationsProvider({ children }: { children: ReactNo
     return () => { document.title = previous; };
   }, [active?.name]);
   function closeForm() {
+    autoOpenedApplicationForm.current = false;
     setForm(null); setDismissed(true); returnTo.current = null;
     try { localStorage.setItem("specialists.onboarding-dismissed", "1"); } catch {}
   }

@@ -1564,6 +1564,7 @@ await applyDesktopFreeBuildSettings({ appVersion: resolveAppVersion(app) });
 const runtimeManager = createRuntimeManager({
   app,
   desktopRoot: path.resolve(__dirname, ".."),
+  desktopWebRoot: desktopWebRoot(),
   listLocalWorkspacePaths: () => workspaceStore.listLocalWorkspacePaths(),
   // This callback stays in Electron's main process. Engine tools and shell
   // commands cannot approve a Drive write by replaying a token or HTTP reply.
@@ -2096,11 +2097,14 @@ function applyNativeTheme(mode) {
   return true;
 }
 
+function desktopWebRoot() {
+  return app.isPackaged ? path.join(process.resourcesPath, "app-dist") : path.resolve(__dirname, "../../app/dist");
+}
+
 async function resolveStandaloneWebUrl() {
   const info = await runtimeRef.current?.openworkServerInfo?.();
   if (desktopLocalWebEnabled() && runtimeRef.current?.enableDesktopWeb) {
-    const root = app.isPackaged ? path.join(process.resourcesPath, "app-dist") : path.resolve(__dirname, "../../app/dist");
-    await runtimeRef.current.enableDesktopWeb(root);
+    await runtimeRef.current.enableDesktopWeb(desktopWebRoot());
   }
   return resolveWebAppUrl({
     serverUrl: typeof info?.baseUrl === "string" ? info.baseUrl : null,

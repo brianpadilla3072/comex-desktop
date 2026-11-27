@@ -35,6 +35,8 @@ export type BrowserPanelTab = {
     | { code: "page_load_failed" | "blocked_by_organization"; message: string; url: string; errorCode: number; errorDescription: string }
     | null;
   browserTask?: { status: "idle" | "running" | "paused" | "needs_attention"; operation: string | null };
+  /** App link already handed to the main window; this tab has no page to observe. */
+  appSessionHandoff?: string | null;
   /** Set while the agent controls the tab: the fixed size it lays out at and how far it is scaled to fit. */
   agentViewport?: { key: AgentViewportKey; width: number; height: number; scale: number } | null;
   siteToolCount: number;
@@ -80,6 +82,8 @@ export type OpenBrowserUrlResult = {
   target_id: string;
   tab_id: string;
   url: string;
+  /** Set when the link was handed to the main window; the tab holds no page to observe. */
+  handoff?: boolean;
   owner_session_id: string | null;
   /** False when the tab loads silently for a conversation that is not on screen. */
   visible: boolean;

@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readArtifact, writeArtifact } from "../src/specialists/artifacts.js";
 import { runDocTool } from "../src/specialists/doc-tools.js";
 import { docFind, docOutline, docWrite } from "../src/specialists/doc-model.js";
+import { writeOutput } from "../src/specialists/outputs.js";
+import { registerLocalSource } from "../src/specialists/sources.js";
 
 async function workspace() {
   const root = await mkdtemp(join(tmpdir(), "doc-tools-"));
@@ -130,4 +132,95 @@ test("pure doc helpers handle outlines, searches and writes without I/O", () => 
   assert.equal(docWrite("# T\n\ntexto", "append", undefined, "extra"), "# T\n\ntexto\n\nextra\n");
   assert.equal(docWrite("# T", "replace", undefined, "otra cosa"), "otra cosa");
   assert.equal(docWrite("# T", "replace", undefined, "# T"), null);
+});
+
+test("document creation adds a missing title and block/format tools edit real content", async () => {
+  const root = await workspace();
+  try {
+    const created = await runDocTool(root, "specialist_doc_create", { title: "Borrador", content: "Texto inicial." }) as { artifactId: string };
+    const id = created.artifactId;
+    const exported = await runDocTool(root, "specialist_doc_export", { artifactId: id, format: "md" }) as { content: string };
+    assert.match(exported.content, /^# Borrador/);
+
+    const blocks = await runDocTool(root, "specialist_doc_blocks", { artifactId: id, action: "list" }) as { blocks: Array<{ id: string; type: string }> };
+    assert.deepEqual(blocks.blocks.map(block => block.type), ["heading", "paragraph"]);
+    await runDocTool(root, "specialist_doc_blocks", { artifactId: id, action: "insert", position: "end", content: "## Anexo\n\nSoja." });
+    await runDocTool(root, "specialist_doc_format", { artifactId: id, query: "Soja", style: "bold" });
+    const final = await runDocTool(root, "specialist_doc_export", { artifactId: id, format: "md" }) as { content: string };
+    assert.match(final.content, /\*\*Soja\*\*/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("rename, comments and viewer controls update metadata without content versions", async () => {
+  const root = await workspace();
+  try {
+    const id = await newDoc(root);
+    const before = await readArtifact(root, id);
+    await runDocTool(root, "specialist_doc_rename", { artifactId: id, title: "Informe renombrado" });
+    const comments = await runDocTool(root, "specialist_doc_comments", { artifactId: id, action: "add", quote: "Soja 2024.", text: "Verificar la cifra." }) as { comments: Array<{ id: string }> };
+    const commentId = comments.comments[0]!.id;
+    await runDocTool(root, "specialist_doc_comments", { artifactId: id, action: "resolve", commentId, resolved: true });
+    await runDocTool(root, "specialist_doc_view", { artifactId: id, mode: "edit", search: "Soja", fullscreen: true });
+    const after = await readArtifact(root, id);
+    assert.equal(after.meta.title, "Informe renombrado");
+    assert.equal(after.meta.versions.length, before.meta.versions.length);
+    assert.equal(after.content, before.content);
+    assert.equal(after.meta.metadata.comments?.[0]?.resolved, true);
+    assert.equal(after.meta.metadata.viewer?.mode, "edit");
+    assert.equal(after.meta.metadata.viewer?.fullscreen, true);
+    await runDocTool(root, "specialist_doc_view", { artifactId: id, action: "reset" });
+    const reset = await readArtifact(root, id);
+    assert.equal(reset.meta.metadata.viewer?.mode, "preview");
+    assert.equal(reset.meta.metadata.viewer?.search, "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("citations can be associated, inserted and audited against real sources", async () => {
+  const root = await workspace();
+  try {
+    await writeFile(join(root, "proyecto", "evidencia.txt"), "La soja creció 12% en 2024. Fuente: informe oficial.");
+    const source = await registerLocalSource(root, { path: "proyecto/evidencia.txt", title: "Informe oficial" });
+    const id = await newDoc(root);
+    await runDocTool(root, "specialist_doc_citations", { artifactId: id, action: "add", sourceId: source.id, label: source.title });
+    await runDocTool(root, "specialist_doc_citations", { artifactId: id, action: "insert", sourceId: source.id, chunk: 0, query: "Soja 2024." });
+    const audit = await runDocTool(root, "specialist_doc_citations", { artifactId: id, action: "audit" }) as { audit: { total: number; valid: number } };
+    assert.equal(audit.audit.total, 1);
+    assert.equal(audit.audit.valid, 1);
+    const exported = await runDocTool(root, "specialist_doc_export", { artifactId: id, format: "md" }) as { content: string };
+    assert.match(exported.content, new RegExp(`\\[fuente:${source.id}#0\\]`));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("documents import from project files, public URLs and mini-Studio outputs", async () => {
+  const root = await workspace();
+  try {
+    await writeFile(join(root, "proyecto", "entrada.md"), "# Entrada\n\nContenido local.");
+    const local = await runDocTool(root, "specialist_doc_import", { sourceKind: "path", path: "proyecto/entrada.md" }) as { artifactId: string };
+    assert.equal((await readArtifact(root, local.artifactId)).meta.title, "entrada");
+
+    const web = await runDocTool(root, "specialist_doc_import", { sourceKind: "url", url: "https://example.com/informe.md", title: "Informe web" }, {
+      fetch: (async () => new Response("# Web\n\nTexto público.", { headers: { "content-type": "text/markdown" } })) as typeof fetch,
+      lookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never,
+    }) as { artifactId: string };
+    assert.match((await readArtifact(root, web.artifactId)).content, /Texto público/);
+    await rejectsCode(runDocTool(root, "specialist_doc_import", { sourceKind: "url", url: "https://127.0.0.1/privado" }), "invalid_doc_import_url");
+
+    const output = await writeOutput(root, { kind: "table", title: "Ventas", content: JSON.stringify([{ Producto: "Soja", Valor: 10 }]) });
+    const imported = await runDocTool(root, "specialist_doc_import", { sourceKind: "output", outputId: output.output.id }) as { artifactId: string };
+    assert.match((await readArtifact(root, imported.artifactId)).content, /\| Producto \| Valor \|/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("PDF and Word exports save real files and delete requires explicit confirmation", async () => {
+  const root = await workspace();
+  try {
+    const id = await newDoc(root);
+    const pdf = await runDocTool(root, "specialist_doc_export", { artifactId: id, format: "pdf", path: "proyecto/entregas/informe.pdf" }) as { path: string; bytes: number };
+    assert.equal((await readFile(join(root, pdf.path))).subarray(0, 5).toString(), "%PDF-");
+    const docx = await runDocTool(root, "specialist_doc_export", { artifactId: id, format: "docx", path: "proyecto/entregas/informe.docx" }) as { path: string };
+    assert.equal((await readFile(join(root, docx.path))).subarray(0, 2).toString(), "PK");
+    await rejectsCode(runDocTool(root, "specialist_doc_delete", { artifactId: id, mode: "delete" }), "doc_delete_confirm_required");
+    await runDocTool(root, "specialist_doc_delete", { artifactId: id, mode: "delete", confirm: true });
+    await rejectsCode(readArtifact(root, id), "artifact_not_found");
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { parseFeatureEnvironment, resolveFeature } from "@openwork/features";
 import { resolveDesktopDistribution } from "../electron/desktop-distribution.mjs";
 import { electronPlatformArgs } from "./electron-platform-args.mjs";
+import { desktopDevFeatureEnvironment } from "./dev-features.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -300,8 +301,13 @@ electronChild = run(pnpmCmd, ["exec", "electron", ...platformArgs, "./electron/m
   cwd: desktopRoot,
   env: {
     ...process.env,
+    ...desktopDevFeatureEnvironment(process.env),
     OPENWORK_DEV_MODE: process.env.OPENWORK_DEV_MODE ?? "1",
     OPENWORK_DATA_DIR: process.env.OPENWORK_DATA_DIR ?? defaultDevDataDir,
+    // Dev-only convenience: the reusable pairing code defaults to 3570.
+    // Production never gets a known code; it asks the owner to create one.
+    DEN_FEATURE_REMOTE_PAIRING_CODE: process.env.DEN_FEATURE_REMOTE_PAIRING_CODE ?? "true",
+    OPENWORK_DEV_PAIRING_CODE: process.env.OPENWORK_DEV_PAIRING_CODE ?? "3570",
     OPENWORK_ELECTRON_START_URL: resolvedStartUrl,
     ...(cdpPort ? { OPENWORK_ELECTRON_REMOTE_DEBUG_PORT: cdpPort } : {}),
   },

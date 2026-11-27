@@ -8,6 +8,7 @@ import { workspaceIdForPath } from "../src/workspaces.js";
 import { applicationInput, specialistStore } from "../src/specialists/store.js";
 import { syncLibraryToolPlugin } from "../src/specialists/library-tool-api.js";
 import { createSpecialistLibraryPlugin } from "../src/specialists/library-plugin.js";
+import { DOC_TOOL_NAMES } from "../src/specialists/doc-tools.js";
 import type { ServerConfig } from "../src/types.js";
 
 /** The library's native tools run inside the engine. The v2 runner reads `content` off the result,
@@ -126,6 +127,19 @@ test("the plugin hands a valid flashcards payload through and reports a rejected
     assert.match(text, /invalid_output|necesita JSON/);
   } finally {
     globalThis.fetch = originalFetch;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("every document tool survives provider-schema filtering and reaches the engine", async () => {
+  const { root, config, project, workspaceId } = await fixture();
+  try {
+    await syncLibraryToolPlugin(config as unknown as ServerConfig, workspaceId, project);
+    const descriptor = join(root, "specialists", "tool", createHash("sha256").update(project).digest("hex") + ".json");
+    const tools = new Map<string, EngineTool>();
+    await createSpecialistLibraryPlugin(descriptor).setup(pluginContext(project, tools));
+    for (const name of DOC_TOOL_NAMES) assert.ok(tools.has(name), `the plugin did not register ${name}`);
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

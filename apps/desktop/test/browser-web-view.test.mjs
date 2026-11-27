@@ -62,3 +62,14 @@ test('portable request vectors pin the boundary validation for Rust', async () =
   assert.equal(vectors.version, 1);
   for (const vector of vectors.cases) assert.equal(browserWebRequestSchema.safeParse(vector.input).success, vector.valid, vector.name);
 });
+
+test('takeover and resume acknowledge ownership even when frame capture fails', async () => {
+  const f = fixture(); f.host.capture = async () => { throw new Error('no frame'); };
+  const paused = await f.controller.request({ sessionId: 'ses_example', tabId: 'tab_example', operation: 'pause' });
+  assert.equal(paused.ok, true);
+  assert.equal(paused.tab.control, 'person');
+  assert.equal(paused.frame, undefined);
+  assert.equal((await f.controller.request({ sessionId: 'ses_example', operation: 'state' })).code, 'browser_view_unavailable');
+  const resumed = await f.controller.request({ sessionId: 'ses_example', tabId: 'tab_example', operation: 'resume' });
+  assert.equal(resumed.tab.control, 'agent');
+});

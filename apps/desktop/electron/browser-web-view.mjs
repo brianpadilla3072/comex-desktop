@@ -44,7 +44,7 @@ export function createBrowserWebView(host) {
         await host.interact(tab, request);
       }
       if (host.ownerOf(tab.tabId) !== request.sessionId) return failure("browser_tab_not_found", "La pestaña ya no pertenece a esta conversación.");
-      return { version: 1, ok: true, tab: host.describe(tab), ...(["state", "open", "pause"].includes(request.operation) ? { frame: await host.capture(tab) } : {}) };
+      return { version: 1, ok: true, tab: host.describe(tab), ...(["state", "open"].includes(request.operation) ? { frame: await host.capture(tab) } : {}) };
     } catch { return failure("browser_view_unavailable", "No se pudo conectar con el navegador de la app."); }
   }
   return { request: apply };

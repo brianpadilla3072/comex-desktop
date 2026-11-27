@@ -161,6 +161,13 @@ export function remoteDevicePairingEnabled(env: NodeJS.ProcessEnv = process.env)
   return resolveFeature("remoteDevicePairing", { ...context, rollouts: {}, overrides: {} }).enabled;
 }
 
+/** Reusable, hashed remote pairing codes. Production has no code until an owner configures one. */
+export function remotePairingCodeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const context = parseFeatureEnvironment(env);
+  if (context.problems.some(problem => problem.fatal)) return false;
+  return resolveFeature("remotePairingCode", { ...context, rollouts: {}, overrides: {} }).enabled;
+}
+
 /** `openwork-server web` keeps manual approvals because the web app answers them. */
 export function webApprovalsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const context = parseFeatureEnvironment(env);

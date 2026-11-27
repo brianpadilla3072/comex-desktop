@@ -825,7 +825,7 @@ export function createBrowserTaskHost({ getTab, tabsFor, ownerOf, activeFor, isV
   }
   /**
    * @typedef {{ type?: string, ref?: string, text?: string, checked?: boolean, values?: string[], key?: string, modifiers?: string[], x?: number, y?: number, deltaY?: number, files?: string[] }} BrowserAction
-   * @param {{ sessionId?: string, operation?: string, args?: { tabId?: string, url?: string, provider?: string, includeImage?: boolean, mode?: string, limit?: number, includeText?: boolean,
+   * @param {{ sessionId?: string, operation?: string, args?: { tabId?: string, url?: string, provider?: string, includeImage?: boolean, mode?: string, limit?: number, includeText?: boolean, all?: boolean,
    *   query?: {role?: string, name?: string, text?: string, exact?: boolean}, observationId?: string, toolId?: string, input?: unknown, question?: string, maxChars?: number,
    *   action?: BrowserAction, actions?: BrowserAction[], request_id?: string } }} request
    * @param {{ signal?: AbortSignal }} options
@@ -884,6 +884,12 @@ export function createBrowserTaskHost({ getTab, tabsFor, ownerOf, activeFor, isV
           validate();
         }
         publish(tab.tabId, "idle");
+        // An app link was handed to the main window. The browser tab only holds
+        // the target as a receipt: there is no page to observe, so end the flow
+        // instead of handing the agent a blank tab that fails with invalid_url.
+        if (tab.appSessionHandoff) return { ok: true, provider: "builtin", tabId: tab.tabId, url: tab.appSessionHandoff,
+          visible: isVisible(tab.tabId), handoff: true, next: "none",
+          note: "This link opened the conversation in the main app window. There is no browser page here to observe; open another website if you need the browser." };
         return { ok: true, provider: "builtin", tabId: tab.tabId, url: safeUrl(tab.view.webContents.getURL()), visible: isVisible(tab.tabId), next: "observe" };
       }
       if (operation === "close") {
@@ -908,6 +914,9 @@ export function createBrowserTaskHost({ getTab, tabsFor, ownerOf, activeFor, isV
       }
       tab = await Promise.race([resolve(sessionId, args.tabId, ["navigate", "pause", "handoff"].includes(operation)), canceled]);
       requestSignal.throwIfAborted();
+      if (tab.appSessionHandoff && operation !== "navigate") fail("app_link_handed_off", "This link opened the conversation in the main app window. There is no browser page here to observe; open another website or list tabs.");
+      // Navigating away recovers the tab for normal browser use.
+      if (tab.appSessionHandoff) tab.appSessionHandoff = null;
       checkControl(sessionId, control);
       state = stateFor(tab.tabId);
       if (operation === "pause" || operation === "handoff") { pause(tab.tabId, operation === "handoff" ? "Sign in or continue in the browser, then resume" : "Paused"); return { ok: true, status: "paused", tabId: tab.tabId, next: "user_resume" }; }

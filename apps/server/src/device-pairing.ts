@@ -14,7 +14,8 @@ export const DEVICE_LABEL_PREFIX = "device:";
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export const redeemInput = z.object({
-  code: z.string().trim().min(1).max(32),
+  // Reusable codes may be longer than the original eight-character one-time code.
+  code: z.string().trim().min(1).max(256),
   deviceName: z.string().trim().min(1).max(60),
 });
 

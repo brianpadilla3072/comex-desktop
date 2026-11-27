@@ -5,6 +5,18 @@ import React from "react";
 import { ArtifactHeader } from "../src/react-app/domains/artifacts/shell/artifact-header";
 import type { ArtifactBase } from "../src/react-app/domains/artifacts/types";
 
+const docMeta: ArtifactBase = {
+  id: "art-1",
+  type: "doc",
+  title: "Informe",
+  status: "saved",
+  sources: [],
+  versions: [{ id: "v1", createdAt: 1, author: "agent", contentRef: "v1" }],
+  metadata: { workspaceId: "ws-1", schemaVersion: 1 },
+  createdAt: 1,
+  updatedAt: 1,
+};
+
 const meta: ArtifactBase = {
   id: "art-1",
   type: "sheet",
@@ -17,10 +29,11 @@ const meta: ArtifactBase = {
   updatedAt: 1,
 };
 
-function render(canRevert: boolean) {
+function render(canRevert: boolean, document = false) {
   return renderToStaticMarkup(
     <ArtifactHeader
-      meta={meta}
+      meta={document ? docMeta : meta}
+      exportFormats={document ? ["md", "html", "docx", "pdf"] : undefined}
       focusMode={false}
       canRevert={canRevert}
       onToggleFocus={() => undefined}
@@ -45,5 +58,11 @@ describe("ArtifactHeader actions", () => {
   test("discard only appears when there is a previous version to go back to", () => {
     expect(render(true)).toContain('aria-label="Descartar cambios"');
     expect(render(false)).not.toContain('aria-label="Descartar cambios"');
+  });
+
+  test("documents expose one export menu instead of a Markdown-only button", () => {
+    const html = render(true, true);
+    expect(html).toContain('aria-label="Exportar documento"');
+    expect(html).not.toContain('aria-label="Exportar .md"');
   });
 });

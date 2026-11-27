@@ -8,6 +8,11 @@ superficies de Comex.
 **Qué no es.** No es una propuesta de copiar Claude. Es un catálogo de decisiones de producto
 y de UI que se pueden tomar o descartar, con el costo y el riesgo de cada una.
 
+> **Nota de implementación (2026-11-24):** este documento conserva el análisis y el plan
+> original. La regla R6 “nunca abrir sola una superficie” quedó sustituida por decisión posterior
+> del usuario: las salidas `table` nuevas se abren solas como hoja en el panel lateral. Sheets usa
+> Jspreadsheet CE, no Univer. El estado vigente está en `README.md` y `issues/README.md`.
+
 | | |
 |---|---|
 | Fuente principal | “Claude lanzó su propio office. ¿Adiós Microsoft?”, EDteam, 21:01 |
@@ -746,10 +751,12 @@ vez.
 Un chip `12/12 citas` que abre el detalle es mejor que un párrafo que dice “✓ 12/12 citas
 resuelven a pasajes reales del proyecto”. El chip es estado; el párrafo es explicación (P1).
 
-### R6 · Nunca abrir sola una superficie
+### R6 · Apertura explícita, salvo el flujo de tablas decidido después
 
-Una salida generada ofrece “Abrir en el panel” en su tarjeta inline; no secuestra el foco ni
-abre un panel por su cuenta (S5).
+El plan original ofrecía “Abrir en el panel” y evitaba la auto-apertura (S5). La implementación
+vigente abre automáticamente una salida `table` nueva como hoja lateral, por decisión explícita
+del usuario. Los artefactos existentes se abren desde Resultados; no se cambia de sesión ni de
+proyecto.
 
 ### R7 · Un lugar para compartir y exportar
 
@@ -870,7 +877,9 @@ auditoría, auditoría con citas rotas, exportando, exportado.
    `{ kind: "studio", outputId, workspaceId }`.
 2. `side-panel.tsx` renderiza `StudioArtifact` como tab.
 3. Botón `Mostrar chat` / `Pantalla completa` en el header.
-4. La tarjeta inline de una salida ofrece “Abrir en el panel” (nunca automático).
+4. La tarjeta inline ofrecía “Abrir en el panel”. Decisión posterior: las salidas `table`
+   nuevas se abren automáticamente como hoja lateral; los artefactos existentes se abren desde
+   Resultados.
 5. Persistencia de tabs y restauración al recargar.
 
 **Aceptación**
@@ -1060,8 +1069,8 @@ Los tiempos son aproximados: provienen de la transcripción automática.
 **Aproximado o no confirmado**
 
 - Valores hex exactos y medidas en píxeles (son estimaciones sobre el frame).
-- Nombres propios (`@Alvaro Felipe`, `alvaro@ed.team`): aparecen en la captura, pero son datos
-  del autor del video, no del producto.
+- La captura contiene identidad y correo del presentador; se omiten aquí por confidencialidad
+  y no se usan como datos del producto.
 - Inventario exacto de íconos de algunas barras (puede faltar o sobrar uno).
 - Comportamiento real de permisos, colaboración y exportación: no se probó el producto.
 - Que el “Design” del video sea exactamente la misma capa que se menciona al inicio.

@@ -1,76 +1,114 @@
-# Issues propuestos — Suite tipo Office para Comex
+# Issues — Suite tipo Office para Comex
 
-Cada archivo es el cuerpo completo de un issue de GitHub, listo para publicar con `gh issue create --body-file`. Incluye contexto investigado, problema actual, objetivo, alcance, criterios de aceptación, notas técnicas, dependencias, referencias a capturas/fuentes y Definition of Done.
+Cada archivo es el cuerpo completo de un issue de GitHub. Incluye contexto, problema, objetivo,
+alcance, criterios de aceptación, notas técnicas, dependencias y Definition of Done.
+
+> **Actualización 2026-11-24:** las especificaciones se conservan como contrato, pero cada issue
+> tiene ahora un bloque de estado real. Editar estos archivos no actualiza GitHub automáticamente;
+> para sincronizarlos se usa `gh issue edit <n> --body-file <archivo>`.
 
 ## Orden y dependencias
 
-| Archivo | Título | Depende de | Estimación |
-|---|---|---|---|
-| `00-epico-artefactos-oficina.md` | Épico: visor/editor de artefactos | — | 8–12 sem (parciales) |
-| `01-docs.md` | Artefacto Docs | 00 | 2–3 sem |
-| `02-slides.md` | Artefacto Slides | 01, 06 | 2–3 sem + 2 sem |
-| `03-sheets.md` | Artefacto Sheets | 00 + decisión de licencia | 3–4 sem |
-| `04-whiteboard.md` | Artefacto Whiteboard | 00, 06 + decisión de licencia | 1–2 sem |
-| `05-data.md` | Artefacto Data | 00, 06 | 2 sem |
-| `06-temas.md` | Sistema de temas/estilos | 00 | 1 sem |
+| Archivo | GitHub | Título | Depende de | Estado |
+|---|---|---|---|---|
+| `00-epico-artefactos-oficina.md` | [#1](https://github.com/brianpadilla3072/comex-desktop/issues/1) | Épico: visor/editor de artefactos | — | Base implementada; cierre pendiente |
+| `01-docs.md` | [#2](https://github.com/brianpadilla3072/comex-desktop/issues/2) | Docs | #1 | Parcial |
+| `02-slides.md` | [#3](https://github.com/brianpadilla3072/comex-desktop/issues/3) | Slides | #1, #2, #7 | Renderer básico |
+| `03-sheets.md` | [#4](https://github.com/brianpadilla3072/comex-desktop/issues/4) | Sheets | #1 | Implementación avanzada; criterios pendientes |
+| `04-whiteboard.md` | [#5](https://github.com/brianpadilla3072/comex-desktop/issues/5) | Whiteboard | #1, #7 | Renderer mínimo |
+| `05-data.md` | [#6](https://github.com/brianpadilla3072/comex-desktop/issues/6) | Data | #1, #7 | Parcial |
+| `06-temas.md` | [#7](https://github.com/brianpadilla3072/comex-desktop/issues/7) | Temas/estilos | #1 | Parcial |
+| `07-seguimiento-p1-p4.md` | [#8](https://github.com/brianpadilla3072/comex-desktop/issues/8) | Completar y verificar P1–P4 + E2E | #1 | Seguimiento; cuerpo actualizado |
 
-## Issues publicados (2026-11-17)
+Orden sugerido original: **#7 → #2 → #6 → #5 → #4 → #3**. El épico #1 es el paraguas; el issue
+#8 se creó después para integrar P1–P4 y ejecutar la verificación E2E.
 
-Repo: `brianpadilla3072/comex-desktop` (se habilitaron los Issues antes de publicar).
+## Estado real por issue
 
-| # | Issue | URL |
-|---|---|---|
-| 1 | Épico artefactos | https://github.com/brianpadilla3072/comex-desktop/issues/1 |
-| 2 | Docs | https://github.com/brianpadilla3072/comex-desktop/issues/2 |
-| 3 | Slides | https://github.com/brianpadilla3072/comex-desktop/issues/3 |
-| 4 | Sheets | https://github.com/brianpadilla3072/comex-desktop/issues/4 |
-| 5 | Whiteboard | https://github.com/brianpadilla3072/comex-desktop/issues/5 |
-| 6 | Data | https://github.com/brianpadilla3072/comex-desktop/issues/6 |
-| 7 | Temas/estilos | https://github.com/brianpadilla3072/comex-desktop/issues/7 |
+### #1 — Épico
 
-Cada issue tiene un comentario de cross-link con el épico y el orden sugerido. Las URLs también están en `created-issues.txt`.
+Implementado: esquema Zod, persistencia y versiones, shell común, pestaña `studio`, split/foco,
+apertura desde Resultados y visor Data. `comexArtifacts` está activo por defecto en self-hosted.
+Pendiente: cerrar todos los criterios del épico, evidencia visual/E2E y los sub-issues.
 
-Orden sugerido de ejecución: **06 → 01 → 05 → 04 → 03 → 02** (el épico `00` se crea como paraguas, no como bloqueante de todo).
+### #2 — Docs
 
-## Decisiones bloqueantes documentadas en los issues
+Implementado: visor nativo MD/MDX y 15 herramientas `specialist_doc_*` registradas. Cubre
+crear/leer/escribir, bloques, formato, búsqueda, importación, renombre, archivo/borrado,
+comentarios, fuentes/citas, exportación Markdown/HTML/Word/PDF, versiones y control de vista
+(modo, búsqueda, pantalla completa, tema, zoom, índice). Pendiente: editor rico tipo Lexical/
+BlockNote, citas clickeables a `specialist_source_read`, Google Docs y apertura integral desde
+todas las salidas.
 
-Contexto completo para elegir (precios verificados, licencias, riesgos y recomendación): [`../matriz-decisiones.md`](../matriz-decisiones.md).
+### #3 — Slides
 
-**Resueltas el 2026-11-17 (restricción: 100% OSS, sin pago, embebible):**
-- #4 Sheets → **Univer core (Apache-2.0)** + SheetJS CE/exceljs para XLSX + gráficos propios. Plan B: FortuneSheet (MIT).
-- #5 Whiteboard → **Excalidraw (MIT)** (confirmado por el usuario).
-- #7 Temas → tokens propios + tipografía del sistema.
+Implementado: schema y renderer mínimo con filmstrip, títulos, bloques, notas y marcado de
+omitidas. Pendiente: creación de decks, edición, modo presentar, exportación y barra contextual.
 
-Las decisiones están publicadas como comentarios en los issues de GitHub y al inicio de los archivos `.md` correspondientes.
+### #4 — Sheets
 
-## Avance 2026-11-17 (agentes lanzados)
+Implementado: Jspreadsheet CE, barra `fx`, pestañas, crecimiento sin techo artificial, guardado
+persistente, menús, CSV/JSON, fórmulas y 14 herramientas `specialist_sheet_*`. Las salidas
+`table` nuevas se abren solas como hoja. Pendiente: licencia/paridad, XLSX, formato condicional,
+dock contextual, resaltado de celdas del agente y cierre de aceptación.
 
-- **Spikes ejecutados y documentados** en `../spikes/`: Univer core 1.5.2 (build limpio, fórmulas/CF/snapshot validados en navegador, bundle ~1,65 MB gzip) y Excalidraw 0.18.1 (embed, generación por código, export PNG/SVG, JSON, 0 requests externos con fuentes self-host).
-- **Issue #7 (parcial)**: tokens en `apps/app/src/react-app/design-system/comex-theme.ts` + migración de 2 hex en `library-dialog.tsx` + 3 tests. Typecheck y tests en verde. **Sin cambio visible** (mismos colores) → no requiere flag. Queda pendiente el flag `comex.artifacts.themes`, el `ThemeProvider`, el panel `Design` y el cambio en caliente.
-- **Issue #1**: diseño técnico listo en `../diseno-artefactos.md` (modelo, shell, flag `comexArtifacts`, plan P0–P5, tests). Falta implementarlo.
+### #5 — Whiteboard
 
-- `03-sheets.md`: elegir **Univer (core vs Pro)** o **FortuneSheet** según licencia/funcionalidad.
-- `04-whiteboard.md`: elegir **Excalidraw (MIT)** o **tldraw (licencia en producción)**.
-- `06-temas.md`: confirmar tokens propios y tipografía del sistema (no copiar Claude).
+Implementado: schema y visor mínimo de nodos/conectores. La decisión de usar Excalidraw MIT y su
+spike están cerrados. Pendiente: integrar el canvas, herramientas de dibujo, persistencia de
+escena, exportación, Ask Claude y conversión a documento.
 
-## Publicación
+### #6 — Data
 
-Ya ejecutado. El repo tenía los Issues deshabilitados; se habilitaron con
-`gh api -X PATCH repos/brianpadilla3072/comex-desktop -f has_issues=true` y se publicaron los 7 issues.
+Implementado: `DataView` resuelve specs de panel contra el snapshot más reciente, reutiliza los
+renderers existentes y muestra narrativa/fuente viva. Pendiente: KPI editorial completo, traza
+por gráfico con snapshot/fecha, foco de series, edición local, formatos y panel Design.
 
-Para volver a usar el script (p. ej. en otro repo):
+### #7 — Temas
+
+Implementado: `comexDefaultTheme`, migración inicial de colores y tema claro/oscuro del visor
+Docs. Pendiente: `ThemeProvider`, tema alternativo, panel Design, aplicación en caliente a los
+cinco artefactos y eliminación de hex hardcodeados restantes.
+
+### #8 — Seguimiento P1–P4 + E2E
+
+El cuerpo original decía que solo P0 estaba integrado; el comentario posterior registró P0–P4.
+La implementación avanzó además en Sheets, Docs y Resultados. Pendiente: E2E completo con flag
+activo, capturas, revisión `DESIGN.md` y cierre de issues.
+
+## Decisiones de librería
+
+- **Sheets:** la decisión original fue Univer core + complementos OSS. La implementación vigente
+  usa **Jspreadsheet CE** y un evaluador propio para herramientas. Esta desviación debe
+  revalidarse antes de cerrar #4; ver `../matriz-decisiones.md`.
+- **Whiteboard:** **Excalidraw MIT**, decidido y validado en spike; todavía no integrado.
+- **Temas:** tokens propios + tipografía del sistema; implementación parcial.
+
+## Publicación y sincronización
+
+Los issues #1–#7 se publicaron el 2026-11-17; #8 se creó como seguimiento. Las URLs están en
+[`created-issues.txt`](created-issues.txt).
+
+Para volver a publicar en otro repo:
 
 ```bash
-gh auth login -h github.com            # si hace falta
-DRY_RUN=1 bash docs/features/comex-office-reference/issues/publish.sh   # ver comandos
-bash docs/features/comex-office-reference/issues/publish.sh             # publicar
+gh auth login -h github.com
+DRY_RUN=1 bash docs/features/comex-office-reference/issues/publish.sh
+bash docs/features/comex-office-reference/issues/publish.sh
 ```
 
-El script crea labels si faltan, crea los issues en `origin` y guarda las URLs en `created-issues.txt`.
+Para actualizar un issue existente sin duplicarlo:
 
-## Verificación posterior
+```bash
+gh issue edit 4 --repo brianpadilla3072/comex-desktop \
+  --body-file docs/features/comex-office-reference/issues/03-sheets.md
+```
 
-- [x] Los 7 issues existen y tienen labels.
-- [x] El épico referencia a los 6 hijos y estos referencian al épico (comentarios de cross-link).
-- [x] Se linkean desde este README.
-- [ ] Registrar las URLs en la memoria del proyecto al cerrar el tramo.
+## Verificación
+
+- [x] Los issues #1–#8 existen y están enlazados desde este README.
+- [x] Las especificaciones locales reflejan la implementación vigente y sus pendientes.
+- [x] Las URLs quedaron registradas en `created-issues.txt`.
+- [x] Verificación focalizada del 2026-11-24: 42 tests de app + 49 de server en verde.
+- [ ] E2E completo de la suite con evidencia adjunta.
+- [ ] Cierre de cada issue solo cuando todos sus criterios estén verificados.

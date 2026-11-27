@@ -64,6 +64,7 @@
     "@modelcontextprotocol/client": "^2.3.1",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@opencode-ai/sdk": "^1.18.15",
+    "@openwork/computer-use": "workspace:*",
     "@openwork/enterprise-mcp-client": "workspace:*",
     "@openwork/features": "workspace:*",
     "@openwork/free-auto": "workspace:*",
@@ -71,15 +72,18 @@
     "@sveltejs/acorn-typescript": "1.0.13",
     "acorn": "8.16.0",
     "better-sqlite3": "^13.0.2",
+    "docx": "^9.16.0",
     "drizzle-orm": "^0.45.2",
     "fflate": "^0.8.3",
     "htmlparser2": "8.0.2",
     "jsonc-parser": "^3.2.1",
+    "marked": "^17.0.1",
     "minimatch": "^11.0.1",
+    "pdfkit": "^0.21.0",
+    "turndown": "^7.2.5",
     "undici": "6.29.1",
     "yaml": "^2.9.0",
-    "zod": "^4.6.6",
-    "@openwork/computer-use": "workspace:*"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "21.0.4",

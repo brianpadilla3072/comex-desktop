@@ -16,7 +16,7 @@ export const browserWebReplySchema = z.discriminatedUnion("ok", [
   z.object({ version: z.literal(1), ok: z.literal(true), tab: z.object({
     id: z.string(), url: z.string(), title: z.string(), control: z.enum(["agent", "person"]),
     canGoBack: z.boolean(), canGoForward: z.boolean(),
-  }).strict(), frame: z.object({ mimeType: z.literal("image/jpeg"), data: z.string().max(6_000_000), width: z.number().int().positive(), height: z.number().int().positive() }).strict().optional() }).strict(),
+  }).strict(), frame: z.object({ mimeType: z.enum(["image/png", "image/jpeg"]), data: z.string().max(6_000_000), width: z.number().int().positive(), height: z.number().int().positive() }).strict().optional() }).strict(),
   z.object({ version: z.literal(1), ok: z.literal(false), code: z.string(), error: z.string() }).strict(),
 ]);
 export type BrowserWebRequest = z.infer<typeof browserWebRequestSchema>;

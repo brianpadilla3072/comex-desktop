@@ -5,6 +5,32 @@
 **Depende de:** `00-epico-artefactos-oficina`
 **Estimación sugerida:** 2–3 semanas
 
+> **Estado real (2026-11-24): CONTROL COMPLETO DEL VISOR MARKDOWN/MDX; EDITOR RICO PENDIENTE.**
+>
+> **Implementado**
+> - `DocView` nativo para Markdown/MDX, sin iframe, `eval` ni red.
+> - Modo editar/vista previa, búsqueda, índice, zoom, ajuste de líneas, tema, pantalla completa y
+>   restablecer vista; estado persistido en `metadata.viewer`.
+> - 15 herramientas `specialist_doc_*`: list/create/read/write/blocks/format/find/import/rename/
+>   delete/comments/citations/export/versions/view. Las 15 sobreviven el filtro de schemas de
+>   proveedores y quedan registradas en el plugin real.
+> - Bloques Markdown: listar, insertar, actualizar, mover, duplicar y eliminar; formato de
+>   selección (negrita, cursiva, tachado, código, enlace y limpiar).
+> - Importación desde archivo del proyecto, URL https pública o salida del mini-Studio.
+> - Renombre, archivo y borrado definitivo con confirmación; versiones y reversión.
+> - Comentarios anclados a cita/bloque, resueltos y editables; panel lateral en el visor.
+> - Fuentes asociadas, auditoría de anclas e inserción de `[fuente:id#n]` verificada.
+> - Exportación Markdown, MDX, HTML, Word (.docx) y PDF. El header descarga archivos reales; las
+>   tools también pueden guardarlos en el proyecto.
+> - Evidencia visual: `../doc-tools-controls.png` y `../doc-tools-comments.png`.
+>
+> **Pendiente**
+> - Editor rico tipo Lexical/BlockNote, con selección visual y anclas de comentario estables tras
+>   reordenar bloques.
+> - Citas clickeables que abran directamente `specialist_source_read`.
+> - Fecha/tipo de salida en el header, Google Docs y apertura integral desde todas las salidas.
+> - Pasar la suite completa `test:comex` y la revisión final de diseño.
+
 ---
 
 ## Contexto (qué hace Claude Docs)
@@ -55,17 +81,19 @@ Crear el primer artefacto reutilizable: un documento con shell propio, metadatos
 - [ ] Al generar una salida, aparece la acción "Abrir como documento" y se abre un panel con ≥ 2/3 del ancho disponible.
 - [ ] El documento muestra título, fecha, tipo de salida y un **chip de estado de citas** con el número de anclas válidas/rotas.
 - [ ] Las citas del contenido son clickeables y abren el pasaje de la fuente (`specialist_source_read`).
-- [ ] El botón `Exportar` ofrece Markdown y PDF/HTML y descarga un archivo válido.
-- [ ] El documento se puede cerrar y reabrir desde la pestaña de artefactos sin perder contenido.
-- [ ] El comportamiento está detrás de flag `comex.artifacts.docs`.
-- [ ] Existen tests headless que abren el artefacto, verifican las citas y la exportación.
-- [ ] Se adjuntan screenshots y se citan reglas de `DESIGN.md` en el PR.
+- [x] El botón `Exportar` ofrece Markdown y PDF/HTML y descarga un archivo válido.
+- [x] El documento se puede cerrar y reabrir desde la pestaña de artefactos sin perder contenido.
+- [x] El comportamiento está detrás del flag global existente `comexArtifacts`.
+- [x] Existen tests headless que abren el artefacto, verifican las citas y la exportación.
+- [x] Se adjuntan screenshots; la revisión final de reglas `DESIGN.md` queda pendiente.
 
 ## Notas técnicas
 
-- Reutilizar `lexical` + `@lexical/react` (ya en `apps/app/package.json`) para edición; `marked`/`shiki` para render.
-- `docx-preview` ya existe para **leer** `.docx`; para **escribir** evaluar librería de export en servidor/cliente (no asumir que preview exporta).
-- Integrar con `specialist_output_list/read` y `specialist_source_read` para citas reales.
+- El visor actual usa Markdown/MDX nativo y `marked`/Shiki; la edición rica sigue pendiente.
+- La exportación server-side usa `marked`, `docx`, `pdfkit` y `turndown`; `docx-preview` sigue
+  siendo solo un lector.
+- Las citas reutilizan `extractCitations` y `readCitation`; el agente debe leer el pasaje antes de
+  insertarlo.
 - Esquema sugerido:
 
 ```json

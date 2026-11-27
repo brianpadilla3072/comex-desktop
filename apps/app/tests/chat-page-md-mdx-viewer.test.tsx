@@ -87,5 +87,5 @@ test("el tema del documento cambia sin depender del tema de la app", async () =>
   expect(toggle).toBeDefined();
   await act(async () => toggle!.click());
   expect(content()?.getAttribute("data-doc-theme")).toBe("dark");
-  expect(content()?.style.backgroundColor).toBe("#0f172a");
+  expect(content()?.style.backgroundColor).toBe("var(--background)");
 });

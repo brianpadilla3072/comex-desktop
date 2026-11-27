@@ -5,6 +5,9 @@
 **Método:** proyecto Vite + React + TS **desechable** en `/tmp/opencode/excalidraw-spike` (fuera del repo). No se modificaron `package.json`, lockfiles ni ningún archivo de la app. No se hizo commit.
 
 > Este spike valida la decisión tomada en `../matriz-decisiones.md` §2 y `../issues/04-whiteboard.md`: `@excalidraw/excalidraw` (MIT) embebido, sin pago.
+>
+> **Estado de integración (2026-11-24):** Excalidraw todavía no está integrado en la app. El
+> artefacto `board` actual usa un visor mínimo de nodos y conectores; el issue #5 sigue abierto.
 
 ---
 

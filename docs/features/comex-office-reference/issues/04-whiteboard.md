@@ -5,6 +5,18 @@
 **Depende de:** `00-epico-artefactos-oficina`, `06-temas`
 **Estimación sugerida:** 1–2 semanas con librería embebida
 
+> **Estado real (2026-11-24): RENDERER MÍNIMO, CANVAS PENDIENTE.**
+>
+> **Implementado**
+> - Schema `board` con nodos, posiciones y conectores.
+> - Visor mínimo que lista nodos y conexiones dentro del shell común.
+> - Decisión de librería y spike de Excalidraw documentados.
+>
+> **Pendiente**
+> - Integrar `@excalidraw/excalidraw` como canvas infinito.
+> - Herramientas de dibujo, zoom/pan, undo/redo y persistencia de escena.
+> - Export PNG/SVG/JSON, Ask Claude y conversión a documento.
+
 > **✅ Decisión (2026-11-17, confirmada por el usuario y publicada en el issue):** **Excalidraw (MIT)**, paquete `@excalidraw/excalidraw` embebido. Sin pago. Se aceptan las limitaciones documentadas (sin páginas múltiples, colaboración fuera del paquete, estilo sketch, self-host de fuentes). Se descarta tldraw por licencia en producción. Ver `../matriz-decisiones.md`.
 
 ---
@@ -78,5 +90,5 @@ Incorporar un lienzo infinito como artefacto para pensar/diagramar junto al agen
 
 ## Definition of Done
 
-- [ ] Librería elegida y licencia validada.
+- [x] Librería elegida y licencia validada.
 - [ ] Criterios de aceptación + tests + screenshots.

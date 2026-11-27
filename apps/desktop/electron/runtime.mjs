@@ -1,4 +1,5 @@
 import { startupPhase, withStartupPhase } from "./startup-log.mjs";
+import { desktopLocalWebPort } from "./desktop-local-web.mjs";
 import { randomUUID, X509Certificate } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -293,9 +294,13 @@ export function resolveOpenworkServerConfigPath(env = process.env) {
 export function openworkInstallMarkerPaths({ userDataDir, serverConfigPath, env = process.env }) {
   const serverDir = path.dirname(serverConfigPath);
   const runtimeDb = env.OPENWORK_RUNTIME_DB?.trim() ? path.resolve(env.OPENWORK_RUNTIME_DB.trim()) : path.join(serverDir, "runtime.sqlite");
+  const remotePairingCode = env.OPENWORK_REMOTE_PAIRING_CODE_STORE?.trim()
+    ? path.resolve(env.OPENWORK_REMOTE_PAIRING_CODE_STORE.trim())
+    : path.join(serverDir, "remote-pairing-code.json");
   return [
     serverConfigPath,
     runtimeDb,
+    remotePairingCode,
     path.join(path.dirname(runtimeDb), "engine-v2-preview.json"),
     env.OPENWORK_SERVER_TOKEN_STORE_PATH?.trim() ? path.resolve(env.OPENWORK_SERVER_TOKEN_STORE_PATH.trim()) : path.join(userDataDir, "openwork-server-tokens.json"),
     env.OPENWORK_SERVER_STATE_PATH?.trim() ? path.resolve(env.OPENWORK_SERVER_STATE_PATH.trim()) : path.join(userDataDir, "openwork-server-state.json"),
@@ -1450,6 +1455,7 @@ export function mergeSystemCaChildEnv(baseEnv = {}, caEnv = {}, extra = {}, plat
 export function createRuntimeManager({
   app,
   desktopRoot,
+  desktopWebRoot = "",
   listLocalWorkspacePaths,
   localManagedMcpVaultKey,
   driveFileApproval = undefined,
@@ -1602,6 +1608,13 @@ export function createRuntimeManager({
 
   async function resolveOpenworkPort(host, workspaceKey, currentPort = null) {
     const preferredPort = await readPreferredOpenworkPort(workspaceKey);
+    const webPort = desktopLocalWebPort();
+    if (webPort !== null) {
+      // An installed PWA and its tailnet proxy keep this origin across restarts.
+      // Never silently choose a random port and strand the phone's shortcut.
+      if (await waitForPortAvailable(host, webPort)) return { port: webPort, preferredPort: webPort };
+      throw new Error("desktop_web_port_unavailable");
+    }
     if (currentPort && (await waitForPortAvailable(host, currentPort))) {
       return { port: currentPort, preferredPort };
     }
@@ -2032,6 +2045,20 @@ export function createRuntimeManager({
       freshInstallEngine,
       engineAutoUpgrade: resolveDesktopEngineAutoUpgrade(),
     });
+    const requiredWebPort = desktopLocalWebPort();
+    if (requiredWebPort !== null && handle.port !== requiredWebPort) {
+      // The embedded adapter may recover a bind race by choosing a free port.
+      // A fixed web origin must fail explicitly instead of accepting that fallback.
+      await handle.stop();
+      throw new Error("desktop_web_port_unavailable");
+    }
+    if (requiredWebPort !== null && desktopWebRoot) {
+      // Every server generation owns its web root, including renderer-triggered
+      // starts when there was no local workspace during the initial bootstrap.
+      // A phone launch must not require View → Ir a web on the computer first.
+      try { await handle.enableDesktopWeb({ root: desktopWebRoot }); }
+      catch (error) { await handle.stop(); throw error; }
+    }
     inProcessServer = handle;
     openworkServerState.managedOpencodeExecution = handle.managedOpencodeExecution ?? null;
     engineState.managedByServer = Boolean(handle.managedOpencode);

@@ -100,6 +100,21 @@ No hay opciones a evaluar; hay que **confirmar la convención de tokens** (nombr
   - **Colaboración**: diferida; si se necesita, Yjs/Hocuspocus (OSS).
 - **Plan B**: si el core de Univer resulta demasiado pesado o el spike falla, migrar a **FortuneSheet (MIT)**, aceptando motor de fórmulas más limitado y librería pre-1.0.
 
+### Desviación de implementación (2026-11-23/24)
+
+La implementación fusionada en `dev` **no usa Univer**. `apps/app/package.json` incluye
+`jspreadsheet-ce` y `@jspreadsheet-ce/react`; `views/jspreadsheet-view.tsx` monta Jspreadsheet CE
+con una barra `fx` propia. Las herramientas `specialist_sheet_*` usan además `sheet-model.ts`, un
+evaluador propio sin `eval`.
+
+Esto no invalida el spike de Univer, pero sí cambia el estado del issue #4:
+
+- Univer queda como evaluación histórica, no como dependencia actual.
+- Antes de cerrar Sheets hay que revalidar licencia, distribuciones cubiertas, paridad de
+  fórmulas, XLSX, formato condicional y compatibilidad con el resto de criterios.
+- No se debe afirmar que la suite está “100% Univer” ni que todos los criterios de #4 están
+  completos.
+
 ### Whiteboard (#5) — decisión: Excalidraw (MIT)
 Confirmado por el usuario. Librería embebida `@excalidraw/excalidraw`, MIT, muy activa (136k★), usada por Notion/Replit/Obsidian. Cubre canvas infinito, zoom, formas, flechas con binding, lápiz, texto, undo/redo, export PNG/SVG y formato JSON abierto. Aceptar limitaciones: sin páginas múltiples, sin colaboración en el paquete npm, estilo sketch y self-host de fuentes para offline. No instalar tldraw (licencia de pago en producción).
 

@@ -163,10 +163,10 @@ async function runLibraryToolInner(config: Pick<ServerConfig, "configPath" | "wo
     if (!specialistPanelsEnabled()) throw new ApiError(409, "specialist_panels_disabled", "Los paneles están desactivados en este server.");
   } else if (name.startsWith("specialist_output_")) {
     if (!studioOutputsEnabled()) throw new ApiError(409, "studio_outputs_disabled", "Las salidas del mini-Studio están desactivadas en este server.");
-  } else if (name.startsWith("specialist_sheet_")) {
-    // Sheets are artifact-backed; they stay available whenever artifacts are,
+  } else if (name.startsWith("specialist_sheet_") || name.startsWith("specialist_doc_")) {
+    // Sheets and Docs are artifact-backed; they stay available whenever artifacts are,
     // even if the library or the mini-Studio families are switched off.
-    if (!comexArtifactsEnabled()) throw new ApiError(409, "artifacts_disabled", "Los artefactos (y por lo tanto las hojas de cálculo) están desactivados en este server.");
+    if (!comexArtifactsEnabled()) throw new ApiError(409, "artifacts_disabled", "Los artefactos (y por lo tanto las hojas y los documentos) están desactivados en este server.");
   } else if (name.startsWith("specialist_workspace_")) {
     // Pinning a resource is an explicit person action, not a background feature: it follows
     // the specialist application itself, not the library flag.

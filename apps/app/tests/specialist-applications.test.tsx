@@ -8,6 +8,7 @@ const { createRoot } = await import("react-dom/client");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { MemoryRouter, useLocation } = await import("react-router");
 const { SpecialistApplicationsProvider, useSpecialistApplications } = await import("../src/react-app/domains/specialists/provider");
+const { setRemotePairingSetupPending } = await import("../src/react-app/shell/remote-pairing-setup-state");
 import type { SpecialistCatalog } from "../src/app/lib/openwork-server";
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -23,6 +24,7 @@ function Probe() {
 beforeEach(() => {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear(); posted = null; invalidPack = false;
+  setRemotePairingSetupPending(false);
   server = { enabled: true, user: null, applications: [] };
   const spy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init);
@@ -41,7 +43,7 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 });
-afterEach(async () => { await act(async () => root.unmount()); cache.clear(); host.remove(); restoreFetch(); });
+afterEach(async () => { await act(async () => root.unmount()); cache.clear(); host.remove(); restoreFetch(); setRemotePairingSetupPending(false); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 async function flush() { await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); }); }
 async function render() { await act(async () => root.render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/workspace/ws_legacy/session"]}><SpecialistApplicationsProvider><Probe /></SpecialistApplicationsProvider></MemoryRouter></QueryClientProvider>)); await flush(); }
@@ -52,6 +54,26 @@ async function edit(id: string, value: string) {
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) throw new Error("Missing field");
   await act(async () => { Object.getOwnPropertyDescriptor(element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, "value")?.set?.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
 }
+
+test("remote pairing setup defers the first-application dialog and then opens it", async () => {
+  setRemotePairingSetupPending(true);
+  await render();
+  expect(document.querySelector("#specialist-name")).toBe(null);
+  await act(async () => setRemotePairingSetupPending(false));
+  await flush();
+  expect(document.querySelector("#specialist-name")).toBeTruthy();
+});
+
+test("remote pairing setup closes an auto-opened application dialog instead of stacking", async () => {
+  await render();
+  expect(document.querySelector("#specialist-name")).toBeTruthy();
+  await act(async () => setRemotePairingSetupPending(true));
+  await flush();
+  expect(document.querySelector("#specialist-name")).toBe(null);
+  await act(async () => setRemotePairingSetupPending(false));
+  await flush();
+  expect(document.querySelector("#specialist-name")).toBeTruthy();
+});
 
 test("first local setup submits the chosen identity and personality and opens that application's project", async () => {
   await render(); await edit("specialist-user", "Usuario de prueba"); await click("Otra especialidad");

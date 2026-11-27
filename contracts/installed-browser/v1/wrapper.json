@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "name": "managed wrapper",
+      "source": "// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from \"file:///runtime/installed-browser/plugin.mjs\";\nexport default installedBrowserPlugin(\"/runtime/installed-browser/project.json\");\n",
+      "descriptor": "/runtime/installed-browser/project.json"
+    },
+    {
+      "name": "personal edit",
+      "source": "// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from \"file:///runtime/installed-browser/plugin.mjs\";\nexport default installedBrowserPlugin(\"/runtime/installed-browser/project.json\");\n// custom\n",
+      "descriptor": null
+    },
+    {
+      "name": "unrecognized import",
+      "source": "// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from \"file:///runtime/installed-browser/other.mjs\";\nexport default installedBrowserPlugin(\"/runtime/installed-browser/project.json\");\n",
+      "descriptor": null
+    },
+    {
+      "name": "empty descriptor",
+      "source": "// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from \"file:///runtime/installed-browser/plugin.mjs\";\nexport default installedBrowserPlugin(\"\");\n",
+      "descriptor": null
+    },
+    {
+      "name": "invalid JSON escape",
+      "source": "// Managed by Comex: installed-browser-v1\nimport { installedBrowserPlugin } from \"file:///runtime/installed-browser/plugin.mjs\";\nexport default installedBrowserPlugin(\"\\x00\");\n",
+      "descriptor": null
+    }
+  ]
+}

@@ -6,19 +6,10 @@ import { runtimeStorageDir } from "../runtime-db.js";
 import { createV2BrowserBridge } from "../opencode-v2-browser-bridge.js";
 import type { ServerConfig } from "../types.js";
 
+import { isManagedBrowserSource } from "./installed-browser-source.js";
+export { isManagedBrowserSource } from "./installed-browser-source.js";
+
 const MARKER = "// Managed by Comex: installed-browser-v1\n";
-const MANAGED_SOURCE = /^\/\/ Managed by Comex: installed-browser-v1\nimport \{ installedBrowserPlugin \} from ("(?:[^"\\]|\\.)*");\nexport default installedBrowserPlugin\(("(?:[^"\\]|\\.)*")\);\n$/;
-export function isManagedBrowserSource(source: string): boolean {
-  const match = MANAGED_SOURCE.exec(source);
-  if (!match) return false;
-  try {
-    const plugin: unknown = JSON.parse(match[1]);
-    const descriptor: unknown = JSON.parse(match[2]);
-    return typeof plugin === "string" && plugin.startsWith("file://")
-      && /\/(?:installed-browser-plugin\.(?:js|ts)|installed-browser\/plugin\.mjs)$/.test(plugin)
-      && typeof descriptor === "string";
-  } catch { return false; }
-}
 export function createInstalledBrowserIntegration(config: Pick<ServerConfig, "configPath" | "workspaces">) {
   let bridge: ReturnType<typeof createV2BrowserBridge> | undefined;
   const descriptors = new Set<string>();

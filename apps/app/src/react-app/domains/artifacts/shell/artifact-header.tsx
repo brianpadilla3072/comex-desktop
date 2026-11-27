@@ -1,9 +1,20 @@
 import { Copy, Download, Maximize2, MessageSquarePlus, PanelRightClose, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import { SaveToWorkspaceMenu } from "@/react-app/domains/specialists/save-to-workspace-menu";
 import type { ArtifactBase } from "../types";
+
+export type ArtifactExportFormat = "md" | "mdx" | "html" | "docx" | "pdf";
+
+const EXPORT_LABELS: Record<ArtifactExportFormat, string> = {
+  md: "Markdown (.md)",
+  mdx: "MDX (.mdx)",
+  html: "HTML (.html)",
+  docx: "Word (.docx)",
+  pdf: "PDF (.pdf)",
+};
 
 interface ArtifactHeaderProps {
   meta: ArtifactBase;
@@ -14,7 +25,8 @@ interface ArtifactHeaderProps {
   workspaceId?: string;
   onToggleFocus: () => void;
   onCopy: () => void;
-  onExport: () => void;
+  exportFormats?: ArtifactExportFormat[];
+  onExport: (format: ArtifactExportFormat) => void | Promise<void>;
   onRequestChange: () => void;
   onRevert: () => void;
   onClose: () => void;
@@ -31,6 +43,7 @@ export function ArtifactHeader({
   workspaceId,
   onToggleFocus,
   onCopy,
+  exportFormats = ["md"],
   onExport,
   onRequestChange,
   onRevert,
@@ -47,12 +60,25 @@ export function ArtifactHeader({
         </TooltipTrigger>
         <TooltipContent>Copiar</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" onClick={onExport} aria-label="Exportar .md" />}>
-          <Download className="size-4" />
-        </TooltipTrigger>
-        <TooltipContent>Exportar .md</TooltipContent>
-      </Tooltip>
+      {exportFormats.length === 1 ? (
+        <Tooltip>
+          <TooltipTrigger render={<Button variant="ghost" size="icon-sm" onClick={() => void onExport(exportFormats[0]!)} aria-label={exportFormats[0] === "md" ? "Exportar .md" : `Exportar ${EXPORT_LABELS[exportFormats[0]!]}`} />}>
+            <Download className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent>{exportFormats[0] === "md" ? "Exportar .md" : `Exportar ${EXPORT_LABELS[exportFormats[0]!]}`}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Exportar documento" />}>
+            <Download className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {exportFormats.map(format => (
+              <DropdownMenuItem key={format} onClick={() => void onExport(format)}>{EXPORT_LABELS[format]}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       <Tooltip>
         <TooltipTrigger render={<Button variant="ghost" size="icon-sm" onClick={onRequestChange} aria-label="Pedir un cambio" />}>
           <MessageSquarePlus className="size-4" />

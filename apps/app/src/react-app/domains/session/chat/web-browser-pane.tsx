@@ -16,6 +16,7 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
   const platform = usePlatform();
   const [view, setView] = useState<View | null>(null);
   const [error, setError] = useState("");
+  const [controlPending, setControlPending] = useState(false);
   const [address, setAddress] = useState(url);
   const [retry, setRetry] = useState(0);
   const [visible, setVisible] = useState(document.visibilityState === "visible");
@@ -28,7 +29,8 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
   const command = useRef<(operation: BrowserWebRequest["operation"], input?: BrowserWebRequest["input"], nextUrl?: string) => void>(() => {});
   const location = useRef(onLocation);
   location.current = onLocation;
-  const person = view?.tab.control === "person" && !error;
+  const hasControl = view?.tab.control === "person";
+  const person = hasControl && !error;
 
   useEffect(() => {
     const change = () => setExpanded(document.fullscreenElement === pane.current);
@@ -47,6 +49,7 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
     let timer: ReturnType<typeof setTimeout> | undefined;
     let statePending = false;
     setError("");
+    setControlPending(false);
     const apply = (reply: BrowserWebReply) => {
       if (current !== generation.current || abort.signal.aborted) return;
       if (!reply.ok) { setError(reply.error); return; }
@@ -66,7 +69,7 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
       queue.current = queue.current.catch(() => undefined).then(async () => {
         if (operation === "navigate" && !await request("pause")) return;
         await request(operation, input, nextUrl);
-      }).catch(() => { if (!abort.signal.aborted) setError("Se perdió la conexión con el navegador. Vuelve a conectar."); });
+      }).catch(() => { if (!abort.signal.aborted) setError("Se perdió la conexión con el navegador. Vuelve a conectar."); }).finally(() => { if (!abort.signal.aborted && (operation === "pause" || operation === "resume")) setControlPending(false); });
     };
     const poll = async () => {
       if (abort.signal.aborted) return;
@@ -78,7 +81,7 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
       }
       if (!abort.signal.aborted) timer = setTimeout(poll, 1200);
     };
-    void request(id.current ? "state" : "open", undefined, id.current ? undefined : url).then(success => { if (success && !abort.signal.aborted) timer = setTimeout(poll, 1200); }).catch(() => { if (!abort.signal.aborted) setError("No se pudo abrir el navegador. Vuelve a conectar."); });
+    void request("open", undefined, url).then(success => { if (success && !abort.signal.aborted) timer = setTimeout(poll, 1200); }).catch(() => { if (!abort.signal.aborted) setError("No se pudo abrir el navegador. Vuelve a conectar."); });
     return () => { ++generation.current; abort.abort(); clearTimeout(timer); command.current = () => {}; };
   }, [client, workspaceId, sessionId, active, visible, retry]);
 
@@ -113,8 +116,8 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
       <form className="min-w-32 flex-1" onSubmit={event => { event.preventDefault(); command.current("navigate", undefined, address); }}>
         <Input data-web-browser-address="true" aria-label="Dirección del navegador integrado" className="h-8" value={address} onChange={event => setAddress(event.currentTarget.value)} />
       </form>
-      <Button variant={person ? "default" : "outline"} size="sm" disabled={!view || !!error} onClick={() => { command.current(person ? "resume" : "pause"); surface.current?.focus(); }}>
-        {person ? <Play /> : <Hand />}{person ? "Devolver al agente" : "Tomar control"}
+      <Button variant={hasControl ? "default" : "outline"} size="sm" disabled={!view || controlPending} onClick={() => { setControlPending(true); command.current(hasControl ? "resume" : "pause"); surface.current?.focus(); }}>
+        {hasControl ? <Play /> : <Hand />}{controlPending ? "Conectando…" : hasControl ? "Devolver al agente" : "Tomar control"}
       </Button>
       <Button variant="ghost" size="icon-sm" aria-label={expanded ? "Salir de pantalla completa" : "Ampliar navegador"} title={expanded ? "Salir de pantalla completa" : "Ampliar navegador"} onClick={() => {
         const action = expanded ? document.exitFullscreen() : pane.current?.requestFullscreen();
@@ -124,14 +127,14 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
     </div>
     <div className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto bg-muted/20 outline-none focus-visible:ring-2 focus-visible:ring-ring" ref={surface} tabIndex={person ? 0 : -1} role="application" aria-label="Página del navegador integrado" onKeyDown={key}
       onPaste={event => { if (person) { event.preventDefault(); const text = event.clipboardData.getData("text/plain"); if (text) command.current("input", { type: "text", text }); } }}>
-      {view?.frame ? <img data-web-browser-frame src={`data:image/jpeg;base64,${view.frame.data}`} width={view.frame.width} height={view.frame.height} alt="Página del navegador integrado" draggable={false} className="block h-auto w-full max-w-none shrink-0 select-none" onClick={event => {
+      {view?.frame ? <img data-web-browser-frame src={`data:${view.frame.mimeType};base64,${view.frame.data}`} width={view.frame.width} height={view.frame.height} alt="Página del navegador integrado" draggable={false} className="block h-auto w-full max-w-none shrink-0 select-none" onClick={event => {
         if (!person) return;
         surface.current?.focus(); const rect = event.currentTarget.getBoundingClientRect();
         command.current("input", { type: "click", x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) });
       }} /> : <p role="status" className="p-6 text-sm text-muted-foreground">Conectando con la pestaña de esta conversación…</p>}
       {error ? <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/95 p-6 text-center"><p className="text-sm">{error}</p><Button variant="outline" onClick={() => { id.current = undefined; setRetry(value => value + 1); }}>Volver a conectar</Button></div> : null}
     </div>
-    <p role="status" className="shrink-0 border-t border-border px-3 py-1 text-xs text-muted-foreground">{person ? "Tienes el control. El navegador del agente está pausado." : "Vista en vivo · El agente tiene el control"}</p>
+    <p role="status" className="shrink-0 border-t border-border px-3 py-1 text-xs text-muted-foreground">{hasControl ? "Tienes el control. El navegador del agente está pausado." : "Vista en vivo · El agente tiene el control"}</p>
   </div>;
 }
 function browserKey(key: string): BrowserWebRequest["input"] | null {

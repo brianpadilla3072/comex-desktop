@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import type { ArtifactMetadata } from "../types";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import { PreviewError, PreviewLoading } from "../../session/artifacts/preview";
 import { useArtifactUiStore } from "../state/artifact-store";
@@ -75,16 +76,34 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
     void persist(patch);
   }, [persist]);
 
-  const exportContent = React.useCallback(() => {
-    if (!artifact) return;
-    const blob = new Blob([artifact.content], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${artifact.meta.id}.md`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [artifact]);
+  const persistMetadata = React.useCallback(async (patch: Partial<ArtifactMetadata>) => {
+    if (!client || !artifact) return;
+    try {
+      setSaveError("");
+      await client.saveArtifactMetadata(appId, artifactId, { ...artifact.meta.metadata, ...patch }, workspaceId);
+      await query.refetch();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "No se pudo guardar el estado del visor.");
+      await query.refetch();
+    }
+  }, [artifact, appId, artifactId, client, query, workspaceId]);
+
+  const exportArtifact = React.useCallback(async (format: "md" | "mdx" | "html" | "docx" | "pdf") => {
+    if (!client) return;
+    try {
+      setSaveError("");
+      const result = await client.exportArtifact(appId, artifactId, format, workspaceId);
+      const blob = new Blob([result.data], { type: result.contentType ?? "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename ?? `${artifactId}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "No se pudo exportar el artefacto.");
+    }
+  }, [appId, artifactId, client, workspaceId]);
 
   const askChange = React.useCallback((text?: string) => {
     const prompt = `Pide un cambio en el artefacto "${artifact?.meta.title ?? artifactId}".${text ? `\n\nTexto seleccionado: "${text}"` : ""}\n\nCambio solicitado: `;
@@ -112,7 +131,8 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
         workspaceId={workspaceId}
         onToggleFocus={() => setFocusMode(!focusMode)}
         onCopy={() => void navigator.clipboard?.writeText(artifact.content)}
-        onExport={exportContent}
+        exportFormats={artifact.meta.type === "doc" ? ["md", "html", "docx", "pdf"] : ["md"]}
+        onExport={exportArtifact}
         onRequestChange={() => askChange()}
         onRevert={() => {
           const previous = artifact.meta.versions.at(-2);
@@ -122,7 +142,7 @@ export function StudioArtifactShell({ client, appId, artifactId, workspaceId, on
       />
       {saveError ? <div role="alert" className="border-b bg-muted px-4 py-2 text-xs text-destructive">{saveError}</div> : null}
       <div className="min-h-0 flex-1 overflow-auto" data-testid="artifact-body">
-        <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} onSave={saveArtifact} />
+        <ArtifactBody artifact={artifact} client={client} appId={appId} workspaceId={workspaceId} onSave={saveArtifact} onMetadataChange={persistMetadata} />
       </div>
       <ArtifactContextBar selectedText={selectedText} onAskChange={text => askChange(text)} />
     </div>

@@ -37,6 +37,7 @@ import { OpenWorkWebAccessGate } from "../domains/cloud/openwork-web-access-gate
 import { WebApprovalsResponder } from "../domains/connections/web-approvals";
 import { OrgOnboardingPage } from "../domains/cloud/org-onboarding-page";
 import { ChatDeepLinkListener } from "./chat-deep-link-listener";
+import { AppSessionLinkListener } from "./app-session-link-listener";
 import { NewProvidersListener } from "./new-providers-listener";
 import { useDesktopFontZoomBehavior } from "./font-zoom";
 import { LoadingOverlay } from "./loading-overlay";
@@ -474,6 +475,7 @@ export function AppRoot() {
         <OpenworkControlProvider>
           <OpenworkRouteControlActions />
           <ChatDeepLinkListener />
+          <AppSessionLinkListener />
           <OpenworkContextPublisher />
           <DenAuthControlActions />
           <BrandThemeControlActions />

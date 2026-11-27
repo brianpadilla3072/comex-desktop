@@ -85,6 +85,8 @@ export class TokenService {
   private config: ServerConfig;
   private path: string;
   private loaded = false;
+  private loadPromise: Promise<void> | null = null;
+  private mutationQueue: Promise<void> = Promise.resolve();
   private tokens: TokenRecord[] = [];
   private byHash = new Map<string, TokenRecord>();
 
@@ -95,10 +97,24 @@ export class TokenService {
 
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
-    const store = await readTokenStore(this.path);
-    this.tokens = store.tokens;
-    this.byHash = new Map(store.tokens.map((token) => [token.hash, token]));
-    this.loaded = true;
+    if (!this.loadPromise) {
+      this.loadPromise = readTokenStore(this.path)
+        .then((store) => {
+          this.tokens = store.tokens;
+          this.byHash = new Map(store.tokens.map((token) => [token.hash, token]));
+          this.loaded = true;
+        })
+        .finally(() => {
+          this.loadPromise = null;
+        });
+    }
+    await this.loadPromise;
+  }
+
+  private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.mutationQueue.catch(() => {}).then(operation);
+    this.mutationQueue = run.then(() => {}, () => {});
+    return run;
   }
 
   async list(): Promise<Array<Omit<TokenRecord, "hash">>> {
@@ -107,35 +123,39 @@ export class TokenService {
   }
 
   async create(scope: TokenScope, options?: { label?: string }): Promise<{ id: string; token: string; scope: TokenScope; createdAt: number; label?: string }> {
-    await this.ensureLoaded();
+    return this.enqueueMutation(async () => {
+      await this.ensureLoaded();
 
-    const id = shortId();
-    const token = `owt_${shortId().replace(/-/g, "")}`;
-    const createdAt = Date.now();
-    const record: TokenRecord = {
-      id,
-      hash: hashToken(token),
-      scope,
-      createdAt,
-      label: options?.label?.trim() || undefined,
-    };
+      const id = shortId();
+      const token = `owt_${shortId().replace(/-/g, "")}`;
+      const createdAt = Date.now();
+      const record: TokenRecord = {
+        id,
+        hash: hashToken(token),
+        scope,
+        createdAt,
+        label: options?.label?.trim() || undefined,
+      };
 
-    this.tokens = [record, ...this.tokens];
-    this.byHash.set(record.hash, record);
-    await writeTokenStore(this.path, this.tokens);
-    return { id, token, scope, createdAt, label: record.label };
+      const next = [record, ...this.tokens];
+      await writeTokenStore(this.path, next);
+      this.tokens = next;
+      this.byHash.set(record.hash, record);
+      return { id, token, scope, createdAt, label: record.label };
+    });
   }
 
   async revoke(id: string): Promise<boolean> {
-    await this.ensureLoaded();
-    const index = this.tokens.findIndex((token) => token.id === id);
-    if (index === -1) return false;
-    const [removed] = this.tokens.splice(index, 1);
-    if (removed) {
+    return this.enqueueMutation(async () => {
+      await this.ensureLoaded();
+      const removed = this.tokens.find((token) => token.id === id);
+      if (!removed) return false;
+      const next = this.tokens.filter((token) => token.id !== id);
+      await writeTokenStore(this.path, next);
+      this.tokens = next;
       this.byHash.delete(removed.hash);
-    }
-    await writeTokenStore(this.path, this.tokens);
-    return true;
+      return true;
+    });
   }
 
   /** The stored record (never the config's own client token), for checks that need the label. */
