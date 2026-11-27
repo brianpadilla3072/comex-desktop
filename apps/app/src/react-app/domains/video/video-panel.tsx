@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronDown, Copy, ExternalLink, LoaderCircle, MessageSquare, Plus, RefreshCw, RotateCcw, Send, Settings2, Sparkles, Trash2, Wrench, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, ExternalLink, LoaderCircle, MessageSquare, Play, Plus, RefreshCw, Send, Settings2, Sparkles, Trash2, Wrench, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MarkdownBlock } from "@/components/markdown/markdown";
@@ -69,14 +69,6 @@ type Draft = { style: Style; cue: Cue };
 
 const GATES = ["style", "storyboard", "voice", "stills", "final"] as const;
 type Gate = (typeof GATES)[number];
-
-const GATE_LABEL: Record<Gate, string> = {
-  style: "Estilo",
-  storyboard: "Storyboard",
-  voice: "Voz",
-  stills: "Stills",
-  final: "Render final",
-};
 
 function fileUrl(root: string, relative: string): string {
   const full = `${root}/${relative}`.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -572,6 +564,27 @@ export function videoTitle(project: Project): string {
   return stored || fromProject || humanizeVideoSlug(project.slug);
 }
 
+/** mm:ss para la tira de escenas y el preview. */
+export function clockTime(seconds: number): string {
+  const safe = Number.isFinite(seconds) ? seconds : 0;
+  const total = Math.max(0, Math.round(safe));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** Palabras por segundo: arriba de ~3,2 el texto no entra en su tiempo. */
+export function beatWordsPerSecond(text: string, duration: number): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  if (!words) return 0;
+  return words / Math.max(0.5, duration);
+}
+
+/** Primer segundo que menciona un aviso del QA («… a los 12,4 s»). */
+export function secondsFromDetail(detail: string): number | null {
+  const match = detail.match(/(\d+(?:[.,]\d+)?)\s*(?:s|seg|segundos)\b/i);
+  if (!match) return null;
+  return Number(match[1].replace(",", "."));
+}
+
 function gateReady(project: Project, gate: Gate): boolean {
   switch (gate) {
     case "style":
@@ -585,10 +598,6 @@ function gateReady(project: Project, gate: Gate): boolean {
     case "final":
       return project.hasFinal;
   }
-}
-
-function approved(project: Project, gate: Gate): boolean {
-  return project.approvals?.gates?.[gate]?.status === "approved";
 }
 
 /** «hace 2 h», «ayer», «hace 4 días»: cuánto pasó desde la última modificación. */
@@ -710,6 +719,8 @@ export function VideoPanel({
     setView("project");
   };
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [previewSecond, setPreviewSecond] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const client = workspace.openworkServerClient;
 
   const selected = useMemo(() => {
@@ -728,12 +739,18 @@ export function VideoPanel({
       style: structuredClone(selected.style ?? {}),
       cue: structuredClone(selected.cue ?? {}),
     });
+    setPreviewSecond(0);
     // The draft resets only when switching projects, not on every refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlugKey]);
 
   const options = draft?.style.options ?? {};
   const effectiveAspect = draft?.style.format?.aspect ?? selected?.cue?.meta?.aspect ?? "9:16";
+  // El preview se recorta al formato elegido sin salirse del alto disponible.
+  const aspectParts = effectiveAspect.split(":").map(Number);
+  const previewRatio = (aspectParts[0] ?? 0) > 0 && (aspectParts[1] ?? 0) > 0
+    ? aspectParts[0] / aspectParts[1]
+    : 9 / 16;
 
   // A draft that differs from what is on disk is easy to lose: switching videos
   // resets it silently. Track it and ask before dropping the edits.
@@ -744,6 +761,24 @@ export function VideoPanel({
   const dirty = draft && selected
     ? JSON.stringify({ style: draft.style ?? {}, cue: draft.cue ?? {} }) !== savedSnapshot
     : false;
+  const beats = draft?.cue.beats ?? [];
+  // El beat que suena en el preview se resalta en la tira de escenas.
+  const currentBeat = beats.findIndex(
+    (beat, index) => previewSecond >= beat.time
+      && (index === beats.length - 1 || previewSecond < (beats[index + 1]?.time ?? Number.POSITIVE_INFINITY)),
+  );
+  const renderMinutes = Math.ceil(
+    (((draft?.cue.meta?.durationSeconds ?? 0) * (draft?.cue.meta?.fps ?? 30)) / 300),
+  );
+  const qaIssues = (selected?.report?.checks ?? []).filter((check) => !check.ok);
+  const seekPreview = (seconds: number) => {
+    const node = videoRef.current;
+    if (node) {
+      node.currentTime = Math.max(0, seconds);
+      void node.play().catch(() => {});
+    }
+    setPreviewSecond(Math.max(0, seconds));
+  };
   const confirmDiscard = () =>
     !dirty || window.confirm("Tenés cambios sin guardar en este video. Si seguís, se descartan.");
 
@@ -764,23 +799,6 @@ export function VideoPanel({
   // Thumbnails are tiny; a slow rotation keeps them current without churn.
   const thumbVersion = Math.floor(allProjects.dataUpdatedAt / 60_000);
 
-  const writeGate = async (gate: Gate, status: "approved" | "changes") => {
-    if (!client || !selected) return;
-    const next = {
-      ...(selected.approvals ?? {}),
-      gates: {
-        ...(selected.approvals?.gates ?? {}),
-        [gate]: { status, at: new Date().toISOString() },
-      },
-    };
-    await client.writeWorkspaceFile(workspace.workspaceId, {
-      path: `video-projects/${selected.slug}/qa/approvals.json`,
-      content: `${JSON.stringify(next, null, 2)}\n`,
-    });
-    toast.success(status === "approved" ? `${GATE_LABEL[gate]} aprobado` : `${GATE_LABEL[gate]} reabierto`);
-    refetch();
-  };
-
   const patchStyle = (patch: Partial<Style>) => {
     setDraft((current) => (current ? { ...current, style: { ...current.style, ...patch } } : current));
   };
@@ -793,6 +811,18 @@ export function VideoPanel({
   const patchFormat = (patch: Partial<NonNullable<Style["format"]>>) => {
     if (!draft) return;
     patchStyle({ format: { ...(draft.style.format ?? {}), ...patch } });
+  };
+
+  /** Editar el texto de una escena reescribe el cue-sheet al guardar. */
+  const patchBeat = (index: number, patch: Partial<NonNullable<Cue["beats"]>[number]>) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const list = [...(current.cue.beats ?? [])];
+      const beat = list[index];
+      if (!beat) return current;
+      list[index] = { ...beat, ...patch };
+      return { ...current, cue: { ...current.cue, beats: list } };
+    });
   };
 
   const saveEdits = async (): Promise<boolean> => {
@@ -1569,166 +1599,245 @@ export function VideoPanel({
                     {draft.cue.meta?.durationSeconds ?? 0}s · {effectiveAspect}
                   </span>
                 </div>
-                <div className="mt-3 divide-y rounded-xl border">
-                  {GATES.map((gate) => {
-                    const ready = gateReady(selected, gate);
-                    const isApproved = approved(selected, gate);
-                    return (
-                      <div key={gate} className="flex items-center gap-3 px-4 py-2.5">
-                        <span className="w-28 text-[13px] font-medium">{GATE_LABEL[gate]}</span>
-                        <span className={cn("flex items-center gap-1 text-xs", ready ? "text-green-11" : "text-amber-11")}>
-                          {ready ? <Check className="size-3.5" /> : null}
-                          {ready ? "Listo" : "Pendiente"}
-                        </span>
-                        {isApproved ? <span className="text-xs text-muted-foreground">Aprobado</span> : null}
-                        <div className="ml-auto flex items-center gap-2">
-                          {isApproved ? (
-                            <Button size="xs" variant="ghost" onClick={() => void writeGate(gate, "changes")}>
-                              <RotateCcw className="size-3.5" /> Reabrir
-                            </Button>
-                          ) : (
-                            <Button size="xs" variant="outline" disabled={!ready} onClick={() => void writeGate(gate, "approved")}>
-                              Aprobar
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {GATES.filter((gate) => gateReady(selected, gate)).length}/{GATES.length} piezas listas ·{" "}
+                  {selected.hasFinal ? "hay render final" : "todavía sin render final"}
+                </p>
               </section>
 
               <section>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[13px] font-semibold">Opciones</h3>
-                  {dirty ? (
-                    <span className="rounded-full bg-amber-3 px-2 py-0.5 text-[11px] font-medium text-amber-11">
-                      Sin guardar
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-[13px] font-semibold">Preview</h3>
+                    <span className="text-[11px] text-muted-foreground">
+                      {draft.cue.meta?.durationSeconds ?? 0}s · {effectiveAspect}
                     </span>
-                  ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">Formato</span>
+                    {["9:16", "16:9", "1:1"].map((value) => (
+                      <Button
+                        key={value}
+                        size="xs"
+                        variant={effectiveAspect === value ? "default" : "outline"}
+                        onClick={() => patchFormat({ aspect: value })}
+                      >
+                        {value}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-2 space-y-4 rounded-xl border p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="w-24 text-[13px]">Formato</span>
-                    <div className="flex gap-1">
-                      {["9:16", "16:9", "1:1"].map((value) => (
-                        <Button
-                          key={value}
-                          size="xs"
-                          variant={effectiveAspect === value ? "default" : "outline"}
-                          onClick={() => patchFormat({ aspect: value })}
-                        >
-                          {value}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                    <OptionToggle label="Voz" checked={options.voice !== false} onChange={(checked) => patchOptions({ voice: checked })} />
-                    <OptionToggle label="Subtítulos" checked={options.captions !== false} onChange={(checked) => patchOptions({ captions: checked })} />
-                    <OptionToggle label="Lower third" checked={options.lowerThird !== false} onChange={(checked) => patchOptions({ lowerThird: checked })} />
-                    <OptionToggle label="SFX" checked={options.sfx !== false} onChange={(checked) => patchOptions({ sfx: checked })} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-                    <Button size="sm" onClick={() => void saveEdits()} disabled={!dirty}>Guardar</Button>
-                    <Button size="sm" variant="outline" onClick={() => void saveAndRender()} disabled={chatBusy}>
-                      Guardar y pedir render
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void copyPrompt(renderPrompt(selected.slug))}
-                    >
-                      <Copy className="size-3.5" /> Copiar pedido
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    El estilo y el guion salen de la referencia. Estas opciones se aplican al próximo render.
-                    “Guardar y pedir render” manda el pedido al chat del video.
-                  </p>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[13px] font-semibold">Recomendaciones</h3>
-                {!selected.report ? (
-                  <div className="mt-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                    <span>Sin QA todavía.</span>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={chatBusy}
-                      onClick={() => {
-                        setChatOpen(true);
-                        void sendChangeRequest({
-                          text: `Corré render_qa en video-projects/${selected.slug} y mostrame las recomendaciones.`,
-                          mode: "raw",
-                        });
+                <div className="mt-2 overflow-hidden rounded-xl border bg-black/90 p-2">
+                  {selected.hasFinal ? (
+                    <div
+                      className="mx-auto overflow-hidden rounded-lg"
+                      style={{
+                        aspectRatio: String(previewRatio),
+                        width: `min(100%, calc(46vh * ${previewRatio}))`,
                       }}
                     >
-                      <Sparkles className="size-3.5" /> Correr QA
-                    </Button>
-                  </div>
-                ) : (selected.report.checks ?? []).filter((check) => !check.ok).length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">Sin avisos del último QA.</p>
-                ) : (
-                  <ul className="mt-2 divide-y rounded-xl border">
-                    {(selected.report.checks ?? []).filter((check) => !check.ok).map((check) => (
-                      <li key={check.name} className="flex items-start gap-3 px-4 py-3">
-                        <Sparkles className="mt-0.5 size-4 shrink-0 text-amber-11" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium">{check.name}</p>
-                          <p className="text-xs text-muted-foreground">{check.detail}</p>
-                        </div>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={chatBusy}
-                          onClick={() => {
-                            setChatOpen(true);
-                            void sendChangeRequest({
-                              text: `En video-projects/${selected.slug}, corregí "${check.name}": ${check.detail}. Revisá style.json y volvé a renderizar.`,
-                              mode: "raw",
-                            });
-                          }}
-                        >
-                          <Send className="size-3.5" /> Pedir
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              {(selected.hasStill || selected.hasFinal) ? (
-                <section>
-                  <h3 className="text-[13px] font-semibold">Vista previa</h3>
-                  <div className="mt-2 space-y-3">
-                    {selected.hasStill ? (
+                      <video
+                        ref={videoRef}
+                        controls
+                        preload="metadata"
+                        src={`${fileUrl(workspace.selectedWorkspaceRoot, `video-projects/${selected.slug}/renders/final.mp4`)}?v=${previewFinalVersion}`}
+                        className="h-full w-full rounded-lg object-cover"
+                        onTimeUpdate={(event) => setPreviewSecond(event.currentTarget.currentTime)}
+                      />
+                    </div>
+                  ) : selected.hasStill ? (
+                    <div
+                      className="mx-auto overflow-hidden rounded-lg"
+                      style={{
+                        aspectRatio: String(previewRatio),
+                        width: `min(100%, calc(46vh * ${previewRatio}))`,
+                      }}
+                    >
                       <img
                         src={`${fileUrl(workspace.selectedWorkspaceRoot, `video-projects/${selected.slug}/qa/still.png`)}?v=${previewStillVersion}`}
-                        alt={`Still de ${selected.slug}`}
-                        className="max-h-[420px] w-auto rounded-xl border"
+                        alt={`Still de ${videoTitle(selected)}`}
+                        className="h-full w-full rounded-lg object-cover"
                         onError={(event) => {
-                          // The agent rewrites still.png while rendering; a 404 for
-                          // one frame must not leave a broken image on screen.
                           event.currentTarget.style.visibility = "hidden";
                         }}
                         onLoad={(event) => {
                           event.currentTarget.style.visibility = "visible";
                         }}
                       />
-                    ) : null}
-                    {selected.hasFinal ? (
-                      <video
-                        controls
-                        src={`${fileUrl(workspace.selectedWorkspaceRoot, `video-projects/${selected.slug}/renders/final.mp4`)}?v=${previewFinalVersion}`}
-                        className="max-h-[420px] w-auto rounded-xl border"
-                      />
-                    ) : null}
+                    </div>
+                  ) : (
+                    <p className="px-3 py-10 text-center text-[12px] text-muted-foreground">
+                      Todavía no hay still ni render: pedile al agente el primer still.
+                    </p>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                  El formato se recorta acá para mostrar el encuadre; el render lo recompone.
+                </p>
+              </section>
+
+              <section>
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold">Escenas</h3>
+                  <span className="text-[11px] text-muted-foreground">
+                    {beats.length === 0 ? "sin beats" : `${beats.length} beats · tocá el tiempo para ir`}
+                  </span>
+                </div>
+                {beats.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Este video todavía no tiene beats en el cue-sheet.
+                  </p>
+                ) : (
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+                    {beats.map((beat, index) => {
+                      const at = Number.isFinite(beat.time) ? beat.time : 0;
+                      const next = beats[index + 1];
+                      const nextTime = next && Number.isFinite(next.time)
+                        ? next.time
+                        : draft.cue.meta?.durationSeconds ?? at;
+                      const duration = beat.duration ?? Math.max(0, nextTime - at);
+                      const text = beat.text ?? "";
+                      const wps = beatWordsPerSecond(text, duration);
+                      return (
+                        <div
+                          key={beat.id || `${at}-${index}`}
+                          className={cn(
+                            "w-44 shrink-0 rounded-lg border p-2 transition-colors",
+                            currentBeat === index ? "border-ring bg-muted/40" : "bg-background",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => seekPreview(at)}
+                            className="flex w-full items-center justify-between text-[10px] text-muted-foreground"
+                            title="Ir a este momento del video"
+                          >
+                            <span className="font-medium text-foreground">{clockTime(at)}</span>
+                            <span>{duration > 0 ? `${duration.toFixed(1)}s` : ""}</span>
+                          </button>
+                          <textarea
+                            value={text}
+                            onChange={(event) => patchBeat(index, { text: event.target.value })}
+                            rows={3}
+                            placeholder="Texto de la escena"
+                            aria-label={`Texto de la escena en ${clockTime(at)}`}
+                            className="mt-1 w-full resize-none bg-transparent text-[11px] leading-snug outline-none"
+                          />
+                          {beat.voice?.line ? (
+                            <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
+                              Voz: {beat.voice.line}
+                            </p>
+                          ) : null}
+                          {wps > 3.2 ? (
+                            <p className="mt-1 text-[10px] text-amber-11">
+                              No entra: {wps.toFixed(1)} palabras/s
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
-                </section>
-              ) : null}
+                )}
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold">Avisos del QA</h3>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={chatBusy}
+                    onClick={() => {
+                      setChatOpen(true);
+                      void sendChangeRequest({
+                        text: `Corré render_qa en video-projects/${selected.slug} y mostrame las recomendaciones.`,
+                        mode: "raw",
+                      });
+                    }}
+                  >
+                    <Sparkles className="size-3.5" /> Correr QA
+                  </Button>
+                </div>
+                {!selected.report ? (
+                  <p className="mt-2 text-sm text-muted-foreground">Sin QA todavía.</p>
+                ) : qaIssues.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">Sin avisos del último QA.</p>
+                ) : (
+                  <ul className="mt-2 divide-y rounded-xl border">
+                    {qaIssues.map((check) => {
+                      const at = secondsFromDetail(check.detail);
+                      return (
+                        <li key={check.name} className="flex items-start gap-3 px-4 py-3">
+                          <Sparkles className="mt-0.5 size-4 shrink-0 text-amber-11" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium">{check.name}</p>
+                            <p className="text-xs text-muted-foreground">{check.detail}</p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {at !== null && selected.hasFinal ? (
+                              <Button size="xs" variant="ghost" onClick={() => seekPreview(at)}>
+                                Ver {clockTime(at)}
+                              </Button>
+                            ) : null}
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              disabled={chatBusy}
+                              onClick={() => {
+                                setChatOpen(true);
+                                void sendChangeRequest({
+                                  text: `En video-projects/${selected.slug}, corregí "${check.name}": ${check.detail}. Revisá style.json y volvé a renderizar.`,
+                                  mode: "raw",
+                                });
+                              }}
+                            >
+                              <Send className="size-3.5" /> Pedir
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              <details className="rounded-xl border p-3">
+                <summary className="cursor-pointer text-[13px] font-semibold">Ajustes de pistas</summary>
+                <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+                  <OptionToggle label="Voz" checked={options.voice !== false} onChange={(checked) => patchOptions({ voice: checked })} />
+                  <OptionToggle label="Subtítulos" checked={options.captions !== false} onChange={(checked) => patchOptions({ captions: checked })} />
+                  <OptionToggle label="Lower third" checked={options.lowerThird !== false} onChange={(checked) => patchOptions({ lowerThird: checked })} />
+                  <OptionToggle label="SFX" checked={options.sfx !== false} onChange={(checked) => patchOptions({ sfx: checked })} />
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Prenden o apagan pistas al renderizar. Se aplican al próximo render.
+                </p>
+              </details>
+
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/30 p-3">
+                <Button size="sm" onClick={() => void saveAndRender()} disabled={chatBusy}>
+                  <Play className="size-3.5" /> Renderizar
+                  {renderMinutes > 0 ? ` (≈${renderMinutes} min)` : ""}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void saveEdits()} disabled={!dirty}>
+                  Guardar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void copyPrompt(renderPrompt(selected.slug))}
+                >
+                  <Copy className="size-3.5" /> Copiar pedido
+                </Button>
+                {dirty ? (
+                  <span className="rounded-full bg-amber-3 px-2 py-0.5 text-[11px] font-medium text-amber-11">
+                    Sin guardar
+                  </span>
+                ) : null}
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  Cambiar texto o ajustes pide un render nuevo.
+                </span>
+              </div>
             </div>
           )}
         </main>
@@ -2048,3 +2157,4 @@ export function VideoPanel({
     </div>
   );
 }
+

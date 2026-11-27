@@ -62,7 +62,7 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { MemoryRouter } = await import("react-router");
-const { VideoPanel, videoQuestionFromEngine, videoTitle } = await import("../src/react-app/domains/video/video-panel");
+const { VideoPanel, videoQuestionFromEngine, videoTitle, clockTime, beatWordsPerSecond, secondsFromDetail } = await import("../src/react-app/domains/video/video-panel");
 const { createOpenworkServerClient } = await import("../src/app/lib/openwork-server");
 const { DenAuthProvider } = await import("@/react-app/domains/cloud/den-auth-provider");
 const { PlatformProvider, createDefaultPlatform } = await import("@/react-app/kernel/platform");
@@ -432,6 +432,24 @@ test("un video sin título usa un nombre legible sacado de la carpeta", () => {
 test("el título guardado gana sobre el slug", () => {
   expect(videoTitle({ slug: "app-musica", title: "AsyncPlay" })).toBe("AsyncPlay");
   expect(videoTitle({ slug: "prueba", project: { title: "Prueba" } })).toBe("Prueba");
+});
+
+test("el tiempo de cada escena se muestra en mm:ss", () => {
+  expect(clockTime(0)).toBe("0:00");
+  expect(clockTime(62.4)).toBe("1:02");
+  expect(clockTime(Number.NaN)).toBe("0:00");
+});
+
+test("un texto largo para su tiempo avisa que no entra", () => {
+  expect(beatWordsPerSecond("", 2)).toBe(0);
+  expect(beatWordsPerSecond("hola mundo", 2)).toBe(1);
+  expect(beatWordsPerSecond("uno dos tres cuatro cinco seis siete ocho", 2)).toBe(4);
+});
+
+test("el aviso del QA puede saltar al segundo que menciona", () => {
+  expect(secondsFromDetail("El pico está en 12,4 s de más")).toBe(12.4);
+  expect(secondsFromDetail("Sube a los 3 s")).toBe(3);
+  expect(secondsFromDetail("Loudness fuera de rango")).toBeNull();
 });
 
 test("una pregunta con varias respuestas se marca como múltiple", () => {
