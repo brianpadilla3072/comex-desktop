@@ -15,7 +15,7 @@ import type { OpenworkServerClient, VideoProjectSummary } from "@/app/lib/openwo
 import { DEFAULT_MODEL } from "@/app/constants";
 import { getNativeSessionMessages, deleteNativeSession } from "@/app/lib/opencode-session-native";
 import { createClient, unwrap } from "@/app/lib/opencode";
-import { createClientV2, isOpencodeV2BaseUrl } from "@/app/lib/opencode-v2-adapter";
+import { createClientV2, isOpencodeV2BaseUrl, isOpencodeV2Client } from "@/app/lib/opencode-v2-adapter";
 import { useComexVideoStudioEnabled } from "@/react-app/domains/cloud/desktop-config-provider";
 import { useWorkspace, useWorkspaceMaybe } from "@/react-app/shell/workspace-provider";
 import { readLastSessionFor } from "@/react-app/shell/session-memory";
@@ -34,6 +34,7 @@ import {
 import { ModelPickerModal } from "@/react-app/domains/session/modals/model-picker-modal";
 import { useModelPicker } from "@/react-app/domains/session/modals/use-model-picker";
 import { VideoStudioSettingsDialog } from "@/react-app/domains/video/video-studio-settings";
+import { settleQuestionState } from "@/react-app/domains/session/sync/session-sync";
 import { workspaceSettingsRoute } from "@/react-app/shell/workspace-routes";
 import type { ModelRef } from "@/app/types";
 
@@ -45,6 +46,14 @@ type VideoWorkspaceRef = { id: string; name: string; client: OpenworkServerClien
 type WorkspaceProjects = { workspaceId: string; name: string; root: string; projects: Project[] };
 type ChatTool = { id: string; name: string; target: string; status: string; ms?: number };
 type ChatQuestion = { id: string; text: string; options: string[]; answered: boolean };
+type VideoQuestionField = {
+  header?: string;
+  question: string;
+  options: Array<{ label: string; description?: string }>;
+  multiple: boolean;
+};
+/** A form the engine is waiting on, with the questions it asks. */
+type PendingVideoQuestion = { id: string; sessionID: string; fields: VideoQuestionField[] };
 type ChatRow = {
   id: string;
   mine: boolean;
@@ -279,18 +288,39 @@ async function sendVideoPrompt(input: {
   }
 }
 
+/** Whether the engine opened a form the conversation must answer. */
+async function engineQuestionPending(endpoint: VideoChatEndpoint, sessionId: string): Promise<boolean> {
+  const base = endpoint.opencodeBaseUrl.replace(/\/+$/, "");
+  try {
+    const response = await fetch(`${base}/api/session/${encodeURIComponent(sessionId)}/form`, {
+      headers: { authorization: `Bearer ${endpoint.token}` },
+    });
+    if (!response.ok) return false;
+    const payload: unknown = await response.json();
+    if (!Array.isArray(payload)) return false;
+    return payload.some(
+      (item) => Boolean(item) && Reflect.get(item as object, "sessionID") === sessionId,
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Waits for an assistant text answer created after `since`. */
 async function waitForReply(
   endpoint: VideoChatEndpoint,
   sessionId: string,
   since: number,
   timeoutMs: number,
-): Promise<{ answered: boolean; error?: string }> {
+): Promise<{ answered: boolean; asked?: boolean; error?: string }> {
   const started = Date.now();
   let lastError: string | undefined;
   while (Date.now() - started < timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, 1_500));
     try {
+      // A question ends the wait: the agent is not going to write anything
+      // until the person answers, and the panel now shows the card to do it.
+      if (await engineQuestionPending(endpoint, sessionId)) return { answered: false, asked: true };
       const messages = await getNativeSessionMessages(endpoint, sessionId, { limit: 8 });
       const met = messages.some((message) => {
         const info = message.info as { type?: string; time?: { created?: number } };
@@ -365,6 +395,86 @@ function useVideoChat(endpoint: VideoChatEndpoint | undefined, sessionId: string
       return getNativeSessionMessages(endpoint, sessionId, { limit: 200 });
     },
   });
+}
+
+/** A client for the engine that owns this video's conversation. */
+function videoEngineClient(endpoint: VideoChatEndpoint | undefined, directory: string | undefined) {
+  if (!endpoint?.token) return null;
+  return isOpencodeV2BaseUrl(endpoint.opencodeBaseUrl)
+    ? createClientV2(endpoint.opencodeBaseUrl, directory || undefined, { token: endpoint.token })
+    : createClient(endpoint.opencodeBaseUrl, directory || undefined, { token: endpoint.token, mode: "openwork" });
+}
+
+type EngineQuestion = {
+  id?: string;
+  sessionID?: string;
+  questions?: Array<{
+    header?: string;
+    question?: string;
+    options?: Array<{ label?: string; description?: string }>;
+    multiple?: boolean;
+  }>;
+};
+
+/**
+ * The question the engine opened for this conversation, with its options. A
+ * form for another session, or one without a real question, is ignored.
+ */
+export function videoQuestionFromEngine(
+  item: EngineQuestion,
+  sessionId: string,
+): PendingVideoQuestion | null {
+  const id = typeof item.id === "string" ? item.id : "";
+  if (!id || item.sessionID !== sessionId) return null;
+  const fields = (item.questions ?? []).flatMap((field): VideoQuestionField[] => {
+    const question = typeof field.question === "string" ? field.question.trim() : "";
+    if (!question) return [];
+    const options = (field.options ?? []).flatMap((option) =>
+      typeof option.label === "string" && option.label.trim()
+        ? [{
+          label: option.label,
+          ...(typeof option.description === "string" && option.description.trim()
+            ? { description: option.description }
+            : {}),
+        }]
+        : []);
+    return [{ header: field.header, question, options, multiple: Boolean(field.multiple) }];
+  });
+  if (!fields.length) return null;
+  return { id, sessionID: item.sessionID ?? sessionId, fields };
+}
+
+/**
+ * The questions this conversation is waiting on. A `question` tool call is not
+ * enough: the reply goes to the form the engine opened, so the panel reads the
+ * pending forms instead of guessing from the message history.
+ */
+function useVideoQuestions(
+  endpoint: VideoChatEndpoint | undefined,
+  directory: string | undefined,
+  sessionId: string | undefined,
+  active: boolean,
+) {
+  const client = useMemo(
+    () => videoEngineClient(endpoint, directory),
+    [endpoint?.token, endpoint?.opencodeBaseUrl, directory],
+  );
+  const query = useQuery({
+    queryKey: ["video-questions", endpoint?.opencodeBaseUrl ?? "", directory ?? "", sessionId ?? ""],
+    enabled: Boolean(client && sessionId),
+    // Faster while the agent works: the question shows up right when it asks.
+    refetchInterval: active ? 1_500 : 6_000,
+    retry: false,
+    queryFn: async (): Promise<PendingVideoQuestion[]> => {
+      if (!client || !sessionId) return [];
+      const items = unwrap(await client.question.list({ directory })) as unknown as EngineQuestion[];
+      return items.flatMap((item) => {
+        const question = videoQuestionFromEngine(item, sessionId);
+        return question ? [question] : [];
+      });
+    },
+  });
+  return { ...query, client };
 }
 
 /** Only the readable text of a message; tool calls and attachments are skipped. */
@@ -721,6 +831,12 @@ export function VideoPanel({
   const [chatBusy, setChatBusy] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatNote, setChatNote] = useState<string | null>(null);
+  // Answering the agent's question from the panel: picks per question field,
+  // a free-text answer, and the request being answered.
+  const [questionPicks, setQuestionPicks] = useState<string[][]>([]);
+  const [questionText, setQuestionText] = useState("");
+  const [questionBusy, setQuestionBusy] = useState<string | null>(null);
+  const [questionError, setQuestionError] = useState<string | null>(null);
   const activeChatSessionId = chatSessionId ?? origin.data?.chatSessionId ?? undefined;
   const chat = useVideoChat(endpoint, activeChatSessionId);
   // The model belongs to this video, not to the workspace: it is saved in its
@@ -767,6 +883,19 @@ export function VideoPanel({
             error: true,
             tools,
           });
+          continue;
+        }
+        // A step that only called tools (as when it asks a question) used to be
+        // dropped here, so the chat looked stuck and the tool trail vanished.
+        if (info.role === "assistant" && (tools.length > 0 || question)) {
+          rows.push({
+            id: info.id ?? `row-${rows.length}`,
+            mine: false,
+            text: "",
+            created,
+            tools,
+            question,
+          });
         }
         continue;
       }
@@ -783,8 +912,25 @@ export function VideoPanel({
     return rows.sort((a, b) => a.created - b.created);
   }, [chat.data]);
   // The last word is the person's: the agent is working on it.
-  const chatPending = chatRows.length > 0 && chatRows[chatRows.length - 1]?.mine === true;
   const lastRow = chatRows[chatRows.length - 1];
+  // A step with a tool still running is also work in progress, even when the
+  // assistant already wrote something (or only called tools).
+  const runningTool = lastRow?.tools?.find((tool) => tool.status && tool.status !== "completed");
+  const chatPending = Boolean(lastRow && (lastRow.mine || runningTool));
+  // The engine waits on a form, not on a message: read the pending ones.
+  const questions = useVideoQuestions(
+    endpoint,
+    workspace.selectedWorkspaceRoot,
+    activeChatSessionId,
+    chatPending,
+  );
+  const pendingQuestion = questions.data?.[0] ?? null;
+  // A new question starts clean: no picks or text from the previous one.
+  useEffect(() => {
+    setQuestionPicks([]);
+    setQuestionText("");
+    setQuestionError(null);
+  }, [pendingQuestion?.id]);
   // Mientras trabaja, el panel cuenta cuánto hace que empezó y qué herramienta corre.
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -793,7 +939,6 @@ export function VideoPanel({
     return () => window.clearInterval(timer);
   }, [chatPending]);
   const chatElapsed = lastRow ? Math.max(0, Math.round((clock - lastRow.created) / 1000)) : 0;
-  const runningTool = lastRow?.tools?.find((tool) => tool.status && tool.status !== "completed");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const node = chatScrollRef.current;
@@ -941,6 +1086,13 @@ export function VideoPanel({
             void chat.refetch();
             return;
           }
+          if (first.asked) {
+            // The card below the messages answers it; what comes next depends
+            // on that answer, so this request is done for now.
+            void chat.refetch();
+            void questions.refetch();
+            return;
+          }
           // A quota or credit failure is not the person's fault and blocks every
           // send. The app's default model can be out of credit, so retry once on
           // the free default and say which model answered.
@@ -1079,11 +1231,62 @@ export function VideoPanel({
     }
   };
 
-  /** Las preguntas del motor se contestan en el chat completo: acá se ofrece el atajo. */
-  const answerInChat = () => {
-    if (!activeChatSessionId) return;
-    navigate(`/workspace/${workspace.workspaceId}/session/${activeChatSessionId}`);
+  /** Contesta la pregunta del agente desde el panel, sin abrir la conversación. */
+  const answerQuestion = async (answers: string[][]) => {
+    const request = pendingQuestion;
+    const client = questions.client;
+    if (!request || !client) return;
+    const clean = answers.map((labels) => labels.map((label) => label.trim()).filter(Boolean));
+    if (clean.length !== request.fields.length || clean.some((labels) => labels.length === 0)) {
+      setQuestionError("Elegí una opción en cada pregunta.");
+      return;
+    }
+    setQuestionBusy(request.id);
+    setQuestionError(null);
+    try {
+      const directory = workspace.selectedWorkspaceRoot || undefined;
+      if (isOpencodeV2Client(client)) {
+        unwrap(await client.replySessionQuestion({ sessionID: request.sessionID, requestID: request.id, answers: clean }));
+      } else {
+        unwrap(await client.question.reply({ requestID: request.id, answers: clean, directory }));
+      }
+      // The rest of the app reads the same pending state: clearing it here
+      // also stops the conversation from showing the question as unanswered.
+      if (workspace.workspaceId) settleQuestionState(workspace.workspaceId, request.sessionID, request.id);
+      setQuestionPicks([]);
+      setQuestionText("");
+      await questions.refetch();
+      void chat.refetch();
+    } catch (error) {
+      setQuestionError(
+        error instanceof Error ? error.message : "No se pudo enviar la respuesta.",
+      );
+    } finally {
+      setQuestionBusy(null);
+    }
   };
+
+  const toggleQuestionPick = (index: number, label: string, multiple: boolean) => {
+    setQuestionPicks((current) => {
+      const next = current.map((labels) => [...labels]);
+      const field = next[index] ?? [];
+      if (multiple) {
+        next[index] = field.includes(label)
+          ? field.filter((value) => value !== label)
+          : [...field, label];
+      } else {
+        next[index] = [label];
+      }
+      return next;
+    });
+  };
+
+  const questionReady = pendingQuestion
+    ? pendingQuestion.fields.every((_, index) => (questionPicks[index] ?? []).length > 0)
+    : false;
+  const questionNeedsSend = pendingQuestion
+    ? pendingQuestion.fields.length > 1 || pendingQuestion.fields.some((field) => field.multiple)
+    : false;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-background">
@@ -1585,34 +1788,15 @@ export function VideoPanel({
                       ))}
                     </ul>
                   ) : null}
-                  {!row.mine && row.question && !row.question.answered && row.question.text ? (
-                    <div className="mt-2 rounded-lg border border-dashed p-2">
-                      <p className="whitespace-pre-wrap text-[12px] leading-snug">{row.question.text}</p>
-                      {row.question.options.length ? (
-                        <ul className="mt-1.5 space-y-1">
-                          {row.question.options.map((option) => (
-                            <li key={option}>
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                className="w-full justify-start text-left"
-                                onClick={answerInChat}
-                              >
-                                {option}
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      <p className="mt-1.5 text-[10px] text-muted-foreground">
-                        El agente espera una respuesta: se contesta en el chat completo.
-                      </p>
-                    </div>
+                  {!row.mine && row.question?.text && !pendingQuestion ? (
+                    <p className="mt-1.5 border-l-2 border-dashed pl-2 text-[11px] leading-snug text-muted-foreground">
+                      Preguntó: {row.question.text}
+                    </p>
                   ) : null}
                 </div>
               ))
             )}
-            {chatPending ? (
+            {chatPending && !pendingQuestion ? (
               <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
                 {chatBusy
@@ -1621,6 +1805,87 @@ export function VideoPanel({
               </p>
             ) : null}
           </div>
+
+          {pendingQuestion ? (
+            <div className="shrink-0 space-y-2 border-t bg-amber-2/50 p-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-medium text-amber-11">
+                <MessageSquare className="size-3.5" aria-hidden="true" />
+                El agente pregunta
+              </p>
+              {pendingQuestion.fields.map((field, index) => (
+                <div key={`${pendingQuestion.id}:${index}`} className="space-y-1.5">
+                  {field.header ? (
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{field.header}</p>
+                  ) : null}
+                  <p className="whitespace-pre-wrap text-[12px] leading-snug">{field.question}</p>
+                  {field.options.length ? (
+                    <ul className="space-y-1">
+                      {field.options.map((option) => {
+                        const picked = (questionPicks[index] ?? []).includes(option.label);
+                        const autoSend = pendingQuestion.fields.length === 1 && !field.multiple;
+                        return (
+                          <li key={option.label}>
+                            <Button
+                              size="xs"
+                              variant={picked ? "secondary" : "outline"}
+                              className="h-auto w-full justify-start whitespace-normal py-1 text-left"
+                              disabled={questionBusy !== null}
+                              onClick={() => {
+                                if (autoSend) {
+                                  void answerQuestion([[option.label]]);
+                                  return;
+                                }
+                                toggleQuestionPick(index, option.label, field.multiple);
+                              }}
+                            >
+                              <span className="flex flex-col items-start gap-0.5">
+                                <span>{option.label}</span>
+                                {option.description ? (
+                                  <span className="text-[10px] font-normal text-muted-foreground">{option.description}</span>
+                                ) : null}
+                              </span>
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+              {questionNeedsSend ? (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={!questionReady || questionBusy !== null}
+                  onClick={() => void answerQuestion(pendingQuestion.fields.map((_, index) => questionPicks[index] ?? []))}
+                >
+                  {questionBusy ? "Enviando…" : "Responder"}
+                </Button>
+              ) : null}
+              {pendingQuestion.fields.length === 1 ? (
+                <form
+                  className="flex items-center gap-1.5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const text = questionText.trim();
+                    if (!text || questionBusy !== null) return;
+                    void answerQuestion([[text]]);
+                  }}
+                >
+                  <input
+                    value={questionText}
+                    onChange={(event) => setQuestionText(event.target.value)}
+                    placeholder="Otra respuesta…"
+                    className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-[12px] outline-none focus:ring-1"
+                  />
+                  <Button type="submit" size="xs" variant="outline" disabled={!questionText.trim() || questionBusy !== null}>
+                    Enviar
+                  </Button>
+                </form>
+              ) : null}
+              {questionError ? <p className="text-[10px] text-red-11">{questionError}</p> : null}
+            </div>
+          ) : null}
 
           <div className="shrink-0 space-y-2 border-t p-3">
             <textarea

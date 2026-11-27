@@ -62,7 +62,7 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
 const { MemoryRouter } = await import("react-router");
-const { VideoPanel } = await import("../src/react-app/domains/video/video-panel");
+const { VideoPanel, videoQuestionFromEngine } = await import("../src/react-app/domains/video/video-panel");
 const { createOpenworkServerClient } = await import("../src/app/lib/openwork-server");
 const { DenAuthProvider } = await import("@/react-app/domains/cloud/den-auth-provider");
 const { PlatformProvider, createDefaultPlatform } = await import("@/react-app/kernel/platform");
@@ -387,5 +387,54 @@ test("el botón Chat abre y cierra el panel de conversación", async () => {
   expect(chat.getAttribute("aria-expanded")).toBe("false");
   await click(chat);
   expect(exactButton("Chat").getAttribute("aria-expanded")).toBe("true");
+});
+
+test("la pregunta del agente se arma con su texto y sus opciones", () => {
+  const question = videoQuestionFromEngine({
+    id: "req_1",
+    sessionID: "ses_1",
+    questions: [{
+      header: "Render final",
+      question: "¿Renderizo el video final?",
+      options: [
+        { label: "Sí, completo", description: "Render, QA y entrega" },
+        { label: "No todavía" },
+      ],
+    }],
+  }, "ses_1");
+  expect(question?.id).toBe("req_1");
+  expect(question?.sessionID).toBe("ses_1");
+  expect(question?.fields).toHaveLength(1);
+  expect(question?.fields[0]?.question).toBe("¿Renderizo el video final?");
+  expect(question?.fields[0]?.header).toBe("Render final");
+  expect(question?.fields[0]?.options.map((option) => option.label)).toEqual(["Sí, completo", "No todavía"]);
+  expect(question?.fields[0]?.multiple).toBe(false);
+});
+
+test("la pregunta de otra conversación no aparece en este video", () => {
+  expect(videoQuestionFromEngine({
+    id: "req_2",
+    sessionID: "ses_otra",
+    questions: [{ question: "¿Sigo?" }],
+  }, "ses_1")).toBeNull();
+  expect(videoQuestionFromEngine({
+    id: "req_3",
+    sessionID: "ses_1",
+    questions: [{ question: "   " }],
+  }, "ses_1")).toBeNull();
+});
+
+test("una pregunta con varias respuestas se marca como múltiple", () => {
+  const question = videoQuestionFromEngine({
+    id: "req_4",
+    sessionID: "ses_1",
+    questions: [{
+      question: "¿Qué reviso primero?",
+      options: [{ label: "Título" }, { label: "Audio" }],
+      multiple: true,
+    }],
+  }, "ses_1");
+  expect(question?.fields[0]?.multiple).toBe(true);
+  expect(question?.fields[0]?.options.map((option) => option.label)).toEqual(["Título", "Audio"]);
 });
 
