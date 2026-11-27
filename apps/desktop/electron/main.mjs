@@ -1,3 +1,4 @@
+import { captureRelaunchEnvironment, desktopRelaunchPlan } from "./relaunch-environment.mjs";
 import { desktopLocalWebEnabled } from "./desktop-local-web.mjs";
 import { resolveWebAppUrl } from "./web-app-url.mjs";
 import { companionEnabled } from "./companion-platform.mjs";
@@ -412,6 +413,7 @@ const uiControlServer = createUiControlServer({
   appIdentifier: APP_IDENTIFIER,
   getWindow: () => createMainWindow(),
   browserTask: (args, options) => browserPanel?.browserTask(args, options) ?? { ok: false, code: "browser_unavailable" },
+  browserView: (request, options) => browserPanel?.webView(request, options) ?? { version: 1, ok: false, code: "browser_view_unavailable", error: "Browser unavailable" },
   computerTask: async (args, options) => {
     if (!["computer_status", "computer_close"].includes(args?.name)) {
       const denied = await checkComputerPermission(computerChatOf(args));
@@ -495,6 +497,13 @@ const userDataPath = BLANK_SLATE_LAUNCH.userDataPath ?? resolveUserDataPath({
   userDataOverride: process.env.OPENWORK_ELECTRON_USERDATA,
 });
 app.setPath("userData", userDataPath);
+// Owned by this main-process lifetime; runtime child paths must not become launch paths.
+const desktopLaunchPaths = captureRelaunchEnvironment(process.env);
+function prepareDesktopRelaunch() {
+  for (const [key, value] of Object.entries(desktopRelaunchPlan(desktopLaunchPaths, userDataPath).paths)) {
+    if (value === null) delete process.env[key]; else process.env[key] = value;
+  }
+}
 const desktopStartupLog = createStartupLog({ directory: path.join(userDataPath, "logs") });
 const endAppReady = startupPhase("app.ready");
 app.once("quit", () => desktopStartupLog.close());
@@ -2878,6 +2887,7 @@ if (isDevMode) {
       // Best effort — never block the relaunch on a flush failure.
     }
     setTimeout(() => {
+      prepareDesktopRelaunch();
       app.relaunch();
       // Graceful quit (not app.exit) so before-quit teardown runs and managed
       // sidecars are stopped — a hard exit orphans them and they can hold
@@ -3245,6 +3255,7 @@ ipcMain.handle("openwork:shell:openExternal", async (_event, url) => {
   return openExternalUrl(url.trim());
 });
 ipcMain.handle("openwork:shell:relaunch", async () => {
+  prepareDesktopRelaunch();
   app.relaunch();
   app.quit();
 });

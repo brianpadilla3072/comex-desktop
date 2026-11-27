@@ -154,6 +154,7 @@ import { addRoute, matchRoute, type AuthMode, type RequestContext, type Route } 
 import { registerSessionGroupRoutes } from "./routes/session-groups.js";
 import { registerWorkspaceDefaultModelRoutes } from "./routes/workspace-default-model.js";
 import { createNativeClaudeImportEngine, registerClaudeImportRoutes } from "./routes/claude-import.js";
+import { registerBrowserWebViewRoutes } from "./routes/browser-web-view.js";
 import { registerUiControlRoutes } from "./routes/ui-control.js";
 import { registerWorkspaceRoutes } from "./routes/workspaces.js";
 import { registerCloudMcpRoutes } from "./routes/cloud-mcp.js";
@@ -4152,6 +4153,14 @@ function createRoutes(
   });
 
   registerUiControlRoutes({ routes, jsonResponse, readJsonBody, requireClientScope });
+  registerBrowserWebViewRoutes({ routes, config, readJsonBody, requireClientScope,
+    assertSession: async (workspaceId, sessionId, signal) => {
+      const workspace = await resolveWorkspace(config, workspaceId);
+      signal.throwIfAborted();
+      if (await resolveV2SessionExecutionDirectory(config, engineV2Preview, workspace, sessionId)) return;
+      await assertWorkspaceOwnsProxiedSessionRead(config, workspace, "GET", `/session/${encodeURIComponent(sessionId)}`, true, signal);
+    },
+  });
 
   registerFileRoutes({
     routes,

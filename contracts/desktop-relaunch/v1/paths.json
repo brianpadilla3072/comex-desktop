@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "linux launcher paths",
+      "env": {
+        "HOME": "/home/example",
+        "XDG_CONFIG_HOME": "/config/example"
+      },
+      "userData": "/config/example/app.dev",
+      "expected": {
+        "HOME": "/home/example",
+        "XDG_CONFIG_HOME": "/config/example",
+        "OPENWORK_ELECTRON_USERDATA": "/config/example/app.dev",
+        "OPENWORK_SERVER_CONFIG": null
+      }
+    },
+    {
+      "name": "windows launcher paths",
+      "env": {
+        "USERPROFILE": "C:\\Users\\example",
+        "APPDATA": "C:\\Users\\example\\AppData\\Roaming"
+      },
+      "userData": "C:\\Users\\example\\AppData\\Roaming\\app",
+      "expected": {
+        "USERPROFILE": "C:\\Users\\example",
+        "APPDATA": "C:\\Users\\example\\AppData\\Roaming",
+        "OPENWORK_ELECTRON_USERDATA": "C:\\Users\\example\\AppData\\Roaming\\app",
+        "XDG_CONFIG_HOME": null
+      }
+    },
+    {
+      "name": "mac explicit profile",
+      "env": {
+        "HOME": "/Users/example",
+        "OPENWORK_ELECTRON_USERDATA": "/custom/app"
+      },
+      "userData": "/custom/app",
+      "expected": {
+        "HOME": "/Users/example",
+        "OPENWORK_ELECTRON_USERDATA": "/custom/app",
+        "OPENWORK_RUNTIME_DB": null
+      }
+    }
+  ]
+}

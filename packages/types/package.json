@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./browser-web-view": {
+      "types": "./src/browser-web-view.ts",
+      "development": "./src/browser-web-view.ts",
+      "browser": "./src/browser-web-view.ts",
+      "default": "./dist/browser-web-view.js"
+    },
     "./workbot-context": {
       "types": {
         "openwork-build": "./dist/types/src/workbot-context.d.ts",

@@ -1,3 +1,4 @@
+import { browserWebReplySchema, type BrowserWebRequest } from "@openwork/types/browser-web-view";
 import type { MemoryScope, MemorySnapshot } from "@openwork/types/scoped-memory";
 import type { TaskState, GoalInput } from "@openwork/types/task-continuity";
 import type { PermissionProfileInput, PermissionModesSnapshot } from "@openwork/types/permission-modes";
@@ -3047,6 +3048,8 @@ export function createOpenworkServerClient(options: { baseUrl: string; token?: s
         "/env/keys",
         { token, hostToken, timeoutMs: timeouts.config, desktopTransport: options?.desktopTransport },
       ),
+
+    browserWebView: async (workspaceId: string, body: BrowserWebRequest, signal?: AbortSignal) => browserWebReplySchema.parse(await requestJson<unknown>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/browser/view`, { token, hostToken, method: "POST", body, signal, timeoutMs: 20000 })),
 
     // Pairing other devices (docs/features/remote-device-pairing). Redeeming needs no token: the
     // one-time code is the credential.

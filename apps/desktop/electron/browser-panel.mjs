@@ -1,6 +1,7 @@
 // Embedded browser panel: tab state, BrowserView lifecycle, native context menus,
 // proxy configuration, and browser IPC registrations. Extracted from
 // main.mjs as a factory so the main process only owns window creation.
+import { createBrowserWebView } from "./browser-web-view.mjs";
 import { constants as fsConstants } from "node:fs";
 import { access, lstat, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -2534,7 +2535,61 @@ export function createBrowserPanel({ getWindow, remoteDebugPort, onDeepLink, che
     });
   }
 
+  const webView = createBrowserWebView({
+    open: (sessionId, url, options) => taskHost.request({ sessionId, operation: "open", args: { url, provider: "builtin" } }, options),
+    getTab: getBrowserTab,
+    tabsFor: (sessionId) => [...browserTabs.values()].filter(tab => registry.ownerOf(tab.tabId) === sessionId),
+    ownerOf: (id) => registry.ownerOf(id),
+    pause: (id) => taskHost.pause(id), resume: (id) => taskHost.resume(id),
+    paused: (id) => taskHost.stateFor(id).status === "paused",
+    describe: (tab) => ({ id: tab.tabId, url: tab.view.webContents.getURL(), title: tab.view.webContents.getTitle(),
+      control: taskHost.stateFor(tab.tabId).status === "paused" ? "person" : "agent",
+      canGoBack: tab.view.webContents.canGoBack(), canGoForward: tab.view.webContents.canGoForward() }),
+    capture: async (tab) => {
+      const image = await tab.view.webContents.capturePage();
+      const size = image.getSize();
+      if (size.width < 1 || size.height < 1) throw new Error("empty_frame");
+      const scale = Math.min(1, 1600 / size.width, 1000 / size.height);
+      const resized = scale < 1 ? image.resize({ width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) }) : image;
+      const output = resized.getSize();
+      return { mimeType: "image/jpeg", data: resized.toJPEG(65).toString("base64"), width: output.width, height: output.height };
+    },
+    interact: async (tab, request) => {
+      const contents = tab.view.webContents;
+      if (request.operation === "navigate") {
+        if (!request.url) throw new Error("missing_url");
+        await loadForPerson(tab.view, request.url);
+      } else if (request.operation === "back" && contents.canGoBack()) contents.goBack();
+      else if (request.operation === "forward" && contents.canGoForward()) contents.goForward();
+      else if (request.operation === "reload") contents.reload();
+      else if (request.operation === "input") {
+        const input = request.input;
+        if (!input) throw new Error("missing_input");
+        await tab.emulation;
+        const cdp = contents.debugger;
+        const attachedHere = !cdp.isAttached();
+        if (attachedHere) cdp.attach("1.3");
+        try {
+          if (input.type === "text") await cdp.sendCommand("Input.insertText", { text: input.text });
+          else if (input.type === "key") {
+            const codes = { Enter: 13, Tab: 9, Backspace: 8, Delete: 46, Escape: 27, ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Home: 36, End: 35, PageUp: 33, PageDown: 34 };
+            for (const type of ["keyDown", "keyUp"]) await cdp.sendCommand("Input.dispatchKeyEvent", { type, key: input.key, code: input.key, windowsVirtualKeyCode: codes[input.key] });
+          } else {
+            const bounds = tab.view.getBounds();
+            const x = input.type === "click" ? Math.min(bounds.width - 1, Math.round(input.x * bounds.width)) : Math.round(bounds.width / 2);
+            const y = input.type === "click" ? Math.min(bounds.height - 1, Math.round(input.y * bounds.height)) : Math.round(bounds.height / 2);
+            if (input.type === "scroll") await cdp.sendCommand("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: 0, deltaY: input.deltaY });
+            else {
+              for (const type of ["mousePressed", "mouseReleased"]) await cdp.sendCommand("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
+            }
+          }
+        } finally { if (attachedHere && cdp.isAttached()) cdp.detach(); }
+      }
+    },
+  });
+
   return {
+    webView: (request, options) => webView.request(request, options),
     adoptPopOutWindow,
     closeFocusedBrowserTab,
     registerWindowShortcuts,

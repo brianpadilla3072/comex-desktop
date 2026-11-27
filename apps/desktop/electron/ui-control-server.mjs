@@ -18,6 +18,7 @@ export function createUiControlServer({
   appIdentifier,
   getWindow,
   browserTask = undefined,
+  browserView = undefined,
   computerTask = undefined,
   computerProgram = undefined,
   computerScript = undefined,
@@ -170,6 +171,13 @@ export function createUiControlServer({
         }
         if (request.method === "POST" && url.pathname === "/execute") {
           sendJsonResponse(response, 200, await runOpenworkControlCommand("execute", await readJsonRequestBody(request)));
+          return;
+        }
+        if (request.method === "POST" && url.pathname === "/browser/view") {
+          if (typeof browserView !== "function") { sendJsonResponse(response, 503, { version: 1, ok: false, code: "browser_view_unavailable", error: "Browser view unavailable" }); return; }
+          const controller = new AbortController();
+          response.once("close", () => controller.abort());
+          sendJsonResponse(response, 200, await browserView(await readJsonRequestBody(request), { signal: controller.signal }));
           return;
         }
         if (request.method === "POST" && url.pathname === "/browser/task") {

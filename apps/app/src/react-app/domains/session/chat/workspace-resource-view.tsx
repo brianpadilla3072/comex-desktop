@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { WebBrowserPane } from "./web-browser-pane";
 import { WorkspaceAgentsView } from "./workspace-agents-view";
 import { WorkspaceSourcesView } from "./workspace-sources-view";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
@@ -25,7 +26,7 @@ import { resourceAddress, resourcePagePath, useWorkspaceResources, type Resource
 
 const ArtifactTextEditor = lazy(() => import("../artifacts/artifact-text-editor").then(module => ({ default: module.ArtifactTextEditor })))
 
-function ResourceBrowser({ tab, scope, active, onClose }: { tab: WorkspaceResourceTab; scope: string; active: boolean; onClose: () => void }) {
+function ResourceBrowser({ tab, scope, active, onClose, client, workspaceId, sessionId }: { tab: WorkspaceResourceTab; scope: string; active: boolean; onClose: () => void; client: OpenworkServerClient | null; workspaceId: string; sessionId: string | null }) {
   const [nativeTab, setNativeTab] = useState<BrowserPanelTab | null>(null)
   const [failure, setFailure] = useState("")
   const nativeId = useRef(tab.nativeId)
@@ -66,6 +67,7 @@ function ResourceBrowser({ tab, scope, active, onClose }: { tab: WorkspaceResour
     return () => { disposed = true; unsubscribe?.() }
   }, [active, scope, tab.id, tab.ownerSessionId])
   if (!active) return null
+  if (!getElectronBrowser() && window.__OPENWORK_BOOTSTRAP__?.desktopWeb?.version === 1 && client && sessionId && tab.url) return <WebBrowserPane client={client} workspaceId={workspaceId} sessionId={sessionId} url={tab.url} nativeId={tab.nativeId} active={active} onLocation={native => useWorkspaceResources.getState().update(scope, tab.id, { nativeId: native.id, url: native.url, title: native.title || new URL(native.url).hostname })} />
   if (!getElectronBrowser()) return <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"><Globe className="size-8 text-muted-foreground" /><h2 className="text-base">{tab.title}</h2><p className="text-sm text-muted-foreground">El navegador integrado está disponible en la aplicación de escritorio.</p><Button onClick={() => { if (tab.url) void platform.openLink(tab.url) }}>Abrir en el navegador</Button></div>
   if (failure) return <div className="p-6" role="alert">{failure}</div>
   return nativeTab ? <div className="flex h-full min-h-0 flex-col"><BrowserPanelContent sessionId={getSidePanelSessionKey(tab.ownerSessionId ?? null)} tab={nativeTab} onClose={onClose} /></div> : <div role="status" aria-label="Abriendo sitio" className="p-4"><Skeleton className="h-8 w-full" /></div>
@@ -169,7 +171,7 @@ export function WorkspaceResourceView(props: ResourceViewProps) {
   }, [props.scope, props.sessionId, props.visible])
   if (!active) return null
   return <div className="flex h-full min-h-0 flex-col bg-background" data-workspace-resource-view hidden={!props.visible} inert={!props.visible}>
-    {active.kind !== "sources" && active.kind !== "agents" && (active.kind !== "browser" || !getElectronBrowser()) ? <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-2 sm:px-4">
+    {active.kind !== "sources" && active.kind !== "agents" && (active.kind !== "browser" || (!getElectronBrowser() && window.__OPENWORK_BOOTSTRAP__?.desktopWeb?.version !== 1)) ? <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-2 sm:px-4">
       <div className="flex items-center rounded-full bg-muted/60 px-1"><Button variant="ghost" size="icon-sm" aria-label="Atrás en la pestaña" disabled={active.kind !== "browser" || (active.historyIndex ?? 0) <= 0} onClick={() => { const index = (active.historyIndex ?? 0) - 1; const url = active.history?.[index]; if (url) store().update(props.scope, active.id, { url, historyIndex: index, title: new URL(url).hostname }) }}><ArrowLeft className="size-4" /></Button><Button variant="ghost" size="icon-sm" aria-label="Adelante en la pestaña" disabled={active.kind !== "browser" || !active.history || (active.historyIndex ?? 0) >= active.history.length - 1} onClick={() => { const index = (active.historyIndex ?? 0) + 1; const url = active.history?.[index]; if (url) store().update(props.scope, active.id, { url, historyIndex: index, title: new URL(url).hostname }) }}><ArrowRight className="size-4" /></Button><Button variant="ghost" size="icon-sm" aria-label="Actualizar pestaña" disabled={active.kind === "page" || active.kind === "terminal" || active.kind === "browser"} onClick={() => {
         if (active.kind === "files" || active.kind === "new") { void files.refetch(); void queryClient.invalidateQueries({ queryKey: ["workspace-file-tree", props.workspaceId] }) }
         if (active.kind === "artifact") void queryClient.invalidateQueries({ queryKey: ["artifact-panel", props.workspaceId, active.ownerSessionId ?? props.sessionId ?? "__draft__"] })
@@ -206,7 +208,7 @@ export function WorkspaceResourceView(props: ResourceViewProps) {
           {tab.kind === "terminal" ? <TerminalDock workspaceRoot={props.workspaceRoot} onClose={() => props.onClose(tab)} /> : null}
           {tab.kind === "page" ? <WorkspacePage tab={tab} scope={props.scope} client={props.client} workspaceId={props.workspaceId} sessionId={tab.ownerSessionId ?? props.sessionId} /> : null}
           {tab.kind === "artifact" && tab.path ? <ResourceArtifact scope={props.scope} tab={tab} client={props.client} workspaceId={props.workspaceId} workspaceRoot={props.workspaceRoot} sessionId={tab.ownerSessionId ?? props.sessionId} onOpenFile={path => open("artifact", path)} onClose={() => props.onClose(tab)} /> : null}
-          {tab.kind === "browser" ? <ResourceBrowser tab={tab} scope={props.scope} active={props.visible && tab.id === active.id} onClose={() => props.onClose(tab)} /> : null}
+          {tab.kind === "browser" ? <ResourceBrowser tab={tab} scope={props.scope} active={props.visible && tab.id === active.id} onClose={() => props.onClose(tab)} client={props.client} workspaceId={props.workspaceId} sessionId={tab.ownerSessionId ?? props.sessionId} /> : null}
         </div>)}
       </div>
       {props.assistantOpen ? <aside className="flex w-[min(26rem,45%)] min-w-72 flex-col border-l border-border bg-background" aria-label="Chat lateral" onPointerDown={props.onSideChatFocus} onFocusCapture={props.onSideChatFocus}><header className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3 text-sm">Chat lateral<Button variant="ghost" size="icon-xs" aria-label="Cerrar chat lateral" onClick={props.onAssistantToggle}><X className="size-4" /></Button></header><div className="min-h-0 flex-1 overflow-auto">{props.assistant}</div></aside> : <div className="pointer-events-none absolute right-3 bottom-3 z-20 w-[min(35rem,calc(100%-1.5rem))]"><div className="pointer-events-auto" data-resource-assistant>{props.assistant}</div></div>}
