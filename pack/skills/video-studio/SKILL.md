@@ -285,6 +285,10 @@ licencias.
 5. Si el cambio altera la duración, actualizá `cue-sheet.json` con
    `durations-to-cue` antes de renderizar y avisá que se movió el timing.
 6. Si el pedido es ambiguo, preguntá **una** cosa concreta, nunca el brief entero.
+7. Si una pregunta se descarta sin respuesta, eso **no** es un sí. Repetí la
+   pregunta **una vez** con opciones; si vuelve a descartarse, hacé lo menos
+   destructivo (un preview que no toca el MP4) y decí en la primera línea qué
+   elegiste, qué no cambiaste y que se puede rehacer.
 
 ```bash
 # 1. ver el instante que cambió, sin renderizar todo

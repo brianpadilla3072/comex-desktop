@@ -1062,6 +1062,7 @@ export function VideoPanel({
             `En video-projects/${selected.slug} (video «${title}»): ${text}`,
             "",
             "Mantené el estilo y las opciones actuales. Si el cambio afecta el resultado, mostrame los stills antes del render final.",
+            "Si el pedido admite más de una interpretación, preguntá con opciones usando la herramienta question antes de elegir por tu cuenta: la pregunta se contesta en el panel.",
           ].join("\n");
       if (endpoint) {
         try {
