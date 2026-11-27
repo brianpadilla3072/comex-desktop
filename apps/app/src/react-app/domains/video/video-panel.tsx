@@ -116,7 +116,7 @@ function useAllVideoProjects(refs: VideoWorkspaceRef[] | undefined, currentId: s
           // The installed server summary has no title; read project.json per project.
           const enriched = await Promise.all(
             projects.slice(0, 20).map(async (project) => {
-              if (project.project?.title?.trim()) return project;
+              if (project.title?.trim() || project.project?.title?.trim()) return project;
               try {
                 const file = await ref.client.readWorkspaceFile(
                   ref.id,
@@ -125,7 +125,7 @@ function useAllVideoProjects(refs: VideoWorkspaceRef[] | undefined, currentId: s
                 const parsed = JSON.parse(file.content.replace(/^\uFEFF/, "")) as Record<string, unknown>;
                 const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
                 return title
-                  ? { ...project, project: { ...(project.project ?? {}), title } }
+                  ? { ...project, title, project: { ...(project.project ?? {}), title } }
                   : project;
               } catch {
                 return project;
@@ -559,6 +559,19 @@ function messageQuestion(parts: ReadonlyArray<unknown>): ChatQuestion | null {
   return null;
 }
 
+/** Un slug sin título se lee mejor con espacios y mayúscula inicial. */
+function humanizeVideoSlug(slug: string): string {
+  const spaced = slug.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : slug;
+}
+
+/** El nombre que ve la persona: el guardado, o uno legible sacado del slug. */
+export function videoTitle(project: Project): string {
+  const stored = typeof project.title === "string" ? project.title.trim() : "";
+  const fromProject = project.project?.title?.trim() ?? "";
+  return stored || fromProject || humanizeVideoSlug(project.slug);
+}
+
 function gateReady(project: Project, gate: Gate): boolean {
   switch (gate) {
     case "style":
@@ -677,6 +690,17 @@ export function VideoPanel({
         .sort((a, b) => (b.project.updatedAt ?? 0) - (a.project.updatedAt ?? 0)),
     [allGroups],
   );
+  // Una sola lista por actividad: buscar por título, carpeta o workspace.
+  const [listQuery, setListQuery] = useState("");
+  const [workspaceFilter, setWorkspaceFilter] = useState<string>("all");
+  const listEntries = useMemo(() => {
+    const query = listQuery.trim().toLowerCase();
+    return recent.filter(({ group, project }) => {
+      if (workspaceFilter !== "all" && group.workspaceId !== workspaceFilter) return false;
+      if (!query) return true;
+      return `${videoTitle(project)} ${project.slug} ${group.name}`.toLowerCase().includes(query);
+    });
+  }, [recent, listQuery, workspaceFilter]);
   const openProject = (group: WorkspaceProjects, slug: string) => {
     if (group.workspaceId !== workspace.workspaceId) {
       window.location.hash = `#/workspace/${group.workspaceId}/video?project=${encodeURIComponent(slug)}`;
@@ -1368,61 +1392,93 @@ export function VideoPanel({
               </div>
             )
           ) : (
-            <nav className="space-y-1">
-              {allGroups.map((group) => {
-                const isCurrent = group.workspaceId === workspace.workspaceId;
-                return (
-                  <div key={group.workspaceId} className="space-y-0.5">
-                    {allGroups.length > 1 ? (
-                      <p className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {group.name || group.workspaceId}
-                      </p>
-                    ) : null}
-                    {group.projects.map((project) => {
-                      const ready = GATES.filter((gate) => gateReady(project, gate)).length;
-                      return (
-                        <button
-                          key={`${group.workspaceId}:${project.slug}`}
-                          type="button"
-                          onClick={() => {
-                            if (!confirmDiscard()) return;
-                            openProject(group, project.slug);
-                          }}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors",
-                            isCurrent && project.slug === selected?.slug ? "bg-muted" : "hover:bg-muted/60",
-                          )}
-                        >
-                          {project.hasStill && (isCurrent ? workspace.selectedWorkspaceRoot : group.root) ? (
-                            <img
-                              src={`${fileUrl(
-                                isCurrent ? workspace.selectedWorkspaceRoot : group.root,
-                                `video-projects/${project.slug}/qa/still.png`,
-                              )}?v=${thumbVersion}`}
-                              alt=""
-                              className="h-10 w-6 shrink-0 rounded object-cover"
-                              onError={(event) => {
-                                event.currentTarget.style.visibility = "hidden";
-                              }}
-                            />
-                          ) : (
-                            <span className="h-10 w-6 shrink-0 rounded bg-muted-foreground/20" />
-                          )}
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13px] font-medium">
-                              {project.project?.title?.trim() || project.slug}
-                            </span>
-                            <span className="block text-[11px] text-muted-foreground">
-                              {ready}/{GATES.length} gates · {project.cue?.meta?.durationSeconds ?? 0}s
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
+            <>
+              <div className="space-y-2 border-b px-1.5 pb-3">
+                <input
+                  value={listQuery}
+                  onChange={(event) => setListQuery(event.target.value)}
+                  placeholder="Buscar video…"
+                  aria-label="Buscar video"
+                  className="w-full rounded-md border bg-transparent px-2 py-1.5 text-[12px] outline-none focus:ring-1"
+                />
+                {allGroups.length > 1 ? (
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceFilter("all")}
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[10px]",
+                        workspaceFilter === "all" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60",
+                      )}
+                    >
+                      Todos ({recent.length})
+                    </button>
+                    {allGroups.map((group) => (
+                      <button
+                        key={group.workspaceId}
+                        type="button"
+                        onClick={() => setWorkspaceFilter(group.workspaceId)}
+                        className={cn(
+                          "max-w-full truncate rounded-full border px-2 py-0.5 text-[10px]",
+                          workspaceFilter === group.workspaceId
+                            ? "bg-muted text-foreground"
+                            : "text-muted-foreground hover:bg-muted/60",
+                        )}
+                      >
+                        {group.name || group.workspaceId} ({group.projects.length})
+                      </button>
+                    ))}
                   </div>
-                );
-              })}
-            </nav>
+                ) : null}
+              </div>
+              <nav className="mt-2 space-y-0.5">
+                {listEntries.map(({ group, project }) => {
+                  const ready = GATES.filter((gate) => gateReady(project, gate)).length;
+                  const isCurrent = group.workspaceId === workspace.workspaceId;
+                  const root = isCurrent ? workspace.selectedWorkspaceRoot : group.root;
+                  return (
+                    <button
+                      key={`${group.workspaceId}:${project.slug}`}
+                      type="button"
+                      onClick={() => {
+                        if (!confirmDiscard()) return;
+                        openProject(group, project.slug);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors",
+                        isCurrent && project.slug === selected?.slug ? "bg-muted" : "hover:bg-muted/60",
+                      )}
+                    >
+                      {project.hasStill && root ? (
+                        <img
+                          src={`${fileUrl(root, `video-projects/${project.slug}/qa/still.png`)}?v=${thumbVersion}`}
+                          alt=""
+                          className="h-10 w-6 shrink-0 rounded object-cover"
+                          onError={(event) => {
+                            event.currentTarget.style.visibility = "hidden";
+                          }}
+                        />
+                      ) : (
+                        <span className="h-10 w-6 shrink-0 rounded bg-muted-foreground/20" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">{videoTitle(project)}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {isCurrent ? "" : `${group.name || group.workspaceId} · `}
+                          {relativeTime(project.updatedAt)} · {ready}/{GATES.length} gates · {project.cue?.meta?.durationSeconds ?? 0}s
+                        </span>
+                      </span>
+                      {project.hasFinal ? (
+                        <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] text-muted-foreground">Final</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
+              {listEntries.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">Ningún video coincide con la búsqueda.</p>
+              ) : null}
+            </>
           )}
         </aside>
 
@@ -1474,9 +1530,10 @@ export function VideoPanel({
                           </span>
                           <span className="block space-y-0.5 p-3">
                             <span className="block truncate text-[13px] font-medium">
-                              {project.project?.title?.trim() || project.slug}
+                              {videoTitle(project)}
                             </span>
                             <span className="block text-[11px] text-muted-foreground">
+                              {allGroups.length > 1 ? `${group.name || group.workspaceId} · ` : ""}
                               {project.lastActivity ? `${project.lastActivity} · ` : ""}
                               {relativeTime(project.updatedAt)}
                             </span>
@@ -1504,8 +1561,11 @@ export function VideoPanel({
               </div>
               <section>
                 <div className="flex items-baseline justify-between gap-4">
-                  <h2 className="text-[17px] font-semibold">{selected.slug}</h2>
-                  <span className="text-xs text-muted-foreground">
+                  <h2 className="min-w-0">
+                    <span className="block truncate text-[17px] font-semibold">{videoTitle(selected)}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{selected.slug}</span>
+                  </h2>
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {draft.cue.meta?.durationSeconds ?? 0}s · {effectiveAspect}
                   </span>
                 </div>

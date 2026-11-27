@@ -7292,6 +7292,28 @@ async function listVideoProjects(root: string) {
         return null;
       }
     };
+    // Un proyecto viejo puede no tener project.json: el primer título del
+    // README, el estilo, el brief o el storyboard es mejor que el slug.
+    const readHeading = async (relative: string, prefixes: RegExp[] = []): Promise<string | null> => {
+      try {
+        const text = (await readFile(join(dir, relative), "utf8")).replace(/^\uFEFF/, "");
+        const line = text.split(/\r?\n/).find((item) => /^#\s+\S/.test(item));
+        if (!line) return null;
+        let title = line.replace(/^#+\s*/, "").trim();
+        for (const prefix of prefixes) title = title.replace(prefix, "").trim();
+        // Algunos README viejos quedaron con la codificación rota (Â¿, Ã©).
+        if (/Ã|Â/.test(title)) {
+          const repaired = Buffer.from(title, "latin1").toString("utf8");
+          if (!/Ã|Â/.test(repaired)) title = repaired;
+        }
+        // Un carácter irrecuperable no debe llegar al panel: se quita y sigue.
+        title = title.replace(/[\u0000-\u001f\u007f\uFFFD]/g, " ").replace(/\s+/g, " ").trim();
+        title = title.replace(/^([a-záéíóúñ])/, (first) => first.toUpperCase());
+        return title ? title.slice(0, 90) : null;
+      } catch {
+        return null;
+      }
+    };
     const [
       style,
       cue,
@@ -7307,6 +7329,10 @@ async function listVideoProjects(root: string) {
       cueAt,
       reportAt,
       srtsAt,
+      readmeTitle,
+      styleTitle,
+      briefTitle,
+      storyboardTitle,
     ] = await Promise.all([
       readJson("style.json"),
       readJson("cue-sheet.json"),
@@ -7322,7 +7348,18 @@ async function listVideoProjects(root: string) {
       mtime("cue-sheet.json"),
       mtime("qa/report.json"),
       mtime("subtitles/video.srt"),
+      readHeading("README.md"),
+      readHeading("style.md", [/^estilo:\s*/i]),
+      readHeading("brief.md", [/^brief del video\s*[-\u2014:]\s*/i]),
+      readHeading("storyboard.md", [/^storyboard\s*[-\u2014:]\s*/i]),
     ]);
+    const projectTitle = (() => {
+      const fromJson = project && typeof project === "object"
+        && typeof Reflect.get(project as object, "title") === "string"
+        ? String(Reflect.get(project as object, "title")).trim()
+        : "";
+      return fromJson || readmeTitle || styleTitle || briefTitle || storyboardTitle || null;
+    })();
     const storyboardAt = Math.max(storyboardJsonAt ?? 0, storyboardMdAt ?? 0) || null;
     const activity = [
       ["Render", finalAt],
@@ -7338,6 +7375,7 @@ async function listVideoProjects(root: string) {
     const [lastActivity, updatedAt] = activity[0] ?? [null, null];
     projects.push({
       slug: entry.name,
+      title: projectTitle,
       project,
       style,
       cue,

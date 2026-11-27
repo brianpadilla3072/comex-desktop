@@ -623,6 +623,8 @@ type VideoProjectBeat = {
 
 export type VideoProjectSummary = {
   slug: string;
+  /** Título legible: project.json, o el primer encabezado del README, estilo, brief o storyboard. */
+  title?: string | null;
   /** `video-projects/<slug>/project.json`: who asked for this video and what it is called. */
   project?: {
     title?: string;
