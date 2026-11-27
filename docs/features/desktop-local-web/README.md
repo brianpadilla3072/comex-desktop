@@ -31,3 +31,7 @@ Live validation on Linux used the actual desktop tab plus a separate headless we
 The browser pane reuses the current resource view and toolbar components (DESIGN P1, P11). The screenshot below contains only the synthetic fixture pane, with no conversation or account content.
 
 ![Connected web controlling the native browser fixture](browser-web-view.png)
+
+The web frame now fills the pane width even when Electron returns a smaller capture, retaining its aspect ratio. **Ampliar navegador** uses the browser's native fullscreen surface; its exit button returns to the conversation. Normalized input coordinates remain relative to the rendered image. DESIGN P5/P11: existing toolbar Button/icons and browser fullscreen behavior are reused. Live split-pane validation measured 586 px of frame in 586 px of available width, then 1440 px in fullscreen, and verified a click in the native fixture after resizing. App typecheck and production build passed.
+
+![Synthetic browser fixture expanded to fullscreen](browser-web-fullscreen.png)

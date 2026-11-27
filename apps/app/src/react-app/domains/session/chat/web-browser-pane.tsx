@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowLeft, ArrowRight, ExternalLink, Hand, Play, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Hand, Maximize, Minimize, Play, RotateCw } from "lucide-react";
 import type { BrowserWebReply, BrowserWebRequest } from "@openwork/types/browser-web-view";
 import type { OpenworkServerClient } from "@/app/lib/openwork-server";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
   const [address, setAddress] = useState(url);
   const [retry, setRetry] = useState(0);
   const [visible, setVisible] = useState(document.visibilityState === "visible");
+  const pane = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const surface = useRef<HTMLDivElement>(null);
   const id = useRef(nativeId);
   const generation = useRef(0);
@@ -28,6 +30,11 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
   location.current = onLocation;
   const person = view?.tab.control === "person" && !error;
 
+  useEffect(() => {
+    const change = () => setExpanded(document.fullscreenElement === pane.current);
+    document.addEventListener("fullscreenchange", change);
+    return () => document.removeEventListener("fullscreenchange", change);
+  }, []);
   useEffect(() => {
     const change = () => setVisible(document.visibilityState === "visible");
     document.addEventListener("visibilitychange", change);
@@ -98,7 +105,7 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
       if (parsed) command.current("input", parsed);
     }
   };
-  return <div className="flex h-full min-h-0 flex-col bg-background" data-web-browser-pane>
+  return <div ref={pane} className="flex h-full min-h-0 flex-col bg-background fullscreen:h-screen fullscreen:w-screen" data-web-browser-pane>
     <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-border px-2">
       <Button variant="ghost" size="icon-sm" aria-label="Atrás" disabled={!person || !view?.tab.canGoBack} onClick={() => command.current("back")}><ArrowLeft /></Button>
       <Button variant="ghost" size="icon-sm" aria-label="Adelante" disabled={!person || !view?.tab.canGoForward} onClick={() => command.current("forward")}><ArrowRight /></Button>
@@ -109,11 +116,15 @@ export function WebBrowserPane({ client, workspaceId, sessionId, url, nativeId, 
       <Button variant={person ? "default" : "outline"} size="sm" disabled={!view || !!error} onClick={() => { command.current(person ? "resume" : "pause"); surface.current?.focus(); }}>
         {person ? <Play /> : <Hand />}{person ? "Devolver al agente" : "Tomar control"}
       </Button>
+      <Button variant="ghost" size="icon-sm" aria-label={expanded ? "Salir de pantalla completa" : "Ampliar navegador"} title={expanded ? "Salir de pantalla completa" : "Ampliar navegador"} onClick={() => {
+        const action = expanded ? document.exitFullscreen() : pane.current?.requestFullscreen();
+        void action?.catch(() => {});
+      }}>{expanded ? <Minimize /> : <Maximize />}</Button>
       <Button variant="ghost" size="icon-sm" aria-label="Abrir sitio afuera" onClick={() => void platform.openLink(view?.tab.url ?? url)}><ExternalLink /></Button>
     </div>
     <div className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto bg-muted/20 outline-none focus-visible:ring-2 focus-visible:ring-ring" ref={surface} tabIndex={person ? 0 : -1} role="application" aria-label="Página del navegador integrado" onKeyDown={key}
       onPaste={event => { if (person) { event.preventDefault(); const text = event.clipboardData.getData("text/plain"); if (text) command.current("input", { type: "text", text }); } }}>
-      {view?.frame ? <img data-web-browser-frame src={`data:image/jpeg;base64,${view.frame.data}`} width={view.frame.width} height={view.frame.height} alt="Página del navegador integrado" draggable={false} className="block h-auto max-w-full shrink-0 select-none" onClick={event => {
+      {view?.frame ? <img data-web-browser-frame src={`data:image/jpeg;base64,${view.frame.data}`} width={view.frame.width} height={view.frame.height} alt="Página del navegador integrado" draggable={false} className="block h-auto w-full max-w-none shrink-0 select-none" onClick={event => {
         if (!person) return;
         surface.current?.focus(); const rect = event.currentTarget.getBoundingClientRect();
         command.current("input", { type: "click", x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) });
