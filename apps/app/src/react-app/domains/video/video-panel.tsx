@@ -1096,7 +1096,7 @@ export function VideoPanel({
     setChatError(null);
     setChatNote(null);
     try {
-      const title = origin.data?.title?.trim() || selected.slug;
+      const title = origin.data?.title?.trim() || videoTitle(selected);
       let sessionId = activeChatSessionId;
       if (!sessionId) {
         if (!endpoint) throw new Error("Falta el motor del workspace para crear la conversación.");
@@ -1109,6 +1109,9 @@ export function VideoPanel({
         await persistChatSessionId(selected.slug, sessionId);
         setChatSessionId(sessionId);
         hideVideoSession(sessionId);
+        // Sin project.json no hay conversación de origen: la del panel es nueva
+        // y conviene decirlo, en vez de que aparezca un chat con otro nombre.
+        setChatNote("Este video no tenía conversación propia: se creó una nueva para este pedido.");
       }
       const prompt = mode === "raw"
         ? text

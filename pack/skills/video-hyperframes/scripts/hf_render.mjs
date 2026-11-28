@@ -160,7 +160,10 @@ async function runWorkers(count) {
   if (args.chrome) base.push("--chrome", args.chrome);
   if (args.frames) base.push("--frames", args.frames);
   if (args.format) base.push("--format", args.format);
-  if (args.resume) base.push("--resume");
+  // El proceso padre ya decidió si limpia la carpeta de cuadros. Los hijos
+  // siempre van con --resume: si cada uno limpiara, se borrarían los cuadros
+  // entre ellos y el render paralelo fallaría en la primera pasada.
+  base.push("--resume");
 
   console.error(`[hf_render] ${count} procesos en paralelo`);
   const started = Date.now();
